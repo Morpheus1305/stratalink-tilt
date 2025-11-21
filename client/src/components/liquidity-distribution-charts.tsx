@@ -25,13 +25,19 @@ export function LiquidityDistributionCharts({ exchangeData, cexDexData }: Liquid
           </h4>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={exchangeData} layout="vertical">
-              <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={10} />
+              <XAxis 
+                type="number" 
+                stroke="hsl(var(--muted-foreground))" 
+                fontSize={10}
+                style={{ fontFamily: 'var(--font-mono)' }}
+              />
               <YAxis 
                 type="category" 
                 dataKey="exchange" 
                 stroke="hsl(var(--muted-foreground))" 
                 fontSize={10}
                 width={80}
+                style={{ fontFamily: 'var(--font-mono)' }}
               />
               <Tooltip
                 contentStyle={{
@@ -39,6 +45,7 @@ export function LiquidityDistributionCharts({ exchangeData, cexDexData }: Liquid
                   border: '1px solid hsl(var(--border))',
                   borderRadius: '6px',
                   fontSize: '12px',
+                  fontFamily: 'var(--font-mono)',
                 }}
               />
               <Bar dataKey="liquidity" radius={[0, 4, 4, 0]}>
@@ -79,10 +86,11 @@ export function LiquidityDistributionCharts({ exchangeData, cexDexData }: Liquid
                   border: '1px solid hsl(var(--border))',
                   borderRadius: '6px',
                   fontSize: '12px',
+                  fontFamily: 'var(--font-mono)',
                 }}
               />
               <Legend 
-                wrapperStyle={{ fontSize: '12px' }}
+                wrapperStyle={{ fontSize: '12px', fontFamily: 'var(--font-mono)' }}
                 formatter={(value, entry: any) => `${value}: ${entry.payload.value}%`}
               />
             </PieChart>

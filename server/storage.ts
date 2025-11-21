@@ -93,37 +93,51 @@ export class MemStorage implements IStorage {
   }
 
   private generateStressSignals(): StressSignal[] {
+    const variance = () => (Math.random() - 0.5) * 0.5;
+    const now = new Date();
+    const timestamp = now.getTime();
+    
+    const spreadChange = 15.3 + variance() * 5;
+    const depthValue = 42.5 + variance() * 2;
+    const concentration = 68 + Math.floor(variance() * 4);
+    
+    const formatTime = (date: Date) => {
+      const hours = String(date.getUTCHours()).padStart(2, '0');
+      const mins = String(date.getUTCMinutes()).padStart(2, '0');
+      return `${hours}:${mins} UTC`;
+    };
+    
     return [
       {
-        id: "signal-1",
+        id: `signal-spread-${timestamp}-1`,
         title: "Elevated Liquidity Pressure",
-        description: "Bid-ask spread has widened by 15.3%, indicating heightened market uncertainty. Monitor for potential price swings.",
-        severity: "warning",
-        timestamp: "10:05 UTC",
+        description: `Bid-ask spread has widened by ${Math.abs(spreadChange).toFixed(1)}%, indicating heightened market uncertainty. Monitor for potential price swings.`,
+        severity: spreadChange > 18 ? "warning" : "info",
+        timestamp: formatTime(new Date(now.getTime() - 15 * 60000)),
         category: "SPREAD ANALYSIS",
       },
       {
-        id: "signal-2",
+        id: `signal-concentration-${timestamp}-2`,
         title: "CEX Liquidity Concentration",
-        description: "68% of the market's volume is concentrated in Binance. Critical monitoring for single-point of failure risks.",
-        severity: "warning",
-        timestamp: "09:48 UTC",
+        description: `${concentration}% of the market's volume is concentrated in Binance. Critical monitoring for single-point of failure risks.`,
+        severity: concentration > 70 ? "warning" : "info",
+        timestamp: formatTime(new Date(now.getTime() - 32 * 60000)),
         category: "CONCENTRATION RISK",
       },
       {
-        id: "signal-3",
+        id: `signal-depth-${timestamp}-3`,
         title: "Strong Market Depth",
-        description: "Market depth is healthy at $42.5M with balanced bid-ask spread across major exchanges.",
+        description: `Market depth is healthy at $${depthValue.toFixed(1)}M with balanced bid-ask spread across major exchanges.`,
         severity: "success",
-        timestamp: "09:32 UTC",
+        timestamp: formatTime(new Date(now.getTime() - 48 * 60000)),
         category: "DEPTH MONITORING",
       },
       {
-        id: "signal-4",
+        id: `signal-balance-${timestamp}-4`,
         title: "CEX/DEX Balance Maintained",
-        description: "The CEX/DEX ratio (68:32) remains within healthy parameters. DEX/CEX diversity reduces liquidity dependencies.",
+        description: `The CEX/DEX ratio (${concentration}:${100 - concentration}) remains within healthy parameters. DEX/CEX diversity reduces liquidity dependencies.`,
         severity: "info",
-        timestamp: "09:15 UTC",
+        timestamp: formatTime(new Date(now.getTime() - 65 * 60000)),
         category: "BALANCE CHECK",
       },
     ];

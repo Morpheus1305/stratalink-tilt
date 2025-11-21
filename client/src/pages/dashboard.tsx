@@ -20,13 +20,8 @@ export default function Dashboard() {
     refetchInterval: 10000, // Refresh every 10 seconds for live data
   });
 
-  const { data: timeSeriesData, isLoading: isTimeSeriesLoading } = useQuery<TimeSeriesData>({
+  const { data: timeSeriesData, isLoading: isTimeSeriesLoading, error: timeSeriesError } = useQuery<TimeSeriesData>({
     queryKey: ['/api/time-series', selectedTimeframe],
-    queryFn: async () => {
-      const response = await fetch(`/api/time-series/${selectedTimeframe}`);
-      if (!response.ok) throw new Error('Failed to fetch time series data');
-      return response.json();
-    },
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
@@ -93,14 +88,17 @@ export default function Dashboard() {
 
         {/* Time Series Chart */}
         {isTimeSeriesLoading ? (
-          <Skeleton className="h-96 w-full" />
-        ) : timeSeriesData ? (
+          <Card className="p-4 h-96">
+            <Skeleton className="h-8 w-64 mb-4" />
+            <Skeleton className="h-80 w-full" />
+          </Card>
+        ) : (
           <TimeSeriesChart 
-            data={timeSeriesData.data}
+            data={timeSeriesData?.data ?? []}
             selectedTimeframe={selectedTimeframe}
             onTimeframeChange={setSelectedTimeframe}
           />
-        ) : null}
+        )}
 
         {/* Report Export */}
         <ReportExportSection />
