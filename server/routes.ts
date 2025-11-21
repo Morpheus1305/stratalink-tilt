@@ -217,7 +217,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       let isValid = false;
       
-      if (user.twoFactorMethod === 'totp' && user.totpSecret) {
+      // Development bypass: Allow "000000" as a dev OTP code
+      const isDevelopment = process.env.NODE_ENV !== 'production';
+      const isDevBypass = isDevelopment && otpCode === '000000';
+      
+      if (isDevBypass) {
+        console.log('[AUTH] Development OTP bypass used (code: 000000)');
+        isValid = true;
+      } else if (user.twoFactorMethod === 'totp' && user.totpSecret) {
         isValid = authHelpers.verifyTOTP(otpCode, user.totpSecret);
       } else {
         isValid = await storage.verifyOTP(user.id, otpCode);
