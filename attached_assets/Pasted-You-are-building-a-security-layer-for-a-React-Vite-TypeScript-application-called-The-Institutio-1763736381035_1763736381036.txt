@@ -1,0 +1,138 @@
+You are building a security layer for a React + Vite + TypeScript application called “The Institutional Liquidity Terminal” (TILT) by Stratalink Labs. I need you to scaffold and implement a complete Two-Factor Authentication (2FA) login workflow integrated into the existing Vite/React/Tailwind codebase.
+
+The system must include:
+
+===========================
+### 1. Authentication Architecture
+===========================
+- Create a full `AuthContext` under `src/contexts/AuthContext.tsx`
+  - Stores: user, isAuthenticated, isVerifyingOTP, accessToken
+  - Exposes: login(), verifyOTP(), logout(), resendOTP()
+  - Integrates with persistent storage (localStorage)
+
+- Use secure token handling:
+  - Store JWT access token in memory + localStorage fallback
+  - Do NOT store password or OTP on the client
+
+===========================
+### 2. Login Page (Hero Replacement)
+===========================
+Create a page `src/modules/auth/LoginPage.tsx` with:
+- Email input
+- Password input
+- "Login" button
+- Validation + error messages
+- Dark institutional UI using Tailwind (match the TILT hero style)
+
+When login is submitted:
+- POST `/api/auth/login`
+- If credentials are valid:
+    - API returns: `{ requires2FA: true, tempToken: "xxx" }`
+- Redirect user to `/verify-otp`
+
+===========================
+### 3. OTP Verification Page
+===========================
+Create a new page `src/modules/auth/VerifyOTPPage.tsx` with:
+- 6-digit OTP input fields
+- Submit + Resend buttons
+- Show countdown timer (60s)
+- Display errors visually, TILT style
+
+POST `/api/auth/verify-otp` with:
+- tempToken
+- otpCode
+
+If verified:
+- Receive `{ accessToken, user }`
+- Save to AuthContext
+- Redirect to `/terminal`
+
+===========================
+### 4. Backend Endpoints (Node/Express)
+===========================
+In `/server` or `/api` create Express endpoints:
+
+1. **POST /auth/login**
+   - Validate credentials
+   - Generate a temporary token (non-privileged)
+   - Generate a 6-digit OTP (either email or TOTP)
+   - Send OTP code
+   - Return `{ requires2FA: true, tempToken }`
+
+2. **POST /auth/verify-otp**
+   - Validate OTP against stored secret
+   - If valid, issue JWT accessToken
+   - Return `{ accessToken, user }`
+
+3. **POST /auth/resend-otp**
+   - Regenerate new OTP
+   - Re-send to user
+
+Use industry-standard libraries:
+- `speakeasy` for TOTP
+- `jsonwebtoken` for JWT
+- `bcrypt` for hashing passwords
+- `nodemailer` for OTP email delivery
+
+===========================
+### 5. Frontend Routing
+===========================
+Update `src/App.tsx`:
+- Add routes:
+    - `/login` → LoginPage
+    - `/verify-otp` → VerifyOTPPage
+- Protect all `/terminal/*` pages using `RequireAuth` component
+  - If no accessToken → redirect to `/login`
+
+===========================
+### 6. Security Requirements
+===========================
+Implement:
+- Rate limiting on OTP requests (max 3 attempts in 10 mins)
+- Throttle failed logins (5 failures → temporary lockout)
+- OTP expires in 3 minutes
+- TOTP option:
+  - Generate QR code for Authenticator App (Google Authenticator, Authy)
+  - Allow user to switch from email OTP → TOTP
+
+===========================
+### 7. UI Styling Requirements
+===========================
+Match the existing STRATALINK LABS / TILT style guide:
+- Black/charcoal backgrounds
+- Neon yellow (`#F7C948`)
+- Electric blue (`#38BDF8`)
+- Subtle borders (`#1F2433`)
+- Typography matches “Liquidity Intelligence” screens
+
+Use Tailwind classes to maintain consistency.
+
+===========================
+### 8. Deliverables
+===========================
+Ghostwriter should generate:
+
+1. Full `AuthContext.tsx`
+2. `/auth/login` and `/auth/verify-otp` backend endpoints
+3. `LoginPage.tsx`
+4. `VerifyOTPPage.tsx` (with OTP input and timer)
+5. `RequireAuth.tsx` route guard
+6. Updated routing in `App.tsx`
+7. Complete working 2FA authentication flow with:
+   - Email OTP
+   - Optional authenticator app (TOTP)
+8. Full integration with existing TILT layout (header + ticker tape)
+
+===========================
+### 9. Coding Style
+===========================
+- Use TypeScript everywhere
+- Use functional React components
+- Use TailwindCSS for styling
+- Keep code modular and production-ready
+
+===========================
+
+Build this entire 2FA authentication system now.
+Generate all required files so I can copy/paste them directly into my Vite+React+Replit project.

@@ -255,3 +255,72 @@ export const scorecardDataSchema = z.object({
 });
 
 export type ScorecardData = z.infer<typeof scorecardDataSchema>;
+
+// ========================================
+// Authentication & User Management Schemas
+// ========================================
+
+export const userSchema = z.object({
+  id: z.string(),
+  email: z.string().email(),
+  name: z.string(),
+  role: z.enum(['admin', 'analyst', 'viewer']),
+  twoFactorEnabled: z.boolean(),
+  twoFactorMethod: z.enum(['email', 'totp']).optional(),
+  totpSecret: z.string().optional(),
+  createdAt: z.string(),
+  lastLogin: z.string().optional(),
+});
+
+export type User = z.infer<typeof userSchema>;
+
+export const loginRequestSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8),
+});
+
+export type LoginRequest = z.infer<typeof loginRequestSchema>;
+
+export const loginResponseSchema = z.object({
+  requires2FA: z.boolean(),
+  tempToken: z.string().optional(),
+  user: userSchema.optional(),
+  accessToken: z.string().optional(),
+});
+
+export type LoginResponse = z.infer<typeof loginResponseSchema>;
+
+export const verifyOTPRequestSchema = z.object({
+  tempToken: z.string(),
+  otpCode: z.string().length(6),
+});
+
+export type VerifyOTPRequest = z.infer<typeof verifyOTPRequestSchema>;
+
+export const verifyOTPResponseSchema = z.object({
+  accessToken: z.string(),
+  user: userSchema,
+});
+
+export type VerifyOTPResponse = z.infer<typeof verifyOTPResponseSchema>;
+
+export const resendOTPRequestSchema = z.object({
+  tempToken: z.string(),
+});
+
+export type ResendOTPRequest = z.infer<typeof resendOTPRequestSchema>;
+
+export const resendOTPResponseSchema = z.object({
+  success: z.boolean(),
+  message: z.string(),
+});
+
+export type ResendOTPResponse = z.infer<typeof resendOTPResponseSchema>;
+
+export const setupTOTPResponseSchema = z.object({
+  secret: z.string(),
+  qrCode: z.string(),
+  backupCodes: z.array(z.string()),
+});
+
+export type SetupTOTPResponse = z.infer<typeof setupTOTPResponseSchema>;
