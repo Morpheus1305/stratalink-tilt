@@ -50,26 +50,20 @@ The backend uses **Express.js** with in-memory storage (**MemStorage**). It prov
 
 ## Recent Changes
 
-### Phase 7: Header Layout Swap - Branding & Timestamp (Completed - Nov 21, 2025)
-- ✅ **Swapped Header Layout on All Pages**:
+### Phase 7: Header Layout Updates (Completed - Nov 21, 2025)
+- ✅ **Updated Header Layout on All Pages**:
   - **LEFT side**: Logo + "STRATALINK LABS LIQUIDITY INTELLIGENCE TERMINAL" (expanded branding)
-  - **RIGHT side**: Live timestamp with Clock icon + LIVE indicator + action buttons
-  - Consistent layout across landing page and all 5 platform pages
-  
-- ✅ **Added Live Timestamp to Headers**:
-  - Timestamp displays in header (RIGHT side) with Clock icon
-  - Format: "Nov 21, 2025, 01:45:30 PM UTC"
-  - Updates every second via setInterval hook
-  - Monospace font for consistent number spacing
-  - Separate timestamps on landing page and platform pages
+  - **RIGHT side**: Navigation links (landing) / LIVE indicator + action buttons (platform)
+  - Consistent branding across landing page and all 5 platform pages
+  - **Timestamps removed from headers** - only visible in bottom DateTimeBar
   
 - ✅ **Header Navigation Updates**:
   - Dashboard header: Changed "LIQUIDITY INTELLIGENCE" nav button to "OVERVIEW"
-  - Landing page: Timestamp positioned before navigation links on the right
-  - Platform pages: Timestamp positioned before LIVE indicator on the right
+  - Landing page: Navigation links on the right (PLATFORM, DOCS, DEMO MODE, ABOUT, HELP)
+  - Platform pages: LIVE indicator + Bell + Settings icons on the right
   
 - ✅ **E2E Testing**: All tests passed
   - Verified branding text on LEFT on all pages
-  - Verified timestamp on RIGHT with Clock icon on all pages
-  - Confirmed timestamp updates every second
-  - Verified consistent layout across all pages
+  - Verified NO timestamp or clock icon in headers
+  - Confirmed LIVE indicator visible on platform pages
+  - Verified consistent clean layout across all pages
