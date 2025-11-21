@@ -9,6 +9,7 @@ import { TimeSeriesChart } from "@/components/time-series-chart";
 import { ReportExportSection } from "@/components/report-export-section";
 import { BottomTicker } from "@/components/bottom-ticker";
 import type { DashboardData, TimeSeriesData } from "@shared/schema";
+import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState } from "react";
 
