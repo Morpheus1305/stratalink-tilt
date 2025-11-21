@@ -1,8 +1,26 @@
 import { Button } from "@/components/ui/button";
 import { ArrowRight, FileText } from "lucide-react";
 import { Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
+import type { DashboardData } from "@shared/schema";
+import { BottomTicker } from "@/components/bottom-ticker";
 
 export function LandingHero() {
+  const { data: dashboardData, isLoading } = useQuery<DashboardData>({
+    queryKey: ['/api/dashboard'],
+    refetchInterval: 10000,
+  });
+
+  if (isLoading || !dashboardData) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-primary text-sm font-mono">Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
@@ -114,41 +132,51 @@ export function LandingHero() {
               <div className="flex items-center justify-between py-2 border-b border-border">
                 <span className="text-xs text-muted-foreground tracking-wide">POLI SCORE</span>
                 <div className="flex items-center gap-3">
-                  <span className="font-mono text-2xl font-bold">72</span>
+                  <span className="font-mono text-2xl font-bold">{Math.round(dashboardData.liquidityScore.score)}</span>
                   <span className="text-xs text-muted-foreground">/100</span>
-                  <span className="text-xs text-chart-3">↗ +2.4%</span>
+                  <span className={`text-xs ${dashboardData.liquidityScore.change24h >= 0 ? 'text-chart-3' : 'text-destructive'}`}>
+                    {dashboardData.liquidityScore.change24h >= 0 ? '↗' : '↘'} {dashboardData.liquidityScore.change24h >= 0 ? '+' : ''}{dashboardData.liquidityScore.change24h.toFixed(1)}%
+                  </span>
                 </div>
               </div>
 
               <div className="flex items-center justify-between py-2 border-b border-border">
                 <span className="text-xs text-muted-foreground tracking-wide">MARKET DEPTH</span>
                 <div className="flex items-center gap-3">
-                  <span className="font-mono text-xl font-bold text-accent">$42.5M</span>
-                  <span className="text-xs text-chart-3">↗ +8.2%</span>
+                  <span className="font-mono text-xl font-bold text-accent">{dashboardData.liveMetrics.find(m => m.label === 'Market Depth')?.value || '$0M'}</span>
+                  <span className={`text-xs ${(dashboardData.liveMetrics.find(m => m.label === 'Market Depth')?.change || 0) >= 0 ? 'text-chart-3' : 'text-destructive'}`}>
+                    {(dashboardData.liveMetrics.find(m => m.label === 'Market Depth')?.change || 0) >= 0 ? '↗' : '↘'} {(dashboardData.liveMetrics.find(m => m.label === 'Market Depth')?.change || 0) >= 0 ? '+' : ''}{(dashboardData.liveMetrics.find(m => m.label === 'Market Depth')?.change || 0).toFixed(1)}%
+                  </span>
                 </div>
               </div>
 
               <div className="flex items-center justify-between py-2 border-b border-border">
                 <span className="text-xs text-muted-foreground tracking-wide">BID-ASK SPREAD</span>
                 <div className="flex items-center gap-3">
-                  <span className="font-mono text-xl font-bold text-accent">0.08%</span>
-                  <span className="text-xs text-destructive">↘ -2.1%</span>
+                  <span className="font-mono text-xl font-bold text-accent">{dashboardData.liveMetrics.find(m => m.label === 'Bid-Ask Spread')?.value || '0%'}</span>
+                  <span className={`text-xs ${(dashboardData.liveMetrics.find(m => m.label === 'Bid-Ask Spread')?.change || 0) >= 0 ? 'text-chart-3' : 'text-destructive'}`}>
+                    {(dashboardData.liveMetrics.find(m => m.label === 'Bid-Ask Spread')?.change || 0) >= 0 ? '↗' : '↘'} {(dashboardData.liveMetrics.find(m => m.label === 'Bid-Ask Spread')?.change || 0) >= 0 ? '+' : ''}{(dashboardData.liveMetrics.find(m => m.label === 'Bid-Ask Spread')?.change || 0).toFixed(1)}%
+                  </span>
                 </div>
               </div>
 
               <div className="flex items-center justify-between py-2 border-b border-border">
                 <span className="text-xs text-muted-foreground tracking-wide">VOLATILITY 24H</span>
                 <div className="flex items-center gap-3">
-                  <span className="font-mono text-xl font-bold text-destructive">12.4%</span>
-                  <span className="text-xs text-chart-3">↗ +15.3%</span>
+                  <span className="font-mono text-xl font-bold text-destructive">{dashboardData.liveMetrics.find(m => m.label === '24H Volatility')?.value || '0%'}</span>
+                  <span className={`text-xs ${(dashboardData.liveMetrics.find(m => m.label === '24H Volatility')?.change || 0) >= 0 ? 'text-chart-3' : 'text-destructive'}`}>
+                    {(dashboardData.liveMetrics.find(m => m.label === '24H Volatility')?.change || 0) >= 0 ? '↗' : '↘'} {(dashboardData.liveMetrics.find(m => m.label === '24H Volatility')?.change || 0) >= 0 ? '+' : ''}{(dashboardData.liveMetrics.find(m => m.label === '24H Volatility')?.change || 0).toFixed(1)}%
+                  </span>
                 </div>
               </div>
 
               <div className="flex items-center justify-between py-2">
                 <span className="text-xs text-muted-foreground tracking-wide">CEX/DEX RATIO</span>
                 <div className="flex items-center gap-3">
-                  <span className="font-mono text-xl font-bold">68:32</span>
-                  <span className="text-xs text-destructive">↘ -3.2%</span>
+                  <span className="font-mono text-xl font-bold">{dashboardData.liveMetrics.find(m => m.label === 'CEX/DEX Ratio')?.value || '0:0'}</span>
+                  <span className={`text-xs ${(dashboardData.liveMetrics.find(m => m.label === 'CEX/DEX Ratio')?.change || 0) >= 0 ? 'text-chart-3' : 'text-destructive'}`}>
+                    {(dashboardData.liveMetrics.find(m => m.label === 'CEX/DEX Ratio')?.change || 0) >= 0 ? '↗' : '↘'} {(dashboardData.liveMetrics.find(m => m.label === 'CEX/DEX Ratio')?.change || 0) >= 0 ? '+' : ''}{(dashboardData.liveMetrics.find(m => m.label === 'CEX/DEX Ratio')?.change || 0).toFixed(1)}%
+                  </span>
                 </div>
               </div>
             </div>
@@ -156,39 +184,8 @@ export function LandingHero() {
         </div>
       </div>
 
-      {/* Bottom Ticker */}
-      <div className="border-t border-border h-10 flex items-center overflow-hidden bg-card">
-        <div className="flex items-center gap-8 px-4 animate-scroll whitespace-nowrap">
-          <div className="flex items-center gap-2 font-mono text-xs">
-            <span className="text-muted-foreground">BTC/USD</span>
-            <span className="text-foreground font-semibold">63,421</span>
-            <span className="text-chart-3">↗ +1.8%</span>
-          </div>
-          <div className="flex items-center gap-2 font-mono text-xs">
-            <span className="text-muted-foreground">ETH/USD</span>
-            <span className="text-foreground font-semibold">3,124</span>
-            <span className="text-destructive">↘ -0.4%</span>
-          </div>
-          <div className="flex items-center gap-2 font-mono text-xs">
-            <span className="text-muted-foreground">DEPTH</span>
-            <span className="text-accent font-semibold">$42.5M</span>
-            <span className="text-chart-3">↗ +8.2%</span>
-          </div>
-          <div className="flex items-center gap-2 font-mono text-xs">
-            <span className="text-muted-foreground">SPREAD</span>
-            <span className="text-accent font-semibold">0.08%</span>
-            <span className="text-destructive">↘ -2.1%</span>
-          </div>
-          <div className="flex items-center gap-2 font-mono text-xs">
-            <span className="text-muted-foreground">VOL-24H</span>
-            <span className="text-foreground font-semibold">$1.2B</span>
-            <span className="text-chart-3">↗ +12.9%</span>
-          </div>
-          <div className="text-xs text-muted-foreground">
-            NOV 2025 10:07 UTC
-          </div>
-        </div>
-      </div>
+      {/* Bottom Ticker - Dynamic */}
+      <BottomTicker items={dashboardData.tickerItems} />
     </div>
   );
 }
