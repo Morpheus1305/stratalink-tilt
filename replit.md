@@ -130,3 +130,28 @@ The backend uses **Express.js** with in-memory storage (**MemStorage**). It prov
   - Email code extraction from server logs confirmed
   - Complete authentication flow verified end-to-end
   - Session persistence and dashboard access confirmed
+
+### Phase 10: Navigation & UX Improvements (Completed - Nov 21, 2025)
+- ✅ **Development OTP Bypass**:
+  - Implemented hardcoded OTP code "000000" for development testing
+  - Environment-gated: Only works when NODE_ENV !== 'production'
+  - Login page displays bypass code in development mode only
+  - Clean server logging without emojis
+  - Security maintained: Bypass completely disabled in production builds
+  
+- ✅ **Alerts Page Update**:
+  - Changed "ASL Trigger Count" to "ADL Trigger Count"
+  - Updated in Risk Indicators section
+  - Maintains consistent terminology across platform
+  
+- ✅ **HOME Button Navigation Fix**:
+  - Removed auto-redirect from Landing page for authenticated users
+  - HOME button now navigates to hero page (/) instead of overview (/platform)
+  - Authenticated users can access landing page without being redirected
+  - Improved user control over navigation flow
+  
+- ✅ **E2E Testing**: All changes verified
+  - Dev OTP bypass tested and working
+  - ADL text confirmed on Alerts page
+  - HOME button navigation to hero page confirmed
+  - No automatic redirects from landing page
