@@ -1,18 +1,109 @@
-import { sql } from "drizzle-orm";
-import { pgTable, text, varchar } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
+// Live Market Data Metrics
+export const liveMetricSchema = z.object({
+  label: z.string(),
+  value: z.union([z.number(), z.string()]),
+  change: z.number(),
+  changePercent: z.number(),
+  trend: z.enum(['up', 'down', 'neutral']),
+  unit: z.string().optional(),
 });
 
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
+export type LiveMetric = z.infer<typeof liveMetricSchema>;
+
+// Liquidity Intelligence Score
+export const liquidityScoreSchema = z.object({
+  score: z.number().min(0).max(100),
+  riskLevel: z.enum(['low', 'medium', 'high', 'critical']),
+  trend: z.enum(['up', 'down', 'neutral']),
+  change24h: z.number(),
+  historicalAverage: z.number(),
 });
 
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = typeof users.$inferSelect;
+export type LiquidityScore = z.infer<typeof liquidityScoreSchema>;
+
+// Stress Signal
+export const stressSignalSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  description: z.string(),
+  severity: z.enum(['critical', 'warning', 'info', 'success']),
+  timestamp: z.string(),
+  category: z.string(),
+});
+
+export type StressSignal = z.infer<typeof stressSignalSchema>;
+
+// Key Metric Card
+export const keyMetricSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  value: z.union([z.number(), z.string()]),
+  unit: z.string().optional(),
+  change: z.number(),
+  changePercent: z.number(),
+  trend: z.enum(['up', 'down', 'neutral']),
+});
+
+export type KeyMetric = z.infer<typeof keyMetricSchema>;
+
+// Exchange Distribution Data
+export const exchangeDataSchema = z.object({
+  exchange: z.string(),
+  liquidity: z.number(),
+  percentage: z.number(),
+});
+
+export type ExchangeData = z.infer<typeof exchangeDataSchema>;
+
+// CEX/DEX Distribution
+export const cexDexDistributionSchema = z.object({
+  cex: z.number(),
+  dex: z.number(),
+});
+
+export type CexDexDistribution = z.infer<typeof cexDexDistributionSchema>;
+
+// Time Series Data Point
+export const timeSeriesPointSchema = z.object({
+  timestamp: z.string(),
+  liquidityDepth: z.number(),
+  spread: z.number(),
+});
+
+export type TimeSeriesPoint = z.infer<typeof timeSeriesPointSchema>;
+
+// Ticker Item
+export const tickerItemSchema = z.object({
+  symbol: z.string(),
+  price: z.number(),
+  change: z.number(),
+  changePercent: z.number(),
+  depth: z.string(),
+  spread: z.string(),
+  volume24h: z.string(),
+});
+
+export type TickerItem = z.infer<typeof tickerItemSchema>;
+
+// Dashboard Data (complete snapshot)
+export const dashboardDataSchema = z.object({
+  liveMetrics: z.array(liveMetricSchema),
+  liquidityScore: liquidityScoreSchema,
+  stressSignals: z.array(stressSignalSchema),
+  keyMetrics: z.array(keyMetricSchema),
+  exchangeDistribution: z.array(exchangeDataSchema),
+  cexDexDistribution: cexDexDistributionSchema,
+  tickerItems: z.array(tickerItemSchema),
+});
+
+export type DashboardData = z.infer<typeof dashboardDataSchema>;
+
+// Time series response
+export const timeSeriesDataSchema = z.object({
+  timeframe: z.enum(['1H', '4H', '1D', '1W', '1M']),
+  data: z.array(timeSeriesPointSchema),
+});
+
+export type TimeSeriesData = z.infer<typeof timeSeriesDataSchema>;
