@@ -16,7 +16,7 @@ A Bloomberg Terminal-style Web3 liquidity risk intelligence dashboard providing 
 - ✅ Configured responsive layouts for mobile, tablet, and desktop
 - ✅ Integrated Recharts for financial data visualization
 
-### Phase 2: Live API Integration (In Progress)
+### Phase 2: Live API Integration (Completed)
 - ✅ Created Web3DataService with CoinGecko & Binance API integration
 - ✅ Implemented live cryptocurrency pricing (BTC, ETH, SOL) via CoinGecko
 - ✅ Added real-time order book depth with correct USD conversion (price × quantity)
@@ -25,7 +25,20 @@ A Bloomberg Terminal-style Web3 liquidity risk intelligence dashboard providing 
 - ✅ Graceful fallback to mock data on API errors
 - ⚠️ Note: Binance API blocked in some regions (451 error) - fallback depth data used
 - ⚠️ Remaining mock data: Exchange distribution, CEX/DEX ratio, stress signals, time-series
-- 📋 Next: WebSocket streaming for live updates
+
+### Phase 3: Historical Trends Page (Completed - Nov 21, 2025)
+- ✅ Implemented tabbed navigation system (Overview, Trends, Portfolio, Alerts, Scorecard)
+- ✅ Created dedicated Historical Trends page at `/platform/trends`
+- ✅ Built three specialized time-series charts:
+  - PoLi Score Evolution: Yellow area chart with gradient fill (0-100 scale)
+  - Market Depth Trend: Cyan line chart showing depth in millions ($M)
+  - Volatility Trend: Red line chart showing percentage fluctuation
+- ✅ Added multi-timeframe selector (1D, 7D, 1M, 3M, 1Y) with smart data aggregation
+- ✅ Integrated live data from dashboard (liquidity score, stress signals, key metrics)
+- ✅ Implemented responsive layout with proper Bloomberg Terminal styling
+- ✅ Added comprehensive data-testid coverage for e2e testing
+- ✅ Backend API endpoint `/api/trends/:timeframe` with realistic mock data generation
+- 📋 Next: WebSocket streaming for live updates, multi-asset comparison
 
 ## Project Architecture
 
@@ -38,12 +51,17 @@ A Bloomberg Terminal-style Web3 liquidity risk intelligence dashboard providing 
 
 **Key Pages**:
 - `/` - Landing page with hero and live metrics preview
-- `/platform` - Main dashboard with full analytics
+- `/platform` - Main dashboard (Overview tab) with full analytics
+- `/platform/trends` - Historical Trends page with time-series charts
+- `/platform/portfolio` - (Coming soon)
+- `/platform/alerts` - (Coming soon)
+- `/platform/scorecard` - (Coming soon)
 
 **Component Structure**:
 ```
 components/
 ├── landing-hero.tsx          # Landing page with StrataLink branding
+├── platform-tabs.tsx         # Tab navigation for platform pages
 ├── dashboard-header.tsx      # Top navigation with live status indicator
 ├── live-metrics-panel.tsx    # 6-metric grid (PoLi Score, Depth, Spread, etc.)
 ├── liquidity-score-gauge.tsx # Circular gauge (0-100) with risk level
@@ -53,6 +71,12 @@ components/
 ├── time-series-chart.tsx     # Dual-line chart with timeframe selector
 ├── report-export-section.tsx # PDF report generation UI
 └── bottom-ticker.tsx         # Auto-scrolling crypto prices ticker
+
+pages/
+├── landing.tsx               # Landing page
+├── dashboard.tsx             # Main overview dashboard
+├── trends.tsx                # Historical trends with time-series charts
+└── not-found.tsx             # 404 page
 ```
 
 ### Backend (`server/`)
@@ -60,13 +84,15 @@ components/
 **Storage**: In-memory (MemStorage)
 **API Endpoints**:
 - `GET /api/dashboard` - Complete dashboard snapshot (auto-refresh: 10s)
-- `GET /api/time-series/:timeframe` - Historical data (1H, 4H, 1D, 1W, 1M)
+- `GET /api/time-series/:timeframe` - Historical data (1H, 4H, 1D, 1W, 1M) for dual-line chart
+- `GET /api/trends/:timeframe` - Historical trends data (1D, 7D, 1M, 3M, 1Y) for three separate charts
 
 ### Shared (`shared/`)
 **Type Definitions**: Zod schemas for all data structures
 - `DashboardData` - Complete dashboard state
-- `TimeSeriesData` - Historical liquidity trends
-- `LiveMetric`, `LiquidityScore`, `StressSignal`, `KeyMetric`, etc.
+- `TimeSeriesData` - Historical liquidity trends (dual-metric)
+- `TrendsData` - Multi-chart historical trends (PoLi score, depth, volatility)
+- `LiveMetric`, `LiquidityScore`, `StressSignal`, `KeyMetric`, `TickerItem`, etc.
 
 ## Design System
 
