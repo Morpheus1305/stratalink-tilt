@@ -20,7 +20,7 @@ export function PlatformTabs() {
   };
 
   return (
-    <div className="border-b border-border bg-background">
+    <div className="sticky top-14 z-40 border-b border-border bg-background">
       <div className="flex gap-1 px-4">
         {tabs.map((tab) => (
           <Link key={tab.id} href={tab.path}>

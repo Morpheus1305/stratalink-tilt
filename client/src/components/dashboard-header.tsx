@@ -1,20 +1,10 @@
 import { Button } from "@/components/ui/button";
-import { Bell, Settings, Activity } from "lucide-react";
+import { Bell, Settings, Activity, Home } from "lucide-react";
 import { Link } from "wouter";
 
 export function DashboardHeader() {
-  const currentTime = new Date().toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'UTC',
-    timeZoneName: 'short'
-  });
-
   return (
-    <header className="border-b border-border h-14 flex items-center px-4 bg-card">
+    <header className="sticky top-0 z-50 border-b border-border h-14 flex items-center px-4 bg-card">
       <div className="flex items-center gap-3">
         <div className="w-8 h-8 rounded-full border-2 border-primary flex items-center justify-center">
           <div className="text-primary font-bold text-sm">SL</div>
@@ -23,6 +13,17 @@ export function DashboardHeader() {
       </div>
 
       <nav className="ml-8 flex items-center gap-1">
+        <Link href="/">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="text-xs font-medium"
+            data-testid="button-nav-home"
+          >
+            <Home className="h-3.5 w-3.5 mr-1.5" />
+            HOME
+          </Button>
+        </Link>
         <Link href="/platform">
           <Button 
             variant="ghost" 
@@ -63,8 +64,6 @@ export function DashboardHeader() {
         <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono">
           <Activity className="h-3 w-3 text-chart-3" />
           <span className="text-chart-3 font-semibold">LIVE</span>
-          <span className="text-muted-foreground">|</span>
-          <span>{currentTime}</span>
         </div>
 
         <div className="flex items-center gap-2">

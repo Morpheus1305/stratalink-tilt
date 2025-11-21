@@ -6,21 +6,11 @@ interface BottomTickerProps {
 }
 
 export function BottomTicker({ items }: BottomTickerProps) {
-  const currentTime = new Date().toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'UTC',
-    timeZoneName: 'short'
-  });
-
   // Duplicate items for seamless scroll
   const duplicatedItems = [...items, ...items];
 
   return (
-    <div className="border-t border-border h-10 flex items-center overflow-hidden bg-card" data-testid="bottom-ticker">
+    <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border h-10 flex items-center overflow-hidden bg-card" data-testid="bottom-ticker">
       <div className="flex items-center gap-8 px-4 whitespace-nowrap ticker-scroll">
         {duplicatedItems.map((item, index) => (
           <div 
@@ -64,9 +54,6 @@ export function BottomTicker({ items }: BottomTickerProps) {
             </div>
           </div>
         ))}
-        <div className="text-xs text-muted-foreground font-mono px-4 tracking-tight" data-testid="ticker-time">
-          {currentTime}
-        </div>
       </div>
     </div>
   );

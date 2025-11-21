@@ -4,6 +4,8 @@ import { DashboardHeader } from "@/components/dashboard-header";
 import { PlatformTabs } from "@/components/platform-tabs";
 import { LiquidityScoreGauge } from "@/components/liquidity-score-gauge";
 import { StressSignalsPanel } from "@/components/stress-signals-panel";
+import { BottomTicker } from "@/components/bottom-ticker";
+import { DateTimeBar } from "@/components/date-time-bar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -67,7 +69,7 @@ export default function Alerts() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col pb-[72px]">
       <DashboardHeader />
       <PlatformTabs />
 
@@ -306,6 +308,10 @@ export default function Alerts() {
           </Card>
         </div>
       </div>
+
+      {/* Bottom Date/Time Bar and Ticker */}
+      <DateTimeBar />
+      <BottomTicker items={dashboardData.tickerItems} />
     </div>
   );
 }

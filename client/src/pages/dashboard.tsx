@@ -9,6 +9,7 @@ import { LiquidityDistributionCharts } from "@/components/liquidity-distribution
 import { TimeSeriesChart } from "@/components/time-series-chart";
 import { ReportExportSection } from "@/components/report-export-section";
 import { BottomTicker } from "@/components/bottom-ticker";
+import { DateTimeBar } from "@/components/date-time-bar";
 import type { DashboardData, TimeSeriesData } from "@shared/schema";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -64,7 +65,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col pb-[72px]">
       <DashboardHeader />
       <PlatformTabs />
 
@@ -108,7 +109,8 @@ export default function Dashboard() {
         <ReportExportSection />
       </div>
 
-      {/* Bottom Ticker */}
+      {/* Bottom Date/Time Bar and Ticker */}
+      <DateTimeBar />
       <BottomTicker items={dashboardData.tickerItems} />
     </div>
   );

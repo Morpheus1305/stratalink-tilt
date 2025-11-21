@@ -3,6 +3,8 @@ import { DashboardHeader } from "@/components/dashboard-header";
 import { LiquidityScoreGauge } from "@/components/liquidity-score-gauge";
 import { StressSignalsPanel } from "@/components/stress-signals-panel";
 import { PlatformTabs } from "@/components/platform-tabs";
+import { BottomTicker } from "@/components/bottom-ticker";
+import { DateTimeBar } from "@/components/date-time-bar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -69,7 +71,7 @@ export default function Trends() {
   const changePercent = trendsData?.changePercent || 0;
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col pb-[72px]">
       <DashboardHeader />
       <PlatformTabs />
 
@@ -288,6 +290,10 @@ export default function Trends() {
           </div>
         </div>
       </div>
+
+      {/* Bottom Date/Time Bar and Ticker */}
+      <DateTimeBar />
+      <BottomTicker items={dashboardData.tickerItems} />
     </div>
   );
 }
