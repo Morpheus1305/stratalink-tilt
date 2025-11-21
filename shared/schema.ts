@@ -135,3 +135,123 @@ export const trendsDataSchema = z.object({
 });
 
 export type TrendsData = z.infer<typeof trendsDataSchema>;
+
+// Portfolio Page Schemas
+export const portfolioTokenSchema = z.object({
+  token: z.string(),
+  name: z.string(),
+  poliScore: z.number(),
+  changePercent: z.number(),
+  depth: z.string(),
+  volatility: z.string(),
+  spread: z.string(),
+  action: z.enum(['MONITOR', 'REVIEW', 'CRITICAL']),
+});
+
+export type PortfolioToken = z.infer<typeof portfolioTokenSchema>;
+
+export const portfolioSummarySchema = z.object({
+  healthyAssets: z.number(),
+  warningAssets: z.number(),
+  criticalAssets: z.number(),
+});
+
+export type PortfolioSummary = z.infer<typeof portfolioSummarySchema>;
+
+export const poliComparisonPointSchema = z.object({
+  token: z.string(),
+  score: z.number(),
+});
+
+export type PoliComparisonPoint = z.infer<typeof poliComparisonPointSchema>;
+
+export const radarDimensionSchema = z.object({
+  dimension: z.string(),
+  sol: z.number(),
+  usdc: z.number(),
+  usdt: z.number(),
+});
+
+export type RadarDimension = z.infer<typeof radarDimensionSchema>;
+
+export const portfolioDataSchema = z.object({
+  portfolioPoliScore: z.number(),
+  summary: portfolioSummarySchema,
+  tokens: z.array(portfolioTokenSchema),
+  poliComparison: z.array(poliComparisonPointSchema),
+  radarAnalysis: z.array(radarDimensionSchema),
+});
+
+export type PortfolioData = z.infer<typeof portfolioDataSchema>;
+
+// Alerts Page Schemas
+export const riskIndicatorSchema = z.object({
+  indicator: z.string(),
+  observedBehavior: z.string(),
+  ras: z.enum(['high', 'medium', 'low']),
+});
+
+export type RiskIndicator = z.infer<typeof riskIndicatorSchema>;
+
+export const alertTimelinePointSchema = z.object({
+  time: z.string(),
+  critical: z.number(),
+  warning: z.number(),
+  info: z.number(),
+});
+
+export type AlertTimelinePoint = z.infer<typeof alertTimelinePointSchema>;
+
+export const alertLogEntrySchema = z.object({
+  id: z.string(),
+  timeUTC: z.string(),
+  alertType: z.string(),
+  severity: z.enum(['HIGH', 'WARNING', 'CRITICAL']),
+  description: z.string(),
+  status: z.enum(['New', 'Acknowledged', 'Dismissed']),
+});
+
+export type AlertLogEntry = z.infer<typeof alertLogEntrySchema>;
+
+export const alertsDataSchema = z.object({
+  riskIndicators: z.array(riskIndicatorSchema),
+  activeWarningCapacity: z.string(),
+  criticalAssets: z.object({
+    count: z.number(),
+    total: z.number(),
+  }),
+  alertTimeline: z.array(alertTimelinePointSchema),
+  alertLog: z.array(alertLogEntrySchema),
+});
+
+export type AlertsData = z.infer<typeof alertsDataSchema>;
+
+// Scorecard Page Schemas
+export const scorecardMetricSchema = z.object({
+  metric: z.string(),
+  description: z.string(),
+  value: z.string(),
+  industryBenchmark: z.string(),
+  status: z.enum(['GOOD', 'CAUTION', 'CRITICAL']),
+});
+
+export type ScorecardMetric = z.infer<typeof scorecardMetricSchema>;
+
+export const scorecardSummarySchema = z.object({
+  good: z.number(),
+  caution: z.number(),
+  risk: z.number(),
+  goodPercent: z.number(),
+  cautionPercent: z.number(),
+  riskPercent: z.number(),
+});
+
+export type ScorecardSummary = z.infer<typeof scorecardSummarySchema>;
+
+export const scorecardDataSchema = z.object({
+  tokenomicsMetrics: z.array(scorecardMetricSchema),
+  liquidityMetrics: z.array(scorecardMetricSchema),
+  summary: scorecardSummarySchema,
+});
+
+export type ScorecardData = z.infer<typeof scorecardDataSchema>;

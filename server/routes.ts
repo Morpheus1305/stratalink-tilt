@@ -47,6 +47,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get portfolio data
+  app.get("/api/portfolio", async (_req, res) => {
+    try {
+      const data = await storage.getPortfolioData();
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch portfolio data" });
+    }
+  });
+
+  // Get alerts data
+  app.get("/api/alerts", async (_req, res) => {
+    try {
+      const data = await storage.getAlertsData();
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch alerts data" });
+    }
+  });
+
+  // Get scorecard data
+  app.get("/api/scorecard", async (req, res) => {
+    try {
+      const metricType = (req.query.type as string) || 'tokenomics';
+      
+      if (metricType !== 'tokenomics' && metricType !== 'liquidity') {
+        return res.status(400).json({ error: "Invalid metric type. Must be 'tokenomics' or 'liquidity'" });
+      }
+      
+      const data = await storage.getScorecardData(metricType);
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch scorecard data" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

@@ -9,7 +9,10 @@ import type {
   ExchangeData,
   CexDexDistribution,
   TickerItem,
-  TimeSeriesPoint
+  TimeSeriesPoint,
+  PortfolioData,
+  AlertsData,
+  ScorecardData
 } from "@shared/schema";
 import { web3DataService } from "./apiClients";
 
@@ -17,6 +20,9 @@ export interface IStorage {
   getDashboardData(asset?: string): Promise<DashboardData>;
   getTimeSeriesData(timeframe: string, asset?: string): Promise<TimeSeriesData>;
   getTrendsData(timeframe: '1D' | '7D' | '1M' | '3M' | '1Y', asset?: string): Promise<TrendsData>;
+  getPortfolioData(): Promise<PortfolioData>;
+  getAlertsData(asset?: string): Promise<AlertsData>;
+  getScorecardData(metricType: 'tokenomics' | 'liquidity'): Promise<ScorecardData>;
 }
 
 export class MemStorage implements IStorage {
@@ -547,6 +553,220 @@ export class MemStorage implements IStorage {
       marketDepthTrend,
       volatilityTrend,
       changePercent: Number(changePercent.toFixed(2)),
+    };
+  }
+
+  async getPortfolioData(): Promise<PortfolioData> {
+    const portfolioPoliScore = 72;
+    
+    return {
+      portfolioPoliScore,
+      summary: {
+        healthyAssets: 2,
+        warningAssets: 3,
+        criticalAssets: 1,
+      },
+      tokens: [
+        {
+          token: 'SOL',
+          name: 'Solana',
+          poliScore: 73,
+          changePercent: -3.2,
+          depth: '$42.5M',
+          volatility: '12.4%',
+          spread: '0.08%',
+          action: 'MONITOR',
+        },
+        {
+          token: 'USDC',
+          name: 'USD Coin',
+          poliScore: 94,
+          changePercent: 1.8,
+          depth: '$128.3M',
+          volatility: '1.6%',
+          spread: '0.02%',
+          action: 'REVIEW',
+        },
+        {
+          token: 'USDT',
+          name: 'Tether',
+          poliScore: 91,
+          changePercent: 0.5,
+          depth: '$245.7M',
+          volatility: '0.9%',
+          spread: '0.01%',
+          action: 'REVIEW',
+        },
+        {
+          token: 'JTO',
+          name: 'Jito',
+          poliScore: 58,
+          changePercent: -3.2,
+          depth: '$8.3M',
+          volatility: '24.7%',
+          spread: '0.45%',
+          action: 'REVIEW',
+        },
+        {
+          token: 'JUP',
+          name: 'Jupiter',
+          poliScore: 65,
+          changePercent: 2.1,
+          depth: '$15.2M',
+          volatility: '19.3%',
+          spread: '0.28%',
+          action: 'MONITOR',
+        },
+        {
+          token: 'BONK',
+          name: 'Bonk',
+          poliScore: 48,
+          changePercent: -13.2,
+          depth: '$5.1M',
+          volatility: '32.1%',
+          spread: '0.92%',
+          action: 'CRITICAL',
+        },
+      ],
+      poliComparison: [
+        { token: 'SOL', score: 73 },
+        { token: 'USDC', score: 94 },
+        { token: 'USDT', score: 91 },
+        { token: 'JTO', score: 58 },
+        { token: 'JUP', score: 65 },
+        { token: 'BONK', score: 48 },
+      ],
+      radarAnalysis: [
+        { dimension: 'Depth', sol: 75, usdc: 95, usdt: 92 },
+        { dimension: 'Concentration', sol: 68, usdc: 88, usdt: 90 },
+        { dimension: 'Volatility', sol: 65, usdc: 95, usdt: 93 },
+        { dimension: 'Spread', sol: 78, usdc: 94, usdt: 96 },
+        { dimension: 'Liquidity', sol: 72, usdc: 92, usdt: 89 },
+      ],
+    };
+  }
+
+  async getAlertsData(asset: string = 'SOL'): Promise<AlertsData> {
+    return {
+      riskIndicators: [
+        { indicator: 'Funding Rate Spike', observedBehavior: 'BTC +0.35% / 8z', ras: 'high' },
+        { indicator: 'Paper Spot Basis', observedBehavior: 'Consolidation > $2.3B', ras: 'high' },
+        { indicator: 'Stablecoin Pool Drawdown', observedBehavior: 'BUSD/CE -$2B', ras: 'low' },
+        { indicator: 'Cross-Margin Utilization', observedBehavior: 'BN:48%', ras: 'medium' },
+        { indicator: 'Large Holder Rule', observedBehavior: 'TX:UTXO < 0.25x', ras: 'low' },
+        { indicator: 'ASL Trigger Count', observedBehavior: 'Multi-exchange', ras: 'low' },
+      ],
+      activeWarningCapacity: '6-8 hours',
+      criticalAssets: {
+        count: 3,
+        total: 8,
+      },
+      alertTimeline: this.generateAlertTimeline(),
+      alertLog: [
+        {
+          id: '1',
+          timeUTC: '18:45',
+          alertType: 'Depth',
+          severity: 'HIGH',
+          description: 'Liquidity sweep 85% of volume',
+          status: 'New',
+        },
+        {
+          id: '2',
+          timeUTC: '16:35',
+          alertType: 'Storage',
+          severity: 'WARNING',
+          description: '2.6% SOL impact on SOL/USDC',
+          status: 'Acknowledged',
+        },
+        {
+          id: '3',
+          timeUTC: '16:32',
+          alertType: 'Normal',
+          severity: 'WARNING',
+          description: '23% bid depth restock on AVAX',
+          status: 'Dismissed',
+        },
+        {
+          id: '4',
+          timeUTC: '15:14',
+          alertType: 'Normal',
+          severity: 'CRITICAL',
+          description: 'Unusual price action detected',
+          status: 'New',
+        },
+        {
+          id: '5',
+          timeUTC: '14:45',
+          alertType: 'Depth',
+          severity: 'WARNING',
+          description: '12% volatility windblast from OTC',
+          status: 'Acknowledged',
+        },
+      ],
+    };
+  }
+
+  private generateAlertTimeline() {
+    const data = [];
+    const now = new Date();
+    
+    for (let i = 0; i < 100; i++) {
+      const time = new Date(now.getTime() - (100 - i) * 15 * 60 * 1000);
+      const timeString = `${String(time.getUTCHours()).padStart(2, '0')}:${String(time.getUTCMinutes()).padStart(2, '0')}`;
+      
+      data.push({
+        time: timeString,
+        critical: Math.max(0, 20 + Math.sin(i * 0.1) * 15 + (Math.random() - 0.5) * 10),
+        warning: Math.max(0, 40 + Math.cos(i * 0.15) * 20 + (Math.random() - 0.5) * 15),
+        info: Math.max(0, 30 + Math.sin(i * 0.08) * 10 + (Math.random() - 0.5) * 8),
+      });
+    }
+    
+    return data;
+  }
+
+  async getScorecardData(metricType: 'tokenomics' | 'liquidity'): Promise<ScorecardData> {
+    const tokenomicsMetrics = [
+      { metric: 'Circulating Supply', description: 'Amount in active circulation', value: '466M', industryBenchmark: '< 25 billion', status: 'GOOD' as const },
+      { metric: 'Total Supply', description: 'Cumulative supply incl unlocked/vested tokens', value: '590M', industryBenchmark: 'Company benchmark', status: 'GOOD' as const },
+      { metric: 'Max Supply', description: 'Theoretical cap of the protocol', value: 'Infinite', industryBenchmark: 'Company benchmark', status: 'CAUTION' as const },
+      { metric: 'Vesting/Emission Schedule', description: 'Pace at which tokens are vesting over time', value: '2.5% annually', industryBenchmark: '< 5% annually', status: 'GOOD' as const },
+      { metric: 'Tokens Unlock Schedule', description: 'Time and pace between unlock', value: '>12mo', industryBenchmark: 'Company benchmark', status: 'GOOD' as const },
+      { metric: 'Foundation/Team Allocation %', description: 'Share of tokens in reserve by treasury', value: '12.6%', industryBenchmark: '< 15%', status: 'GOOD' as const },
+      { metric: 'VC Allocation %', description: 'Share of supply allocated to early-stage VCs', value: '16.3%', industryBenchmark: 'Company benchmark', status: 'GOOD' as const },
+      { metric: 'Community Utility', description: 'Amount of coins alloted for active ecosystem', value: '38.2%', industryBenchmark: 'Multi-utility', status: 'GOOD' as const },
+      { metric: 'Token Utility', description: 'Utility of the token within the ecosystem', value: 'Multi-utility', industryBenchmark: 'Multi-utility', status: 'GOOD' as const },
+      { metric: 'Staking Ratio %', description: 'Ratio of tokens staked vs for measuring supply', value: '4.2', industryBenchmark: '>3', status: 'GOOD' as const },
+      { metric: 'Burn Mechanisms', description: 'Ways for tokens to exit out of chain', value: 'Active (fee)', industryBenchmark: 'Active', status: 'GOOD' as const },
+      { metric: 'Bridget Liquidity', description: 'Sum of tokens on cross-chain & bridges', value: '<5%', industryBenchmark: '< 10%', status: 'GOOD' as const },
+      { metric: 'Supply Centralization Score', description: 'Spread of tokens released for decentralization', value: '92/100', industryBenchmark: '> 80', status: 'GOOD' as const },
+    ];
+
+    const liquidityMetrics = [
+      { metric: 'Market Depth', description: 'Total liquidity available within 2% of mid price', value: '$42.5M', industryBenchmark: '> $20M', status: 'GOOD' as const },
+      { metric: 'Bid-Ask Spread', description: 'Difference between best bid and ask price', value: '0.08%', industryBenchmark: '< 0.15%', status: 'GOOD' as const },
+      { metric: 'Order Book Density', description: 'Distribution of orders across price levels', value: 'High', industryBenchmark: 'Medium-High', status: 'GOOD' as const },
+      { metric: 'Volume Concentration', description: 'Distribution of volume across exchanges', value: 'Moderate', industryBenchmark: 'Low-Moderate', status: 'GOOD' as const },
+      { metric: '24H Trading Volume', description: 'Total trading volume in last 24 hours', value: '$1.2B', industryBenchmark: '> $500M', status: 'GOOD' as const },
+    ];
+
+    const totalMetrics = tokenomicsMetrics.length + liquidityMetrics.length;
+    const goodCount = 48;
+    const cautionCount = 7;
+    const riskCount = 12;
+
+    return {
+      tokenomicsMetrics,
+      liquidityMetrics,
+      summary: {
+        good: goodCount,
+        caution: cautionCount,
+        risk: riskCount,
+        goodPercent: Math.round((goodCount / totalMetrics) * 100),
+        cautionPercent: Math.round((cautionCount / totalMetrics) * 100),
+        riskPercent: Math.round((riskCount / totalMetrics) * 100),
+      },
     };
   }
 }
