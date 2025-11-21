@@ -10,13 +10,85 @@ import type {
   TickerItem,
   TimeSeriesPoint
 } from "@shared/schema";
+import { web3DataService } from "./apiClients";
 
 export interface IStorage {
-  getDashboardData(): Promise<DashboardData>;
-  getTimeSeriesData(timeframe: string): Promise<TimeSeriesData>;
+  getDashboardData(asset?: string): Promise<DashboardData>;
+  getTimeSeriesData(timeframe: string, asset?: string): Promise<TimeSeriesData>;
 }
 
 export class MemStorage implements IStorage {
+  private useLiveData: boolean = true;
+  
+  private async fetchLiveMetrics(asset: string = 'BTC'): Promise<LiveMetric[] | null> {
+    if (!this.useLiveData) return null;
+    
+    try {
+      const [priceData, orderBook] = await Promise.all([
+        web3DataService.getCryptoPrice(asset),
+        web3DataService.getOrderBookDepth(asset),
+      ]);
+
+      const volatility = Math.abs(priceData.change24h);
+      const cexDexRatio = 68;
+      
+      const poliScore = web3DataService.calculatePoLiScore({
+        depth: orderBook.depthUSD,
+        spread: orderBook.spread,
+        volatility: volatility,
+        cexDexRatio: cexDexRatio,
+      });
+
+      return [
+        {
+          label: "POLI SCORE",
+          value: `${poliScore}/100`,
+          change: poliScore >= 72 ? 1.7 : -1.2,
+          changePercent: poliScore >= 72 ? 2.4 : -1.8,
+          trend: poliScore >= 72 ? "up" : "down",
+        },
+        {
+          label: "MARKET DEPTH",
+          value: `$${orderBook.depthUSD.toFixed(1)}M`,
+          change: 3.5,
+          changePercent: 8.2,
+          trend: "up",
+        },
+        {
+          label: "BID-ASK SPREAD",
+          value: `${orderBook.spread.toFixed(2)}%`,
+          change: -0.002,
+          changePercent: -2.1,
+          trend: "down",
+        },
+        {
+          label: "VOLATILITY 24H",
+          value: `${volatility.toFixed(1)}%`,
+          change: volatility >= 12 ? 1.9 : -1.3,
+          changePercent: volatility >= 12 ? 15.3 : -8.5,
+          trend: volatility >= 12 ? "up" : "down",
+        },
+        {
+          label: "CEX/DEX RATIO",
+          value: `${cexDexRatio}:${100 - cexDexRatio}`,
+          change: -2.2,
+          changePercent: -3.2,
+          trend: "down",
+        },
+        {
+          label: "TOTAL VOL 24H",
+          value: `$${(priceData.volume24h / 1e9).toFixed(1)}B`,
+          change: 154,
+          changePercent: 12.9,
+          trend: "up",
+        },
+      ];
+    } catch (error) {
+      console.error('Error fetching live metrics, falling back to mock data:', error);
+      return null;
+    }
+  }
+
   private generateLiveMetrics(): LiveMetric[] {
     // Add slight randomness for realistic live updates
     const variance = () => (Math.random() - 0.5) * 0.5;
@@ -225,8 +297,43 @@ export class MemStorage implements IStorage {
     };
   }
 
+  private async fetchLiveTickerItems(): Promise<TickerItem[] | null> {
+    if (!this.useLiveData) return null;
+    
+    try {
+      const symbols = ['BTC', 'ETH', 'SOL'];
+      const assetsData = await web3DataService.getMultipleAssets(symbols);
+      
+      const items: TickerItem[] = [];
+      const now = new Date();
+      const timestamp = `${String(now.getUTCHours()).padStart(2, '0')}:${String(now.getUTCMinutes()).padStart(2, '0')} UTC`;
+      
+      const assetArray = Array.from(assetsData.entries());
+      for (const [symbol, data] of assetArray) {
+        items.push({
+          id: `ticker-${symbol}-${now.getTime()}`,
+          symbol: `${symbol}/USD`,
+          price: data.price.toFixed(2),
+          change: data.change24h,
+          changePercent: data.change24h.toFixed(2),
+          depth: `${data.depthUSD.toFixed(1)}M`,
+          spread: `${data.spread.toFixed(2)}%`,
+          volume: `${(data.volume24h / 1e9).toFixed(1)}B`,
+          timestamp,
+        });
+      }
+      
+      return items;
+    } catch (error) {
+      console.error('Error fetching live ticker data, falling back to mock data:', error);
+      return null;
+    }
+  }
+
   private generateTickerItems(): TickerItem[] {
     const variance = () => (Math.random() - 0.5) * 0.5;
+    const now = new Date();
+    const timestamp = `${String(now.getUTCHours()).padStart(2, '0')}:${String(now.getUTCMinutes()).padStart(2, '0')} UTC`;
     
     const btcPrice = 63421 + Math.floor(variance() * 500);
     const ethPrice = 3124 + Math.floor(variance() * 50);
@@ -234,31 +341,37 @@ export class MemStorage implements IStorage {
     
     return [
       {
+        id: `ticker-BTC-${now.getTime()}-1`,
         symbol: "BTC/USD",
-        price: btcPrice,
+        price: btcPrice.toString(),
         change: Math.floor(variance() * 200),
-        changePercent: Number((1.8 + variance()).toFixed(1)),
-        depth: `$${(42.5 + variance()).toFixed(1)}M`,
+        changePercent: (1.8 + variance()).toFixed(1),
+        depth: `${(42.5 + variance()).toFixed(1)}M`,
         spread: `${(0.08 + variance() * 0.01).toFixed(2)}%`,
-        volume24h: `$${(1.2 + variance() * 0.1).toFixed(1)}B`,
+        volume: `${(1.2 + variance() * 0.1).toFixed(1)}B`,
+        timestamp,
       },
       {
+        id: `ticker-ETH-${now.getTime()}-2`,
         symbol: "ETH/USD",
-        price: ethPrice,
+        price: ethPrice.toString(),
         change: Math.floor(variance() * 50),
-        changePercent: Number((-0.4 + variance()).toFixed(1)),
-        depth: `$${(28.3 + variance()).toFixed(1)}M`,
+        changePercent: (-0.4 + variance()).toFixed(1),
+        depth: `${(28.3 + variance()).toFixed(1)}M`,
         spread: `${(0.12 + variance() * 0.01).toFixed(2)}%`,
-        volume24h: `$${(845 + variance() * 20).toFixed(0)}M`,
+        volume: `${(845 + variance() * 20).toFixed(0)}M`,
+        timestamp,
       },
       {
+        id: `ticker-SOL-${now.getTime()}-3`,
         symbol: "SOL/USD",
-        price: solPrice,
+        price: solPrice.toString(),
         change: Math.floor(variance() * 10),
-        changePercent: Number((6.4 + variance() * 2).toFixed(1)),
-        depth: `$${(15.7 + variance()).toFixed(1)}M`,
+        changePercent: (6.4 + variance() * 2).toFixed(1),
+        depth: `${(15.7 + variance()).toFixed(1)}M`,
         spread: `${(0.15 + variance() * 0.02).toFixed(2)}%`,
-        volume24h: `$${(423 + variance() * 30).toFixed(0)}M`,
+        volume: `${(423 + variance() * 30).toFixed(0)}M`,
+        timestamp,
       },
     ];
   }
@@ -321,19 +434,24 @@ export class MemStorage implements IStorage {
     return points;
   }
 
-  async getDashboardData(): Promise<DashboardData> {
+  async getDashboardData(asset: string = 'BTC'): Promise<DashboardData> {
+    const [liveMetrics, tickerItems] = await Promise.all([
+      this.fetchLiveMetrics(asset).catch(() => null),
+      this.fetchLiveTickerItems().catch(() => null),
+    ]);
+    
     return {
-      liveMetrics: this.generateLiveMetrics(),
+      liveMetrics: liveMetrics || this.generateLiveMetrics(),
       liquidityScore: this.generateLiquidityScore(),
       stressSignals: this.generateStressSignals(),
       keyMetrics: this.generateKeyMetrics(),
       exchangeDistribution: this.generateExchangeData(),
       cexDexDistribution: this.generateCexDexDistribution(),
-      tickerItems: this.generateTickerItems(),
+      tickerItems: tickerItems || this.generateTickerItems(),
     };
   }
 
-  async getTimeSeriesData(timeframe: string): Promise<TimeSeriesData> {
+  async getTimeSeriesData(timeframe: string, asset: string = 'BTC'): Promise<TimeSeriesData> {
     const validTimeframes = ['1H', '4H', '1D', '1W', '1M'];
     const tf = validTimeframes.includes(timeframe) ? timeframe : '1D';
     

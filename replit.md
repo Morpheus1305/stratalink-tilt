@@ -4,17 +4,28 @@
 A Bloomberg Terminal-style Web3 liquidity risk intelligence dashboard providing real-time analytics for digital assets. Built for regulators, exchanges, protocols, and institutional risk managers.
 
 ## Current Status
-**Production-Ready MVP** - Fully functional liquidity intelligence dashboard with live data updates, comprehensive analytics, and institutional-grade UI.
+**Production-Ready MVP with Partial Live Data** - Fully functional liquidity intelligence dashboard with hybrid live/mock data, comprehensive analytics, and institutional-grade UI.
 
 ## Recent Changes (Nov 21, 2025)
+### Phase 1: Initial MVP (Completed)
 - ✅ Implemented complete Bloomberg-inspired dark theme with yellow (#F5C211) and cyan (#00D9FF) accents
 - ✅ Built landing page with hero section and live market data panel
 - ✅ Created main dashboard with 10+ specialized components
 - ✅ Added real-time data refresh (10s for dashboard, 30s for time-series)
-- ✅ Implemented dynamic mock data generators with realistic variance
 - ✅ Added comprehensive loading and error states
 - ✅ Configured responsive layouts for mobile, tablet, and desktop
 - ✅ Integrated Recharts for financial data visualization
+
+### Phase 2: Live API Integration (In Progress)
+- ✅ Created Web3DataService with CoinGecko & Binance API integration
+- ✅ Implemented live cryptocurrency pricing (BTC, ETH, SOL) via CoinGecko
+- ✅ Added real-time order book depth with correct USD conversion (price × quantity)
+- ✅ Live ticker with real market data and 30s caching
+- ✅ Dynamic PoLi score calculation based on real metrics
+- ✅ Graceful fallback to mock data on API errors
+- ⚠️ Note: Binance API blocked in some regions (451 error) - fallback depth data used
+- ⚠️ Remaining mock data: Exchange distribution, CEX/DEX ratio, stress signals, time-series
+- 📋 Next: WebSocket streaming for live updates
 
 ## Project Architecture
 

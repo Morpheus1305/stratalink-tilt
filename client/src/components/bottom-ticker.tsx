@@ -33,19 +33,19 @@ export function BottomTicker({ items }: BottomTickerProps) {
                 {item.symbol}
               </span>
               <span className="text-foreground font-bold" data-testid={`ticker-price-${item.symbol.toLowerCase().replace('/', '-')}`}>
-                ${item.price.toLocaleString()}
+                ${parseFloat(item.price).toLocaleString()}
               </span>
               <div className="flex items-center gap-1">
-                {item.changePercent >= 0 ? (
+                {parseFloat(item.changePercent) >= 0 ? (
                   <TrendingUp className="h-3 w-3 text-chart-3" />
                 ) : (
                   <TrendingDown className="h-3 w-3 text-destructive" />
                 )}
                 <span 
-                  className={item.changePercent >= 0 ? 'text-chart-3 font-medium' : 'text-destructive font-medium'}
+                  className={parseFloat(item.changePercent) >= 0 ? 'text-chart-3 font-medium' : 'text-destructive font-medium'}
                   data-testid={`ticker-change-${item.symbol.toLowerCase().replace('/', '-')}`}
                 >
-                  {item.changePercent > 0 ? '+' : ''}{item.changePercent.toFixed(1)}%
+                  {parseFloat(item.changePercent) > 0 ? '+' : ''}{item.changePercent}%
                 </span>
               </div>
             </div>
@@ -60,7 +60,7 @@ export function BottomTicker({ items }: BottomTickerProps) {
             </div>
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground tracking-tight">VOL</span>
-              <span className="text-foreground font-semibold">{item.volume24h}</span>
+              <span className="text-foreground font-semibold">{item.volume}</span>
             </div>
           </div>
         ))}

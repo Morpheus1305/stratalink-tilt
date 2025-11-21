@@ -76,13 +76,15 @@ export type TimeSeriesPoint = z.infer<typeof timeSeriesPointSchema>;
 
 // Ticker Item
 export const tickerItemSchema = z.object({
+  id: z.string(),
   symbol: z.string(),
-  price: z.number(),
+  price: z.string(),
   change: z.number(),
-  changePercent: z.number(),
+  changePercent: z.string(),
   depth: z.string(),
   spread: z.string(),
-  volume24h: z.string(),
+  volume: z.string(),
+  timestamp: z.string(),
 });
 
 export type TickerItem = z.infer<typeof tickerItemSchema>;
