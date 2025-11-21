@@ -4,8 +4,10 @@ import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import type { DashboardData } from "@shared/schema";
 import { BottomTicker } from "@/components/bottom-ticker";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function LandingHero() {
+  const { isAuthenticated } = useAuth();
   const { data: dashboardData, isLoading } = useQuery<DashboardData>({
     queryKey: ['/api/dashboard'],
     refetchInterval: 10000,
@@ -32,12 +34,12 @@ export function LandingHero() {
           <span className="font-semibold text-sm tracking-tight">STRATALINK LABS LIQUIDITY INTELLIGENCE TERMINAL</span>
         </div>
         <nav className="ml-auto flex items-center gap-6">
-          <Link href="/platform" data-testid="link-platform">
+          <Link href={isAuthenticated ? "/platform" : "/login"} data-testid="link-platform">
             <span className="text-sm hover-elevate active-elevate-2 px-3 py-1.5 rounded-md cursor-pointer">
               PLATFORM
             </span>
           </Link>
-          <Link href="/platform" data-testid="link-docs">
+          <Link href={isAuthenticated ? "/platform" : "/login"} data-testid="link-docs">
             <span className="text-sm hover-elevate active-elevate-2 px-3 py-1.5 rounded-md cursor-pointer">
               DOCS
             </span>
@@ -95,7 +97,7 @@ export function LandingHero() {
           </ul>
 
           <div className="flex items-center gap-4">
-            <Link href="/platform">
+            <Link href={isAuthenticated ? "/platform" : "/login"}>
               <Button 
                 size="lg" 
                 className="font-semibold"
