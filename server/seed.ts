@@ -10,7 +10,7 @@ async function seedDemoUser() {
     const existingUser = await db
       .select()
       .from(users)
-      .where(eq(users.email, 'admin@stratalink.io'))
+      .where(eq(users.email, 'robert@stratalink.ai'))
       .limit(1);
     
     if (existingUser.length > 0) {
@@ -22,9 +22,9 @@ async function seedDemoUser() {
     
     await db.insert(users).values({
       id: 'user_demo_admin',
-      email: 'admin@stratalink.io',
+      email: 'robert@stratalink.ai',
       passwordHash,
-      name: 'Admin User',
+      name: 'Robert Chen',
       role: 'admin',
       twoFactorEnabled: true,
       twoFactorMethod: 'email',
@@ -33,7 +33,7 @@ async function seedDemoUser() {
     });
     
     console.log('✓ Demo user created successfully');
-    console.log('  Email: admin@stratalink.io');
+    console.log('  Email: robert@stratalink.ai');
     console.log('  Password: SecurePass123!');
   } catch (error) {
     console.error('Error seeding demo user:', error);
