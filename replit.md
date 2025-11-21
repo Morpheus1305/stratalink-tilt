@@ -70,6 +70,47 @@ A Bloomberg Terminal-style Web3 liquidity risk intelligence dashboard providing 
 - ✅ E2E testing: All 25 navigation/interaction tests passed, tab switching verified
 - 📋 Next: WebSocket streaming for live updates, multi-asset comparison
 
+### Phase 5: Layout Improvements - Sticky Header & Fixed Bottom Elements (Completed - Nov 21, 2025)
+- ✅ **Added HOME Navigation Link**:
+  - Updated dashboard-header.tsx to include HOME button with Home icon
+  - Links to "/" landing page from any platform page
+  - Positioned as first item in header navigation section
+  
+- ✅ **Fixed Header at Top**:
+  - Made DashboardHeader sticky with `sticky top-0 z-50`
+  - Header stays visible when scrolling on all platform pages
+  - Removed timestamp from header (moved to bottom)
+  
+- ✅ **Fixed Platform Tabs Below Header**:
+  - Made PlatformTabs sticky with `sticky top-14 z-40`
+  - Tabs remain visible below header when scrolling
+  - Proper z-index layering prevents conflicts
+  
+- ✅ **Created DateTimeBar Component**:
+  - New component at `client/src/components/date-time-bar.tsx`
+  - Displays live updating timestamp with Clock icon
+  - Fixed positioning `fixed bottom-10 z-40` (just above ticker)
+  - Updates every second with proper UTC formatting
+  
+- ✅ **Fixed Ticker Tape at Bottom**:
+  - Updated bottom-ticker.tsx with `fixed bottom-0 z-40`
+  - Removed timestamp from inside ticker component
+  - Ticker stays at bottom on all platform pages
+  
+- ✅ **Updated All Page Layouts**:
+  - Added `pb-[72px]` to all platform pages (dashboard, trends, portfolio, alerts, scorecard)
+  - Imported and added DateTimeBar + BottomTicker to all pages
+  - Content doesn't overlap with fixed bottom elements
+  
+- ✅ **E2E Testing**: All layout tests passed
+  - Header sticky at top with HOME navigation working
+  - Platform tabs sticky below header
+  - DateTime bar fixed at bottom with live timestamp
+  - Ticker tape fixed at very bottom with scrolling prices
+  - All 5 pages tested with proper spacing and no overlap
+  
+- ✅ **Architect Review**: Passed - Sticky header/navigation and fixed bottom DateTime/ticker consistently realized across all platform pages
+
 ## Project Architecture
 
 ### Frontend (`client/`)
@@ -91,16 +132,17 @@ A Bloomberg Terminal-style Web3 liquidity risk intelligence dashboard providing 
 ```
 components/
 ├── landing-hero.tsx          # Landing page with StrataLink branding
-├── platform-tabs.tsx         # Tab navigation for platform pages
-├── dashboard-header.tsx      # Top navigation with live status indicator
+├── platform-tabs.tsx         # Tab navigation (sticky below header)
+├── dashboard-header.tsx      # Top navigation with HOME link (sticky at top)
+├── date-time-bar.tsx         # Live timestamp display (fixed above ticker)
+├── bottom-ticker.tsx         # Auto-scrolling crypto prices (fixed at bottom)
 ├── live-metrics-panel.tsx    # 6-metric grid (PoLi Score, Depth, Spread, etc.)
 ├── liquidity-score-gauge.tsx # Circular gauge (0-100) with risk level
 ├── stress-signals-panel.tsx  # Alert system with severity indicators
 ├── key-metrics-grid.tsx      # 6-card detailed metrics display
 ├── liquidity-distribution-charts.tsx # Bar chart (exchanges) + Pie chart (CEX/DEX)
 ├── time-series-chart.tsx     # Dual-line chart with timeframe selector
-├── report-export-section.tsx # PDF report generation UI
-└── bottom-ticker.tsx         # Auto-scrolling crypto prices ticker
+└── report-export-section.tsx # PDF report generation UI
 
 pages/
 ├── landing.tsx               # Landing page
