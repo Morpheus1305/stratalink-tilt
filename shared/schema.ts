@@ -109,3 +109,29 @@ export const timeSeriesDataSchema = z.object({
 });
 
 export type TimeSeriesData = z.infer<typeof timeSeriesDataSchema>;
+
+// Historical Trends Data
+export const poliScorePointSchema = z.object({
+  time: z.string(),
+  score: z.number(),
+});
+
+export const marketDepthPointSchema = z.object({
+  time: z.string(),
+  depth: z.number(),
+});
+
+export const volatilityPointSchema = z.object({
+  time: z.string(),
+  volatility: z.number(),
+});
+
+export const trendsDataSchema = z.object({
+  timeframe: z.enum(['1D', '7D', '1M', '3M', '1Y']),
+  poliScoreEvolution: z.array(poliScorePointSchema),
+  marketDepthTrend: z.array(marketDepthPointSchema),
+  volatilityTrend: z.array(volatilityPointSchema),
+  changePercent: z.number(),
+});
+
+export type TrendsData = z.infer<typeof trendsDataSchema>;

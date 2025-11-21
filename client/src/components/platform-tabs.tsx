@@ -1,0 +1,46 @@
+import { Link, useLocation } from "wouter";
+import { cn } from "@/lib/utils";
+
+const tabs = [
+  { id: "overview", label: "OVERVIEW", path: "/platform" },
+  { id: "trends", label: "TRENDS", path: "/platform/trends" },
+  { id: "portfolio", label: "PORTFOLIO", path: "/platform/portfolio" },
+  { id: "alerts", label: "ALERTS", path: "/platform/alerts" },
+  { id: "scorecard", label: "SCORECARD", path: "/platform/scorecard" },
+];
+
+export function PlatformTabs() {
+  const [location] = useLocation();
+
+  const isActive = (path: string) => {
+    if (path === "/platform") {
+      return location === "/platform" || location === "/platform/overview";
+    }
+    return location === path;
+  };
+
+  return (
+    <div className="border-b border-border bg-background">
+      <div className="flex gap-1 px-4">
+        {tabs.map((tab) => (
+          <Link key={tab.id} href={tab.path}>
+            <button
+              data-testid={`tab-${tab.id}`}
+              className={cn(
+                "px-4 py-2.5 text-xs font-semibold transition-colors relative",
+                isActive(tab.path)
+                  ? "text-primary"
+                  : "text-muted-foreground hover-elevate"
+              )}
+            >
+              {tab.label}
+              {isActive(tab.path) && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+              )}
+            </button>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}

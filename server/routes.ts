@@ -30,6 +30,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get historical trends data
+  app.get("/api/trends/:timeframe", async (req, res) => {
+    try {
+      const { timeframe } = req.params;
+      const validTimeframes = ['1D', '7D', '1M', '3M', '1Y'];
+      
+      if (!validTimeframes.includes(timeframe)) {
+        return res.status(400).json({ error: "Invalid timeframe. Must be one of: 1D, 7D, 1M, 3M, 1Y" });
+      }
+      
+      const data = await storage.getTrendsData(timeframe as '1D' | '7D' | '1M' | '3M' | '1Y');
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch trends data" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

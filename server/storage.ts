@@ -1,6 +1,7 @@
 import type { 
   DashboardData, 
   TimeSeriesData,
+  TrendsData,
   LiveMetric,
   LiquidityScore,
   StressSignal,
@@ -15,6 +16,7 @@ import { web3DataService } from "./apiClients";
 export interface IStorage {
   getDashboardData(asset?: string): Promise<DashboardData>;
   getTimeSeriesData(timeframe: string, asset?: string): Promise<TimeSeriesData>;
+  getTrendsData(timeframe: '1D' | '7D' | '1M' | '3M' | '1Y', asset?: string): Promise<TrendsData>;
 }
 
 export class MemStorage implements IStorage {
@@ -458,6 +460,93 @@ export class MemStorage implements IStorage {
     return {
       timeframe: tf as any,
       data: this.generateTimeSeriesPoints(tf),
+    };
+  }
+
+  async getTrendsData(timeframe: '1D' | '7D' | '1M' | '3M' | '1Y', asset: string = 'BTC'): Promise<TrendsData> {
+    const dataPointsMap: Record<string, number> = {
+      '1D': 24,    // Hourly data for 1 day
+      '7D': 168,   // Hourly data for 7 days (or every few hours)
+      '1M': 30,    // Daily data for 1 month
+      '3M': 90,    // Daily data for 3 months
+      '1Y': 365,   // Daily data for 1 year
+    };
+
+    const dataPoints = dataPointsMap[timeframe] || 168;
+    const now = new Date();
+    
+    const poliScoreEvolution = [];
+    const marketDepthTrend = [];
+    const volatilityTrend = [];
+
+    // Generate realistic trending data with some variability
+    const basePoliScore = 65 + Math.random() * 15;  // Start between 65-80
+    const baseDepth = 35 + Math.random() * 15;      // Start between 35-50M
+    const baseVolatility = 8 + Math.random() * 4;   // Start between 8-12%
+
+    for (let i = 0; i < dataPoints; i++) {
+      let timeString: string;
+      
+      // Calculate time based on timeframe
+      if (timeframe === '1D') {
+        const time = new Date(now.getTime() - (dataPoints - i) * 60 * 60 * 1000);
+        timeString = `${String(time.getUTCHours()).padStart(2, '0')}:${String(time.getUTCMinutes()).padStart(2, '0')}`;
+      } else if (timeframe === '7D') {
+        const time = new Date(now.getTime() - (dataPoints - i) * 60 * 60 * 1000);
+        const day = time.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        timeString = `${day}`;
+      } else {
+        const time = new Date(now.getTime() - (dataPoints - i) * 24 * 60 * 60 * 1000);
+        timeString = time.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      }
+
+      // Create smooth trends with some noise
+      const progress = i / dataPoints;
+      const wave = Math.sin(progress * Math.PI * 2) * 0.1;
+      const noise = (Math.random() - 0.5) * 0.05;
+
+      // PoLi Score: General upward trend with fluctuation
+      const poliScore = Math.max(50, Math.min(100, 
+        basePoliScore + wave * 20 + noise * 15 + progress * 5
+      ));
+
+      // Market Depth: Relatively stable with slight variations
+      const depth = Math.max(20, Math.min(60,
+        baseDepth + wave * 8 + noise * 5
+      ));
+
+      // Volatility: More erratic, trending down slightly
+      const volatility = Math.max(5, Math.min(15,
+        baseVolatility + wave * 3 + noise * 4 - progress * 2
+      ));
+
+      poliScoreEvolution.push({
+        time: timeString,
+        score: Number(poliScore.toFixed(1)),
+      });
+
+      marketDepthTrend.push({
+        time: timeString,
+        depth: Number(depth.toFixed(1)),
+      });
+
+      volatilityTrend.push({
+        time: timeString,
+        volatility: Number(volatility.toFixed(2)),
+      });
+    }
+
+    // Calculate overall change percent for PoLi score
+    const firstScore = poliScoreEvolution[0].score;
+    const lastScore = poliScoreEvolution[poliScoreEvolution.length - 1].score;
+    const changePercent = ((lastScore - firstScore) / firstScore) * 100;
+
+    return {
+      timeframe,
+      poliScoreEvolution,
+      marketDepthTrend,
+      volatilityTrend,
+      changePercent: Number(changePercent.toFixed(2)),
     };
   }
 }

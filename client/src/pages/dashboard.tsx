@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { DashboardHeader } from "@/components/dashboard-header";
+import { PlatformTabs } from "@/components/platform-tabs";
 import { LiveMetricsPanel } from "@/components/live-metrics-panel";
 import { LiquidityScoreGauge } from "@/components/liquidity-score-gauge";
 import { StressSignalsPanel } from "@/components/stress-signals-panel";
@@ -30,6 +31,7 @@ export default function Dashboard() {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <DashboardHeader />
+        <PlatformTabs />
         <div className="p-4 space-y-4">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             {[...Array(6)].map((_, i) => (
@@ -64,6 +66,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <DashboardHeader />
+      <PlatformTabs />
 
       {/* Live Metrics Panel */}
       <LiveMetricsPanel metrics={dashboardData.liveMetrics} />

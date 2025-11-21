@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
+import Trends from "@/pages/trends";
 import { useEffect, useState } from "react";
 
 function Router() {
@@ -13,6 +14,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Landing} />
       <Route path="/platform" component={Dashboard} />
+      <Route path="/platform/trends" component={Trends} />
       <Route component={NotFound} />
     </Switch>
   );
