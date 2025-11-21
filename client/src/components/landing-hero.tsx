@@ -1,5 +1,6 @@
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, FileText } from "lucide-react";
+import { ArrowRight, FileText, Clock } from "lucide-react";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import type { DashboardData } from "@shared/schema";
@@ -9,6 +10,28 @@ export function LandingHero() {
   const { data: dashboardData, isLoading } = useQuery<DashboardData>({
     queryKey: ['/api/dashboard'],
     refetchInterval: 10000,
+  });
+
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  const formattedDateTime = currentTime.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true,
+    timeZone: 'UTC',
+    timeZoneName: 'short'
   });
 
   if (isLoading || !dashboardData) {
@@ -29,9 +52,13 @@ export function LandingHero() {
           <div className="w-8 h-8 rounded-full border-2 border-primary flex items-center justify-center">
             <div className="text-primary font-bold text-sm">SL</div>
           </div>
-          <span className="font-semibold text-sm tracking-tight">STRATALINK LABS</span>
+          <span className="font-semibold text-sm tracking-tight">STRATALINK LABS LIQUIDITY INTELLIGENCE TERMINAL</span>
         </div>
         <nav className="ml-auto flex items-center gap-6">
+          <div className="flex items-center gap-2 text-xs font-mono mr-4">
+            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-foreground" data-testid="text-header-datetime-landing">{formattedDateTime}</span>
+          </div>
           <Link href="/platform" data-testid="link-platform">
             <span className="text-sm hover-elevate active-elevate-2 px-3 py-1.5 rounded-md cursor-pointer">
               PLATFORM
