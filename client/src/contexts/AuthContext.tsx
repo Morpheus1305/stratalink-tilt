@@ -1,11 +1,11 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
-import type { User } from '@shared/schema';
+import type { PublicUser } from '@shared/schema';
 
 interface AuthContextType {
-  user: User | null;
+  user: PublicUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (accessToken: string, user: User) => void;
+  login: (accessToken: string, user: PublicUser) => void;
   logout: () => void;
   getToken: () => string | null;
 }
@@ -16,7 +16,7 @@ const TOKEN_KEY = 'stratalink_access_token';
 const USER_KEY = 'stratalink_user';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<PublicUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -25,7 +25,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     if (storedToken && storedUser) {
       try {
-        const parsedUser = JSON.parse(storedUser) as User;
+        const parsedUser = JSON.parse(storedUser) as PublicUser;
         setUser(parsedUser);
       } catch (error) {
         console.error('Failed to parse stored user:', error);
@@ -37,7 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(false);
   }, []);
 
-  const login = (accessToken: string, userData: User) => {
+  const login = (accessToken: string, userData: PublicUser) => {
     localStorage.setItem(TOKEN_KEY, accessToken);
     localStorage.setItem(USER_KEY, JSON.stringify(userData));
     setUser(userData);

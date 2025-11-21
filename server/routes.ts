@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { authHelpers, sendOTPEmail } from "./auth";
+import { authHelpers, sendOTPEmail, sanitizeUser } from "./auth";
 import { 
   loginRequestSchema, 
   verifyOTPRequestSchema, 
@@ -152,7 +152,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const response: LoginResponse = {
           requires2FA: false,
           accessToken,
-          user,
+          user: sanitizeUser(user),
         };
         
         res.json(response);
@@ -209,7 +209,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const response: VerifyOTPResponse = {
         accessToken,
-        user,
+        user: sanitizeUser(user),
       };
       
       res.json(response);

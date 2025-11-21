@@ -2,7 +2,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
-import type { User } from '@shared/schema';
+import type { User, PublicUser } from '@shared/schema';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'stratalink-labs-secret-key-dev-only';
 const JWT_TEMP_SECRET = process.env.JWT_TEMP_SECRET || 'stratalink-temp-token-secret';
@@ -99,6 +99,19 @@ export const authHelpers = {
     return codes;
   },
 };
+
+export function sanitizeUser(user: User): PublicUser {
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    twoFactorEnabled: user.twoFactorEnabled,
+    twoFactorMethod: user.twoFactorMethod,
+    createdAt: user.createdAt,
+    lastLogin: user.lastLogin,
+  };
+}
 
 export async function sendOTPEmail(email: string, otp: string): Promise<void> {
   console.log(`[AUTH] Sending OTP to ${email}: ${otp}`);

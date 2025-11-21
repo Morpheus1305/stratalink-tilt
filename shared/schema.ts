@@ -315,6 +315,19 @@ export const userSchema = z.object({
 
 export type User = z.infer<typeof userSchema>;
 
+export const publicUserSchema = z.object({
+  id: z.string(),
+  email: z.string().email(),
+  name: z.string(),
+  role: z.enum(['admin', 'analyst', 'viewer']),
+  twoFactorEnabled: z.boolean(),
+  twoFactorMethod: z.enum(['email', 'totp']).nullable(),
+  createdAt: z.string(),
+  lastLogin: z.string().nullable(),
+});
+
+export type PublicUser = z.infer<typeof publicUserSchema>;
+
 export const loginRequestSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
@@ -325,7 +338,7 @@ export type LoginRequest = z.infer<typeof loginRequestSchema>;
 export const loginResponseSchema = z.object({
   requires2FA: z.boolean(),
   tempToken: z.string().optional(),
-  user: userSchema.optional(),
+  user: publicUserSchema.optional(),
   accessToken: z.string().optional(),
 });
 
@@ -340,7 +353,7 @@ export type VerifyOTPRequest = z.infer<typeof verifyOTPRequestSchema>;
 
 export const verifyOTPResponseSchema = z.object({
   accessToken: z.string(),
-  user: userSchema,
+  user: publicUserSchema,
 });
 
 export type VerifyOTPResponse = z.infer<typeof verifyOTPResponseSchema>;
