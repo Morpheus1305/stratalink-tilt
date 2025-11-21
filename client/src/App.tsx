@@ -7,6 +7,9 @@ import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
 import Trends from "@/pages/trends";
+import Portfolio from "@/pages/portfolio";
+import Alerts from "@/pages/alerts";
+import Scorecard from "@/pages/scorecard";
 import { useEffect, useState } from "react";
 
 function Router() {
@@ -15,6 +18,9 @@ function Router() {
       <Route path="/" component={Landing} />
       <Route path="/platform" component={Dashboard} />
       <Route path="/platform/trends" component={Trends} />
+      <Route path="/platform/portfolio" component={Portfolio} />
+      <Route path="/platform/alerts" component={Alerts} />
+      <Route path="/platform/scorecard" component={Scorecard} />
       <Route component={NotFound} />
     </Switch>
   );
