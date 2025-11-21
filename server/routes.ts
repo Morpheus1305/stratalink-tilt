@@ -1,6 +1,15 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { authHelpers, sendOTPEmail } from "./auth";
+import { 
+  loginRequestSchema, 
+  verifyOTPRequestSchema, 
+  resendOTPRequestSchema,
+  type LoginResponse,
+  type VerifyOTPResponse,
+  type ResendOTPResponse
+} from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Get dashboard data
@@ -80,6 +89,175 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(data);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch scorecard data" });
+    }
+  });
+
+  // ========================================
+  // Authentication Endpoints
+  // ========================================
+
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const validation = loginRequestSchema.safeParse(req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ 
+          error: "Invalid request", 
+          details: validation.error.errors 
+        });
+      }
+
+      const { email, password } = validation.data;
+      
+      const user = await storage.getUserByEmail(email);
+      
+      if (!user) {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+
+      const isLocked = await storage.isUserLocked(user.id);
+      if (isLocked) {
+        return res.status(429).json({ 
+          error: "Account temporarily locked due to too many failed attempts. Please try again later." 
+        });
+      }
+
+      const passwordHash = await storage.getUserById(user.id);
+      if (!passwordHash) {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+
+      if (user.twoFactorEnabled) {
+        const otp = authHelpers.generateEmailOTP();
+        const expiresAt = new Date(Date.now() + 3 * 60 * 1000);
+        
+        await storage.storeOTP(user.id, otp, expiresAt);
+        
+        await sendOTPEmail(user.email, otp);
+        
+        const tempToken = authHelpers.generateTempToken(user.id, user.email);
+        
+        const response: LoginResponse = {
+          requires2FA: true,
+          tempToken,
+        };
+        
+        res.json(response);
+      } else {
+        const accessToken = authHelpers.generateAccessToken(user);
+        await storage.resetLoginAttempts(user.id);
+        await storage.updateUser(user.id, { lastLogin: new Date().toISOString() });
+        
+        const response: LoginResponse = {
+          requires2FA: false,
+          accessToken,
+          user,
+        };
+        
+        res.json(response);
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      res.status(500).json({ error: "Login failed" });
+    }
+  });
+
+  app.post("/api/auth/verify-otp", async (req, res) => {
+    try {
+      const validation = verifyOTPRequestSchema.safeParse(req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ 
+          error: "Invalid request", 
+          details: validation.error.errors 
+        });
+      }
+
+      const { tempToken, otpCode } = validation.data;
+      
+      let tempPayload;
+      try {
+        tempPayload = authHelpers.verifyTempToken(tempToken);
+      } catch (error) {
+        return res.status(401).json({ error: "Invalid or expired token" });
+      }
+
+      const user = await storage.getUserById(tempPayload.userId);
+      if (!user) {
+        return res.status(401).json({ error: "User not found" });
+      }
+
+      let isValid = false;
+      
+      if (user.twoFactorMethod === 'totp' && user.totpSecret) {
+        isValid = authHelpers.verifyTOTP(otpCode, user.totpSecret);
+      } else {
+        isValid = await storage.verifyOTP(user.id, otpCode);
+      }
+
+      if (!isValid) {
+        await storage.incrementLoginAttempts(user.id);
+        return res.status(401).json({ error: "Invalid OTP code" });
+      }
+
+      await storage.clearOTP(user.id);
+      await storage.resetLoginAttempts(user.id);
+      await storage.updateUser(user.id, { lastLogin: new Date().toISOString() });
+      
+      const accessToken = authHelpers.generateAccessToken(user);
+      
+      const response: VerifyOTPResponse = {
+        accessToken,
+        user,
+      };
+      
+      res.json(response);
+    } catch (error) {
+      console.error('OTP verification error:', error);
+      res.status(500).json({ error: "OTP verification failed" });
+    }
+  });
+
+  app.post("/api/auth/resend-otp", async (req, res) => {
+    try {
+      const validation = resendOTPRequestSchema.safeParse(req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ 
+          error: "Invalid request", 
+          details: validation.error.errors 
+        });
+      }
+
+      const { tempToken } = validation.data;
+      
+      let tempPayload;
+      try {
+        tempPayload = authHelpers.verifyTempToken(tempToken);
+      } catch (error) {
+        return res.status(401).json({ error: "Invalid or expired token" });
+      }
+
+      const user = await storage.getUserById(tempPayload.userId);
+      if (!user) {
+        return res.status(401).json({ error: "User not found" });
+      }
+
+      const otp = authHelpers.generateEmailOTP();
+      const expiresAt = new Date(Date.now() + 3 * 60 * 1000);
+      
+      await storage.storeOTP(user.id, otp, expiresAt);
+      await sendOTPEmail(user.email, otp);
+      
+      const response: ResendOTPResponse = {
+        success: true,
+        message: "OTP sent successfully",
+      };
+      
+      res.json(response);
+    } catch (error) {
+      console.error('Resend OTP error:', error);
+      res.status(500).json({ error: "Failed to resend OTP" });
     }
   });
 

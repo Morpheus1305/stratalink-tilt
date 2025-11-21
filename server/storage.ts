@@ -12,7 +12,8 @@ import type {
   TimeSeriesPoint,
   PortfolioData,
   AlertsData,
-  ScorecardData
+  ScorecardData,
+  User
 } from "@shared/schema";
 import { web3DataService } from "./apiClients";
 
@@ -23,10 +24,28 @@ export interface IStorage {
   getPortfolioData(): Promise<PortfolioData>;
   getAlertsData(asset?: string): Promise<AlertsData>;
   getScorecardData(metricType: 'tokenomics' | 'liquidity'): Promise<ScorecardData>;
+  
+  // Authentication methods
+  getUserByEmail(email: string): Promise<User | null>;
+  getUserById(id: string): Promise<User | null>;
+  createUser(user: Omit<User, 'id' | 'createdAt'>): Promise<User>;
+  updateUser(id: string, updates: Partial<User>): Promise<User>;
+  storeOTP(userId: string, otp: string, expiresAt: Date): Promise<void>;
+  verifyOTP(userId: string, otp: string): Promise<boolean>;
+  clearOTP(userId: string): Promise<void>;
+  incrementLoginAttempts(userId: string): Promise<number>;
+  resetLoginAttempts(userId: string): Promise<void>;
+  isUserLocked(userId: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
   private useLiveData: boolean = true;
+  
+  // Authentication storage
+  private users: Map<string, User> = new Map();
+  private usersByEmail: Map<string, string> = new Map();
+  private otpStore: Map<string, { otp: string; expiresAt: Date }> = new Map();
+  private loginAttempts: Map<string, { count: number; lockedUntil?: Date }> = new Map();
   
   private async fetchLiveMetrics(asset: string = 'BTC'): Promise<LiveMetric[] | null> {
     if (!this.useLiveData) return null;
@@ -816,6 +835,96 @@ export class MemStorage implements IStorage {
         riskPercent: Math.round((riskCount / totalMetrics) * 100),
       },
     };
+  }
+
+  // ========================================
+  // Authentication Methods
+  // ========================================
+
+  async getUserByEmail(email: string): Promise<User | null> {
+    const userId = this.usersByEmail.get(email.toLowerCase());
+    if (!userId) return null;
+    return this.users.get(userId) || null;
+  }
+
+  async getUserById(id: string): Promise<User | null> {
+    return this.users.get(id) || null;
+  }
+
+  async createUser(user: Omit<User, 'id' | 'createdAt'>): Promise<User> {
+    const id = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const createdAt = new Date().toISOString();
+    
+    const newUser: User = {
+      ...user,
+      id,
+      createdAt,
+    };
+    
+    this.users.set(id, newUser);
+    this.usersByEmail.set(user.email.toLowerCase(), id);
+    
+    return newUser;
+  }
+
+  async updateUser(id: string, updates: Partial<User>): Promise<User> {
+    const user = this.users.get(id);
+    if (!user) {
+      throw new Error('User not found');
+    }
+    
+    const updatedUser = { ...user, ...updates };
+    this.users.set(id, updatedUser);
+    
+    return updatedUser;
+  }
+
+  async storeOTP(userId: string, otp: string, expiresAt: Date): Promise<void> {
+    this.otpStore.set(userId, { otp, expiresAt });
+  }
+
+  async verifyOTP(userId: string, otp: string): Promise<boolean> {
+    const stored = this.otpStore.get(userId);
+    if (!stored) return false;
+    
+    if (new Date() > stored.expiresAt) {
+      this.otpStore.delete(userId);
+      return false;
+    }
+    
+    return stored.otp === otp;
+  }
+
+  async clearOTP(userId: string): Promise<void> {
+    this.otpStore.delete(userId);
+  }
+
+  async incrementLoginAttempts(userId: string): Promise<number> {
+    const current = this.loginAttempts.get(userId) || { count: 0 };
+    current.count += 1;
+    
+    if (current.count >= 5) {
+      current.lockedUntil = new Date(Date.now() + 10 * 60 * 1000);
+    }
+    
+    this.loginAttempts.set(userId, current);
+    return current.count;
+  }
+
+  async resetLoginAttempts(userId: string): Promise<void> {
+    this.loginAttempts.delete(userId);
+  }
+
+  async isUserLocked(userId: string): Promise<boolean> {
+    const attempts = this.loginAttempts.get(userId);
+    if (!attempts || !attempts.lockedUntil) return false;
+    
+    if (new Date() > attempts.lockedUntil) {
+      this.loginAttempts.delete(userId);
+      return false;
+    }
+    
+    return true;
   }
 }
 
