@@ -38,6 +38,36 @@ A Bloomberg Terminal-style Web3 liquidity risk intelligence dashboard providing 
 - ✅ Implemented responsive layout with proper Bloomberg Terminal styling
 - ✅ Added comprehensive data-testid coverage for e2e testing
 - ✅ Backend API endpoint `/api/trends/:timeframe` with realistic mock data generation
+
+### Phase 4: Portfolio, Alerts, and Scorecard Pages (Completed - Nov 21, 2025)
+- ✅ **Portfolio Risk Assessment Page** (`/platform/portfolio`):
+  - Multi-token comparison table with 6 tokens (SOL, USDC, USDT, JTO, JUP, BONK)
+  - Portfolio PoLi Score display with summary cards (Healthy/Warning/Critical assets)
+  - PoLi Score Comparison bar chart (yellow bars showing scores 0-100)
+  - Multi-dimensional Analysis radar chart (3 tokens across 5 dimensions)
+  - Action buttons per token (MONITOR, REVIEW, CRITICAL)
+  
+- ✅ **Alerts & Stress Signals Page** (`/platform/alerts`):
+  - Real-time Risk Indicators table with 6 indicators and color-coded RAS dots (high/medium/low)
+  - Active Warning Capacity and Critical Assets summary cards
+  - Alert Timeline stacked area chart (critical/warning/info over time)
+  - Alert Log table with Time (UTC), Alert Type, Severity badges, Description, Status
+  - Filter controls (CRITICAL) and Export functionality (CSV/PDF)
+  
+- ✅ **Token Scorecard Page** (`/platform/scorecard`):
+  - Tabbed interface: Tokenomics Metrics (13) vs Liquidity Metrics (42)
+  - Dynamic data fetching with React Query cache invalidation on tab switch
+  - Comprehensive metrics tables with Metric, Value, Industry Benchmark, Status columns
+  - 42 liquidity metrics across 6 categories: Core Depth (10), Spread (8), Volume (8), Order Book Quality (6), Slippage & Execution (5), Risk & Resilience (5)
+  - Summary cards showing GOOD/CAUTION/RISK distribution with percentages
+  - CSV and PDF export buttons
+  
+- ✅ Backend API endpoints:
+  - `GET /api/portfolio` - Portfolio risk data with tokens, charts, summary
+  - `GET /api/alerts` - Real-time indicators, timeline, alert log
+  - `GET /api/scorecard?type=tokenomics|liquidity` - Metrics tables and summaries
+  
+- ✅ E2E testing: All 25 navigation/interaction tests passed, tab switching verified
 - 📋 Next: WebSocket streaming for live updates, multi-asset comparison
 
 ## Project Architecture
@@ -53,9 +83,9 @@ A Bloomberg Terminal-style Web3 liquidity risk intelligence dashboard providing 
 - `/` - Landing page with hero and live metrics preview
 - `/platform` - Main dashboard (Overview tab) with full analytics
 - `/platform/trends` - Historical Trends page with time-series charts
-- `/platform/portfolio` - (Coming soon)
-- `/platform/alerts` - (Coming soon)
-- `/platform/scorecard` - (Coming soon)
+- `/platform/portfolio` - Portfolio Risk Assessment with multi-token comparison
+- `/platform/alerts` - Alerts & Stress Signals with timeline and log
+- `/platform/scorecard` - Token Scorecard with tokenomics and liquidity metrics
 
 **Component Structure**:
 ```
@@ -76,6 +106,9 @@ pages/
 ├── landing.tsx               # Landing page
 ├── dashboard.tsx             # Main overview dashboard
 ├── trends.tsx                # Historical trends with time-series charts
+├── portfolio.tsx             # Portfolio risk assessment
+├── alerts.tsx                # Alerts and stress signals
+├── scorecard.tsx             # Token scorecard with metrics
 └── not-found.tsx             # 404 page
 ```
 
@@ -86,12 +119,18 @@ pages/
 - `GET /api/dashboard` - Complete dashboard snapshot (auto-refresh: 10s)
 - `GET /api/time-series/:timeframe` - Historical data (1H, 4H, 1D, 1W, 1M) for dual-line chart
 - `GET /api/trends/:timeframe` - Historical trends data (1D, 7D, 1M, 3M, 1Y) for three separate charts
+- `GET /api/portfolio` - Portfolio risk data with 6 tokens, comparison charts, summary cards
+- `GET /api/alerts` - Real-time risk indicators, alert timeline, alert log with severity
+- `GET /api/scorecard?type=tokenomics|liquidity` - Tokenomics (13) or Liquidity (42) metrics
 
 ### Shared (`shared/`)
 **Type Definitions**: Zod schemas for all data structures
 - `DashboardData` - Complete dashboard state
 - `TimeSeriesData` - Historical liquidity trends (dual-metric)
 - `TrendsData` - Multi-chart historical trends (PoLi score, depth, volatility)
+- `PortfolioData` - Multi-token risk assessment with charts and summaries
+- `AlertsData` - Real-time indicators, timeline, alert log
+- `ScorecardData` - Tokenomics and liquidity metrics with status tracking
 - `LiveMetric`, `LiquidityScore`, `StressSignal`, `KeyMetric`, `TickerItem`, etc.
 
 ## Design System
