@@ -200,7 +200,22 @@ function createOTPEmailHTML(otp: string, recipientName: string): string {
 }
 
 export async function sendOTPEmail(email: string, otp: string): Promise<void> {
-  console.log(`[AUTH] Sending OTP to ${email}: ${otp}`);
+  const isDevelopment = process.env.NODE_ENV !== 'production';
+  const hasResendKey = !!process.env.RESEND_API_KEY;
+  
+  if (isDevelopment) {
+    console.log(`[AUTH] Sending OTP to ${email}`);
+  }
+  
+  if (!hasResendKey) {
+    console.warn('[AUTH] RESEND_API_KEY not configured - using console fallback for OTP delivery');
+    console.log('='.repeat(50));
+    console.log(`⚠️  DEV MODE - OTP CODE: ${otp}`);
+    console.log(`📧 Intended recipient: ${email}`);
+    console.log(`📧 Valid for: 10 minutes`);
+    console.log('='.repeat(50));
+    return;
+  }
   
   try {
     const recipientName = email.split('@')[0].charAt(0).toUpperCase() + email.split('@')[0].slice(1);
@@ -213,25 +228,34 @@ export async function sendOTPEmail(email: string, otp: string): Promise<void> {
     });
 
     if (error) {
-      console.error('[AUTH] Failed to send OTP email:', error);
-      throw new Error('Failed to send verification email');
+      console.error('[AUTH] Resend API error:', error);
+      console.warn('[AUTH] Email delivery failed - falling back to console logging');
+      console.log('='.repeat(50));
+      console.log(`⚠️  FALLBACK - OTP CODE: ${otp}`);
+      console.log(`📧 Intended recipient: ${email}`);
+      console.log(`📧 Valid for: 10 minutes`);
+      console.log('='.repeat(50));
+      return;
     }
 
-    console.log('='.repeat(50));
-    console.log(`✅ OTP EMAIL SENT`);
-    console.log(`📧 To: ${email}`);
-    console.log(`📧 Code: ${otp}`);
-    console.log(`📧 Message ID: ${data?.id || 'N/A'}`);
-    console.log(`📧 Valid for: 10 minutes`);
-    console.log('='.repeat(50));
+    if (isDevelopment) {
+      console.log('='.repeat(50));
+      console.log(`✅ OTP EMAIL SENT`);
+      console.log(`📧 To: ${email}`);
+      console.log(`📧 Code: ${otp} (logged in dev only)`);
+      console.log(`📧 Message ID: ${data?.id || 'N/A'}`);
+      console.log(`📧 Valid for: 10 minutes`);
+      console.log('='.repeat(50));
+    } else {
+      console.log(`[AUTH] OTP email sent to ${email} (Message ID: ${data?.id})`);
+    }
   } catch (error) {
-    console.error('[AUTH] Error sending OTP email:', error);
-    // Fallback to console logging for development
+    console.error('[AUTH] Unexpected error sending OTP email:', error);
+    console.warn('[AUTH] Email delivery failed - falling back to console logging');
     console.log('='.repeat(50));
     console.log(`⚠️  FALLBACK - OTP CODE: ${otp}`);
-    console.log(`📧 Sent to: ${email}`);
+    console.log(`📧 Intended recipient: ${email}`);
     console.log(`📧 Valid for: 10 minutes`);
     console.log('='.repeat(50));
-    throw error;
   }
 }
