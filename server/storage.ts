@@ -744,11 +744,59 @@ export class MemStorage implements IStorage {
     ];
 
     const liquidityMetrics = [
+      // Core Depth Metrics (10)
       { metric: 'Market Depth', description: 'Total liquidity available within 2% of mid price', value: '$42.5M', industryBenchmark: '> $20M', status: 'GOOD' as const },
+      { metric: 'Bid-Side Depth', description: 'Liquidity available on bid side within 2%', value: '$21.8M', industryBenchmark: '> $10M', status: 'GOOD' as const },
+      { metric: 'Ask-Side Depth', description: 'Liquidity available on ask side within 2%', value: '$20.7M', industryBenchmark: '> $10M', status: 'GOOD' as const },
+      { metric: 'Depth Imbalance Ratio', description: 'Ratio between bid and ask side depth', value: '1.05:1', industryBenchmark: '0.9-1.1', status: 'GOOD' as const },
+      { metric: 'Top 5 Levels Depth', description: 'Total liquidity in top 5 order book levels', value: '$18.2M', industryBenchmark: '> $8M', status: 'GOOD' as const },
+      { metric: 'Depth at 1% Price Move', description: 'Available liquidity within 1% of mid', value: '$28.3M', industryBenchmark: '> $12M', status: 'GOOD' as const },
+      { metric: 'Depth at 5% Price Move', description: 'Available liquidity within 5% of mid', value: '$78.5M', industryBenchmark: '> $40M', status: 'GOOD' as const },
+      { metric: 'Depth Concentration (Top 10%)', description: 'Percentage of depth in top 10% of orders', value: '42%', industryBenchmark: '< 60%', status: 'GOOD' as const },
+      { metric: 'Cumulative Depth Score', description: 'Overall depth quality across price levels', value: '87/100', industryBenchmark: '> 75', status: 'GOOD' as const },
+      { metric: 'Depth Stability (24H)', description: 'Standard deviation of depth over 24 hours', value: '6.2%', industryBenchmark: '< 15%', status: 'GOOD' as const },
+      
+      // Spread Metrics (8)
       { metric: 'Bid-Ask Spread', description: 'Difference between best bid and ask price', value: '0.08%', industryBenchmark: '< 0.15%', status: 'GOOD' as const },
-      { metric: 'Order Book Density', description: 'Distribution of orders across price levels', value: 'High', industryBenchmark: 'Medium-High', status: 'GOOD' as const },
-      { metric: 'Volume Concentration', description: 'Distribution of volume across exchanges', value: 'Moderate', industryBenchmark: 'Low-Moderate', status: 'GOOD' as const },
+      { metric: 'Effective Spread', description: 'Actual cost of execution including slippage', value: '0.12%', industryBenchmark: '< 0.25%', status: 'GOOD' as const },
+      { metric: 'Quoted Spread', description: 'Posted spread at best bid/ask', value: '0.08%', industryBenchmark: '< 0.15%', status: 'GOOD' as const },
+      { metric: 'Realized Spread', description: 'Post-trade spread measurement', value: '0.09%', industryBenchmark: '< 0.20%', status: 'GOOD' as const },
+      { metric: 'Relative Spread', description: 'Spread as percentage of mid price', value: '0.08%', industryBenchmark: '< 0.15%', status: 'GOOD' as const },
+      { metric: 'Spread Volatility (1H)', description: 'Variation in spread over last hour', value: '0.02%', industryBenchmark: '< 0.05%', status: 'GOOD' as const },
+      { metric: 'Weighted Average Spread', description: 'Volume-weighted spread across exchanges', value: '0.11%', industryBenchmark: '< 0.20%', status: 'GOOD' as const },
+      { metric: 'Spread Tightness Score', description: 'Overall spread quality metric', value: '92/100', industryBenchmark: '> 80', status: 'GOOD' as const },
+      
+      // Volume Metrics (8)
       { metric: '24H Trading Volume', description: 'Total trading volume in last 24 hours', value: '$1.2B', industryBenchmark: '> $500M', status: 'GOOD' as const },
+      { metric: '7D Average Volume', description: 'Average daily volume over 7 days', value: '$980M', industryBenchmark: '> $400M', status: 'GOOD' as const },
+      { metric: 'Volume Concentration', description: 'Distribution of volume across exchanges', value: 'Moderate', industryBenchmark: 'Low-Moderate', status: 'GOOD' as const },
+      { metric: 'Top Exchange Volume Share', description: 'Percentage of volume on largest exchange', value: '28%', industryBenchmark: '< 40%', status: 'GOOD' as const },
+      { metric: 'Volume-to-Market Cap Ratio', description: 'Trading volume relative to market cap', value: '12.3%', industryBenchmark: '5-20%', status: 'GOOD' as const },
+      { metric: 'Organic Volume %', description: 'Estimated real trading vs wash trading', value: '94%', industryBenchmark: '> 85%', status: 'GOOD' as const },
+      { metric: 'Volume Trend (7D)', description: 'Change in volume over past week', value: '+8.5%', industryBenchmark: 'Stable/-10%', status: 'GOOD' as const },
+      { metric: 'Peak-to-Trough Volume Ratio', description: 'Ratio between highest and lowest hourly volume', value: '3.2x', industryBenchmark: '< 5x', status: 'GOOD' as const },
+      
+      // Order Book Quality (6)
+      { metric: 'Order Book Density', description: 'Distribution of orders across price levels', value: 'High', industryBenchmark: 'Medium-High', status: 'GOOD' as const },
+      { metric: 'Order Book Skewness', description: 'Asymmetry in bid vs ask orders', value: '0.12', industryBenchmark: '< 0.30', status: 'GOOD' as const },
+      { metric: 'Large Order Frequency', description: 'Rate of orders > $100k appearing', value: '18/hour', industryBenchmark: '> 10/hour', status: 'GOOD' as const },
+      { metric: 'Order Cancellation Rate', description: 'Percentage of orders cancelled vs filled', value: '24%', industryBenchmark: '< 35%', status: 'GOOD' as const },
+      { metric: 'Average Order Size', description: 'Mean order size across exchanges', value: '$8,450', industryBenchmark: '> $5,000', status: 'GOOD' as const },
+      { metric: 'Order Book Update Frequency', description: 'Rate of order book changes per second', value: '42/sec', industryBenchmark: '> 20/sec', status: 'GOOD' as const },
+      
+      // Slippage & Execution (5)
+      { metric: 'Slippage (1% Depth)', description: 'Price impact for 1% of daily volume', value: '0.15%', industryBenchmark: '< 0.30%', status: 'GOOD' as const },
+      { metric: 'Slippage (5% Depth)', description: 'Price impact for 5% of daily volume', value: '0.68%', industryBenchmark: '< 1.0%', status: 'GOOD' as const },
+      { metric: 'Market Impact Score', description: 'Ease of executing large orders', value: '84/100', industryBenchmark: '> 70', status: 'GOOD' as const },
+      { metric: 'Fill Rate', description: 'Percentage of orders filled at posted price', value: '96.5%', industryBenchmark: '> 90%', status: 'GOOD' as const },
+      { metric: 'Average Fill Time', description: 'Time to complete order execution', value: '2.3s', industryBenchmark: '< 5s', status: 'GOOD' as const },
+      
+      // Risk & Resilience (5)
+      { metric: 'Liquidity Recovery Time', description: 'Time to restore depth after large trade', value: '45s', industryBenchmark: '< 90s', status: 'GOOD' as const },
+      { metric: 'Flash Crash Resistance', description: 'Resilience to sudden price movements', value: 'High', industryBenchmark: 'Medium-High', status: 'GOOD' as const },
+      { metric: 'Whale Order Absorption', description: 'Capacity to handle $10M+ orders', value: '94%', industryBenchmark: '> 80%', status: 'GOOD' as const },
+      { metric: 'Liquidity Fragmentation', description: 'Distribution across venues', value: 'Low', industryBenchmark: 'Low-Medium', status: 'GOOD' as const },
+      { metric: 'Stress Test Score', description: 'Performance under simulated stress', value: '88/100', industryBenchmark: '> 75', status: 'GOOD' as const },
     ];
 
     const totalMetrics = tokenomicsMetrics.length + liquidityMetrics.length;

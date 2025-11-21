@@ -20,7 +20,14 @@ export default function Scorecard() {
   });
 
   const { data: scorecardData, isLoading: scorecardLoading } = useQuery<ScorecardData>({
-    queryKey: ['/api/scorecard'],
+    queryKey: ['/api/scorecard', activeTab],
+    queryFn: async () => {
+      const response = await fetch(`/api/scorecard?type=${activeTab}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch scorecard data');
+      }
+      return response.json();
+    },
     refetchInterval: 30000,
   });
 
