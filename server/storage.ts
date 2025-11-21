@@ -15,6 +15,9 @@ import type {
   ScorecardData,
   User
 } from "@shared/schema";
+import { users, otpCodes, loginAttempts } from "@shared/schema";
+import { db } from "./db";
+import { eq, and, lt } from "drizzle-orm";
 import { web3DataService } from "./apiClients";
 
 export interface IStorage {
@@ -40,12 +43,6 @@ export interface IStorage {
 
 export class MemStorage implements IStorage {
   private useLiveData: boolean = true;
-  
-  // Authentication storage
-  private users: Map<string, User> = new Map();
-  private usersByEmail: Map<string, string> = new Map();
-  private otpStore: Map<string, { otp: string; expiresAt: Date }> = new Map();
-  private loginAttempts: Map<string, { count: number; lockedUntil?: Date }> = new Map();
   
   private async fetchLiveMetrics(asset: string = 'BTC'): Promise<LiveMetric[] | null> {
     if (!this.useLiveData) return null;
@@ -842,53 +839,117 @@ export class MemStorage implements IStorage {
   // ========================================
 
   async getUserByEmail(email: string): Promise<User | null> {
-    const userId = this.usersByEmail.get(email.toLowerCase());
-    if (!userId) return null;
-    return this.users.get(userId) || null;
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, email.toLowerCase()))
+      .limit(1);
+    
+    if (!user) return null;
+    
+    return {
+      ...user,
+      twoFactorMethod: user.twoFactorMethod as 'email' | 'totp' | null,
+      createdAt: user.createdAt.toISOString(),
+      lastLogin: user.lastLogin ? user.lastLogin.toISOString() : null,
+    };
   }
 
   async getUserById(id: string): Promise<User | null> {
-    return this.users.get(id) || null;
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, id))
+      .limit(1);
+    
+    if (!user) return null;
+    
+    return {
+      ...user,
+      twoFactorMethod: user.twoFactorMethod as 'email' | 'totp' | null,
+      createdAt: user.createdAt.toISOString(),
+      lastLogin: user.lastLogin ? user.lastLogin.toISOString() : null,
+    };
   }
 
   async createUser(user: Omit<User, 'id' | 'createdAt'>): Promise<User> {
     const id = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const createdAt = new Date().toISOString();
     
-    const newUser: User = {
-      ...user,
-      id,
-      createdAt,
+    const [newUser] = await db
+      .insert(users)
+      .values({
+        id,
+        email: user.email,
+        passwordHash: user.passwordHash,
+        name: user.name,
+        role: user.role,
+        twoFactorEnabled: user.twoFactorEnabled,
+        twoFactorMethod: user.twoFactorMethod,
+        totpSecret: user.totpSecret,
+        backupCodes: user.backupCodes,
+      })
+      .returning();
+    
+    return {
+      ...newUser,
+      twoFactorMethod: newUser.twoFactorMethod as 'email' | 'totp' | null,
+      createdAt: newUser.createdAt.toISOString(),
+      lastLogin: newUser.lastLogin ? newUser.lastLogin.toISOString() : null,
     };
-    
-    this.users.set(id, newUser);
-    this.usersByEmail.set(user.email.toLowerCase(), id);
-    
-    return newUser;
   }
 
   async updateUser(id: string, updates: Partial<User>): Promise<User> {
-    const user = this.users.get(id);
-    if (!user) {
+    const updateData: any = {};
+    
+    if (updates.email !== undefined) updateData.email = updates.email;
+    if (updates.passwordHash !== undefined) updateData.passwordHash = updates.passwordHash;
+    if (updates.name !== undefined) updateData.name = updates.name;
+    if (updates.role !== undefined) updateData.role = updates.role;
+    if (updates.twoFactorEnabled !== undefined) updateData.twoFactorEnabled = updates.twoFactorEnabled;
+    if (updates.twoFactorMethod !== undefined) updateData.twoFactorMethod = updates.twoFactorMethod;
+    if (updates.totpSecret !== undefined) updateData.totpSecret = updates.totpSecret;
+    if (updates.backupCodes !== undefined) updateData.backupCodes = updates.backupCodes;
+    if (updates.lastLogin !== undefined) updateData.lastLogin = new Date(updates.lastLogin);
+    
+    const [updatedUser] = await db
+      .update(users)
+      .set(updateData)
+      .where(eq(users.id, id))
+      .returning();
+    
+    if (!updatedUser) {
       throw new Error('User not found');
     }
     
-    const updatedUser = { ...user, ...updates };
-    this.users.set(id, updatedUser);
-    
-    return updatedUser;
+    return {
+      ...updatedUser,
+      twoFactorMethod: updatedUser.twoFactorMethod as 'email' | 'totp' | null,
+      createdAt: updatedUser.createdAt.toISOString(),
+      lastLogin: updatedUser.lastLogin ? updatedUser.lastLogin.toISOString() : null,
+    };
   }
 
   async storeOTP(userId: string, otp: string, expiresAt: Date): Promise<void> {
-    this.otpStore.set(userId, { otp, expiresAt });
+    await db.delete(otpCodes).where(eq(otpCodes.userId, userId));
+    
+    await db.insert(otpCodes).values({
+      userId,
+      otp,
+      expiresAt,
+    });
   }
 
   async verifyOTP(userId: string, otp: string): Promise<boolean> {
-    const stored = this.otpStore.get(userId);
+    const [stored] = await db
+      .select()
+      .from(otpCodes)
+      .where(eq(otpCodes.userId, userId))
+      .limit(1);
+    
     if (!stored) return false;
     
     if (new Date() > stored.expiresAt) {
-      this.otpStore.delete(userId);
+      await db.delete(otpCodes).where(eq(otpCodes.userId, userId));
       return false;
     }
     
@@ -896,31 +957,59 @@ export class MemStorage implements IStorage {
   }
 
   async clearOTP(userId: string): Promise<void> {
-    this.otpStore.delete(userId);
+    await db.delete(otpCodes).where(eq(otpCodes.userId, userId));
   }
 
   async incrementLoginAttempts(userId: string): Promise<number> {
-    const current = this.loginAttempts.get(userId) || { count: 0 };
-    current.count += 1;
+    const [existing] = await db
+      .select()
+      .from(loginAttempts)
+      .where(eq(loginAttempts.userId, userId))
+      .limit(1);
     
-    if (current.count >= 5) {
-      current.lockedUntil = new Date(Date.now() + 10 * 60 * 1000);
+    let newCount = 1;
+    let lockedUntil = null;
+    
+    if (existing) {
+      newCount = parseInt(existing.count) + 1;
+      if (newCount >= 5) {
+        lockedUntil = new Date(Date.now() + 10 * 60 * 1000);
+      }
+      
+      await db
+        .update(loginAttempts)
+        .set({ 
+          count: newCount.toString(),
+          lockedUntil,
+          updatedAt: new Date(),
+        })
+        .where(eq(loginAttempts.userId, userId));
+    } else {
+      await db.insert(loginAttempts).values({
+        userId,
+        count: newCount.toString(),
+        lockedUntil: null,
+      });
     }
     
-    this.loginAttempts.set(userId, current);
-    return current.count;
+    return newCount;
   }
 
   async resetLoginAttempts(userId: string): Promise<void> {
-    this.loginAttempts.delete(userId);
+    await db.delete(loginAttempts).where(eq(loginAttempts.userId, userId));
   }
 
   async isUserLocked(userId: string): Promise<boolean> {
-    const attempts = this.loginAttempts.get(userId);
-    if (!attempts || !attempts.lockedUntil) return false;
+    const [attempt] = await db
+      .select()
+      .from(loginAttempts)
+      .where(eq(loginAttempts.userId, userId))
+      .limit(1);
     
-    if (new Date() > attempts.lockedUntil) {
-      this.loginAttempts.delete(userId);
+    if (!attempt || !attempt.lockedUntil) return false;
+    
+    if (new Date() > attempt.lockedUntil) {
+      await db.delete(loginAttempts).where(eq(loginAttempts.userId, userId));
       return false;
     }
     

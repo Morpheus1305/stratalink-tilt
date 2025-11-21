@@ -122,8 +122,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const passwordHash = await storage.getUserById(user.id);
-      if (!passwordHash) {
+      const isPasswordValid = await authHelpers.verifyPassword(password, user.passwordHash);
+      if (!isPasswordValid) {
+        await storage.incrementLoginAttempts(user.id);
         return res.status(401).json({ error: "Invalid credentials" });
       }
 

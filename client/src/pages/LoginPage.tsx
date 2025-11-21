@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
+import { useAuth } from '@/contexts/AuthContext';
 import { Shield, ArrowRight } from 'lucide-react';
 import type { LoginRequest, LoginResponse } from '@shared/schema';
 
@@ -22,6 +23,7 @@ type LoginFormData = z.infer<typeof loginSchema>;
 export default function LoginPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { login } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<LoginFormData>({
@@ -44,9 +46,7 @@ export default function LoginPage() {
         localStorage.setItem('stratalink_temp_email', data.email);
         setLocation('/verify-otp');
       } else {
-        const { useAuth } = await import('@/contexts/AuthContext');
-        const auth = useAuth();
-        auth.login(response.accessToken!, response.user!);
+        login(response.accessToken!, response.user!);
         
         toast({
           title: 'Login successful',

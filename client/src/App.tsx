@@ -10,17 +10,53 @@ import Trends from "@/pages/trends";
 import Portfolio from "@/pages/portfolio";
 import Alerts from "@/pages/alerts";
 import Scorecard from "@/pages/scorecard";
+import LoginPage from "@/pages/LoginPage";
+import VerifyOTPPage from "@/pages/VerifyOTPPage";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { RequireAuth } from "@/components/RequireAuth";
 import { useEffect, useState } from "react";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Landing} />
-      <Route path="/platform" component={Dashboard} />
-      <Route path="/platform/trends" component={Trends} />
-      <Route path="/platform/portfolio" component={Portfolio} />
-      <Route path="/platform/alerts" component={Alerts} />
-      <Route path="/platform/scorecard" component={Scorecard} />
+      <Route path="/login" component={LoginPage} />
+      <Route path="/verify-otp" component={VerifyOTPPage} />
+      <Route path="/platform">
+        {() => (
+          <RequireAuth>
+            <Dashboard />
+          </RequireAuth>
+        )}
+      </Route>
+      <Route path="/platform/trends">
+        {() => (
+          <RequireAuth>
+            <Trends />
+          </RequireAuth>
+        )}
+      </Route>
+      <Route path="/platform/portfolio">
+        {() => (
+          <RequireAuth>
+            <Portfolio />
+          </RequireAuth>
+        )}
+      </Route>
+      <Route path="/platform/alerts">
+        {() => (
+          <RequireAuth>
+            <Alerts />
+          </RequireAuth>
+        )}
+      </Route>
+      <Route path="/platform/scorecard">
+        {() => (
+          <RequireAuth>
+            <Scorecard />
+          </RequireAuth>
+        )}
+      </Route>
       <Route component={NotFound} />
     </Switch>
   );
@@ -43,10 +79,12 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Router />
-      </TooltipProvider>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Router />
+        </TooltipProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

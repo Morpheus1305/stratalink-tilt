@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { pgTable, varchar, boolean, text, timestamp } from "drizzle-orm/pg-core";
+import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 
 // Live Market Data Metrics
 export const liveMetricSchema = z.object({
@@ -257,19 +259,58 @@ export const scorecardDataSchema = z.object({
 export type ScorecardData = z.infer<typeof scorecardDataSchema>;
 
 // ========================================
+// Database Tables (Drizzle ORM)
+// ========================================
+
+export const users = pgTable("users", {
+  id: varchar("id").primaryKey(),
+  email: varchar("email", { length: 255 }).notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  role: varchar("role", { length: 50 }).notNull().default('viewer'),
+  twoFactorEnabled: boolean("two_factor_enabled").notNull().default(false),
+  twoFactorMethod: varchar("two_factor_method", { length: 20 }),
+  totpSecret: text("totp_secret"),
+  backupCodes: text("backup_codes").array(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  lastLogin: timestamp("last_login"),
+});
+
+export const otpCodes = pgTable("otp_codes", {
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }).primaryKey(),
+  otp: varchar("otp", { length: 10 }).notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const loginAttempts = pgTable("login_attempts", {
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }).primaryKey(),
+  count: varchar("count", { length: 10 }).notNull().default('0'),
+  lockedUntil: timestamp("locked_until"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertUserSchema = createInsertSchema(users);
+export const selectUserSchema = createSelectSchema(users);
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type SelectUser = z.infer<typeof selectUserSchema>;
+
+// ========================================
 // Authentication & User Management Schemas
 // ========================================
 
 export const userSchema = z.object({
   id: z.string(),
   email: z.string().email(),
+  passwordHash: z.string(),
   name: z.string(),
   role: z.enum(['admin', 'analyst', 'viewer']),
   twoFactorEnabled: z.boolean(),
-  twoFactorMethod: z.enum(['email', 'totp']).optional(),
-  totpSecret: z.string().optional(),
+  twoFactorMethod: z.enum(['email', 'totp']).nullable(),
+  totpSecret: z.string().nullable(),
+  backupCodes: z.array(z.string()),
   createdAt: z.string(),
-  lastLogin: z.string().optional(),
+  lastLogin: z.string().nullable(),
 });
 
 export type User = z.infer<typeof userSchema>;
