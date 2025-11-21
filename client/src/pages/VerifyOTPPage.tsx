@@ -22,7 +22,7 @@ type OTPFormData = z.infer<typeof otpSchema>;
 export default function VerifyOTPPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const { login } = useAuth();
+  const { login, isAuthenticated, isLoading: authLoading } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [countdown, setCountdown] = useState(180);
@@ -39,6 +39,11 @@ export default function VerifyOTPPage() {
   });
 
   useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      setLocation('/platform');
+      return;
+    }
+    
     if (!tempToken || !tempEmail) {
       setLocation('/login');
       return;
@@ -56,7 +61,7 @@ export default function VerifyOTPPage() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [tempToken, tempEmail, setLocation]);
+  }, [tempToken, tempEmail, setLocation, isAuthenticated, authLoading]);
 
   const onSubmit = async (data: OTPFormData) => {
     if (!tempToken) {

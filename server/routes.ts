@@ -12,6 +12,33 @@ import {
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Validate session (check if JWT is valid and not expired)
+  app.get("/api/auth/session", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: "No token provided" });
+      }
+
+      const token = authHeader.substring(7);
+      const decoded = authHelpers.verifyAccessToken(token);
+      
+      if (!decoded) {
+        return res.status(401).json({ error: "Invalid token" });
+      }
+
+      const user = await storage.getUserById(decoded.userId);
+      if (!user) {
+        return res.status(401).json({ error: "User not found" });
+      }
+
+      res.json({ user: sanitizeUser(user), valid: true });
+    } catch (error) {
+      console.error('Session validation error:', error);
+      res.status(401).json({ error: "Invalid session" });
+    }
+  });
+
   // Get dashboard data
   app.get("/api/dashboard", async (_req, res) => {
     try {
