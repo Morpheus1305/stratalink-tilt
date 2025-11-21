@@ -670,7 +670,7 @@ export class MemStorage implements IStorage {
         { indicator: 'Stablecoin Pool Drawdown', observedBehavior: 'BUSD/CE -$2B', ras: 'low' },
         { indicator: 'Cross-Margin Utilization', observedBehavior: 'BN:48%', ras: 'medium' },
         { indicator: 'Large Holder Rule', observedBehavior: 'TX:UTXO < 0.25x', ras: 'low' },
-        { indicator: 'ASL Trigger Count', observedBehavior: 'Multi-exchange', ras: 'low' },
+        { indicator: 'ADL Trigger Count', observedBehavior: 'Multi-exchange', ras: 'low' },
       ],
       activeWarningCapacity: '6-8 hours',
       criticalAssets: {
