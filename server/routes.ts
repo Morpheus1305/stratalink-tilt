@@ -155,29 +155,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Invalid credentials" });
       }
 
-      if (user.twoFactorEnabled) {
-        // Fixed OTP flow - no email sending required
-        const tempToken = authHelpers.generateTempToken(user.id, user.email);
-        
-        const response: LoginResponse = {
-          requires2FA: true,
-          tempToken,
-        };
-        
-        res.json(response);
-      } else {
-        const accessToken = authHelpers.generateAccessToken(user);
-        await storage.resetLoginAttempts(user.id);
-        await storage.updateUser(user.id, { lastLogin: new Date().toISOString() });
-        
-        const response: LoginResponse = {
-          requires2FA: false,
-          accessToken,
-          user: sanitizeUser(user),
-        };
-        
-        res.json(response);
-      }
+      // PROTOTYPE: Always enforce 2FA for all users (fixed OTP code)
+      // In production, this would check user.twoFactorEnabled
+      const tempToken = authHelpers.generateTempToken(user.id, user.email);
+      
+      const response: LoginResponse = {
+        requires2FA: true,
+        tempToken,
+      };
+      
+      console.log('[AUTH] Login successful, redirecting to 2FA verification');
+      res.json(response);
     } catch (error) {
       console.error('Login error:', error);
       res.status(500).json({ error: "Login failed" });

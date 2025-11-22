@@ -39,12 +39,15 @@ export default function VerifyOTPPage() {
   });
 
   useEffect(() => {
+    // Check authentication first (highest priority)
     if (!authLoading && isAuthenticated) {
       setLocation('/platform');
       return;
     }
     
-    if (!tempToken || !tempEmail) {
+    // Only check for temp tokens if not authenticated
+    // This prevents redirect to /login when tokens are cleared after successful auth
+    if (!authLoading && !isAuthenticated && (!tempToken || !tempEmail)) {
       setLocation('/login');
       return;
     }
@@ -61,7 +64,7 @@ export default function VerifyOTPPage() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [tempToken, tempEmail, setLocation, isAuthenticated, authLoading]);
+  }, [setLocation, isAuthenticated, authLoading, tempToken, tempEmail]);
 
   const onSubmit = async (data: OTPFormData) => {
     if (!tempToken) {
@@ -83,9 +86,11 @@ export default function VerifyOTPPage() {
       } as VerifyOTPRequest);
       const response = await res.json() as VerifyOTPResponse;
 
+      // Clean up temp credentials
       localStorage.removeItem('stratalink_temp_token');
       localStorage.removeItem('stratalink_temp_email');
       
+      // Update auth context - this will trigger the useEffect to redirect to /platform
       login(response.accessToken, response.user);
       
       toast({
@@ -93,7 +98,7 @@ export default function VerifyOTPPage() {
         description: 'Welcome to StrataLink Labs Terminal',
       });
       
-      setLocation('/platform');
+      // Note: Redirect handled by useEffect when isAuthenticated becomes true
     } catch (error: any) {
       toast({
         title: 'Verification failed',

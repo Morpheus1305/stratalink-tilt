@@ -164,23 +164,37 @@ The backend uses **Express.js** with in-memory storage (**MemStorage**). It prov
   - Backend validates fixed code "029130" for all users
   - Development bypass "000000" still available in non-production
   
+- ✅ **2FA Always Enforced**:
+  - **CRITICAL**: 2FA is now mandatory for ALL users regardless of user.twoFactorEnabled flag
+  - Backend login endpoint ALWAYS returns `requires2FA: true` (prototype mode)
+  - Every login attempt redirects to /verify-otp screen (no bypassing)
+  - Users must enter fixed code "029130" to access platform
+  
 - ✅ **Login Flow Enforcement**:
   - Landing page CTAs ("ENTER PLATFORM", "PLATFORM" nav) always route to /login
-  - Removed auto-redirect from LoginPage for authenticated users
   - All users must complete login flow, even with cached sessions
   - Prevents bypassing authentication via hero page links
   
-- ✅ **2FA Flow Changes**:
-  - Login → 2FA screen (always enforced)
-  - Fixed code "029130" shown on screen (no email required)
-  - Invalid codes rejected with error message
-  - Correct code authenticates → redirects to /platform
+- ✅ **2FA Flow (Complete)**:
+  - Login with credentials → Backend validates → Redirects to /verify-otp
+  - Fixed code "029130" displayed in yellow/gold highlighted box
+  - Enter "029130" → Backend validates → Returns accessToken
+  - Frontend updates auth context → **Auto-redirects to /platform**
+  - Invalid codes → Error toast → Stays on /verify-otp
   - Resend OTP shows message: "Use the fixed verification code: 029130"
   
+- ✅ **Redirect Fix**:
+  - Fixed race condition where successful OTP verification redirected to /login instead of /platform
+  - useEffect now checks isAuthenticated BEFORE checking tempToken
+  - Removed manual redirect from onSubmit handler (useEffect handles all redirects)
+  - Ensures authenticated users always redirect to /platform
+  
 - ✅ **E2E Testing**: Complete authentication flow validated
-  - Login with demo credentials works
-  - 2FA screen displays fixed code "029130"
-  - Code validation accepts "029130" and rejects invalid codes
-  - Dev bypass "000000" still functional
-  - All routing and redirects working correctly
-  - Hero page links enforce login (no bypass)
+  - Login with demo credentials → Redirects to /verify-otp ✓
+  - 2FA screen displays fixed code "029130" ✓
+  - Code validation accepts "029130" and rejects invalid codes ✓
+  - Successful OTP verification → **Redirects to /platform** ✓
+  - Dashboard loads with LIVE indicator ✓
+  - Access token stored in localStorage ✓
+  - Dev bypass "000000" still functional ✓
+  - All routing and redirects working correctly ✓
