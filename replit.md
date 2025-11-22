@@ -155,3 +155,32 @@ The backend uses **Express.js** with in-memory storage (**MemStorage**). It prov
   - ADL text confirmed on Alerts page
   - HOME button navigation to hero page confirmed
   - No automatic redirects from landing page
+
+### Phase 11: Fixed OTP 2FA & Login Enforcement (Completed - Nov 22, 2025)
+- ✅ **Fixed OTP Code Implementation**:
+  - Changed from dynamic email OTPs to fixed demonstration code: **029130**
+  - 6-digit code displayed prominently on VerifyOTPPage in highlighted box
+  - No email sending required (prototype/demo mode)
+  - Backend validates fixed code "029130" for all users
+  - Development bypass "000000" still available in non-production
+  
+- ✅ **Login Flow Enforcement**:
+  - Landing page CTAs ("ENTER PLATFORM", "PLATFORM" nav) always route to /login
+  - Removed auto-redirect from LoginPage for authenticated users
+  - All users must complete login flow, even with cached sessions
+  - Prevents bypassing authentication via hero page links
+  
+- ✅ **2FA Flow Changes**:
+  - Login → 2FA screen (always enforced)
+  - Fixed code "029130" shown on screen (no email required)
+  - Invalid codes rejected with error message
+  - Correct code authenticates → redirects to /platform
+  - Resend OTP shows message: "Use the fixed verification code: 029130"
+  
+- ✅ **E2E Testing**: Complete authentication flow validated
+  - Login with demo credentials works
+  - 2FA screen displays fixed code "029130"
+  - Code validation accepts "029130" and rejects invalid codes
+  - Dev bypass "000000" still functional
+  - All routing and redirects working correctly
+  - Hero page links enforce login (no bypass)

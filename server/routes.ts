@@ -156,13 +156,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       if (user.twoFactorEnabled) {
-        const otp = authHelpers.generateEmailOTP();
-        const expiresAt = new Date(Date.now() + 3 * 60 * 1000);
-        
-        await storage.storeOTP(user.id, otp, expiresAt);
-        
-        await sendOTPEmail(user.email, otp);
-        
+        // Fixed OTP flow - no email sending required
         const tempToken = authHelpers.generateTempToken(user.id, user.email);
         
         const response: LoginResponse = {
@@ -215,27 +209,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "User not found" });
       }
 
-      let isValid = false;
-      
-      // Development bypass: Allow "000000" as a dev OTP code
+      // PROTOTYPE ONLY: Fixed OTP code verification
+      // This is intentionally using a fixed code (029130) for demonstration purposes
+      // In production, use dynamic OTP codes with proper email/SMS delivery
+      const FIXED_OTP = '029130';
       const isDevelopment = process.env.NODE_ENV !== 'production';
       const isDevBypass = isDevelopment && otpCode === '000000';
       
-      if (isDevBypass) {
-        console.log('[AUTH] Development OTP bypass used (code: 000000)');
-        isValid = true;
-      } else if (user.twoFactorMethod === 'totp' && user.totpSecret) {
-        isValid = authHelpers.verifyTOTP(otpCode, user.totpSecret);
-      } else {
-        isValid = await storage.verifyOTP(user.id, otpCode);
-      }
+      const isValid = otpCode === FIXED_OTP || isDevBypass;
 
       if (!isValid) {
         await storage.incrementLoginAttempts(user.id);
         return res.status(401).json({ error: "Invalid OTP code" });
       }
 
-      await storage.clearOTP(user.id);
+      if (isDevBypass) {
+        console.log('[AUTH] Development OTP bypass used (code: 000000)');
+      } else {
+        console.log('[AUTH] Fixed OTP verified (code: 029130)');
+      }
+
       await storage.resetLoginAttempts(user.id);
       await storage.updateUser(user.id, { lastLogin: new Date().toISOString() });
       
@@ -278,15 +271,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "User not found" });
       }
 
-      const otp = authHelpers.generateEmailOTP();
-      const expiresAt = new Date(Date.now() + 3 * 60 * 1000);
-      
-      await storage.storeOTP(user.id, otp, expiresAt);
-      await sendOTPEmail(user.email, otp);
-      
+      // Fixed OTP flow - no email needed, just acknowledge the request
       const response: ResendOTPResponse = {
         success: true,
-        message: "OTP sent successfully",
+        message: "Use the fixed verification code: 029130",
       };
       
       res.json(response);

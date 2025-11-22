@@ -161,9 +161,12 @@ export default function VerifyOTPPage() {
             </CardTitle>
           </div>
           <CardDescription className="text-base">
-            Enter the 6-digit code sent to
+            Enter the 6-digit verification code
           </CardDescription>
-          <p className="font-mono text-sm text-primary">{tempEmail}</p>
+          <div className="bg-primary/10 border border-primary/20 rounded-md p-3 mt-3">
+            <p className="text-sm text-muted-foreground mb-1">Fixed Verification Code:</p>
+            <p className="font-mono text-2xl font-bold text-primary tracking-widest">029130</p>
+          </div>
           <div className="h-px bg-border/50 mt-4" />
         </CardHeader>
         
