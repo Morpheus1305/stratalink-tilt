@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { useAuth } from '@/contexts/AuthContext';
+import { useInactivityTimeout } from '@/hooks/useInactivityTimeout';
 
 interface RequireAuthProps {
   children: React.ReactNode;
@@ -9,6 +10,9 @@ interface RequireAuthProps {
 export function RequireAuth({ children }: RequireAuthProps) {
   const { isAuthenticated, isLoading } = useAuth();
   const [, setLocation] = useLocation();
+  
+  // Enable 5-minute inactivity timeout for platform pages
+  useInactivityTimeout();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {

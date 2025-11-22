@@ -202,3 +202,35 @@ The backend uses **Express.js** with in-memory storage (**MemStorage**). It prov
   - Access token stored in localStorage ✓
   - Dev bypass "000000" still functional ✓
   - All routing and redirects working correctly ✓
+
+### Phase 12: Inactivity Timeout (Completed - Nov 22, 2025)
+- ✅ **5-Minute Inactivity Timeout**:
+  - Automatic session reset after 5 minutes of no user interaction
+  - Logs out user and redirects to Hero Page (/)
+  - User must complete Login → 2FA flow again after timeout
+  
+- ✅ **Interaction Tracking**:
+  - Mouse movement (mousemove)
+  - Keyboard input (keydown)
+  - Scroll events (scroll)
+  - Touch events (touchstart)
+  - All interactions reset the 5-minute timer
+  
+- ✅ **Scope**:
+  - **Applied to**: All platform pages (/platform/*)
+    - Overview (/platform)
+    - Historical Trends (/platform/trends)
+    - Portfolio Risk (/platform/portfolio)
+    - Alerts (/platform/alerts)
+    - Token Scorecard (/platform/scorecard)
+  - **NOT applied to**:
+    - Hero Page (/)
+    - Login Page (/login)
+    - 2FA Verification Page (/verify-otp)
+  
+- ✅ **Implementation**:
+  - Custom hook: `useInactivityTimeout` (client/src/hooks/useInactivityTimeout.ts)
+  - Integrated into `RequireAuth` component (applies to all protected routes)
+  - Automatic cleanup on component unmount
+  - Passive event listeners for performance
+  - Console logging for debugging: "[INACTIVITY] Session timeout after 5 minutes of inactivity"
