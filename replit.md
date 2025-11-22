@@ -158,30 +158,29 @@ The backend uses **Express.js** with in-memory storage (**MemStorage**). It prov
 
 ### Phase 11: Fixed OTP 2FA & Login Enforcement (Completed - Nov 22, 2025)
 - ✅ **Fixed OTP Code Implementation**:
-  - Changed from dynamic email OTPs to fixed demonstration code: **029130**
-  - 6-digit code displayed prominently on VerifyOTPPage in highlighted box
-  - No email sending required (prototype/demo mode)
-  - Backend validates fixed code "029130" for all users
+  - Changed from dynamic email OTPs to fixed demonstration code: **291305**
+  - Backend validates fixed code "291305" for all users
   - Development bypass "000000" still available in non-production
+  - Fixed code NOT displayed on UI (user must know it separately for security)
   
 - ✅ **2FA Always Enforced**:
   - **CRITICAL**: 2FA is now mandatory for ALL users regardless of user.twoFactorEnabled flag
   - Backend login endpoint ALWAYS returns `requires2FA: true` (prototype mode)
   - Every login attempt redirects to /verify-otp screen (no bypassing)
-  - Users must enter fixed code "029130" to access platform
+  - Login page automatically logs out existing sessions (forced fresh authentication)
   
 - ✅ **Login Flow Enforcement**:
   - Landing page CTAs ("ENTER PLATFORM", "PLATFORM" nav) always route to /login
-  - All users must complete login flow, even with cached sessions
+  - LoginPage forces logout on mount via useEffect - clears any cached sessions
+  - All users must complete login flow every time they visit /login
   - Prevents bypassing authentication via hero page links
   
 - ✅ **2FA Flow (Complete)**:
   - Login with credentials → Backend validates → Redirects to /verify-otp
-  - Fixed code "029130" displayed in yellow/gold highlighted box
-  - Enter "029130" → Backend validates → Returns accessToken
+  - User enters "291305" (fixed code) → Backend validates → Returns accessToken
   - Frontend updates auth context → **Auto-redirects to /platform**
   - Invalid codes → Error toast → Stays on /verify-otp
-  - Resend OTP shows message: "Use the fixed verification code: 029130"
+  - Resend OTP shows message: "Use the fixed verification code: 291305"
   
 - ✅ **Redirect Fix**:
   - Fixed race condition where successful OTP verification redirected to /login instead of /platform
@@ -189,10 +188,15 @@ The backend uses **Express.js** with in-memory storage (**MemStorage**). It prov
   - Removed manual redirect from onSubmit handler (useEffect handles all redirects)
   - Ensures authenticated users always redirect to /platform
   
+- ✅ **Clean UI (No Credential Display)**:
+  - Removed demo credentials display from login page
+  - Removed fixed verification code display from 2FA screen
+  - Production-ready authentication interface (credentials managed separately)
+  
 - ✅ **E2E Testing**: Complete authentication flow validated
-  - Login with demo credentials → Redirects to /verify-otp ✓
-  - 2FA screen displays fixed code "029130" ✓
-  - Code validation accepts "029130" and rejects invalid codes ✓
+  - Login → Auto-logout clears existing session ✓
+  - Redirects to /verify-otp ✓
+  - Code validation accepts "291305" and rejects invalid codes ✓
   - Successful OTP verification → **Redirects to /platform** ✓
   - Dashboard loads with LIVE indicator ✓
   - Access token stored in localStorage ✓

@@ -149,17 +149,6 @@ export default function LoginPage() {
               </Button>
             </form>
           </Form>
-
-          <div className="mt-6 pt-6 border-t border-border/50 text-center text-sm text-muted-foreground">
-            <p className="mb-2">Demo Credentials:</p>
-            <div className="font-mono text-xs space-y-1 text-left bg-muted/30 p-3 rounded-md">
-              <p>Email: <span className="text-foreground">robert@stratalink.ai</span></p>
-              <p>Password: <span className="text-foreground">SecurePass123!</span></p>
-              {import.meta.env.MODE !== 'production' && (
-                <p className="pt-2 border-t border-border/30 mt-2">OTP Code: <span className="text-primary">000000</span> (dev bypass)</p>
-              )}
-            </div>
-          </div>
         </CardContent>
       </Card>
     </div>
