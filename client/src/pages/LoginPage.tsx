@@ -23,8 +23,13 @@ type LoginFormData = z.infer<typeof loginSchema>;
 export default function LoginPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const { login } = useAuth();
+  const { login, logout } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+
+  // CRITICAL: Force logout on login page to ensure fresh 2FA flow
+  useEffect(() => {
+    logout();
+  }, [logout]);
 
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
