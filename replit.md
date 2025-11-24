@@ -122,3 +122,58 @@ The system incorporates a mandatory 2FA authentication flow with a fixed OTP cod
 ✅ Input validation handles edge cases
 ✅ Score/rating consistency (no rounding mismatches)
 ✅ Production-ready implementation
+
+### Phase 14: Hero Page Default Token = BTC (Completed - Nov 24, 2025)
+
+**Objective**: Ensure the Hero Page always loads BTC market data by default, regardless of token selection in other dashboards, to display consistent populated real values.
+
+#### Implementation
+
+**1. API Endpoint Enhancement** (`server/routes.ts`):
+- Added asset query parameter support to `/api/dashboard`
+- Endpoint: `GET /api/dashboard?asset={ASSET}`
+- Default: BTC when no asset parameter provided
+- Code: `const asset = (req.query.asset as string) || 'BTC';`
+
+**2. Hero Component Update** (`client/src/components/landing-hero.tsx`):
+- Added constant: `const DEFAULT_HERO_TOKEN = "BTC";`
+- Explicit query key: `queryKey: ['/api/dashboard', DEFAULT_HERO_TOKEN]`
+- Custom queryFn with BTC parameter: `fetch(/api/dashboard?asset=${DEFAULT_HERO_TOKEN})`
+- Auto-refresh interval: 10 seconds
+
+**3. Data Flow**:
+- Hero page → API request with `?asset=BTC`
+- API → Storage `getDashboardData('BTC')`
+- Storage → API clients fetch BTC data from CoinGecko/Binance
+- Fallback to realistic mock BTC data if external APIs fail (rate limits, regional blocks)
+
+#### Benefits
+
+✅ **Consistent Data**: Hero page always displays populated BTC metrics (PoLi Score, Market Depth, Bid-Ask Spread, Volatility, CEX/DEX Ratio)
+✅ **No Empty States**: Avoids empty/null values on the landing page
+✅ **Extensible**: API now supports asset parameter for future token selection features
+✅ **Backward Compatible**: Existing dashboard pages continue to work (default to BTC)
+✅ **Live Data**: Fetches real-time BTC data from CoinGecko/Binance with graceful fallback
+
+#### Testing
+
+- ✅ Hero page loads BTC metrics consistently
+- ✅ API endpoint accepts asset parameter correctly
+- ✅ API defaults to BTC when no parameter provided
+- ✅ Data persists across navigation (login/logout)
+- ✅ Page reloads successfully without errors
+- ✅ E2E tests passed (playwright verification)
+- ✅ Architect review passed with no issues
+
+#### Files Modified
+
+- `server/routes.ts` (added asset query parameter)
+- `client/src/components/landing-hero.tsx` (explicit BTC request)
+
+#### Success Criteria
+
+✅ Hero page always loads BTC data
+✅ API extensible for future token selection
+✅ No breaking changes to existing dashboards
+✅ Clean, maintainable implementation
+✅ Production-ready code quality
