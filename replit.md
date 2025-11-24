@@ -165,10 +165,22 @@ The system incorporates a mandatory 2FA authentication flow with a fixed OTP cod
 - ✅ E2E tests passed (playwright verification)
 - ✅ Architect review passed with no issues
 
+#### Bug Fix: Label Mismatch (Nov 24, 2025)
+
+**Issue**: Hero page showed "$0M", "0%", "0%", "0:0" for metrics despite backend returning data
+**Root Cause**: Frontend searched for "Market Depth" but backend returned "MARKET DEPTH"
+**Fix**: Updated frontend to match backend ALL CAPS labels:
+- `"MARKET DEPTH"` (was "Market Depth")
+- `"BID-ASK SPREAD"` (was "Bid-Ask Spread")
+- `"VOLATILITY 24H"` (was "24H Volatility")
+- `"CEX/DEX RATIO"` (was "CEX/DEX Ratio")
+
+**Result**: Hero page now displays populated BTC values ($42.5M, 0.05%, 12.4%, 68:32)
+
 #### Files Modified
 
 - `server/routes.ts` (added asset query parameter)
-- `client/src/components/landing-hero.tsx` (explicit BTC request)
+- `client/src/components/landing-hero.tsx` (explicit BTC request + label fix)
 
 #### Success Criteria
 
@@ -177,3 +189,4 @@ The system incorporates a mandatory 2FA authentication flow with a fixed OTP cod
 ✅ No breaking changes to existing dashboards
 ✅ Clean, maintainable implementation
 ✅ Production-ready code quality
+✅ All metrics display real values (no zeros)

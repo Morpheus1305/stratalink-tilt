@@ -161,9 +161,9 @@ export function LandingHero() {
               <div className="flex items-center justify-between py-2 border-b border-border">
                 <span className="text-xs text-muted-foreground tracking-wide">MARKET DEPTH</span>
                 <div className="flex items-center gap-3">
-                  <span className="font-mono text-xl font-bold text-accent">{dashboardData.liveMetrics.find(m => m.label === 'Market Depth')?.value || '$0M'}</span>
-                  <span className={`text-xs ${(dashboardData.liveMetrics.find(m => m.label === 'Market Depth')?.change || 0) >= 0 ? 'text-chart-3' : 'text-destructive'}`}>
-                    {(dashboardData.liveMetrics.find(m => m.label === 'Market Depth')?.change || 0) >= 0 ? '↗' : '↘'} {(dashboardData.liveMetrics.find(m => m.label === 'Market Depth')?.change || 0) >= 0 ? '+' : ''}{(dashboardData.liveMetrics.find(m => m.label === 'Market Depth')?.change || 0).toFixed(1)}%
+                  <span className="font-mono text-xl font-bold text-accent">{dashboardData.liveMetrics.find(m => m.label === 'MARKET DEPTH')?.value || '$0M'}</span>
+                  <span className={`text-xs ${(dashboardData.liveMetrics.find(m => m.label === 'MARKET DEPTH')?.change || 0) >= 0 ? 'text-chart-3' : 'text-destructive'}`}>
+                    {(dashboardData.liveMetrics.find(m => m.label === 'MARKET DEPTH')?.change || 0) >= 0 ? '↗' : '↘'} {(dashboardData.liveMetrics.find(m => m.label === 'MARKET DEPTH')?.change || 0) >= 0 ? '+' : ''}{(dashboardData.liveMetrics.find(m => m.label === 'MARKET DEPTH')?.change || 0).toFixed(1)}%
                   </span>
                 </div>
               </div>
@@ -171,9 +171,9 @@ export function LandingHero() {
               <div className="flex items-center justify-between py-2 border-b border-border">
                 <span className="text-xs text-muted-foreground tracking-wide">BID-ASK SPREAD</span>
                 <div className="flex items-center gap-3">
-                  <span className="font-mono text-xl font-bold text-accent">{dashboardData.liveMetrics.find(m => m.label === 'Bid-Ask Spread')?.value || '0%'}</span>
-                  <span className={`text-xs ${(dashboardData.liveMetrics.find(m => m.label === 'Bid-Ask Spread')?.change || 0) >= 0 ? 'text-chart-3' : 'text-destructive'}`}>
-                    {(dashboardData.liveMetrics.find(m => m.label === 'Bid-Ask Spread')?.change || 0) >= 0 ? '↗' : '↘'} {(dashboardData.liveMetrics.find(m => m.label === 'Bid-Ask Spread')?.change || 0) >= 0 ? '+' : ''}{(dashboardData.liveMetrics.find(m => m.label === 'Bid-Ask Spread')?.change || 0).toFixed(1)}%
+                  <span className="font-mono text-xl font-bold text-accent">{dashboardData.liveMetrics.find(m => m.label === 'BID-ASK SPREAD')?.value || '0%'}</span>
+                  <span className={`text-xs ${(dashboardData.liveMetrics.find(m => m.label === 'BID-ASK SPREAD')?.change || 0) >= 0 ? 'text-chart-3' : 'text-destructive'}`}>
+                    {(dashboardData.liveMetrics.find(m => m.label === 'BID-ASK SPREAD')?.change || 0) >= 0 ? '↗' : '↘'} {(dashboardData.liveMetrics.find(m => m.label === 'BID-ASK SPREAD')?.change || 0) >= 0 ? '+' : ''}{(dashboardData.liveMetrics.find(m => m.label === 'BID-ASK SPREAD')?.change || 0).toFixed(1)}%
                   </span>
                 </div>
               </div>
@@ -181,9 +181,9 @@ export function LandingHero() {
               <div className="flex items-center justify-between py-2 border-b border-border">
                 <span className="text-xs text-muted-foreground tracking-wide">VOLATILITY 24H</span>
                 <div className="flex items-center gap-3">
-                  <span className="font-mono text-xl font-bold text-destructive">{dashboardData.liveMetrics.find(m => m.label === '24H Volatility')?.value || '0%'}</span>
-                  <span className={`text-xs ${(dashboardData.liveMetrics.find(m => m.label === '24H Volatility')?.change || 0) >= 0 ? 'text-chart-3' : 'text-destructive'}`}>
-                    {(dashboardData.liveMetrics.find(m => m.label === '24H Volatility')?.change || 0) >= 0 ? '↗' : '↘'} {(dashboardData.liveMetrics.find(m => m.label === '24H Volatility')?.change || 0) >= 0 ? '+' : ''}{(dashboardData.liveMetrics.find(m => m.label === '24H Volatility')?.change || 0).toFixed(1)}%
+                  <span className="font-mono text-xl font-bold text-destructive">{dashboardData.liveMetrics.find(m => m.label === 'VOLATILITY 24H')?.value || '0%'}</span>
+                  <span className={`text-xs ${(dashboardData.liveMetrics.find(m => m.label === 'VOLATILITY 24H')?.change || 0) >= 0 ? 'text-chart-3' : 'text-destructive'}`}>
+                    {(dashboardData.liveMetrics.find(m => m.label === 'VOLATILITY 24H')?.change || 0) >= 0 ? '↗' : '↘'} {(dashboardData.liveMetrics.find(m => m.label === 'VOLATILITY 24H')?.change || 0) >= 0 ? '+' : ''}{(dashboardData.liveMetrics.find(m => m.label === 'VOLATILITY 24H')?.change || 0).toFixed(1)}%
                   </span>
                 </div>
               </div>
@@ -191,9 +191,9 @@ export function LandingHero() {
               <div className="flex items-center justify-between py-2">
                 <span className="text-xs text-muted-foreground tracking-wide">CEX/DEX RATIO</span>
                 <div className="flex items-center gap-3">
-                  <span className="font-mono text-xl font-bold">{dashboardData.liveMetrics.find(m => m.label === 'CEX/DEX Ratio')?.value || '0:0'}</span>
-                  <span className={`text-xs ${(dashboardData.liveMetrics.find(m => m.label === 'CEX/DEX Ratio')?.change || 0) >= 0 ? 'text-chart-3' : 'text-destructive'}`}>
-                    {(dashboardData.liveMetrics.find(m => m.label === 'CEX/DEX Ratio')?.change || 0) >= 0 ? '↗' : '↘'} {(dashboardData.liveMetrics.find(m => m.label === 'CEX/DEX Ratio')?.change || 0) >= 0 ? '+' : ''}{(dashboardData.liveMetrics.find(m => m.label === 'CEX/DEX Ratio')?.change || 0).toFixed(1)}%
+                  <span className="font-mono text-xl font-bold">{dashboardData.liveMetrics.find(m => m.label === 'CEX/DEX RATIO')?.value || '0:0'}</span>
+                  <span className={`text-xs ${(dashboardData.liveMetrics.find(m => m.label === 'CEX/DEX RATIO')?.change || 0) >= 0 ? 'text-chart-3' : 'text-destructive'}`}>
+                    {(dashboardData.liveMetrics.find(m => m.label === 'CEX/DEX RATIO')?.change || 0) >= 0 ? '↗' : '↘'} {(dashboardData.liveMetrics.find(m => m.label === 'CEX/DEX RATIO')?.change || 0) >= 0 ? '+' : ''}{(dashboardData.liveMetrics.find(m => m.label === 'CEX/DEX RATIO')?.change || 0).toFixed(1)}%
                   </span>
                 </div>
               </div>
