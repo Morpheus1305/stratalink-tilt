@@ -40,9 +40,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get dashboard data
-  app.get("/api/dashboard", async (_req, res) => {
+  app.get("/api/dashboard", async (req, res) => {
     try {
-      const data = await storage.getDashboardData();
+      const asset = (req.query.asset as string) || 'BTC';
+      const data = await storage.getDashboardData(asset);
       res.json(data);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch dashboard data" });

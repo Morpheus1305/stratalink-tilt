@@ -6,9 +6,19 @@ import type { DashboardData } from "@shared/schema";
 import { BottomTicker } from "@/components/bottom-ticker";
 import { getPoLiRating } from "@/lib/poli-rating";
 
+// Always load BTC data on the hero page for consistent, populated metrics
+const DEFAULT_HERO_TOKEN = "BTC";
+
 export function LandingHero() {
   const { data: dashboardData, isLoading } = useQuery<DashboardData>({
-    queryKey: ['/api/dashboard'],
+    queryKey: ['/api/dashboard', DEFAULT_HERO_TOKEN],
+    queryFn: async () => {
+      const response = await fetch(`/api/dashboard?asset=${DEFAULT_HERO_TOKEN}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch dashboard data');
+      }
+      return response.json();
+    },
     refetchInterval: 10000,
   });
 
