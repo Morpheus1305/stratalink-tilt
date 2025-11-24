@@ -42,7 +42,7 @@ export interface IStorage {
 }
 
 export class MemStorage implements IStorage {
-  private useLiveData: boolean = true;
+  private useLiveData: boolean = false;
   
   private async fetchLiveMetrics(asset: string = 'BTC'): Promise<LiveMetric[] | null> {
     if (!this.useLiveData) return null;
@@ -56,6 +56,8 @@ export class MemStorage implements IStorage {
       const volatility = Math.abs(priceData.change24h);
       const cexDexRatio = 68;
       
+      // Note: orderBook.depthUSD is already in millions from the fallback data in apiClients.ts
+      // So we don't need to divide by 1,000,000
       const poliScore = web3DataService.calculatePoLiScore({
         depth: orderBook.depthUSD,
         spread: orderBook.spread,
@@ -542,12 +544,18 @@ export class MemStorage implements IStorage {
 
   async getDashboardData(asset: string = 'BTC'): Promise<DashboardData> {
     const [liveMetrics, tickerItems] = await Promise.all([
-      this.fetchLiveMetrics(asset).catch(() => null),
+      this.fetchLiveMetrics(asset).catch((err) => {
+        console.log(`fetchLiveMetrics failed for ${asset}, using generated data:`, err.message);
+        return null;
+      }),
       this.fetchLiveTickerItems().catch(() => null),
     ]);
     
+    const finalMetrics = liveMetrics || this.generateLiveMetrics(asset);
+    console.log(`Dashboard data for ${asset}, using ${liveMetrics ? 'live' : 'generated'} metrics. PoLi Score:`, finalMetrics[0].value);
+    
     return {
-      liveMetrics: liveMetrics || this.generateLiveMetrics(asset),
+      liveMetrics: finalMetrics,
       liquidityScore: this.generateLiquidityScore(asset),
       stressSignals: this.generateStressSignals(asset),
       keyMetrics: this.generateKeyMetrics(asset),
