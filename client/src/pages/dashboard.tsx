@@ -10,6 +10,7 @@ import { TimeSeriesChart } from "@/components/time-series-chart";
 import { ReportExportSection } from "@/components/report-export-section";
 import { BottomTicker } from "@/components/bottom-ticker";
 import { DateTimeBar } from "@/components/date-time-bar";
+import { TokenSelector } from "@/components/token-selector";
 import type { DashboardData, TimeSeriesData } from "@shared/schema";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -17,10 +18,16 @@ import { useState } from "react";
 
 export default function Dashboard() {
   const [selectedTimeframe, setSelectedTimeframe] = useState('1D');
+  const [selectedToken, setSelectedToken] = useState('BTC');
 
   const { data: dashboardData, isLoading: isDashboardLoading } = useQuery<DashboardData>({
-    queryKey: ['/api/dashboard'],
-    refetchInterval: 10000, // Refresh every 10 seconds for live data
+    queryKey: ['/api/dashboard', selectedToken],
+    queryFn: async () => {
+      const response = await fetch(`/api/dashboard?asset=${selectedToken}`);
+      if (!response.ok) throw new Error('Failed to fetch dashboard data');
+      return response.json();
+    },
+    refetchInterval: 10000,
   });
 
   const { data: timeSeriesData, isLoading: isTimeSeriesLoading, error: timeSeriesError } = useQuery<TimeSeriesData>({
@@ -68,6 +75,18 @@ export default function Dashboard() {
     <div className="min-h-screen bg-background flex flex-col pb-[72px]">
       <DashboardHeader />
       <PlatformTabs />
+
+      {/* Token Selector Bar */}
+      <div className="border-b border-border px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground">TOKEN:</span>
+          <TokenSelector selectedToken={selectedToken} onChange={setSelectedToken} />
+        </div>
+        <div className="flex items-center gap-2" data-testid="indicator-live-status">
+          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" data-testid="dot-live-indicator" />
+          <span className="text-xs font-mono text-green-500" data-testid="text-live-status">LIVE</span>
+        </div>
+      </div>
 
       {/* Live Metrics Panel */}
       <LiveMetricsPanel metrics={dashboardData.liveMetrics} />
