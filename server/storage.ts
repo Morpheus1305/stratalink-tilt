@@ -400,7 +400,7 @@ export class MemStorage implements IStorage {
     ];
   }
 
-  private generateTimeSeriesPoints(timeframe: string): TimeSeriesPoint[] {
+  private generateTimeSeriesPoints(timeframe: string, asset: string = 'BTC'): TimeSeriesPoint[] {
     const now = new Date();
     const points: TimeSeriesPoint[] = [];
     
@@ -433,18 +433,30 @@ export class MemStorage implements IStorage {
         intervalMs = 60 * 60 * 1000;
     }
 
+    // Asset-specific base values to differentiate data
+    const assetMultipliers: Record<string, { depth: number; spread: number }> = {
+      'BTC': { depth: 1.0, spread: 1.0 },
+      'ETH': { depth: 0.65, spread: 1.5 },
+      'SOL': { depth: 0.35, spread: 1.8 },
+      'BNB': { depth: 0.50, spread: 1.4 },
+      'XRP': { depth: 0.45, spread: 1.6 },
+      'ADA': { depth: 0.30, spread: 1.7 },
+    };
+    
+    const multiplier = assetMultipliers[asset] || { depth: 0.8, spread: 1.2 };
+
     for (let i = intervals; i >= 0; i--) {
       const timestamp = new Date(now.getTime() - i * intervalMs);
       const timeString = timeframe === '1M' 
         ? timestamp.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
         : timestamp.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
       
-      // Generate realistic looking data with some variance
-      const baseDepth = 42;
+      // Generate realistic looking data with some variance, scaled by asset
+      const baseDepth = 42 * multiplier.depth;
       const depthVariance = Math.sin(i / 5) * 8 + Math.random() * 4;
       const liquidityDepth = baseDepth + depthVariance;
       
-      const baseSpread = 0.08;
+      const baseSpread = 0.08 * multiplier.spread;
       const spreadVariance = Math.cos(i / 3) * 0.03 + Math.random() * 0.02;
       const spread = Math.max(0.05, baseSpread + spreadVariance);
 
@@ -481,7 +493,7 @@ export class MemStorage implements IStorage {
     
     return {
       timeframe: tf as any,
-      data: this.generateTimeSeriesPoints(tf),
+      data: this.generateTimeSeriesPoints(tf, asset),
     };
   }
 
@@ -501,10 +513,22 @@ export class MemStorage implements IStorage {
     const marketDepthTrend = [];
     const volatilityTrend = [];
 
+    // Asset-specific base values to create distinct trends for different tokens
+    const assetBaseValues: Record<string, { poliScore: number; depth: number; volatility: number }> = {
+      'BTC': { poliScore: 72, depth: 45, volatility: 10 },
+      'ETH': { poliScore: 68, depth: 32, volatility: 12 },
+      'SOL': { poliScore: 62, depth: 18, volatility: 15 },
+      'BNB': { poliScore: 65, depth: 25, volatility: 13 },
+      'XRP': { poliScore: 60, depth: 22, volatility: 14 },
+      'ADA': { poliScore: 58, depth: 16, volatility: 16 },
+    };
+    
+    const baseValues = assetBaseValues[asset] || { poliScore: 65, depth: 30, volatility: 12 };
+    
     // Generate realistic trending data with some variability
-    const basePoliScore = 65 + Math.random() * 15;  // Start between 65-80
-    const baseDepth = 35 + Math.random() * 15;      // Start between 35-50M
-    const baseVolatility = 8 + Math.random() * 4;   // Start between 8-12%
+    const basePoliScore = baseValues.poliScore + Math.random() * 8 - 4;  // ±4 variation
+    const baseDepth = baseValues.depth + Math.random() * 10 - 5;         // ±5M variation
+    const baseVolatility = baseValues.volatility + Math.random() * 4 - 2; // ±2% variation
 
     for (let i = 0; i < dataPoints; i++) {
       let timeString: string;
