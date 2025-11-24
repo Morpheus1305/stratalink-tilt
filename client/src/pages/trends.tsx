@@ -5,6 +5,7 @@ import { StressSignalsPanel } from "@/components/stress-signals-panel";
 import { PlatformTabs } from "@/components/platform-tabs";
 import { BottomTicker } from "@/components/bottom-ticker";
 import { DateTimeBar } from "@/components/date-time-bar";
+import { TokenSelector } from "@/components/token-selector";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -27,9 +28,15 @@ const timeframes = ["1D", "7D", "1M", "3M", "1Y"];
 
 export default function Trends() {
   const [selectedTimeframe, setSelectedTimeframe] = useState("7D");
+  const [selectedToken, setSelectedToken] = useState('BTC');
 
   const { data: dashboardData, isLoading: isDashboardLoading } = useQuery<DashboardData>({
-    queryKey: ["/api/dashboard"],
+    queryKey: ['/api/dashboard', selectedToken],
+    queryFn: async () => {
+      const response = await fetch(`/api/dashboard?asset=${selectedToken}`);
+      if (!response.ok) throw new Error('Failed to fetch dashboard data');
+      return response.json();
+    },
     refetchInterval: 10000,
   });
 
@@ -75,14 +82,11 @@ export default function Trends() {
       <DashboardHeader />
       <PlatformTabs />
 
-      {/* Asset Selector & Status Bar */}
+      {/* Token Selector & Status Bar */}
       <div className="border-b border-border px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <span className="text-xs text-muted-foreground">TOKEN:</span>
-          <Button data-testid="button-asset-selector" variant="outline" size="sm" className="font-mono text-xs">
-            <span className="text-primary font-semibold">SOL</span>
-            <span className="ml-2 text-muted-foreground">Solana</span>
-          </Button>
+          <TokenSelector selectedToken={selectedToken} onChange={setSelectedToken} />
         </div>
         <div className="flex items-center gap-2" data-testid="indicator-live-status">
           <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" data-testid="dot-live-indicator" />
