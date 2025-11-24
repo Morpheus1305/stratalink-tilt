@@ -25,8 +25,33 @@ interface BinanceTicker {
   quoteVolume: string;
 }
 
+interface CoinMarketCapListing {
+  id: number;
+  name: string;
+  symbol: string;
+  slug: string;
+  cmc_rank: number;
+  quote: {
+    USD: {
+      price: number;
+      market_cap: number;
+      volume_24h: number;
+    };
+  };
+}
+
+interface CoinMarketCapResponse {
+  data: CoinMarketCapListing[];
+  status: {
+    timestamp: string;
+    error_code: number;
+    error_message: string | null;
+  };
+}
+
 const COINGECKO_BASE = 'https://api.coingecko.com/api/v3';
 const BINANCE_BASE = 'https://api.binance.com/api/v3';
+const COINMARKETCAP_BASE = 'https://pro-api.coinmarketcap.com/v1';
 
 const axiosInstance = axios.create({
   timeout: 10000,
@@ -268,6 +293,73 @@ export class Web3DataService {
     if (score >= 50) return 'Medium';
     if (score >= 25) return 'High';
     return 'Critical';
+  }
+
+  async getTop20Tokens(): Promise<Array<{ id: string; name: string; symbol: string; rank: number }>> {
+    const cacheKey = 'top20_tokens';
+    const cached = this.getCached<Array<{ id: string; name: string; symbol: string; rank: number }>>(cacheKey);
+    if (cached) return cached;
+
+    try {
+      const apiKey = process.env.COINMARKETCAP_API_KEY;
+      if (!apiKey) {
+        console.warn('COINMARKETCAP_API_KEY not found, returning fallback token list');
+        return this.getFallbackTop20();
+      }
+
+      const response = await axios.get<CoinMarketCapResponse>(
+        `${COINMARKETCAP_BASE}/cryptocurrency/listings/latest`,
+        {
+          headers: {
+            'X-CMC_PRO_API_KEY': apiKey,
+            'Accept': 'application/json',
+          },
+          params: {
+            limit: 20,
+            convert: 'USD',
+          },
+          timeout: 10000,
+        }
+      );
+
+      const tokens = response.data.data.map((coin) => ({
+        id: coin.symbol,
+        name: coin.name,
+        symbol: coin.symbol,
+        rank: coin.cmc_rank,
+      }));
+
+      this.setCache(cacheKey, tokens);
+      return tokens;
+    } catch (error: any) {
+      console.error('Error fetching Top 20 from CoinMarketCap:', error.message);
+      return this.getFallbackTop20();
+    }
+  }
+
+  private getFallbackTop20(): Array<{ id: string; name: string; symbol: string; rank: number }> {
+    return [
+      { id: 'BTC', name: 'Bitcoin', symbol: 'BTC', rank: 1 },
+      { id: 'ETH', name: 'Ethereum', symbol: 'ETH', rank: 2 },
+      { id: 'USDT', name: 'Tether', symbol: 'USDT', rank: 3 },
+      { id: 'BNB', name: 'BNB', symbol: 'BNB', rank: 4 },
+      { id: 'SOL', name: 'Solana', symbol: 'SOL', rank: 5 },
+      { id: 'XRP', name: 'XRP', symbol: 'XRP', rank: 6 },
+      { id: 'USDC', name: 'USD Coin', symbol: 'USDC', rank: 7 },
+      { id: 'ADA', name: 'Cardano', symbol: 'ADA', rank: 8 },
+      { id: 'AVAX', name: 'Avalanche', symbol: 'AVAX', rank: 9 },
+      { id: 'DOGE', name: 'Dogecoin', symbol: 'DOGE', rank: 10 },
+      { id: 'TRX', name: 'TRON', symbol: 'TRX', rank: 11 },
+      { id: 'DOT', name: 'Polkadot', symbol: 'DOT', rank: 12 },
+      { id: 'MATIC', name: 'Polygon', symbol: 'MATIC', rank: 13 },
+      { id: 'LINK', name: 'Chainlink', symbol: 'LINK', rank: 14 },
+      { id: 'SHIB', name: 'Shiba Inu', symbol: 'SHIB', rank: 15 },
+      { id: 'UNI', name: 'Uniswap', symbol: 'UNI', rank: 16 },
+      { id: 'LTC', name: 'Litecoin', symbol: 'LTC', rank: 17 },
+      { id: 'ATOM', name: 'Cosmos', symbol: 'ATOM', rank: 18 },
+      { id: 'ETC', name: 'Ethereum Classic', symbol: 'ETC', rank: 19 },
+      { id: 'XLM', name: 'Stellar', symbol: 'XLM', rank: 20 },
+    ];
   }
 }
 
