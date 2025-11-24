@@ -28,11 +28,21 @@ export default function Alerts() {
 
   const { data: dashboardData, isLoading: dashboardLoading } = useQuery<DashboardData>({
     queryKey: ['/api/dashboard', asset],
+    queryFn: async () => {
+      const response = await fetch(`/api/dashboard?asset=${asset}`);
+      if (!response.ok) throw new Error('Failed to fetch dashboard data');
+      return response.json();
+    },
     refetchInterval: 10000,
   });
 
   const { data: alertsData, isLoading: alertsLoading } = useQuery<AlertsData>({
     queryKey: ['/api/alerts', asset],
+    queryFn: async () => {
+      const response = await fetch(`/api/alerts?asset=${asset}`);
+      if (!response.ok) throw new Error('Failed to fetch alerts data');
+      return response.json();
+    },
     refetchInterval: 15000,
   });
 

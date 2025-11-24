@@ -22,6 +22,11 @@ export default function Scorecard() {
 
   const { data: dashboardData, isLoading: dashboardLoading } = useQuery<DashboardData>({
     queryKey: ['/api/dashboard', asset],
+    queryFn: async () => {
+      const response = await fetch(`/api/dashboard?asset=${asset}`);
+      if (!response.ok) throw new Error('Failed to fetch dashboard data');
+      return response.json();
+    },
     refetchInterval: 10000,
   });
 
