@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { authHelpers, sendOTPEmail, sanitizeUser } from "./auth";
+import { web3DataService } from "./apiClients";
 import { 
   loginRequestSchema, 
   verifyOTPRequestSchema, 
@@ -101,6 +102,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(data);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch alerts data" });
+    }
+  });
+
+  // Get Top 20 tokens from CoinMarketCap
+  app.get("/api/tokens", async (_req, res) => {
+    try {
+      const tokens = await web3DataService.getTop20Tokens();
+      res.json(tokens);
+    } catch (error) {
+      console.error('Error in /api/tokens:', error);
+      res.status(500).json({ error: "Failed to fetch token list" });
     }
   });
 
