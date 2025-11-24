@@ -113,14 +113,27 @@ export class MemStorage implements IStorage {
     }
   }
 
-  private generateLiveMetrics(): LiveMetric[] {
+  private generateLiveMetrics(asset: string = 'BTC'): LiveMetric[] {
     // Add slight randomness for realistic live updates
     const variance = () => (Math.random() - 0.5) * 0.5;
     
-    const poliScore = 72 + Math.floor(variance() * 5);
-    const marketDepth = 42.5 + variance() * 2;
-    const spread = 0.08 + variance() * 0.01;
-    const volatility = 12.4 + variance() * 1.5;
+    // Asset-specific base values
+    const assetBaseValues: Record<string, { poliScore: number; depth: number; spread: number; volatility: number; cex: number; volume: number }> = {
+      'BTC': { poliScore: 72, depth: 42.5, spread: 0.08, volatility: 12.4, cex: 68, volume: 1.2 },
+      'ETH': { poliScore: 68, depth: 28.3, spread: 0.12, volatility: 14.8, cex: 65, volume: 0.85 },
+      'SOL': { poliScore: 62, depth: 15.7, spread: 0.15, volatility: 18.2, cex: 58, volume: 0.42 },
+      'BNB': { poliScore: 65, depth: 22.0, spread: 0.11, volatility: 15.5, cex: 75, volume: 0.58 },
+      'XRP': { poliScore: 60, depth: 19.5, spread: 0.13, volatility: 16.3, cex: 72, volume: 0.51 },
+      'ADA': { poliScore: 58, depth: 14.2, spread: 0.16, volatility: 19.1, cex: 62, volume: 0.38 },
+    };
+    
+    const baseValues = assetBaseValues[asset] || { poliScore: 65, depth: 30.0, spread: 0.10, volatility: 15.0, cex: 68, volume: 0.7 };
+    const poliScore = baseValues.poliScore + Math.floor(variance() * 5);
+    const marketDepth = baseValues.depth + variance() * 2;
+    const spread = baseValues.spread + variance() * 0.01;
+    const volatility = baseValues.volatility + variance() * 1.5;
+    const cex = baseValues.cex + Math.floor(variance() * 4);
+    const volume = baseValues.volume + variance() * 0.1;
     
     return [
       {
@@ -128,39 +141,39 @@ export class MemStorage implements IStorage {
         value: `${poliScore}/100`,
         change: 1.7 + variance(),
         changePercent: 2.4 + variance(),
-        trend: poliScore >= 72 ? "up" : "down",
+        trend: poliScore >= baseValues.poliScore ? "up" : "down",
       },
       {
         label: "MARKET DEPTH",
         value: `$${marketDepth.toFixed(1)}M`,
         change: 3.5 + variance(),
         changePercent: 8.2 + variance(),
-        trend: marketDepth >= 42.5 ? "up" : "down",
+        trend: marketDepth >= baseValues.depth ? "up" : "down",
       },
       {
         label: "BID-ASK SPREAD",
         value: `${Math.max(0.05, spread).toFixed(2)}%`,
         change: -0.002 + variance() * 0.001,
         changePercent: -2.1 + variance(),
-        trend: spread <= 0.08 ? "down" : "up",
+        trend: spread <= baseValues.spread ? "down" : "up",
       },
       {
         label: "VOLATILITY 24H",
         value: `${Math.max(10, volatility).toFixed(1)}%`,
         change: 1.9 + variance(),
         changePercent: 15.3 + variance() * 2,
-        trend: volatility >= 12.4 ? "up" : "down",
+        trend: volatility >= baseValues.volatility ? "up" : "down",
       },
       {
         label: "CEX/DEX RATIO",
-        value: "68:32",
+        value: `${cex}:${100 - cex}`,
         change: -2.2 + variance(),
         changePercent: -3.2 + variance(),
         trend: "down",
       },
       {
         label: "TOTAL VOL 24H",
-        value: "$1.2B",
+        value: `$${volume.toFixed(1)}B`,
         change: 154 + Math.floor(variance() * 20),
         changePercent: 12.9 + variance() * 2,
         trend: "up",
@@ -168,9 +181,21 @@ export class MemStorage implements IStorage {
     ];
   }
 
-  private generateLiquidityScore(): LiquidityScore {
+  private generateLiquidityScore(asset: string = 'BTC'): LiquidityScore {
     const variance = () => (Math.random() - 0.5) * 0.5;
-    const score = Math.max(65, Math.min(78, 72 + Math.floor(variance() * 10)));
+    
+    // Asset-specific base PoLi scores
+    const assetBaseScores: Record<string, number> = {
+      'BTC': 72,
+      'ETH': 68,
+      'SOL': 62,
+      'BNB': 65,
+      'XRP': 60,
+      'ADA': 58,
+    };
+    
+    const baseScore = assetBaseScores[asset] || 65;
+    const score = Math.max(50, Math.min(95, baseScore + Math.floor(variance() * 10)));
     const change = 2.4 + variance();
     
     let riskLevel: 'low' | 'medium' | 'high' | 'critical';
@@ -184,17 +209,27 @@ export class MemStorage implements IStorage {
       riskLevel,
       trend: change >= 0 ? "up" : "down",
       change24h: Number(change.toFixed(1)),
-      historicalAverage: 68,
+      historicalAverage: Math.max(60, baseScore - 4),
     };
   }
 
-  private generateStressSignals(): StressSignal[] {
+  private generateStressSignals(asset: string = 'BTC'): StressSignal[] {
     const variance = () => (Math.random() - 0.5) * 0.5;
     const now = new Date();
     const timestamp = now.getTime();
     
+    // Asset-specific base values
+    const assetDepthValues: Record<string, number> = {
+      'BTC': 42.5,
+      'ETH': 28.3,
+      'SOL': 15.7,
+      'BNB': 22.0,
+      'XRP': 19.5,
+      'ADA': 14.2,
+    };
+    
     const spreadChange = 15.3 + variance() * 5;
-    const depthValue = 42.5 + variance() * 2;
+    const depthValue = (assetDepthValues[asset] || 30.0) + variance() * 2;
     const concentration = 68 + Math.floor(variance() * 4);
     
     const formatTime = (date: Date) => {
@@ -239,13 +274,24 @@ export class MemStorage implements IStorage {
     ];
   }
 
-  private generateKeyMetrics(): KeyMetric[] {
+  private generateKeyMetrics(asset: string = 'BTC'): KeyMetric[] {
     const variance = () => (Math.random() - 0.5) * 0.5;
     
-    const marketDepth = 42.5 + variance() * 2;
-    const spread = 0.08 + variance() * 0.01;
-    const volatility = 12.4 + variance() * 1.5;
-    const orderbook = 1.2 + variance() * 0.1;
+    // Asset-specific base values
+    const assetMetrics: Record<string, { depth: number; spread: number; volatility: number; volume: number }> = {
+      'BTC': { depth: 42.5, spread: 0.08, volatility: 12.4, volume: 1.2 },
+      'ETH': { depth: 28.3, spread: 0.12, volatility: 14.8, volume: 0.85 },
+      'SOL': { depth: 15.7, spread: 0.15, volatility: 18.2, volume: 0.42 },
+      'BNB': { depth: 22.0, spread: 0.11, volatility: 15.5, volume: 0.58 },
+      'XRP': { depth: 19.5, spread: 0.13, volatility: 16.3, volume: 0.51 },
+      'ADA': { depth: 14.2, spread: 0.16, volatility: 19.1, volume: 0.38 },
+    };
+    
+    const baseMetrics = assetMetrics[asset] || { depth: 30.0, spread: 0.10, volatility: 15.0, volume: 0.7 };
+    const marketDepth = baseMetrics.depth + variance() * 2;
+    const spread = baseMetrics.spread + variance() * 0.01;
+    const volatility = baseMetrics.volatility + variance() * 1.5;
+    const orderbook = baseMetrics.volume + variance() * 0.1;
     
     return [
       {
@@ -299,21 +345,45 @@ export class MemStorage implements IStorage {
     ];
   }
 
-  private generateExchangeData(): ExchangeData[] {
+  private generateExchangeData(asset: string = 'BTC'): ExchangeData[] {
     const variance = () => (Math.random() - 0.5) * 0.5;
     
+    // Asset-specific liquidity multipliers
+    const assetMultipliers: Record<string, number> = {
+      'BTC': 1.0,
+      'ETH': 0.67,
+      'SOL': 0.37,
+      'BNB': 0.52,
+      'XRP': 0.46,
+      'ADA': 0.33,
+    };
+    
+    const multiplier = assetMultipliers[asset] || 0.7;
+    
     return [
-      { exchange: "Binance", liquidity: Number((28.5 + variance()).toFixed(1)), percentage: 45 },
-      { exchange: "Coinbase", liquidity: Number((18.2 + variance()).toFixed(1)), percentage: 29 },
-      { exchange: "Kraken", liquidity: Number((9.4 + variance()).toFixed(1)), percentage: 15 },
-      { exchange: "Uniswap", liquidity: Number((4.7 + variance()).toFixed(1)), percentage: 7 },
-      { exchange: "Others", liquidity: Number((2.5 + variance() * 0.5).toFixed(1)), percentage: 4 },
+      { exchange: "Binance", liquidity: Number((28.5 * multiplier + variance()).toFixed(1)), percentage: 45 },
+      { exchange: "Coinbase", liquidity: Number((18.2 * multiplier + variance()).toFixed(1)), percentage: 29 },
+      { exchange: "Kraken", liquidity: Number((9.4 * multiplier + variance()).toFixed(1)), percentage: 15 },
+      { exchange: "Uniswap", liquidity: Number((4.7 * multiplier + variance()).toFixed(1)), percentage: 7 },
+      { exchange: "Others", liquidity: Number((2.5 * multiplier + variance() * 0.5).toFixed(1)), percentage: 4 },
     ];
   }
 
-  private generateCexDexDistribution(): CexDexDistribution {
+  private generateCexDexDistribution(asset: string = 'BTC'): CexDexDistribution {
     const variance = Math.floor((Math.random() - 0.5) * 4);
-    const cex = Math.max(65, Math.min(71, 68 + variance));
+    
+    // Asset-specific CEX/DEX ratios (CEX percentage)
+    const assetCexRatios: Record<string, number> = {
+      'BTC': 68,
+      'ETH': 65,
+      'SOL': 58,
+      'BNB': 75,
+      'XRP': 72,
+      'ADA': 62,
+    };
+    
+    const baseCex = assetCexRatios[asset] || 68;
+    const cex = Math.max(55, Math.min(80, baseCex + variance));
     
     return {
       cex,
@@ -477,12 +547,12 @@ export class MemStorage implements IStorage {
     ]);
     
     return {
-      liveMetrics: liveMetrics || this.generateLiveMetrics(),
-      liquidityScore: this.generateLiquidityScore(),
-      stressSignals: this.generateStressSignals(),
-      keyMetrics: this.generateKeyMetrics(),
-      exchangeDistribution: this.generateExchangeData(),
-      cexDexDistribution: this.generateCexDexDistribution(),
+      liveMetrics: liveMetrics || this.generateLiveMetrics(asset),
+      liquidityScore: this.generateLiquidityScore(asset),
+      stressSignals: this.generateStressSignals(asset),
+      keyMetrics: this.generateKeyMetrics(asset),
+      exchangeDistribution: this.generateExchangeData(asset),
+      cexDexDistribution: this.generateCexDexDistribution(asset),
       tickerItems: tickerItems || this.generateTickerItems(),
     };
   }
