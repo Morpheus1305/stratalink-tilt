@@ -6,6 +6,7 @@ import { PlatformTabs } from "@/components/platform-tabs";
 import { BottomTicker } from "@/components/bottom-ticker";
 import { DateTimeBar } from "@/components/date-time-bar";
 import { TokenSelector } from "@/components/token-selector";
+import { useToken } from "@/contexts/TokenContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -28,7 +29,7 @@ const timeframes = ["1D", "7D", "1M", "3M", "1Y"];
 
 export default function Trends() {
   const [selectedTimeframe, setSelectedTimeframe] = useState("7D");
-  const [selectedToken, setSelectedToken] = useState('BTC');
+  const { selectedToken, setSelectedToken } = useToken();
 
   const { data: dashboardData, isLoading: isDashboardLoading } = useQuery<DashboardData>({
     queryKey: ['/api/dashboard', selectedToken],
@@ -41,7 +42,12 @@ export default function Trends() {
   });
 
   const { data: trendsData, isLoading: isTrendsLoading } = useQuery<TrendsData>({
-    queryKey: ["/api/trends", selectedTimeframe],
+    queryKey: ["/api/trends", selectedToken, selectedTimeframe],
+    queryFn: async () => {
+      const response = await fetch(`/api/trends/${selectedTimeframe}?asset=${selectedToken}`);
+      if (!response.ok) throw new Error('Failed to fetch trends data');
+      return response.json();
+    },
     refetchInterval: 30000,
   });
 

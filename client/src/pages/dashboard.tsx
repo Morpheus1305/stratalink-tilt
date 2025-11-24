@@ -11,6 +11,7 @@ import { ReportExportSection } from "@/components/report-export-section";
 import { BottomTicker } from "@/components/bottom-ticker";
 import { DateTimeBar } from "@/components/date-time-bar";
 import { TokenSelector } from "@/components/token-selector";
+import { useToken } from "@/contexts/TokenContext";
 import type { DashboardData, TimeSeriesData } from "@shared/schema";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -18,7 +19,7 @@ import { useState } from "react";
 
 export default function Dashboard() {
   const [selectedTimeframe, setSelectedTimeframe] = useState('1D');
-  const [selectedToken, setSelectedToken] = useState('BTC');
+  const { selectedToken, setSelectedToken } = useToken();
 
   const { data: dashboardData, isLoading: isDashboardLoading } = useQuery<DashboardData>({
     queryKey: ['/api/dashboard', selectedToken],
@@ -31,8 +32,13 @@ export default function Dashboard() {
   });
 
   const { data: timeSeriesData, isLoading: isTimeSeriesLoading, error: timeSeriesError } = useQuery<TimeSeriesData>({
-    queryKey: ['/api/time-series', selectedTimeframe],
-    refetchInterval: 30000, // Refresh every 30 seconds
+    queryKey: ['/api/time-series', selectedToken, selectedTimeframe],
+    queryFn: async () => {
+      const response = await fetch(`/api/time-series/${selectedTimeframe}?asset=${selectedToken}`);
+      if (!response.ok) throw new Error('Failed to fetch time series data');
+      return response.json();
+    },
+    refetchInterval: 30000,
   });
 
   if (isDashboardLoading) {

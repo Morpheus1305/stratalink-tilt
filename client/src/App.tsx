@@ -13,6 +13,7 @@ import Scorecard from "@/pages/scorecard";
 import LoginPage from "@/pages/LoginPage";
 import VerifyOTPPage from "@/pages/VerifyOTPPage";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { TokenProvider } from "@/contexts/TokenContext";
 import { RequireAuth } from "@/components/RequireAuth";
 import { useEffect, useState } from "react";
 
@@ -80,10 +81,12 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Router />
-        </TooltipProvider>
+        <TokenProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Router />
+          </TooltipProvider>
+        </TokenProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

@@ -55,6 +55,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/time-series/:timeframe", async (req, res) => {
     try {
       const { timeframe } = req.params;
+      const asset = (req.query.asset as string) || 'BTC';
       const validTimeframes = ['1H', '4H', '1D', '1W', '1M'];
       
       if (!validTimeframes.includes(timeframe)) {
@@ -72,6 +73,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/trends/:timeframe", async (req, res) => {
     try {
       const { timeframe } = req.params;
+      const asset = (req.query.asset as string) || 'BTC';
       const validTimeframes = ['1D', '7D', '1M', '3M', '1Y'];
       
       if (!validTimeframes.includes(timeframe)) {
