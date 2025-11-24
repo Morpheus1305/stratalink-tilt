@@ -62,7 +62,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid timeframe. Must be one of: 1H, 4H, 1D, 1W, 1M" });
       }
       
-      const data = await storage.getTimeSeriesData(timeframe);
+      const data = await storage.getTimeSeriesData(timeframe, asset);
       res.json(data);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch time series data" });
@@ -80,7 +80,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid timeframe. Must be one of: 1D, 7D, 1M, 3M, 1Y" });
       }
       
-      const data = await storage.getTrendsData(timeframe as '1D' | '7D' | '1M' | '3M' | '1Y');
+      const data = await storage.getTrendsData(timeframe as '1D' | '7D' | '1M' | '3M' | '1Y', asset);
       res.json(data);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch trends data" });
