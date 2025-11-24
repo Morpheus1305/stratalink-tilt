@@ -9,6 +9,7 @@ import { DateTimeBar } from "@/components/date-time-bar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, TrendingDown, AlertTriangle } from "lucide-react";
+import { getPoLiRating } from "@/lib/poli-rating";
 import {
   BarChart,
   Bar,
@@ -99,10 +100,15 @@ export default function Portfolio() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">PORTFOLIO RISK ASSESSMENT</h2>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">PORTFOLIO POLI SCORE:</span>
-              <span className="text-2xl font-mono font-bold text-primary" data-testid="text-portfolio-score">
-                {portfolioData.portfolioPoliScore}<span className="text-sm text-muted-foreground">/100</span>
+            <div className="flex flex-col items-end gap-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">PORTFOLIO POLI SCORE:</span>
+                <span className="text-2xl font-mono font-bold text-primary" data-testid="text-portfolio-score">
+                  {portfolioData.portfolioPoliScore}<span className="text-sm text-muted-foreground">/100</span>
+                </span>
+              </div>
+              <span className="text-xs text-muted-foreground">
+                Liquidity Rating: <span className="font-bold text-foreground" data-testid="text-portfolio-rating">{getPoLiRating(portfolioData.portfolioPoliScore)}</span>
               </span>
             </div>
           </div>
@@ -169,13 +175,18 @@ export default function Portfolio() {
                           </div>
                         </td>
                         <td className="text-right p-3">
-                          <span className={`font-mono font-bold text-lg ${
-                            token.poliScore >= 80 ? 'text-green-500' :
-                            token.poliScore >= 60 ? 'text-yellow-500' :
-                            'text-destructive'
-                          }`} data-testid={`text-token-score-${token.token}`}>
-                            {token.poliScore}
-                          </span>
+                          <div className="flex flex-col items-end">
+                            <span className={`font-mono font-bold text-lg ${
+                              token.poliScore >= 80 ? 'text-green-500' :
+                              token.poliScore >= 60 ? 'text-yellow-500' :
+                              'text-destructive'
+                            }`} data-testid={`text-token-score-${token.token}`}>
+                              {token.poliScore}
+                            </span>
+                            <span className="text-xs font-bold text-muted-foreground mt-0.5" data-testid={`text-token-rating-${token.token}`}>
+                              {getPoLiRating(token.poliScore)}
+                            </span>
+                          </div>
                         </td>
                         <td className="text-right p-3">
                           <div className={`flex items-center justify-end gap-1 ${

@@ -1,10 +1,9 @@
 # StrataLink Labs - Institutional Liquidity Terminal
 
 ## Overview
-StrataLink Labs presents an Institutional Liquidity Terminal, a Web3 liquidity risk intelligence dashboard inspired by the Bloomberg Terminal. Its primary purpose is to provide real-time analytics for digital assets to regulators, exchanges, protocols, and institutional risk managers. The project aims to deliver a production-ready MVP with a comprehensive, institutional-grade UI, offering both live and mock data for robust analysis.
+StrataLink Labs' Institutional Liquidity Terminal is a Web3 liquidity risk intelligence dashboard, inspired by the Bloomberg Terminal. Its core purpose is to deliver real-time digital asset analytics to regulators, exchanges, protocols, and institutional risk managers. The project aims to provide a production-ready MVP with an institutional-grade UI, leveraging both live and mock data for comprehensive analysis.
 
 ## User Preferences
-### Development Workflow
 - **Dark Mode Default**: Application loads in dark mode
 - **Auto-refresh**: Dashboard data refreshes every 10 seconds, charts every 30 seconds
 - **Monospace for Data**: All numerical values use monospace fonts for alignment
@@ -13,224 +12,113 @@ StrataLink Labs presents an Institutional Liquidity Terminal, a Web3 liquidity r
 ## System Architecture
 
 ### Frontend (`client/`)
-The frontend is built with **React**, **TypeScript**, and **Vite** for a fast development experience. **Wouter** handles routing, and **TanStack Query v5** manages state. UI components are styled using **Shadcn UI** and **Tailwind CSS**, with **Recharts** for data visualization.
+The frontend is built with **React**, **TypeScript**, and **Vite**, utilizing **Wouter** for routing and **TanStack Query v5** for state management. UI components are styled with **Shadcn UI** and **Tailwind CSS**, and data visualization is handled by **Recharts**.
 
 **Key Pages & Features**:
--   **Landing Page (`/`)**: Hero section with live market metrics preview.
--   **Main Dashboard (`/platform`)**: Overview with comprehensive analytics, including PoLi Score, Market Depth, Bid-Ask Spread, Volatility, and CEX/DEX Ratio. It features a sticky header with a "HOME" link, sticky platform tabs, a fixed bottom `DateTimeBar` for live timestamps, and a fixed auto-scrolling `BottomTicker`.
--   **Historical Trends (`/platform/trends`)**: Displays PoLi Score Evolution, Market Depth Trend, and Volatility Trend over multiple timeframes (1D, 7D, 1M, 3M, 1Y).
--   **Portfolio Risk Assessment (`/platform/portfolio`)**: Multi-token comparison, portfolio PoLi score, and multi-dimensional analysis.
--   **Alerts & Stress Signals (`/platform/alerts`)**: Real-time risk indicators, alert timeline, and a detailed alert log.
--   **Token Scorecard (`/platform/scorecard`)**: Tabbed interface for Tokenomics (13 metrics) and Liquidity (42 metrics), with industry benchmarks and status tracking.
+-   **Landing Page (`/`)**: Features a hero section displaying live market metrics.
+-   **Main Dashboard (`/platform`)**: Offers an overview with PoLi Score, Market Depth, Bid-Ask Spread, Volatility, and CEX/DEX Ratio. It includes a sticky header, platform tabs, a fixed `DateTimeBar`, and an auto-scrolling `BottomTicker`.
+-   **Historical Trends (`/platform/trends`)**: Displays trends for PoLi Score, Market Depth, and Volatility across various timeframes.
+-   **Portfolio Risk Assessment (`/platform/portfolio`)**: Enables multi-token comparison, portfolio PoLi scoring, and multi-dimensional analysis.
+-   **Alerts & Stress Signals (`/platform/alerts`)**: Provides real-time risk indicators, an alert timeline, and a detailed log.
+-   **Token Scorecard (`/platform/scorecard`)**: A tabbed interface presenting Tokenomics (13 metrics) and Liquidity (42 metrics), along with industry benchmarks.
 
 **Design System**:
--   **Colors**: Bloomberg-inspired dark theme with `#0a0a0a` background, primary yellow (`#F5C211`), accent cyan (`#00D9FF`), success green (`#4ade80`), and destructive red (`#ef4444`).
--   **Typography**: Inter (sans-serif) for general text and a monospace font (Roboto Mono / IBM Plex Mono) for all numerical data.
+-   **Colors**: A Bloomberg-inspired dark theme (`#0a0a0a` background) with primary yellow (`#F5C211`), accent cyan (`#00D9FF`), success green (`#4ade80`), and destructive red (`#ef4444`).
+-   **Typography**: Inter (sans-serif) for general text, and a monospace font (Roboto Mono / IBM Plex Mono) for numerical data.
 -   **Layout**: Emphasizes information density, uses a grid-first approach, is fully responsive (mobile-first), and features edge-to-edge full-width panels.
 
 ### Backend (`server/`)
-The backend uses **Express.js** with in-memory storage (**MemStorage**). It provides API endpoints for dashboard data, historical time-series, trends, portfolio risk, alerts, and token scorecard metrics.
+The backend uses **Express.js** with in-memory storage (MemStorage). It provides API endpoints for all dashboard data, historical trends, portfolio risk, alerts, and token scorecard metrics.
+
+### Authentication
+The system incorporates a mandatory 2FA authentication flow with a fixed OTP code for demonstration purposes. Sessions automatically reset after 5 minutes of inactivity on platform pages.
 
 ### Shared (`shared/`)
-**Zod schemas** define type definitions for all data structures, ensuring type safety across the frontend and backend.
+**Zod schemas** are used for defining type-safe data structures across the application.
 
 ## External Dependencies
--   **CoinGecko API**: For live cryptocurrency pricing (BTC, ETH, SOL).
--   **Binance API**: For real-time order book depth (with graceful fallback due to regional blocking).
--   **Recharts**: For financial data visualization on the frontend.
+-   **CoinGecko API**: Live cryptocurrency pricing (BTC, ETH, SOL).
+-   **Binance API**: Real-time order book depth.
+-   **Resend**: Email delivery service for OTPs.
+-   **Recharts**: Frontend financial data visualization.
 -   **Lucide React**: Icon system.
--   **Shadcn UI**: Accessible component library.
+-   **Shadcn UI**: Accessible UI component library.
 -   **Tailwind CSS**: Utility-first CSS framework.
 -   **Node.js 20**: Runtime environment.
--   **TypeScript**: Programming language for type safety.
+-   **TypeScript**: Programming language.
 -   **Vite**: Frontend tooling.
--   **Wouter**: Frontend routing library.
+-   **Wouter**: Frontend routing.
 -   **TanStack Query v5**: Frontend state management.
 -   **Express.js**: Backend web framework.
+## Development History
 
-## Recent Changes
+### Phase 13: PoLi Liquidity Rating Display (Completed - Nov 24, 2025)
 
-### Phase 7: Header Layout Updates (Completed - Nov 21, 2025)
-- ✅ **Updated Header Layout on All Pages**:
-  - **LEFT side**: Logo + "STRATALINK LABS LIQUIDITY INTELLIGENCE TERMINAL" (expanded branding)
-  - **RIGHT side**: Navigation links (landing) / LIVE indicator + action buttons (platform)
-  - Consistent branding across landing page and all 5 platform pages
-  - **Timestamps removed from headers** - only visible in bottom DateTimeBar
-  
-- ✅ **Header Navigation Updates**:
-  - Dashboard header: Changed "LIQUIDITY INTELLIGENCE" nav button to "OVERVIEW"
-  - Landing page: Navigation links on the right (PLATFORM, DOCS, DEMO MODE, ABOUT, HELP)
-  - Platform pages: LIVE indicator + Bell + Settings icons on the right
-  
-- ✅ **E2E Testing**: All tests passed
-  - Verified branding text on LEFT on all pages
-  - Verified NO timestamp or clock icon in headers
-  - Confirmed LIVE indicator visible on platform pages
-  - Verified consistent clean layout across all pages
+**Objective**: Display liquidity quality ratings (AAA through D) alongside all PoLi scores throughout the platform.
 
-### Phase 8: Production-Ready 2FA Authentication (Completed - Nov 21, 2025)
-- ✅ **Complete 2FA Authentication System**:
-  - Email OTP authentication with 6-digit codes (10-minute expiry)
-  - JWT-based session management with 7-day token expiration
-  - Bcrypt password hashing (10 rounds)
-  - Login attempt tracking with rate limiting (5 failed attempts)
-  - PostgreSQL database for permanent user storage (users, otps, login_attempts tables)
-  
-- ✅ **Security Implementation**:
-  - **PublicUser sanitization**: Sensitive fields (passwordHash, totpSecret, backupCodes) never sent to frontend
-  - **Backend session validation**: /api/auth/session endpoint validates JWT signature, expiration, and user existence
-  - **Client-side token validation**: AuthContext checks JWT expiration on startup
-  - **Automatic cleanup**: Temp credentials cleared on login/logout
-  - **Expired token handling**: Invalid/expired tokens trigger automatic logout
-  
-- ✅ **Route Protection & Redirects**:
-  - Protected routes (/platform/*) redirect unauthenticated users to /login
-  - Public routes (/, /login, /verify-otp) redirect authenticated users to /platform
-  - Prevents browser back navigation to public pages after authentication
-  - RequireAuth component guards all platform routes
-  
-- ✅ **Authentication Pages**:
-  - LoginPage: Email/password form with Bloomberg-inspired design
-  - VerifyOTPPage: 6-digit OTP input with countdown timer and resend functionality
-  - Demo credentials: robert@stratalink.ai / SecurePass123!
-  - OTP codes visible in server logs for development/testing
-  
-- ✅ **E2E Testing**: Comprehensive test coverage
-  - Complete 2FA flow (login → OTP → dashboard)
-  - Routing guard verification (authenticated/unauthenticated redirects)
-  - Security validation (PublicUser sanitization, token validation)
-  - Negative testing (invalid credentials, invalid OTP, expired tokens)
-  - Session persistence and refresh handling
-  - All tests passed successfully with backend validation
+#### Implementation
 
-### Phase 9: Real Email Delivery with Resend (Completed - Nov 21, 2025)
-- ✅ **Resend Email Service Integration**:
-  - Installed Resend SDK for production email delivery
-  - Configured RESEND_API_KEY environment variable
-  - Updated demo user email to robert@stratalink.ai for real email receipt
-  - Professional Bloomberg-style HTML email template with dark theme
-  
-- ✅ **Email Template Design**:
-  - Dark background (#0a0a0a) with Bloomberg yellow accents (#F5C211)
-  - Monospace font display for 6-digit OTP codes
-  - 10-minute expiration notice
-  - Security warnings and StrataLink Labs branding
-  - Mobile-responsive table-based HTML layout
-  
-- ✅ **Production-Ready Error Handling**:
-  - Environment detection (dev vs production)
-  - Graceful fallback to console logging when Resend unavailable
-  - No exceptions thrown on email failures (allows dev/testing without API key)
-  - OTP codes only logged in development (security best practice)
-  - Clear error messages for debugging
-  
-- ✅ **E2E Testing**: Real email delivery validated
-  - Login flow with robert@stratalink.ai credentials
-  - OTP email successfully sent via Resend API
-  - Email code extraction from server logs confirmed
-  - Complete authentication flow verified end-to-end
-  - Session persistence and dashboard access confirmed
+**Helper Function** (`client/src/lib/poli-rating.ts`):
+- Created `getPoLiRating(score: number): string` function
+- Input validation: Clamps scores to [0, 100] range for robustness
+- Returns rating string based on score thresholds
+- Fully documented with JSDoc comments
 
-### Phase 10: Navigation & UX Improvements (Completed - Nov 21, 2025)
-- ✅ **Development OTP Bypass**:
-  - Implemented hardcoded OTP code "000000" for development testing
-  - Environment-gated: Only works when NODE_ENV !== 'production'
-  - Login page displays bypass code in development mode only
-  - Clean server logging without emojis
-  - Security maintained: Bypass completely disabled in production builds
-  
-- ✅ **Alerts Page Update**:
-  - Changed "ASL Trigger Count" to "ADL Trigger Count"
-  - Updated in Risk Indicators section
-  - Maintains consistent terminology across platform
-  
-- ✅ **HOME Button Navigation Fix**:
-  - Removed auto-redirect from Landing page for authenticated users
-  - HOME button now navigates to hero page (/) instead of overview (/platform)
-  - Authenticated users can access landing page without being redirected
-  - Improved user control over navigation flow
-  
-- ✅ **E2E Testing**: All changes verified
-  - Dev OTP bypass tested and working
-  - ADL text confirmed on Alerts page
-  - HOME button navigation to hero page confirmed
-  - No automatic redirects from landing page
+**Rating Scale**:
+- AAA (95-100): Exceptional liquidity quality
+- AA (90-94): High liquidity quality
+- A (85-89): Strong liquidity quality
+- BBB (75-84): Adequate liquidity
+- BB (65-74): Vulnerable liquidity
+- B (55-64): Weak liquidity
+- CCC (40-54): Distressed liquidity
+- CC (25-39): Severe liquidity stress
+- C (10-24): Illiquid
+- D (0-9): Non-functioning liquidity
 
-### Phase 11: Fixed OTP 2FA & Login Enforcement (Completed - Nov 22, 2025)
-- ✅ **Fixed OTP Code Implementation**:
-  - Changed from dynamic email OTPs to fixed demonstration code: **291305**
-  - Backend validates fixed code "291305" for all users
-  - Development bypass "000000" still available in non-production
-  - Fixed code NOT displayed on UI (user must know it separately for security)
-  
-- ✅ **2FA Always Enforced**:
-  - **CRITICAL**: 2FA is now mandatory for ALL users regardless of user.twoFactorEnabled flag
-  - Backend login endpoint ALWAYS returns `requires2FA: true` (prototype mode)
-  - Every login attempt redirects to /verify-otp screen (no bypassing)
-  - Login page automatically logs out existing sessions (forced fresh authentication)
-  
-- ✅ **Login Flow Enforcement**:
-  - Landing page CTAs ("ENTER PLATFORM", "PLATFORM" nav) always route to /login
-  - LoginPage forces logout on mount via useEffect - clears any cached sessions
-  - All users must complete login flow every time they visit /login
-  - Prevents bypassing authentication via hero page links
-  
-- ✅ **2FA Flow (Complete)**:
-  - Login with credentials → Backend validates → Redirects to /verify-otp
-  - User enters "291305" (fixed code) → Backend validates → Returns accessToken
-  - Frontend updates auth context → **Auto-redirects to /platform**
-  - Invalid codes → Error toast → Stays on /verify-otp
-  - Resend OTP shows message: "Use the fixed verification code: 291305"
-  
-- ✅ **Redirect Fix**:
-  - Fixed race condition where successful OTP verification redirected to /login instead of /platform
-  - useEffect now checks isAuthenticated BEFORE checking tempToken
-  - Removed manual redirect from onSubmit handler (useEffect handles all redirects)
-  - Ensures authenticated users always redirect to /platform
-  
-- ✅ **Clean UI (No Credential Display)**:
-  - Removed demo credentials display from login page
-  - Removed fixed verification code display from 2FA screen
-  - Production-ready authentication interface (credentials managed separately)
-  
-- ✅ **E2E Testing**: Complete authentication flow validated
-  - Login → Auto-logout clears existing session ✓
-  - Redirects to /verify-otp ✓
-  - Code validation accepts "291305" and rejects invalid codes ✓
-  - Successful OTP verification → **Redirects to /platform** ✓
-  - Dashboard loads with LIVE indicator ✓
-  - Access token stored in localStorage ✓
-  - Dev bypass "000000" still functional ✓
-  - All routing and redirects working correctly ✓
+#### Display Locations
 
-### Phase 12: Inactivity Timeout (Completed - Nov 22, 2025)
-- ✅ **5-Minute Inactivity Timeout**:
-  - Automatic session reset after 5 minutes of no user interaction
-  - Logs out user and redirects to Hero Page (/)
-  - User must complete Login → 2FA flow again after timeout
-  
-- ✅ **Interaction Tracking**:
-  - Mouse movement (mousemove)
-  - Keyboard input (keydown)
-  - Scroll events (scroll)
-  - Touch events (touchstart)
-  - All interactions reset the 5-minute timer
-  
-- ✅ **Scope**:
-  - **Applied to**: All platform pages (/platform/*)
-    - Overview (/platform)
-    - Historical Trends (/platform/trends)
-    - Portfolio Risk (/platform/portfolio)
-    - Alerts (/platform/alerts)
-    - Token Scorecard (/platform/scorecard)
-  - **NOT applied to**:
-    - Hero Page (/)
-    - Login Page (/login)
-    - 2FA Verification Page (/verify-otp)
-  
-- ✅ **Implementation**:
-  - Custom hook: `useInactivityTimeout` (client/src/hooks/useInactivityTimeout.ts)
-  - Integrated into `RequireAuth` component (applies to all protected routes)
-  - Automatic cleanup on component unmount
-  - Passive event listeners for performance
-  - Console logging for debugging: "[INACTIVITY] Session timeout after 5 minutes of inactivity"
+1. **LiquidityScoreGauge Component**: 
+   - Rating displayed inside gauge circle below score
+   - Format: "Liquidity Rating: **BB**"
+   - Used in: Dashboard, Alerts, Scorecard, Portfolio pages
+
+2. **Landing Hero Page**: 
+   - Rating displayed below PoLi score in LIVE MARKET DATA panel
+   - Uses rounded score for consistency (Math.round applied to both score and rating)
+
+3. **Portfolio Page**:
+   - Portfolio overall PoLi score shows rating
+   - Multi-token comparison table shows rating for each token
+   - Bold styling for all ratings (font-weight: 700)
+
+#### Visual Design
+
+- **Typography**: Small size (text-xs), bold weight for rating values
+- **Format**: "Liquidity Rating: **[RATING]**" 
+- **Position**: Immediately beneath numerical PoLi score
+- **Styling**: Muted label text, bold rating value
+
+#### Testing
+
+- ✅ All E2E tests passing
+- ✅ Bold styling verified (font-weight >= 700)
+- ✅ Rounding consistency confirmed (LandingHero fixed)
+- ✅ Helper function edge cases handled (clamping)
+- ✅ Visual design matches specifications across all pages
+
+#### Files Modified
+
+- `client/src/lib/poli-rating.ts` (new file)
+- `client/src/components/liquidity-score-gauge.tsx`
+- `client/src/components/landing-hero.tsx`
+- `client/src/pages/portfolio.tsx`
+
+#### Success Criteria
+
+✅ Rating helper function created and tested
+✅ Ratings display on all PoLi score components
+✅ Bold styling consistent across all locations
+✅ Input validation handles edge cases
+✅ Score/rating consistency (no rounding mismatches)
+✅ Production-ready implementation

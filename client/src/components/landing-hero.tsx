@@ -4,6 +4,7 @@ import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import type { DashboardData } from "@shared/schema";
 import { BottomTicker } from "@/components/bottom-ticker";
+import { getPoLiRating } from "@/lib/poli-rating";
 
 export function LandingHero() {
   const { data: dashboardData, isLoading } = useQuery<DashboardData>({
@@ -129,13 +130,20 @@ export function LandingHero() {
             </div>
 
             <div className="space-y-3">
-              <div className="flex items-center justify-between py-2 border-b border-border">
-                <span className="text-xs text-muted-foreground tracking-wide">POLI SCORE</span>
-                <div className="flex items-center gap-3">
-                  <span className="font-mono text-2xl font-bold">{Math.round(dashboardData.liquidityScore.score)}</span>
-                  <span className="text-xs text-muted-foreground">/100</span>
-                  <span className={`text-xs ${dashboardData.liquidityScore.change24h >= 0 ? 'text-chart-3' : 'text-destructive'}`}>
-                    {dashboardData.liquidityScore.change24h >= 0 ? '↗' : '↘'} {dashboardData.liquidityScore.change24h >= 0 ? '+' : ''}{dashboardData.liquidityScore.change24h.toFixed(1)}%
+              <div className="py-2 border-b border-border">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-muted-foreground tracking-wide">POLI SCORE</span>
+                  <div className="flex items-center gap-3">
+                    <span className="font-mono text-2xl font-bold">{Math.round(dashboardData.liquidityScore.score)}</span>
+                    <span className="text-xs text-muted-foreground">/100</span>
+                    <span className={`text-xs ${dashboardData.liquidityScore.change24h >= 0 ? 'text-chart-3' : 'text-destructive'}`}>
+                      {dashboardData.liquidityScore.change24h >= 0 ? '↗' : '↘'} {dashboardData.liquidityScore.change24h >= 0 ? '+' : ''}{dashboardData.liquidityScore.change24h.toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <span className="text-xs text-muted-foreground">
+                    Liquidity Rating: <span className="font-bold text-foreground" data-testid="text-landing-poli-rating">{getPoLiRating(Math.round(dashboardData.liquidityScore.score))}</span>
                   </span>
                 </div>
               </div>

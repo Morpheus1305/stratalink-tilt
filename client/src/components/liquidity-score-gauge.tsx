@@ -1,6 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { ArrowUp, ArrowDown, TrendingUp } from "lucide-react";
 import type { LiquidityScore } from "@shared/schema";
+import { getPoLiRating } from "@/lib/poli-rating";
 
 interface LiquidityScoreGaugeProps {
   scoreData: LiquidityScore;
@@ -86,6 +87,9 @@ export function LiquidityScoreGauge({ scoreData }: LiquidityScoreGaugeProps) {
               {scoreData.score}
             </div>
             <div className="text-xs text-muted-foreground">/100</div>
+            <div className="mt-2 text-xs text-muted-foreground">
+              Liquidity Rating: <span className="font-bold text-foreground" data-testid="text-poli-rating">{getPoLiRating(scoreData.score)}</span>
+            </div>
           </div>
         </div>
       </div>
