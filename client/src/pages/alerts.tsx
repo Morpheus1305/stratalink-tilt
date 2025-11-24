@@ -10,6 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Clock, Download, Filter } from "lucide-react";
+import { TokenSelector } from "@/components/token-selector";
+import { useToken } from "@/contexts/TokenContext";
 import {
   AreaChart,
   Area,
@@ -21,13 +23,16 @@ import {
 } from "recharts";
 
 export default function Alerts() {
+  const { selectedToken, setSelectedToken } = useToken();
+  const asset = selectedToken || 'BTC';
+
   const { data: dashboardData, isLoading: dashboardLoading } = useQuery<DashboardData>({
-    queryKey: ['/api/dashboard'],
+    queryKey: ['/api/dashboard', asset],
     refetchInterval: 10000,
   });
 
   const { data: alertsData, isLoading: alertsLoading } = useQuery<AlertsData>({
-    queryKey: ['/api/alerts'],
+    queryKey: ['/api/alerts', asset],
     refetchInterval: 15000,
   });
 
@@ -77,10 +82,7 @@ export default function Alerts() {
       <div className="border-b border-border px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <span className="text-xs text-muted-foreground">TOKEN:</span>
-          <Button data-testid="button-asset-selector" variant="outline" size="sm" className="font-mono text-xs">
-            <span className="text-primary font-semibold">SOL</span>
-            <span className="ml-2 text-muted-foreground">Solana</span>
-          </Button>
+          <TokenSelector selectedToken={selectedToken} onChange={setSelectedToken} />
         </div>
         <div className="flex items-center gap-2" data-testid="indicator-live-status">
           <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" data-testid="dot-live-indicator" />
@@ -128,7 +130,7 @@ export default function Alerts() {
         {/* Alerts Section */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">SOL - ALERTS & STRESS SIGNALS</h2>
+            <h2 className="text-lg font-semibold">{asset} - ALERTS & STRESS SIGNALS</h2>
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" data-testid="button-filter-alerts">
                 <Filter className="w-4 h-4 mr-2" />
@@ -203,7 +205,7 @@ export default function Alerts() {
           {/* Alert Timeline Chart */}
           <Card className="p-4" data-testid="card-alert-timeline">
             <CardHeader className="p-0 pb-3">
-              <CardTitle className="text-sm font-semibold" data-testid="text-timeline-title">ALERT TIMELINE - SOL</CardTitle>
+              <CardTitle className="text-sm font-semibold" data-testid="text-timeline-title">ALERT TIMELINE - {asset}</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               <ResponsiveContainer width="100%" height={250}>

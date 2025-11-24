@@ -12,19 +12,23 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Download, FileText } from "lucide-react";
+import { TokenSelector } from "@/components/token-selector";
+import { useToken } from "@/contexts/TokenContext";
 
 export default function Scorecard() {
   const [activeTab, setActiveTab] = useState<'tokenomics' | 'liquidity'>('tokenomics');
+  const { selectedToken, setSelectedToken } = useToken();
+  const asset = selectedToken || 'BTC';
 
   const { data: dashboardData, isLoading: dashboardLoading } = useQuery<DashboardData>({
-    queryKey: ['/api/dashboard'],
+    queryKey: ['/api/dashboard', asset],
     refetchInterval: 10000,
   });
 
   const { data: scorecardData, isLoading: scorecardLoading } = useQuery<ScorecardData>({
-    queryKey: ['/api/scorecard', activeTab],
+    queryKey: ['/api/scorecard', activeTab, asset],
     queryFn: async () => {
-      const response = await fetch(`/api/scorecard?type=${activeTab}`);
+      const response = await fetch(`/api/scorecard?type=${activeTab}&asset=${asset}`);
       if (!response.ok) {
         throw new Error('Failed to fetch scorecard data');
       }
@@ -76,10 +80,7 @@ export default function Scorecard() {
       <div className="border-b border-border px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <span className="text-xs text-muted-foreground">TOKEN:</span>
-          <Button data-testid="button-asset-selector" variant="outline" size="sm" className="font-mono text-xs">
-            <span className="text-primary font-semibold">SOL</span>
-            <span className="ml-2 text-muted-foreground">Solana</span>
-          </Button>
+          <TokenSelector selectedToken={selectedToken} onChange={setSelectedToken} />
         </div>
         <div className="flex items-center gap-2" data-testid="indicator-live-status">
           <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" data-testid="dot-live-indicator" />

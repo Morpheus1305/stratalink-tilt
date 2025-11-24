@@ -24,9 +24,9 @@ export interface IStorage {
   getDashboardData(asset?: string): Promise<DashboardData>;
   getTimeSeriesData(timeframe: string, asset?: string): Promise<TimeSeriesData>;
   getTrendsData(timeframe: '1D' | '7D' | '1M' | '3M' | '1Y', asset?: string): Promise<TrendsData>;
-  getPortfolioData(): Promise<PortfolioData>;
+  getPortfolioData(asset?: string): Promise<PortfolioData>;
   getAlertsData(asset?: string): Promise<AlertsData>;
-  getScorecardData(metricType: 'tokenomics' | 'liquidity'): Promise<ScorecardData>;
+  getScorecardData(metricType: 'tokenomics' | 'liquidity', asset?: string): Promise<ScorecardData>;
   
   // Authentication methods
   getUserByEmail(email: string): Promise<User | null>;
@@ -674,8 +674,18 @@ export class MemStorage implements IStorage {
     };
   }
 
-  async getPortfolioData(): Promise<PortfolioData> {
-    const portfolioPoliScore = 72;
+  async getPortfolioData(asset: string = 'BTC'): Promise<PortfolioData> {
+    // Asset-specific portfolio PoLi scores
+    const assetPoliScores: Record<string, number> = {
+      'BTC': 72,
+      'ETH': 67,
+      'SOL': 62,
+      'BNB': 69,
+      'XRP': 64,
+      'ADA': 60,
+    };
+    
+    const portfolioPoliScore = assetPoliScores[asset] || 65;
     
     return {
       portfolioPoliScore,
@@ -764,7 +774,7 @@ export class MemStorage implements IStorage {
     };
   }
 
-  async getAlertsData(asset: string = 'SOL'): Promise<AlertsData> {
+  async getAlertsData(asset: string = 'BTC'): Promise<AlertsData> {
     return {
       riskIndicators: [
         { indicator: 'Funding Rate Spike', observedBehavior: 'BTC +0.35% / 8z', ras: 'high' },
@@ -844,7 +854,7 @@ export class MemStorage implements IStorage {
     return data;
   }
 
-  async getScorecardData(metricType: 'tokenomics' | 'liquidity'): Promise<ScorecardData> {
+  async getScorecardData(metricType: 'tokenomics' | 'liquidity', asset: string = 'BTC'): Promise<ScorecardData> {
     const tokenomicsMetrics = [
       { metric: 'Circulating Supply', description: 'Amount in active circulation', value: '466M', industryBenchmark: '< 25 billion', status: 'GOOD' as const },
       { metric: 'Total Supply', description: 'Cumulative supply incl unlocked/vested tokens', value: '590M', industryBenchmark: 'Company benchmark', status: 'GOOD' as const },

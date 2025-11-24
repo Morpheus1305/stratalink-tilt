@@ -88,9 +88,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get portfolio data
-  app.get("/api/portfolio", async (_req, res) => {
+  app.get("/api/portfolio", async (req, res) => {
     try {
-      const data = await storage.getPortfolioData();
+      const asset = (req.query.asset as string) || 'BTC';
+      const data = await storage.getPortfolioData(asset);
       res.json(data);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch portfolio data" });
@@ -98,9 +99,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get alerts data
-  app.get("/api/alerts", async (_req, res) => {
+  app.get("/api/alerts", async (req, res) => {
     try {
-      const data = await storage.getAlertsData();
+      const asset = (req.query.asset as string) || 'BTC';
+      const data = await storage.getAlertsData(asset);
       res.json(data);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch alerts data" });
@@ -122,12 +124,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/scorecard", async (req, res) => {
     try {
       const metricType = (req.query.type as string) || 'tokenomics';
+      const asset = (req.query.asset as string) || 'BTC';
       
       if (metricType !== 'tokenomics' && metricType !== 'liquidity') {
         return res.status(400).json({ error: "Invalid metric type. Must be 'tokenomics' or 'liquidity'" });
       }
       
-      const data = await storage.getScorecardData(metricType);
+      const data = await storage.getScorecardData(metricType, asset);
       res.json(data);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch scorecard data" });

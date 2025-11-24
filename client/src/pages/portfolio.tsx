@@ -10,6 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, TrendingDown, AlertTriangle } from "lucide-react";
 import { getPoLiRating } from "@/lib/poli-rating";
+import { TokenSelector } from "@/components/token-selector";
+import { useToken } from "@/contexts/TokenContext";
 import {
   BarChart,
   Bar,
@@ -27,13 +29,16 @@ import {
 } from "recharts";
 
 export default function Portfolio() {
+  const { selectedToken, setSelectedToken } = useToken();
+  const asset = selectedToken || 'BTC';
+
   const { data: dashboardData, isLoading: dashboardLoading } = useQuery<DashboardData>({
-    queryKey: ['/api/dashboard'],
+    queryKey: ['/api/dashboard', asset],
     refetchInterval: 10000,
   });
 
   const { data: portfolioData, isLoading: portfolioLoading } = useQuery<PortfolioData>({
-    queryKey: ['/api/portfolio'],
+    queryKey: ['/api/portfolio', asset],
     refetchInterval: 30000,
   });
 
@@ -70,10 +75,7 @@ export default function Portfolio() {
       <div className="border-b border-border px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <span className="text-xs text-muted-foreground">TOKEN:</span>
-          <Button data-testid="button-asset-selector" variant="outline" size="sm" className="font-mono text-xs">
-            <span className="text-primary font-semibold">SOL</span>
-            <span className="ml-2 text-muted-foreground">Solana</span>
-          </Button>
+          <TokenSelector selectedToken={selectedToken} onChange={setSelectedToken} />
         </div>
         <div className="flex items-center gap-2" data-testid="indicator-live-status">
           <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" data-testid="dot-live-indicator" />
