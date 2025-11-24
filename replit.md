@@ -31,6 +31,14 @@ The frontend is built with React, TypeScript, and Vite, using Wouter for routing
 ### Backend
 The backend uses Express.js with in-memory storage (MemStorage). It provides API endpoints for all dashboard data, historical trends, portfolio risk, alerts, token scorecard metrics, and a dedicated endpoint for Top 20 tokens. All data endpoints support an `asset` query parameter for token-specific data, defaulting to BTC.
 
+**Asset-Specific Data Generation**:
+All Overview page metrics are dynamically generated based on the selected token using asset-specific multipliers:
+- **BTC**: 1.0x baseline (depth ~$42M, PoLi ~72/100)
+- **ETH**: 0.65x (depth ~$27M, PoLi ~67/100)
+- **SOL**: 0.35x (depth ~$15M, PoLi ~62/100)
+
+Six storage methods generate asset-specific data: `generateLiquidityScore()`, `generateStressSignals()`, `generateKeyMetrics()`, `generateExchangeData()`, `generateCexDexDistribution()`, and `generateLiveMetrics()`. Live API data fetching is disabled (`useLiveData = false`) to ensure consistent, deterministic mock data generation across all tokens.
+
 ### Authentication
 The system incorporates a mandatory 2FA authentication flow with a fixed OTP code for demonstration purposes. Sessions automatically reset after 5 minutes of inactivity on platform pages.
 

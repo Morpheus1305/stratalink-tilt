@@ -353,8 +353,8 @@ export class MemStorage implements IStorage {
     // Asset-specific liquidity multipliers
     const assetMultipliers: Record<string, number> = {
       'BTC': 1.0,
-      'ETH': 0.67,
-      'SOL': 0.37,
+      'ETH': 0.65,
+      'SOL': 0.35,
       'BNB': 0.52,
       'XRP': 0.46,
       'ADA': 0.33,
