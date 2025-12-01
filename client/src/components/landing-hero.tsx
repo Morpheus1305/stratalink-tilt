@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { DashboardData } from "@shared/schema";
 import { BottomTicker } from "@/components/bottom-ticker";
 import { getPoLiRating } from "@/lib/poli-rating";
+import stratalinkLogo from "@assets/logo_stratalink_1764604924054.png";
 
 // Always load BTC data on the hero page for consistent, populated metrics
 const DEFAULT_HERO_TOKEN = "BTC";
@@ -37,9 +38,14 @@ export function LandingHero() {
       {/* Header */}
       <header className="border-b border-border h-14 flex items-center px-6">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full border-2 border-primary flex items-center justify-center">
-            <div className="text-primary font-bold text-sm">SL</div>
-          </div>
+          <img 
+            src={stratalinkLogo} 
+            alt="StrataLink Labs" 
+            className="w-10 h-10 rounded-full object-cover"
+            style={{ 
+              filter: 'brightness(1.6) contrast(1.1) saturate(1.3)',
+            }}
+          />
           <span className="font-semibold text-sm tracking-tight">STRATALINK LABS LIQUIDITY INTELLIGENCE TERMINAL</span>
         </div>
         <nav className="ml-auto flex items-center gap-6">
@@ -69,10 +75,15 @@ export function LandingHero() {
       <div className="flex-1 flex items-center justify-between px-12 gap-16">
         {/* Left Side - Hero Content */}
         <div className="flex-1 max-w-2xl">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-16 h-16 rounded-full border-2 border-primary flex items-center justify-center">
-              <div className="text-primary font-bold text-xl">S</div>
-            </div>
+          <div className="flex items-center gap-4 mb-8">
+            <img 
+              src={stratalinkLogo} 
+              alt="StrataLink Labs" 
+              className="w-16 h-16 rounded-full object-cover"
+              style={{ 
+                filter: 'brightness(1.6) contrast(1.1) saturate(1.3)',
+              }}
+            />
             <div className="text-sm text-muted-foreground leading-tight">
               The Liquidity Truth Layer — powered by STRATA AI and PoLi.
             </div>
