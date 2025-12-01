@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Bell, Settings, Activity, Home, Fingerprint } from "lucide-react";
 import { Link, useLocation } from "wouter";
+import stratalinkLogo from "@assets/logo_stratalink_1764604924054.png";
 
 export function DashboardHeader() {
   const [location] = useLocation();
@@ -9,9 +10,14 @@ export function DashboardHeader() {
   return (
     <header className="sticky top-0 z-50 border-b border-border h-14 flex items-center px-4 bg-card">
       <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-full border-2 border-primary flex items-center justify-center">
-          <div className="text-primary font-bold text-sm">SL</div>
-        </div>
+        <img 
+          src={stratalinkLogo} 
+          alt="StrataLink Labs" 
+          className="w-10 h-10 rounded-full object-cover"
+          style={{ 
+            filter: 'brightness(1.6) contrast(1.1) saturate(1.3)',
+          }}
+        />
         <span className="font-semibold text-sm tracking-tight">STRATALINK LABS LIQUIDITY INTELLIGENCE TERMINAL</span>
       </div>
 
