@@ -1,8 +1,11 @@
 import { Button } from "@/components/ui/button";
-import { Bell, Settings, Activity, Home } from "lucide-react";
-import { Link } from "wouter";
+import { Bell, Settings, Activity, Home, Fingerprint } from "lucide-react";
+import { Link, useLocation } from "wouter";
 
 export function DashboardHeader() {
+  const [location] = useLocation();
+  const isIdentityActive = location.startsWith('/identity');
+
   return (
     <header className="sticky top-0 z-50 border-b border-border h-14 flex items-center px-4 bg-card">
       <div className="flex items-center gap-3">
@@ -58,6 +61,17 @@ export function DashboardHeader() {
         >
           REPORTS
         </Button>
+        <Link href="/identity">
+          <Button 
+            variant={isIdentityActive ? "secondary" : "ghost"}
+            size="sm" 
+            className="text-xs font-medium"
+            data-testid="button-nav-identity"
+          >
+            <Fingerprint className="h-3.5 w-3.5 mr-1.5" />
+            IDENTITY
+          </Button>
+        </Link>
       </nav>
 
       <div className="ml-auto flex items-center gap-4">

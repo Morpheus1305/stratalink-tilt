@@ -12,6 +12,12 @@ import Alerts from "@/pages/alerts";
 import Scorecard from "@/pages/scorecard";
 import LoginPage from "@/pages/LoginPage";
 import VerifyOTPPage from "@/pages/VerifyOTPPage";
+import IdentityLandingPage from "@/pages/identity/IdentityLandingPage";
+import LiquidityFragmentationPage from "@/pages/identity/LiquidityFragmentationPage";
+import MMIntegrityPage from "@/pages/identity/MMIntegrityPage";
+import PoliPlusPage from "@/pages/identity/PoliPlusPage";
+import IdentityAlertsPage from "@/pages/identity/IdentityAlertsPage";
+import RegSurveillancePage from "@/pages/identity/RegSurveillancePage";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { TokenProvider } from "@/contexts/TokenContext";
 import { RequireAuth } from "@/components/RequireAuth";
@@ -55,6 +61,48 @@ function Router() {
         {() => (
           <RequireAuth>
             <Scorecard />
+          </RequireAuth>
+        )}
+      </Route>
+      <Route path="/identity">
+        {() => (
+          <RequireAuth>
+            <IdentityLandingPage />
+          </RequireAuth>
+        )}
+      </Route>
+      <Route path="/identity/liquidity-fragmentation">
+        {() => (
+          <RequireAuth>
+            <LiquidityFragmentationPage />
+          </RequireAuth>
+        )}
+      </Route>
+      <Route path="/identity/mm-integrity">
+        {() => (
+          <RequireAuth>
+            <MMIntegrityPage />
+          </RequireAuth>
+        )}
+      </Route>
+      <Route path="/identity/poli-plus">
+        {() => (
+          <RequireAuth>
+            <PoliPlusPage />
+          </RequireAuth>
+        )}
+      </Route>
+      <Route path="/identity/identity-alerts">
+        {() => (
+          <RequireAuth>
+            <IdentityAlertsPage />
+          </RequireAuth>
+        )}
+      </Route>
+      <Route path="/identity/reg-surveillance">
+        {() => (
+          <RequireAuth>
+            <RegSurveillancePage />
           </RequireAuth>
         )}
       </Route>
