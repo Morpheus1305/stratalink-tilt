@@ -54,7 +54,7 @@ export function LandingHero() {
               PLATFORM
             </span>
           </Link>
-          <Link href="/login" data-testid="link-docs">
+          <Link href="/docs" data-testid="link-docs">
             <span className="text-sm hover-elevate active-elevate-2 px-3 py-1.5 rounded-md cursor-pointer">
               DOCS
             </span>
@@ -127,15 +127,17 @@ export function LandingHero() {
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </Link>
-            <Button 
-              variant="outline" 
-              size="lg"
-              className="font-semibold"
-              data-testid="button-documentation"
-            >
-              <FileText className="mr-2 h-4 w-4" />
-              DOCUMENTATION
-            </Button>
+            <Link href="/docs">
+              <Button 
+                variant="outline" 
+                size="lg"
+                className="font-semibold"
+                data-testid="button-documentation"
+              >
+                <FileText className="mr-2 h-4 w-4" />
+                DOCUMENTATION
+              </Button>
+            </Link>
           </div>
         </div>
 
