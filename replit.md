@@ -23,6 +23,31 @@ The frontend is built with React, TypeScript, and Vite, using Wouter for routing
 -   **Token Scorecard (`/platform/scorecard`)**: A tabbed interface presenting Tokenomics (13 metrics) and Liquidity (42 metrics), along with industry benchmarks.
 -   **Dynamic Token Selection**: Implemented across Overview and Trends pages using CoinMarketCap's Top 20 tokens, with shared state persistence across navigation. The Hero page consistently displays BTC data independently. PoLi liquidity quality ratings (AAA through D) are displayed alongside all PoLi scores throughout the platform.
 
+### Identity Module (Arkham Integration)
+The Identity module provides on-chain identity intelligence powered by Arkham API integration. All Identity routes are protected by authentication (RequireAuth wrapper).
+
+**Identity Pages** (accessible via IDENTITY navigation button in header):
+-   **Identity Landing (`/identity`)**: Overview with key metrics (Entities Monitored, High Risk Entities, Sanctioned Addresses, Compliance Score), module navigation cards, entity table, and recent alerts section.
+-   **Liquidity Fragmentation (`/identity/liquidity-fragmentation`)**: CEX/DEX distribution analysis with token selector, fragmentation metrics, and venue distribution charts.
+-   **MM Integrity (`/identity/mm-integrity`)**: Market maker integrity scoring with risk assessments for wash trading, spoofing, and layering.
+-   **PoLi+ (`/identity/poli-plus`)**: Enhanced PoLi metrics combining Arkham intelligence with liquidity analysis (Entity-Weighted Depth, MM Coverage, Wash Trade Adjusted Volume, Counterparty Risk Score).
+-   **Identity Alerts (`/identity/identity-alerts`)**: Real-time identity-based alerts with severity filtering (CRITICAL, HIGH, MEDIUM, LOW) and detailed transaction data.
+-   **Reg Surveillance (`/identity/reg-surveillance`)**: Regulatory compliance monitoring with jurisdiction coverage, compliance violations tracking, and investigation status.
+
+**Identity Components**:
+-   `IdentityMetricCard`: Reusable metric display component with icon, value, label, and optional trend indicator.
+-   `IdentityEntityTable`: Entity attribution table with risk scores and labels.
+-   `IdentityChart`: Wrapper for Recharts with consistent Identity module styling.
+-   `IdentityTabs`: Navigation tabs for switching between Identity pages.
+
+**Identity API Endpoints** (all return mock data with Arkham API fallback):
+-   `GET /api/identity/entity/:entity` - Entity attribution data
+-   `GET /api/identity/fragmentation/:token` - Liquidity fragmentation analysis
+-   `GET /api/identity/mm-integrity` - Market maker integrity scores
+-   `GET /api/identity/poli-plus` - Enhanced PoLi metrics
+-   `GET /api/identity/alerts` - Identity-based alerts
+-   `GET /api/identity/surveillance` - Regulatory surveillance snapshot
+
 **Design System**:
 -   **Colors**: Bloomberg-inspired dark theme (`#0a0a0a` background) with primary yellow (`#F5C211`), accent cyan (`#00D9FF`), success green (`#4ade80`), and destructive red (`#ef4444`).
 -   **Typography**: Inter (sans-serif) for general text, and a monospace font (Roboto Mono / IBM Plex Mono) for numerical data.
