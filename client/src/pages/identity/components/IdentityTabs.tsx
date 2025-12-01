@@ -22,7 +22,7 @@ export function IdentityTabs() {
   const [location] = useLocation();
 
   return (
-    <div className="border-b border-border bg-muted/30 px-4">
+    <div className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-4">
       <div className="flex items-center gap-1 py-1">
         {identityTabs.map((tab) => {
           const isActive = location === tab.path;
