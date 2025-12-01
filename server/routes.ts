@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { authHelpers, sendOTPEmail, sanitizeUser } from "./auth";
 import { web3DataService } from "./apiClients";
+import { arkhamService } from "./arkhamClient";
 import { 
   loginRequestSchema, 
   verifyOTPRequestSchema, 
@@ -287,6 +288,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Resend OTP error:', error);
       res.status(500).json({ error: "Failed to resend OTP" });
+    }
+  });
+
+  // ========================================
+  // Arkham Identity Intelligence Endpoints
+  // ========================================
+
+  app.get("/api/identity/entity/:entity", async (req, res) => {
+    try {
+      const { entity } = req.params;
+      const data = await arkhamService.getEntityAttribution(entity);
+      res.json(data);
+    } catch (error) {
+      console.error('Entity attribution error:', error);
+      res.status(500).json({ error: "Failed to fetch entity attribution" });
+    }
+  });
+
+  app.get("/api/identity/fragmentation/:token", async (req, res) => {
+    try {
+      const { token } = req.params;
+      const data = await arkhamService.getFragmentationData(token);
+      res.json(data);
+    } catch (error) {
+      console.error('Fragmentation data error:', error);
+      res.status(500).json({ error: "Failed to fetch fragmentation data" });
+    }
+  });
+
+  app.get("/api/identity/mm-integrity", async (_req, res) => {
+    try {
+      const data = await arkhamService.getMMIntegrityScores();
+      res.json(data);
+    } catch (error) {
+      console.error('MM integrity error:', error);
+      res.status(500).json({ error: "Failed to fetch MM integrity scores" });
+    }
+  });
+
+  app.get("/api/identity/poli-plus", async (_req, res) => {
+    try {
+      const data = await arkhamService.getPoLiPlusMetrics();
+      res.json(data);
+    } catch (error) {
+      console.error('PoLi+ metrics error:', error);
+      res.status(500).json({ error: "Failed to fetch PoLi+ metrics" });
+    }
+  });
+
+  app.get("/api/identity/alerts", async (_req, res) => {
+    try {
+      const data = await arkhamService.getIdentityAlerts();
+      res.json(data);
+    } catch (error) {
+      console.error('Identity alerts error:', error);
+      res.status(500).json({ error: "Failed to fetch identity alerts" });
+    }
+  });
+
+  app.get("/api/identity/surveillance", async (_req, res) => {
+    try {
+      const data = await arkhamService.getRegSurveillanceSnapshot();
+      res.json(data);
+    } catch (error) {
+      console.error('Surveillance snapshot error:', error);
+      res.status(500).json({ error: "Failed to fetch surveillance snapshot" });
     }
   });
 
