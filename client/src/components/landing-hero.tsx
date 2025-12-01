@@ -43,7 +43,7 @@ export function LandingHero() {
             alt="StrataLink Labs" 
             className="w-10 h-10 rounded-full object-cover"
             style={{ 
-              filter: 'brightness(1.6) contrast(1.1) saturate(1.3)',
+              filter: 'brightness(0) invert(1)',
             }}
           />
           <span className="font-semibold text-sm tracking-tight">STRATALINK LABS LIQUIDITY INTELLIGENCE TERMINAL</span>
@@ -81,7 +81,7 @@ export function LandingHero() {
               alt="StrataLink Labs" 
               className="w-16 h-16 rounded-full object-cover"
               style={{ 
-                filter: 'brightness(1.6) contrast(1.1) saturate(1.3)',
+                filter: 'brightness(0) invert(1)',
               }}
             />
             <div className="text-sm text-muted-foreground leading-tight">

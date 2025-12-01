@@ -15,7 +15,7 @@ export function DashboardHeader() {
           alt="StrataLink Labs" 
           className="w-10 h-10 rounded-full object-cover"
           style={{ 
-            filter: 'brightness(1.6) contrast(1.1) saturate(1.3)',
+            filter: 'brightness(0) invert(1)',
           }}
         />
         <span className="font-semibold text-sm tracking-tight">STRATALINK LABS LIQUIDITY INTELLIGENCE TERMINAL</span>
