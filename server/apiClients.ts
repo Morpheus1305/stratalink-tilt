@@ -1,5 +1,8 @@
 import axios from 'axios';
 
+// ============ Exchange Response Interfaces ============
+
+// Binance
 interface BinanceSpotPrice {
   symbol: string;
   price: string;
@@ -25,6 +28,110 @@ interface BinanceTicker {
   quoteVolume: string;
 }
 
+// Coinbase
+interface CoinbaseTicker {
+  trade_id: number;
+  price: string;
+  size: string;
+  time: string;
+  bid: string;
+  ask: string;
+  volume: string;
+}
+
+// KuCoin
+interface KuCoinResponse {
+  code: string;
+  data: {
+    sequence: string;
+    price: string;
+    size: string;
+    bestBid: string;
+    bestBidSize: string;
+    bestAsk: string;
+    bestAskSize: string;
+    time: number;
+  };
+}
+
+// Kraken
+interface KrakenResponse {
+  error: string[];
+  result: {
+    [key: string]: {
+      a: [string, string, string]; // ask
+      b: [string, string, string]; // bid
+      c: [string, string]; // last trade
+      v: [string, string]; // volume
+      p: [string, string]; // vwap
+      t: [number, number]; // trades
+      l: [string, string]; // low
+      h: [string, string]; // high
+      o: string; // open
+    };
+  };
+}
+
+// Bybit
+interface BybitResponse {
+  retCode: number;
+  retMsg: string;
+  result: {
+    category: string;
+    list: Array<{
+      symbol: string;
+      lastPrice: string;
+      indexPrice?: string;
+      markPrice?: string;
+      prevPrice24h: string;
+      price24hPcnt: string;
+      highPrice24h: string;
+      lowPrice24h: string;
+      prevPrice1h?: string;
+      markPrice1h?: string;
+      openInterest?: string;
+      openInterestValue?: string;
+      turnover24h: string;
+      volume24h: string;
+      fundingRate?: string;
+      nextFundingTime?: string;
+      predictedDeliveryPrice?: string;
+      basisRate?: string;
+      deliveryFeeRate?: string;
+      deliveryTime?: string;
+      ask1Size?: string;
+      bid1Price?: string;
+      ask1Price?: string;
+      bid1Size?: string;
+    }>;
+  };
+}
+
+// OKX
+interface OKXResponse {
+  code: string;
+  msg: string;
+  data: Array<{
+    instType: string;
+    instId: string;
+    last: string;
+    lastSz: string;
+    askPx: string;
+    askSz: string;
+    bidPx: string;
+    bidSz: string;
+    open24h: string;
+    high24h: string;
+    low24h: string;
+    volCcy24h: string;
+    vol24h: string;
+    ts: string;
+    sodUtc0: string;
+    sodUtc8: string;
+  }>;
+}
+
+// CoinMarketCap
 interface CoinMarketCapListing {
   id: number;
   name: string;
@@ -49,12 +156,37 @@ interface CoinMarketCapResponse {
   };
 }
 
+// Unified price result
+interface ExchangePrice {
+  exchange: string;
+  spotPrice: number;
+  bid?: number;
+  ask?: number;
+  volume24h?: number;
+  change24h?: number;
+  timestamp: number;
+}
+
+interface PerpPrice {
+  exchange: string;
+  price: number;
+  fundingRate?: number;
+  openInterest?: number;
+  timestamp: number;
+}
+
+// ============ API Base URLs ============
 const BINANCE_SPOT_BASE = 'https://api.binance.com/api/v3';
 const BINANCE_FUTURES_BASE = 'https://fapi.binance.com/fapi/v1';
+const COINBASE_BASE = 'https://api.exchange.coinbase.com';
+const KUCOIN_BASE = 'https://api.kucoin.com/api/v1';
+const KRAKEN_BASE = 'https://api.kraken.com/0/public';
+const BYBIT_BASE = 'https://api.bybit.com/v5';
+const OKX_BASE = 'https://www.okx.com/api/v5';
 const COINMARKETCAP_BASE = 'https://pro-api.coinmarketcap.com/v1';
 
 const axiosInstance = axios.create({
-  timeout: 10000,
+  timeout: 8000,
   headers: {
     'Accept': 'application/json',
   },
@@ -76,69 +208,132 @@ export class Web3DataService {
     this.cache.set(key, { data, timestamp: Date.now() });
   }
 
-  async getBinanceSpotPrice(symbol: string): Promise<number> {
-    const cacheKey = `spot_price_${symbol}`;
-    const cached = this.getCached<number>(cacheKey);
-    if (cached) return cached;
+  // ============ Individual Exchange Spot Price Methods ============
 
+  private async fetchCoinbasePrice(symbol: string): Promise<ExchangePrice | null> {
     try {
-      const binanceSymbol = `${symbol.toUpperCase()}USDT`;
-      const response = await axiosInstance.get<BinanceSpotPrice>(
-        `${BINANCE_SPOT_BASE}/ticker/price`,
-        {
-          params: { symbol: binanceSymbol },
-        }
+      const pair = `${symbol.toUpperCase()}-USD`;
+      const response = await axiosInstance.get<CoinbaseTicker>(
+        `${COINBASE_BASE}/products/${pair}/ticker`
       );
-
-      const price = parseFloat(response.data.price);
-      this.setCache(cacheKey, price);
-      return price;
+      return {
+        exchange: 'Coinbase',
+        spotPrice: parseFloat(response.data.price),
+        bid: parseFloat(response.data.bid),
+        ask: parseFloat(response.data.ask),
+        volume24h: parseFloat(response.data.volume),
+        timestamp: Date.now(),
+      };
     } catch (error: any) {
-      if (error.response?.status === 451) {
-        console.warn(`Binance spot API unavailable in this region for ${symbol}`);
-      } else {
-        console.error(`Error fetching Binance spot price for ${symbol}:`, error.message);
-      }
-      return this.getFallbackPrice(symbol).price;
+      console.debug(`[Coinbase] Failed for ${symbol}: ${error.message}`);
+      return null;
     }
   }
 
-  async getBinanceFuturesPrice(symbol: string): Promise<number> {
-    const cacheKey = `futures_price_${symbol}`;
-    const cached = this.getCached<number>(cacheKey);
-    if (cached) return cached;
-
+  private async fetchKuCoinPrice(symbol: string): Promise<ExchangePrice | null> {
     try {
-      const binanceSymbol = `${symbol.toUpperCase()}USDT`;
-      const response = await axiosInstance.get<BinanceFuturesPrice>(
-        `${BINANCE_FUTURES_BASE}/ticker/price`,
-        {
-          params: { symbol: binanceSymbol },
-        }
+      const pair = `${symbol.toUpperCase()}-USDT`;
+      const response = await axiosInstance.get<KuCoinResponse>(
+        `${KUCOIN_BASE}/market/orderbook/level1`,
+        { params: { symbol: pair } }
       );
-
-      const price = parseFloat(response.data.price);
-      this.setCache(cacheKey, price);
-      return price;
+      if (response.data.code !== '200000') return null;
+      return {
+        exchange: 'KuCoin',
+        spotPrice: parseFloat(response.data.data.price),
+        bid: parseFloat(response.data.data.bestBid),
+        ask: parseFloat(response.data.data.bestAsk),
+        timestamp: response.data.data.time,
+      };
     } catch (error: any) {
-      if (error.response?.status === 451) {
-        console.warn(`Binance futures API unavailable in this region for ${symbol}`);
-      } else {
-        console.error(`Error fetching Binance futures price for ${symbol}:`, error.message);
-      }
-      return this.getFallbackPrice(symbol).price;
+      console.debug(`[KuCoin] Failed for ${symbol}: ${error.message}`);
+      return null;
     }
   }
 
-  async getCryptoPrice(symbol: string): Promise<{ price: number; change24h: number; volume24h: number; futuresPrice: number; basis: number }> {
-    const cacheKey = `price_${symbol}`;
-    const cached = this.getCached<{ price: number; change24h: number; volume24h: number; futuresPrice: number; basis: number }>(cacheKey);
-    if (cached) return cached;
+  private async fetchKrakenPrice(symbol: string): Promise<ExchangePrice | null> {
+    try {
+      const krakenSymbol = this.getKrakenSymbol(symbol);
+      const response = await axiosInstance.get<KrakenResponse>(
+        `${KRAKEN_BASE}/Ticker`,
+        { params: { pair: krakenSymbol } }
+      );
+      if (response.data.error.length > 0) return null;
+      const key = Object.keys(response.data.result)[0];
+      const data = response.data.result[key];
+      const lastPrice = parseFloat(data.c[0]);
+      const openPrice = parseFloat(data.o);
+      const change24h = ((lastPrice - openPrice) / openPrice) * 100;
+      return {
+        exchange: 'Kraken',
+        spotPrice: lastPrice,
+        bid: parseFloat(data.b[0]),
+        ask: parseFloat(data.a[0]),
+        volume24h: parseFloat(data.v[1]),
+        change24h,
+        timestamp: Date.now(),
+      };
+    } catch (error: any) {
+      console.debug(`[Kraken] Failed for ${symbol}: ${error.message}`);
+      return null;
+    }
+  }
 
+  private async fetchBybitSpotPrice(symbol: string): Promise<ExchangePrice | null> {
+    try {
+      const bybitSymbol = `${symbol.toUpperCase()}USDT`;
+      const response = await axiosInstance.get<BybitResponse>(
+        `${BYBIT_BASE}/market/tickers`,
+        { params: { category: 'spot', symbol: bybitSymbol } }
+      );
+      if (response.data.retCode !== 0 || !response.data.result.list.length) return null;
+      const data = response.data.result.list[0];
+      return {
+        exchange: 'Bybit',
+        spotPrice: parseFloat(data.lastPrice),
+        bid: data.bid1Price ? parseFloat(data.bid1Price) : undefined,
+        ask: data.ask1Price ? parseFloat(data.ask1Price) : undefined,
+        volume24h: parseFloat(data.turnover24h),
+        change24h: parseFloat(data.price24hPcnt) * 100,
+        timestamp: Date.now(),
+      };
+    } catch (error: any) {
+      console.debug(`[Bybit Spot] Failed for ${symbol}: ${error.message}`);
+      return null;
+    }
+  }
+
+  private async fetchOKXPrice(symbol: string): Promise<ExchangePrice | null> {
+    try {
+      const instId = `${symbol.toUpperCase()}-USDT`;
+      const response = await axiosInstance.get<OKXResponse>(
+        `${OKX_BASE}/market/ticker`,
+        { params: { instId } }
+      );
+      if (response.data.code !== '0' || !response.data.data.length) return null;
+      const data = response.data.data[0];
+      const lastPrice = parseFloat(data.last);
+      const openPrice = parseFloat(data.open24h);
+      const change24h = ((lastPrice - openPrice) / openPrice) * 100;
+      return {
+        exchange: 'OKX',
+        spotPrice: lastPrice,
+        bid: parseFloat(data.bidPx),
+        ask: parseFloat(data.askPx),
+        volume24h: parseFloat(data.volCcy24h),
+        change24h,
+        timestamp: parseInt(data.ts),
+      };
+    } catch (error: any) {
+      console.debug(`[OKX] Failed for ${symbol}: ${error.message}`);
+      return null;
+    }
+  }
+
+  private async fetchBinanceSpotPrice(symbol: string): Promise<ExchangePrice | null> {
     try {
       const binanceSymbol = `${symbol.toUpperCase()}USDT`;
-      
-      const [spotResponse, tickerResponse, futuresResponse] = await Promise.all([
+      const [priceRes, tickerRes] = await Promise.all([
         axiosInstance.get<BinanceSpotPrice>(
           `${BINANCE_SPOT_BASE}/ticker/price`,
           { params: { symbol: binanceSymbol } }
@@ -147,36 +342,149 @@ export class Web3DataService {
           `${BINANCE_SPOT_BASE}/ticker/24hr`,
           { params: { symbol: binanceSymbol } }
         ),
-        axiosInstance.get<BinanceFuturesPrice>(
-          `${BINANCE_FUTURES_BASE}/ticker/price`,
-          { params: { symbol: binanceSymbol } }
-        ).catch(() => null)
       ]);
+      return {
+        exchange: 'Binance',
+        spotPrice: parseFloat(priceRes.data.price),
+        volume24h: parseFloat(tickerRes.data.quoteVolume),
+        change24h: parseFloat(tickerRes.data.priceChangePercent),
+        timestamp: Date.now(),
+      };
+    } catch (error: any) {
+      if (error.response?.status === 451) {
+        console.debug(`[Binance] Geo-blocked for ${symbol}`);
+      } else {
+        console.debug(`[Binance] Failed for ${symbol}: ${error.message}`);
+      }
+      return null;
+    }
+  }
 
-      const spotPrice = parseFloat(spotResponse.data.price);
-      const futuresPrice = futuresResponse ? parseFloat(futuresResponse.data.price) : spotPrice;
+  // ============ Perpetual/Futures Price Methods ============
+
+  private async fetchBybitPerpPrice(symbol: string): Promise<PerpPrice | null> {
+    try {
+      const bybitSymbol = `${symbol.toUpperCase()}USDT`;
+      const response = await axiosInstance.get<BybitResponse>(
+        `${BYBIT_BASE}/market/tickers`,
+        { params: { category: 'linear', symbol: bybitSymbol } }
+      );
+      if (response.data.retCode !== 0 || !response.data.result.list.length) return null;
+      const data = response.data.result.list[0];
+      return {
+        exchange: 'Bybit',
+        price: parseFloat(data.lastPrice),
+        fundingRate: data.fundingRate ? parseFloat(data.fundingRate) * 100 : undefined,
+        openInterest: data.openInterestValue ? parseFloat(data.openInterestValue) : undefined,
+        timestamp: Date.now(),
+      };
+    } catch (error: any) {
+      console.debug(`[Bybit Perp] Failed for ${symbol}: ${error.message}`);
+      return null;
+    }
+  }
+
+  private async fetchBinanceFuturesPrice(symbol: string): Promise<PerpPrice | null> {
+    try {
+      const binanceSymbol = `${symbol.toUpperCase()}USDT`;
+      const response = await axiosInstance.get<BinanceFuturesPrice>(
+        `${BINANCE_FUTURES_BASE}/ticker/price`,
+        { params: { symbol: binanceSymbol } }
+      );
+      return {
+        exchange: 'Binance',
+        price: parseFloat(response.data.price),
+        timestamp: response.data.time || Date.now(),
+      };
+    } catch (error: any) {
+      if (error.response?.status === 451) {
+        console.debug(`[Binance Futures] Geo-blocked for ${symbol}`);
+      } else {
+        console.debug(`[Binance Futures] Failed for ${symbol}: ${error.message}`);
+      }
+      return null;
+    }
+  }
+
+  // ============ Multi-Source Price Fetcher ============
+
+  async getCryptoPrice(symbol: string): Promise<{ 
+    price: number; 
+    change24h: number; 
+    volume24h: number; 
+    futuresPrice: number; 
+    basis: number;
+    source: string;
+  }> {
+    const cacheKey = `price_${symbol}`;
+    const cached = this.getCached<{ price: number; change24h: number; volume24h: number; futuresPrice: number; basis: number; source: string }>(cacheKey);
+    if (cached) return cached;
+
+    // Try all spot exchanges in parallel
+    const spotPromises = [
+      this.fetchCoinbasePrice(symbol),
+      this.fetchKrakenPrice(symbol),
+      this.fetchBybitSpotPrice(symbol),
+      this.fetchOKXPrice(symbol),
+      this.fetchKuCoinPrice(symbol),
+      this.fetchBinanceSpotPrice(symbol),
+    ];
+
+    // Try perp exchanges in parallel  
+    const perpPromises = [
+      this.fetchBybitPerpPrice(symbol),
+      this.fetchBinanceFuturesPrice(symbol),
+    ];
+
+    const [spotResults, perpResults] = await Promise.all([
+      Promise.all(spotPromises),
+      Promise.all(perpPromises),
+    ]);
+
+    // Get the first successful spot price
+    const spotData = spotResults.find(r => r !== null);
+    const perpData = perpResults.find(r => r !== null);
+
+    if (spotData) {
+      const spotPrice = spotData.spotPrice;
+      const futuresPrice = perpData?.price || spotPrice;
       const basis = ((futuresPrice - spotPrice) / spotPrice) * 100;
 
       const result = {
         price: spotPrice,
-        change24h: parseFloat(tickerResponse.data.priceChangePercent),
-        volume24h: parseFloat(tickerResponse.data.quoteVolume),
+        change24h: spotData.change24h || 0,
+        volume24h: spotData.volume24h || 0,
         futuresPrice,
         basis,
+        source: spotData.exchange + (perpData ? ` / ${perpData.exchange} Perp` : ''),
       };
 
       this.setCache(cacheKey, result);
-      console.log(`[Binance] ${symbol}: Spot $${spotPrice.toFixed(2)}, Futures $${futuresPrice.toFixed(2)}, Basis ${basis.toFixed(4)}%`);
+      console.log(`[${spotData.exchange}] ${symbol}: Spot $${spotPrice.toFixed(2)}${perpData ? `, Perp $${futuresPrice.toFixed(2)} (${perpData.exchange}), Basis ${basis.toFixed(4)}%` : ''}`);
       return result;
-    } catch (error: any) {
-      if (error.response?.status === 451) {
-        console.warn(`Binance API unavailable in this region for ${symbol}, using fallback`);
-      } else {
-        console.error(`Error fetching price for ${symbol}:`, error.message);
-      }
-      const fallback = this.getFallbackPrice(symbol);
-      return { ...fallback, futuresPrice: fallback.price, basis: 0 };
     }
+
+    // All sources failed, use fallback
+    console.warn(`All exchanges failed for ${symbol}, using fallback data`);
+    const fallback = this.getFallbackPrice(symbol);
+    return { ...fallback, futuresPrice: fallback.price, basis: 0, source: 'Fallback' };
+  }
+
+  // Helper to map symbols to Kraken format
+  private getKrakenSymbol(symbol: string): string {
+    const krakenMap: { [key: string]: string } = {
+      'BTC': 'XBTUSD',
+      'ETH': 'ETHUSD',
+      'SOL': 'SOLUSD',
+      'XRP': 'XRPUSD',
+      'ADA': 'ADAUSD',
+      'DOGE': 'DOGEUSD',
+      'DOT': 'DOTUSD',
+      'AVAX': 'AVAXUSD',
+      'MATIC': 'MATICUSD',
+      'LINK': 'LINKUSD',
+    };
+    return krakenMap[symbol.toUpperCase()] || `${symbol.toUpperCase()}USD`;
   }
 
   async getOrderBookDepth(symbol: string): Promise<{ depthUSD: number; spread: number; bidDepth: number; askDepth: number }> {
