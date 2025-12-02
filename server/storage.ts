@@ -787,7 +787,7 @@ export class MemStorage implements IStorage {
       activeWarningCapacity: '6-8 hours',
       criticalAssets: {
         count: 3,
-        total: 8,
+        total: 6,
       },
       alertTimeline: this.generateAlertTimeline(),
       alertLog: [
