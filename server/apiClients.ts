@@ -1,14 +1,14 @@
 import axios from 'axios';
 
-interface CoinGeckoPrice {
-  usd: number;
-  usd_24h_change: number;
-  usd_24h_vol: number;
+interface BinanceSpotPrice {
+  symbol: string;
+  price: string;
 }
 
-interface BinanceOrderBookLevel {
+interface BinanceFuturesPrice {
+  symbol: string;
   price: string;
-  quantity: string;
+  time: number;
 }
 
 interface BinanceOrderBook {
@@ -49,8 +49,8 @@ interface CoinMarketCapResponse {
   };
 }
 
-const COINGECKO_BASE = 'https://api.coingecko.com/api/v3';
-const BINANCE_BASE = 'https://api.binance.com/api/v3';
+const BINANCE_SPOT_BASE = 'https://api.binance.com/api/v3';
+const BINANCE_FUTURES_BASE = 'https://fapi.binance.com/fapi/v1';
 const COINMARKETCAP_BASE = 'https://pro-api.coinmarketcap.com/v1';
 
 const axiosInstance = axios.create({
@@ -76,37 +76,106 @@ export class Web3DataService {
     this.cache.set(key, { data, timestamp: Date.now() });
   }
 
-  async getCryptoPrice(symbol: string): Promise<{ price: number; change24h: number; volume24h: number }> {
-    const cacheKey = `price_${symbol}`;
-    const cached = this.getCached<{ price: number; change24h: number; volume24h: number }>(cacheKey);
+  async getBinanceSpotPrice(symbol: string): Promise<number> {
+    const cacheKey = `spot_price_${symbol}`;
+    const cached = this.getCached<number>(cacheKey);
     if (cached) return cached;
 
     try {
-      const coinId = this.getCoinGeckoId(symbol);
-      const response = await axiosInstance.get<{ [key: string]: CoinGeckoPrice }>(
-        `${COINGECKO_BASE}/simple/price`,
+      const binanceSymbol = `${symbol.toUpperCase()}USDT`;
+      const response = await axiosInstance.get<BinanceSpotPrice>(
+        `${BINANCE_SPOT_BASE}/ticker/price`,
         {
-          params: {
-            ids: coinId,
-            vs_currencies: 'usd',
-            include_24hr_change: true,
-            include_24hr_vol: true,
-          },
+          params: { symbol: binanceSymbol },
         }
       );
 
-      const data = response.data[coinId];
+      const price = parseFloat(response.data.price);
+      this.setCache(cacheKey, price);
+      return price;
+    } catch (error: any) {
+      if (error.response?.status === 451) {
+        console.warn(`Binance spot API unavailable in this region for ${symbol}`);
+      } else {
+        console.error(`Error fetching Binance spot price for ${symbol}:`, error.message);
+      }
+      return this.getFallbackPrice(symbol).price;
+    }
+  }
+
+  async getBinanceFuturesPrice(symbol: string): Promise<number> {
+    const cacheKey = `futures_price_${symbol}`;
+    const cached = this.getCached<number>(cacheKey);
+    if (cached) return cached;
+
+    try {
+      const binanceSymbol = `${symbol.toUpperCase()}USDT`;
+      const response = await axiosInstance.get<BinanceFuturesPrice>(
+        `${BINANCE_FUTURES_BASE}/ticker/price`,
+        {
+          params: { symbol: binanceSymbol },
+        }
+      );
+
+      const price = parseFloat(response.data.price);
+      this.setCache(cacheKey, price);
+      return price;
+    } catch (error: any) {
+      if (error.response?.status === 451) {
+        console.warn(`Binance futures API unavailable in this region for ${symbol}`);
+      } else {
+        console.error(`Error fetching Binance futures price for ${symbol}:`, error.message);
+      }
+      return this.getFallbackPrice(symbol).price;
+    }
+  }
+
+  async getCryptoPrice(symbol: string): Promise<{ price: number; change24h: number; volume24h: number; futuresPrice: number; basis: number }> {
+    const cacheKey = `price_${symbol}`;
+    const cached = this.getCached<{ price: number; change24h: number; volume24h: number; futuresPrice: number; basis: number }>(cacheKey);
+    if (cached) return cached;
+
+    try {
+      const binanceSymbol = `${symbol.toUpperCase()}USDT`;
+      
+      const [spotResponse, tickerResponse, futuresResponse] = await Promise.all([
+        axiosInstance.get<BinanceSpotPrice>(
+          `${BINANCE_SPOT_BASE}/ticker/price`,
+          { params: { symbol: binanceSymbol } }
+        ),
+        axiosInstance.get<BinanceTicker>(
+          `${BINANCE_SPOT_BASE}/ticker/24hr`,
+          { params: { symbol: binanceSymbol } }
+        ),
+        axiosInstance.get<BinanceFuturesPrice>(
+          `${BINANCE_FUTURES_BASE}/ticker/price`,
+          { params: { symbol: binanceSymbol } }
+        ).catch(() => null)
+      ]);
+
+      const spotPrice = parseFloat(spotResponse.data.price);
+      const futuresPrice = futuresResponse ? parseFloat(futuresResponse.data.price) : spotPrice;
+      const basis = ((futuresPrice - spotPrice) / spotPrice) * 100;
+
       const result = {
-        price: data.usd,
-        change24h: data.usd_24h_change,
-        volume24h: data.usd_24h_vol,
+        price: spotPrice,
+        change24h: parseFloat(tickerResponse.data.priceChangePercent),
+        volume24h: parseFloat(tickerResponse.data.quoteVolume),
+        futuresPrice,
+        basis,
       };
 
       this.setCache(cacheKey, result);
+      console.log(`[Binance] ${symbol}: Spot $${spotPrice.toFixed(2)}, Futures $${futuresPrice.toFixed(2)}, Basis ${basis.toFixed(4)}%`);
       return result;
-    } catch (error) {
-      console.error(`Error fetching price for ${symbol}:`, error);
-      return this.getFallbackPrice(symbol);
+    } catch (error: any) {
+      if (error.response?.status === 451) {
+        console.warn(`Binance API unavailable in this region for ${symbol}, using fallback`);
+      } else {
+        console.error(`Error fetching price for ${symbol}:`, error.message);
+      }
+      const fallback = this.getFallbackPrice(symbol);
+      return { ...fallback, futuresPrice: fallback.price, basis: 0 };
     }
   }
 
@@ -116,9 +185,9 @@ export class Web3DataService {
     if (cached) return cached;
 
     try {
-      const binanceSymbol = `${symbol}USDT`;
+      const binanceSymbol = `${symbol.toUpperCase()}USDT`;
       const response = await axiosInstance.get<BinanceOrderBook>(
-        `${BINANCE_BASE}/depth`,
+        `${BINANCE_SPOT_BASE}/depth`,
         {
           params: {
             symbol: binanceSymbol,
@@ -170,9 +239,9 @@ export class Web3DataService {
 
   async getMarketTicker(symbol: string): Promise<BinanceTicker | null> {
     try {
-      const binanceSymbol = `${symbol}USDT`;
+      const binanceSymbol = `${symbol.toUpperCase()}USDT`;
       const response = await axiosInstance.get<BinanceTicker>(
-        `${BINANCE_BASE}/ticker/24hr`,
+        `${BINANCE_SPOT_BASE}/ticker/24hr`,
         {
           params: {
             symbol: binanceSymbol,
@@ -248,20 +317,56 @@ export class Web3DataService {
     }
   }
 
-  private getCoinGeckoId(symbol: string): string {
-    const mapping: { [key: string]: string } = {
-      'BTC': 'bitcoin',
-      'ETH': 'ethereum',
-      'SOL': 'solana',
-      'BNB': 'binancecoin',
-      'XRP': 'ripple',
-      'ADA': 'cardano',
-      'DOGE': 'dogecoin',
-      'MATIC': 'matic-network',
-      'DOT': 'polkadot',
-      'AVAX': 'avalanche-2',
-    };
-    return mapping[symbol.toUpperCase()] || symbol.toLowerCase();
+  async getBinanceFullData(symbol: string): Promise<{
+    spotPrice: number;
+    futuresPrice: number;
+    basis: number;
+    change24h: number;
+    volume24h: number;
+    depthUSD: number;
+    spread: number;
+    bidDepth: number;
+    askDepth: number;
+  }> {
+    const cacheKey = `binance_full_${symbol}`;
+    const cached = this.getCached<any>(cacheKey);
+    if (cached) return cached;
+
+    try {
+      const [priceData, orderBook] = await Promise.all([
+        this.getCryptoPrice(symbol),
+        this.getOrderBookDepth(symbol),
+      ]);
+
+      const result = {
+        spotPrice: priceData.price,
+        futuresPrice: priceData.futuresPrice,
+        basis: priceData.basis,
+        change24h: priceData.change24h,
+        volume24h: priceData.volume24h,
+        depthUSD: orderBook.depthUSD,
+        spread: orderBook.spread,
+        bidDepth: orderBook.bidDepth,
+        askDepth: orderBook.askDepth,
+      };
+
+      this.setCache(cacheKey, result);
+      return result;
+    } catch (error) {
+      console.error(`Error fetching full Binance data for ${symbol}:`, error);
+      const fallback = this.getFallbackPrice(symbol);
+      return {
+        spotPrice: fallback.price,
+        futuresPrice: fallback.price,
+        basis: 0,
+        change24h: fallback.change24h,
+        volume24h: fallback.volume24h,
+        depthUSD: 30.0,
+        spread: 0.10,
+        bidDepth: 15.0,
+        askDepth: 15.0,
+      };
+    }
   }
 
   private getFallbackPrice(symbol: string): { price: number; change24h: number; volume24h: number } {

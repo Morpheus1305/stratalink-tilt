@@ -42,7 +42,7 @@ export interface IStorage {
 }
 
 export class MemStorage implements IStorage {
-  private useLiveData: boolean = false;
+  private useLiveData: boolean = true;  // Enabled: Using Binance API for live data
   
   private async fetchLiveMetrics(asset: string = 'BTC'): Promise<LiveMetric[] | null> {
     if (!this.useLiveData) return null;
