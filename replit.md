@@ -85,3 +85,33 @@ Zod schemas are used for defining type-safe data structures across the applicati
 -   **Wouter**: Frontend routing.
 -   **TanStack Query v5**: Frontend state management.
 -   **Express.js**: Backend web framework.
+
+## STRATA Daily Engine
+
+The STRATA Daily Engine is a Python-based automation system for generating daily crypto market structure summaries.
+
+**Location**: `strata-daily/`
+
+**Folder Structure**:
+- `api/` - API integration modules (arkham, coingecko, cex, derivatives)
+- `processors/` - Data processing modules (liquidity, flows, onchain, tokenomics, sectors)
+- `renderer/` - Output rendering (json_renderer, md_renderer)
+- `output/` - Generated output files (daily_summary.json, daily_summary.md)
+- `output/charts/` - Generated visualization charts
+- `docs/` - Documentation
+
+**API Sources**:
+- Arkham Intelligence: Stablecoin flows, exchange flows, whale activity
+- CoinGecko: Prices, global market data (LIVE)
+- Binance/OKX: Orderbook depth, bid-ask spreads
+- Coinglass/Laevitas: Funding rates, open interest, liquidations
+
+**Usage**:
+```bash
+cd strata-daily
+python daily_engine.py
+```
+
+**Output**:
+- `output/daily_summary.json` - Structured JSON data
+- `output/daily_summary.md` - Human-readable Markdown report
