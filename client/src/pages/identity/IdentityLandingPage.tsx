@@ -151,7 +151,7 @@ export default function IdentityLandingPage() {
         <div className="flex items-center gap-3 mb-2">
           <Fingerprint className="h-6 w-6 text-primary" />
           <div>
-            <h1 className="text-lg font-bold">ARKHAM × STRATALINK IDENTITY INTELLIGENCE</h1>
+            <h1 className="text-lg font-bold">STRATALINK × ARKHAM IDENTITY INTELLIGENCE</h1>
             <p className="text-xs text-muted-foreground">
               On-chain entity attribution powered by Arkham Intelligence
             </p>
