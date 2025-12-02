@@ -1,0 +1,82 @@
+{
+  "date": "2025-12-02",
+  "summary": {
+    "dominant_factor": "Neutral flows",
+    "regime_sentence": "Sideways regime"
+  },
+  "snapshot": {
+    "btc_price": 86735,
+    "eth_price": 2798.82,
+    "sol_price": 126.66,
+    "total_market_cap": 3021796337690.4395,
+    "liquidations_24h": 0,
+    "breadth_positive": 0,
+    "breadth_negative": 0,
+    "stablecoin_flows": {
+      "usdt_net": 0,
+      "usdc_net": 0
+    }
+  },
+  "charts": {
+    "liquidations_chart": "charts/liquidations.png",
+    "depth_chart": "charts/depth.png",
+    "funding_oi_chart": "charts/funding_oi.png"
+  },
+  "drivers": {
+    "liquidity_micro": {
+      "depth_change": "neutral",
+      "orderbook_imbalance": "neutral",
+      "spreads": "normal",
+      "cex_vs_dex": "cex-led",
+      "stablecoin_rotation": "neutral"
+    },
+    "flows_positioning": {
+      "funding": {
+        "btc": 0.0,
+        "eth": 0.0,
+        "sol": 0.0
+      },
+      "basis": "neutral",
+      "open_interest": {
+        "btc": 0,
+        "eth": 0,
+        "sol": 0
+      },
+      "liquidations": {
+        "total_liquidations": 0,
+        "long_liq": 0,
+        "short_liq": 0
+      },
+      "exchange_flows": {},
+      "dominant_factor": "Neutral flows",
+      "regime_sentence": "Sideways regime",
+      "events": [],
+      "closing_note": "Flows show regime: Sideways regime"
+    },
+    "onchain": {
+      "tx_activity": "normal",
+      "whale_behavior": "neutral",
+      "velocity_nvt": "stable"
+    },
+    "tokenomics_sector": {
+      "high_fdv": "neutral",
+      "unlocks": "neutral",
+      "staking": "neutral",
+      "sector_beta": {
+        "ai": "neutral",
+        "l2": "neutral",
+        "defi": "neutral",
+        "rwa": "neutral",
+        "memecoins": "neutral"
+      }
+    }
+  },
+  "leaders": [
+    "BTC"
+  ],
+  "laggards": [
+    "SOL"
+  ],
+  "events": [],
+  "closing_note": "Flows show regime: Sideways regime"
+}
