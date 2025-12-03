@@ -1,5 +1,17 @@
 import { PERP_SYMBOLS } from "../aggregator/config/symbols";
 
+/**
+ * Liquidation Engine
+ * 
+ * NOTE: Uses simulated liquidation data for MVP because:
+ * - Binance forceOrder API is geo-blocked (451 error in this region)
+ * - OKX/Bybit liquidation endpoints require authentication
+ * - Real-time liquidation feeds typically need WebSocket connections
+ * 
+ * The mock generator produces realistic volume patterns based on token size.
+ * Replace generateMockLiquidations() with real exchange connectors when available.
+ */
+
 export type LiquidationData = {
   longLiquidationsUSD: number;
   shortLiquidationsUSD: number;

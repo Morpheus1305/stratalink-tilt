@@ -86,6 +86,45 @@ Zod schemas are used for defining type-safe data structures across the applicati
 -   **TanStack Query v5**: Frontend state management.
 -   **Express.js**: Backend web framework.
 
+## STRATA Analytics Backend
+
+The STRATA Analytics Backend provides real-time market structure analytics for the Institutional Liquidity Terminal.
+
+**Location**: `analytics/`
+
+**Architecture**:
+```
+analytics/
+├── aggregator/
+│   ├── config/symbols.ts      # Token registry (Top 10 depth universe)
+│   ├── exchanges/             # Exchange connectors (Binance, Coinbase, Kraken, Bybit, OKX)
+│   └── aggregator.ts          # Multi-exchange price aggregator
+├── engines/
+│   ├── depthEngine.ts         # Orderbook depth (10/25/50/100/200bps bands)
+│   ├── fundingEngine.ts       # Perp funding rates
+│   ├── liquidationEngine.ts   # Forced liquidations
+│   ├── stressEngine.ts        # Composite stress scoring
+│   └── ingestionManager.ts    # 5-second background ingest loop
+└── routes.ts                  # Express API endpoints
+```
+
+**Depth Universe (Top 10)**: BTC, ETH, SOL, XRP, ADA, AVAX, LINK, MATIC, DOT, NEAR
+
+**Exchange Connectors** (priority order): Coinbase → Kraken → OKX → Bybit → Binance
+
+**API Endpoints**:
+- `GET /api/analytics/price?symbol=BTC` - Aggregated price from multiple exchanges
+- `GET /api/analytics/prices?symbols=BTC,ETH,SOL` - Multiple prices
+- `GET /api/analytics/depth?symbol=BTC` - Orderbook depth at 10/25/50/100/200bps
+- `GET /api/analytics/funding` - Perp funding rates
+- `GET /api/analytics/liquidations` - Forced liquidation data
+- `GET /api/analytics/stress` - Stress score with drivers and commentary
+- `GET /api/analytics/stress/full` - Full stress report with all data
+- `GET /api/analytics/summary` - Market structure summary
+- `GET /api/analytics/status` - Ingestion status
+
+**Stress Regimes**: LOW (0-19), MODERATE (20-39), HIGH (40-59), EXTREME (60+)
+
 ## STRATA Daily Engine
 
 The STRATA Daily Engine is a Python-based automation system for generating daily crypto market structure summaries.
