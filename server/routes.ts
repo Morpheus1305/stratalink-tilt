@@ -4,6 +4,8 @@ import { storage } from "./storage";
 import { authHelpers, sendOTPEmail, sanitizeUser } from "./auth";
 import { web3DataService } from "./apiClients";
 import { arkhamService } from "./arkhamClient";
+import analyticsRoutes from "../analytics/routes";
+import { startIngestionLoop } from "../analytics/engines/ingestionManager";
 import { 
   loginRequestSchema, 
   verifyOTPRequestSchema, 
@@ -356,6 +358,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to fetch surveillance snapshot" });
     }
   });
+
+  // Mount analytics routes
+  app.use("/api/analytics", analyticsRoutes);
+
+  // Start analytics ingestion loop
+  startIngestionLoop();
 
   const httpServer = createServer(app);
 
