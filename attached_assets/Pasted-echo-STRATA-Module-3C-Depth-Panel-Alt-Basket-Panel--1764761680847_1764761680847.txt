@@ -1,0 +1,107 @@
+echo "🚀 STRATA Module 3C — Depth Panel + Alt Basket Panel"
+
+############################################
+# 1. DepthPanel.tsx
+############################################
+cat > src/components/DepthPanel.tsx << 'EOF'
+import React from "react";
+import Card from "./Card";
+
+export default function DepthPanel({ stress }: { stress: any }) {
+  const depth = stress?.depth;
+  if (!depth) return <Card title="Market Depth">No depth data.</Card>;
+
+  const tokens = Object.keys(depth);
+
+  return (
+    <Card title="Orderbook Depth — 10bps → 200bps">
+      <table style={{ width: "100%", fontSize: 12, color: "#c3d0ea" }}>
+        <thead>
+          <tr style={{ textAlign: "left", color: "#8ea3c7" }}>
+            <th>Token</th>
+            <th>10bps</th>
+            <th>25bps</th>
+            <th>50bps</th>
+            <th>100bps</th>
+            <th>200bps</th>
+          </tr>
+        </thead>
+        <tbody>
+          {tokens.map((t) => (
+            <tr key={t}>
+              <td style={{ padding: "6px 0" }}>{t}</td>
+
+              {["10bps", "25bps", "50bps", "100bps", "200bps"].map((band) => {
+                const b = depth[t]?.bands?.[band];
+                const total = (b?.bidUSD ?? 0) + (b?.askUSD ?? 0);
+                return (
+                  <td key={band}>
+                    ${total ? (total / 1_000_000).toFixed(1) + "M" : "—"}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </Card>
+  );
+}
+EOF
+
+echo "📊 DepthPanel created."
+
+############################################
+# 2. AltBaskets.tsx
+############################################
+cat > src/components/AltBaskets.tsx << 'EOF'
+import React from "react";
+import Card from "./Card";
+
+export default function AltBaskets({ prices }: { prices: any[] }) {
+  if (!prices?.length) return <Card title="Alt Baskets">No data.</Card>;
+
+  const lookup = Object.fromEntries(
+    prices.map((p: any) => [p.symbol, p.price])
+  );
+
+  const baskets = {
+    L1: ["BTC", "ETH", "SOL", "ADA", "AVAX"],
+    DeFi: ["LINK", "MATIC", "DOT"],
+    AI: ["NEAR"],
+    Meme: [], // placeholder
+  };
+
+  function basketAvg(list: string[]) {
+    const vals = list.map((t) => lookup[t]).filter(Boolean);
+    if (!vals.length) return null;
+    return vals.reduce((a: number, b: number) => a + b, 0) / vals.length;
+  }
+
+  return (
+    <Card title="Alt Basket Overview">
+      {Object.keys(baskets).map((name) => {
+        const avg = basketAvg(baskets[name]);
+        return (
+          <div
+            key={name}
+            style={{
+              marginBottom: 6,
+              fontSize: 13,
+              display: "flex",
+              justifyContent: "space-between",
+            }}
+          >
+            <span>{name} Basket</span>
+            <span>{avg ? avg.toFixed(2) : "—"}</span>
+          </div>
+        );
+      })}
+    </Card>
+  );
+}
+EOF
+
+echo "🎨 AltBaskets created."
+
+echo "🎉 Module 3C complete — Depth + Alt Baskets installed."

@@ -1,0 +1,311 @@
+---
+
+# #️⃣ IV. SYMBOL REGISTRY (Top 30)
+See symbols.ts inlined into the codebase.
+
+---
+
+# #️⃣ V. AGGREGATION ENGINE  
+See aggregator.ts — full production implementation with fallbacks.
+
+---
+
+# #️⃣ VI. ENDPOINTS  
+/price  
+/prices  
+/stress  
+/summary  
+
+---
+
+# #️⃣ VII. DASHBOARD BINDINGS  
+getPrice("BTC"), getPrice("ETH"), getPrice("SOL")  
+stressEngine(), summaryEngine()
+
+---
+
+# #️⃣ VIII. ROADMAP  
+Top 50 tokens, liquidation engine, PoLi integration.
+
+EOF
+
+echo "📝 analytics.md created."
+
+
+############################################
+# 3. CREATE FULL TOP-30 SYMBOL_MAP
+############################################
+
+cat > analytics/aggregator/config/symbols.ts << 'EOF'
+export const SYMBOL_MAP = {
+  BTC:  { binance: "BTCUSDT",  coinbase: "BTC-USD",     kraken: "XBTUSD" },
+  ETH:  { binance: "ETHUSDT",  coinbase: "ETH-USD",     kraken: "ETHUSD" },
+  USDT: { binance: "USDTUSDT", coinbase: null,          kraken: "USDTUSD" },
+  USDC: { binance: "USDCUSDT", coinbase: "USDC-USD",    kraken: "USDCUSD" },
+
+  BNB:  { binance: "BNBUSDT",  coinbase: null,          kraken: "BNBUSD" },
+  SOL:  { binance: "SOLUSDT",  coinbase: "SOL-USD",     kraken: "SOLUSD" },
+  XRP:  { binance: "XRPUSDT",  coinbase: "XRP-USD",     kraken: "XRPUSD" },
+  ADA:  { binance: "ADAUSDT",  coinbase: "ADA-USD",     kraken: "ADAUSD" },
+
+  AVAX: { binance: "AVAXUSDT", coinbase: "AVAX-USD",    kraken: "AVAXUSD" },
+  DOGE: { binance: "DOGEUSDT", coinbase: "DOGE-USD",    kraken: "XDGUSD" },
+  TRX:  { binance: "TRXUSDT",  coinbase: null,          kraken: "TRXUSD" },
+  TON:  { binance: "TONUSDT",  coinbase: null,          kraken: "TONUSD" },
+
+  SHIB: { binance: "SHIBUSDT", coinbase: null,          kraken: "SHIBUSD" },
+  DOT:  { binance: "DOTUSDT",  coinbase: "DOT-USD",     kraken: "DOTUSD" },
+  MATIC:{ binance: "MATICUSDT",coinbase: "MATIC-USD",   kraken: "MATICUSD" },
+  LINK: { binance: "LINKUSDT", coinbase: "LINK-USD",    kraken: "LINKUSD" },
+
+  LTC:  { binance: "LTCUSDT",  coinbase: "LTC-USD",     kraken: "LTCUSD" },
+  BCH:  { binance: "BCHUSDT",  coinbase: "BCH-USD",     kraken: "BCHUSD" },
+
+  UNI:  { binance: "UNIUSDT",  coinbase: "UNI-USD",     kraken: "UNIUSD" },
+  XLM:  { binance: "XLMUSDT",  coinbase: "XLM-USD",     kraken: "XLMUSD" },
+  ATOM: { binance: "ATOMUSDT", coinbase: "ATOM-USD",    kraken: "ATOMUSD" },
+
+  NEAR: { binance: "NEARUSDT", coinbase: "NEAR-USD",    kraken: "NEARUSD" },
+  APT:  { binance: "APTUSDT",  coinbase: "APT-USD",     kraken: "APTUSD" },
+  ICP:  { binance: "ICPUSDT",  coinbase: "ICP-USD",     kraken: "ICPUSD" },
+  FIL:  { binance: "FILUSDT",  coinbase: "FIL-USD",     kraken: "FILUSD" },
+
+  LDO:  { binance: "LDOUSDT",  coinbase: "LDO-USD",     kraken: null },
+  ARB:  { binance: "ARBUSDT",  coinbase: "ARB-USD",     kraken: null },
+  OP:   { binance: "OPUSDT",   coinbase: "OP-USD",      kraken: null },
+  MKR:  { binance: "MKRUSDT",  coinbase: "MKR-USD",     kraken: "MKRUSD" }
+};
+EOF
+
+echo "📌 SYMBOL_MAP inlined."
+
+
+############################################
+# 4. FULL EXCHANGE CONNECTORS
+############################################
+
+cat > analytics/aggregator/exchanges/binance.ts << 'EOF'
+import axios from 'axios';
+
+export async function fetchBinancePrice(symbol: string) {
+  const url = \`https://api.binance.com/api/v3/ticker/price?symbol=\${symbol}\`;
+  const { data } = await axios.get(url, { timeout: 700 });
+  return Number(data.price);
+}
+EOF
+
+cat > analytics/aggregator/exchanges/coinbase.ts << 'EOF'
+import axios from 'axios';
+
+export async function fetchCoinbasePrice(symbol: string) {
+  const url = \`https://api.exchange.coinbase.com/products/\${symbol}/ticker\`;
+  const { data } = await axios.get(url, { timeout: 700 });
+  return Number(data.price);
+}
+EOF
+
+cat > analytics/aggregator/exchanges/kraken.ts << 'EOF'
+import axios from 'axios';
+
+export async function fetchKrakenPrice(pair: string) {
+  const url = \`https://api.kraken.com/0/public/Ticker?pair=\${pair}\`;
+  const { data } = await axios.get(url, { timeout: 1200 });
+  const key = Object.keys(data.result)[0];
+  return Number(data.result[key].c[0]);
+}
+EOF
+
+echo "🔗 Exchange connectors inlined."
+
+
+############################################
+# 5. FULL getAggregatedPrice() IMPLEMENTATION
+############################################
+
+cat > analytics/aggregator/aggregator.ts << 'EOF'
+import { SYMBOL_MAP } from "./config/symbols";
+import { fetchBinancePrice } from "./exchanges/binance";
+import { fetchCoinbasePrice } from "./exchanges/coinbase";
+import { fetchKrakenPrice } from "./exchanges/kraken";
+
+const CACHE = new Map();
+const TTL_MS = 3000;
+
+export async function getAggregatedPrice({ symbol, quote = "USD" }) {
+  const key = \`\${symbol}-\${quote}\`;
+
+  // Cache
+  const cached = CACHE.get(key);
+  if (cached && Date.now() - cached.ts < TTL_MS)
+    return { ...cached, cached: true };
+
+  const map = SYMBOL_MAP[symbol];
+  if (!map) throw new Error(\`Unsupported symbol: \${symbol}\`);
+
+  const calls = [
+    map.binance  && fetchBinancePrice(map.binance).then(p=>({name:"binance", price:p})).catch(()=>null),
+    map.coinbase && fetchCoinbasePrice(map.coinbase).then(p=>({name:"coinbase",price:p})).catch(()=>null),
+    map.kraken   && fetchKrakenPrice(map.kraken).then(p=>({name:"kraken", price:p})).catch(()=>null),
+  ];
+
+  const results = (await Promise.all(calls)).filter(Boolean);
+  if (!results.length) throw new Error(\`No valid prices for \${symbol}\`);
+
+  const prices = results.map(r => r.price);
+  const median = prices.sort((a,b)=>a-b)[Math.floor(prices.length/2)];
+
+  const sane = results.filter(r => Math.abs(r.price - median)/median < 0.1);
+
+  for (const ex of ["binance","coinbase","kraken"]) {
+    const m = sane.find(r => r.name === ex);
+    if (m) {
+      const out = { symbol, quote, price: m.price, source: ex, ts: Date.now() };
+      CACHE.set(key, out);
+      return out;
+    }
+  }
+
+  const out = { symbol, quote, price: median, source:"median", ts: Date.now() };
+  CACHE.set(key, out);
+  return out;
+}
+EOF
+
+echo "🧮 Full aggregator engine inlined."
+
+
+############################################
+# 6. SERVER
+############################################
+
+cat > analytics/aggregator/server.ts << 'EOF'
+import express from 'express';
+import cors from 'cors';
+import { getAggregatedPrice } from './aggregator';
+
+const app = express();
+app.use(cors());
+
+app.get('/api/price', async (req, res) => {
+  try {
+    const symbol = req.query.symbol;
+    const quote  = req.query.quote || "USD";
+    const data   = await getAggregatedPrice({ symbol, quote });
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: "Price fetch failed", details: err.message });
+  }
+});
+
+app.listen(3001, () =>
+  console.log("STRATA Aggregator running on :3001")
+);
+EOF
+
+echo "🚦 Server inlined."
+
+
+############################################
+# 7. STRESS & SUMMARY ENGINES
+############################################
+
+cat > analytics/engines/stressEngine.ts << 'EOF'
+export function stressEngine() {
+  return {
+    stress_score: 12,
+    regime: "LOW",
+    drivers: []
+  };
+}
+EOF
+
+cat > analytics/engines/summaryEngine.ts << 'EOF'
+export function summaryEngine() {
+  return {
+    dominant_factor: "Loading…",
+    market_regime: "Loading…"
+  };
+}
+EOF
+
+echo "🧠 Engines created."
+
+
+############################################
+# 8. CLIENT + HOOKS
+############################################
+
+cat > analytics/client/priceClient.ts << 'EOF'
+export async function getPrice(symbol: string, quote = "USD") {
+  const r = await fetch(\`/api/price?symbol=\${symbol}&quote=\${quote}\`);
+  return r.json();
+}
+EOF
+
+cat > analytics/client/hooks/useSnapshotPrices.ts << 'EOF'
+import { useEffect, useState } from 'react';
+
+export function useSnapshotPrices(refreshMs = 15000) {
+  const [data, setData] = useState([]);
+
+  async function load() {
+    const r = await fetch('/api/prices?symbols=BTC,ETH,SOL&quote=USD');
+    const json = await r.json();
+    setData(json.prices);
+  }
+
+  useEffect(() => {
+    load();
+    const t = setInterval(load, refreshMs);
+    return () => clearInterval(t);
+  }, []);
+
+  return data;
+}
+EOF
+
+echo "🧩 Client + hooks ready."
+
+
+############################################
+# 9. INSTALL DEPENDENCIES
+############################################
+
+npm install axios express cors
+npm install -D typescript ts-node @types/node @types/express
+
+echo "📦 Dependencies installed."
+
+
+############################################
+# 10. tsconfig.json
+############################################
+
+cat > tsconfig.json << 'EOF'
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "CommonJS",
+    "outDir": "dist",
+    "rootDir": "./",
+    "esModuleInterop": true,
+    "strict": false
+  }
+}
+EOF
+
+echo "🛠 tsconfig.json written."
+
+
+############################################
+# 11. Add Run Script
+############################################
+
+npx json -I -f package.json -e 'this.scripts={
+  "dev": "ts-node analytics/aggregator/server.ts"
+}'
+
+echo "🚀 Run script added: npm run dev"
+
+
+echo "🎉 STRATA Analytics Module (Full Inline Version) imported successfully!"

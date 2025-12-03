@@ -1,0 +1,164 @@
+echo "🚀 STRATA Module 3B — Snapshot + Stress + Summary + Token Selector"
+
+############################################
+# 1. TokenSelector.tsx
+############################################
+cat > src/components/TokenSelector.tsx << 'EOF'
+import React from "react";
+
+const TOKENS = [
+  "BTC","ETH","SOL","XRP","ADA","AVAX","LINK","MATIC","DOT","NEAR"
+];
+
+export default function TokenSelector({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (s: string) => void;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      style={{
+        padding: "8px 12px",
+        background: "#0b1020",
+        color: "#fff",
+        borderRadius: 8,
+        border: "1px solid #1a2138",
+        fontSize: 14,
+      }}
+    >
+      {TOKENS.map((t) => (
+        <option key={t} value={t}>
+          {t}
+        </option>
+      ))}
+    </select>
+  );
+}
+EOF
+
+echo "🔽 TokenSelector created."
+
+############################################
+# 2. MarketSnapshot.tsx
+############################################
+cat > src/components/MarketSnapshot.tsx << 'EOF'
+import React from "react";
+import Card from "./Card";
+import { Grid } from "./Grid";
+
+export default function MarketSnapshot({
+  prices,
+}: {
+  prices: any[];
+}) {
+  return (
+    <Card title="Market Snapshot (USD)">
+      <Grid cols={3} gap={12}>
+        {prices.map((row) => (
+          <div
+            key={row.symbol}
+            style={{
+              background: "#050814",
+              borderRadius: 10,
+              padding: 12,
+              border: "1px solid #1a2138",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 11,
+                color: "#8ea3c7",
+                marginBottom: 4,
+                letterSpacing: 1.5,
+              }}
+            >
+              {row.symbol}
+            </div>
+            <div style={{ fontSize: 20, fontWeight: 600 }}>
+              {row.price?.toFixed(2)}
+            </div>
+            <div style={{ fontSize: 11, color: "#9fb1d8" }}>
+              Source: {row.source}
+            </div>
+          </div>
+        ))}
+      </Grid>
+    </Card>
+  );
+}
+EOF
+
+echo "📈 MarketSnapshot created."
+
+############################################
+# 3. StressPanel.tsx
+############################################
+cat > src/components/StressPanel.tsx << 'EOF'
+import React from "react";
+import Card from "./Card";
+import { Badge } from "./Badge";
+
+export default function StressPanel({ stress }: { stress: any }) {
+  if (!stress) {
+    return <Card title="Stress Signal">No data.</Card>;
+  }
+
+  return (
+    <Card title="Stress Signal">
+      <div style={{ fontSize: 32, fontWeight: 600 }}>
+        {stress.stress_score}
+        <Badge regime={stress.regime} />
+      </div>
+
+      <div style={{ marginTop: 12, fontSize: 13, color: "#c3d0ea" }}>
+        <strong>Drivers:</strong>
+        <ul>
+          {stress.drivers?.map((d: string, i: number) => (
+            <li key={i}>{d}</li>
+          ))}
+        </ul>
+      </div>
+    </Card>
+  );
+}
+EOF
+
+echo "🔥 StressPanel created."
+
+############################################
+# 4. SummaryPanel.tsx
+############################################
+cat > src/components/SummaryPanel.tsx << 'EOF'
+import React from "react";
+import Card from "./Card";
+
+export default function SummaryPanel({ summary }: { summary: any }) {
+  if (!summary) {
+    return <Card title="STRATA Summary">No summary available.</Card>;
+  }
+
+  return (
+    <Card title="STRATA Summary Commentary">
+      <div style={{ marginBottom: 12, fontSize: 13, color: "#c3d0ea" }}>
+        <strong>Dominant Factor Today</strong>
+        <br />
+        {summary.dominant_factor}
+      </div>
+
+      <div style={{ fontSize: 13, color: "#c3d0ea" }}>
+        <strong>Market-Structure Regime</strong>
+        <br />
+        {summary.market_regime}
+      </div>
+    </Card>
+  );
+}
+EOF
+
+echo "📝 SummaryPanel created."
+
+echo "🎉 Module 3B complete — snapshot, stress, summary, selector installed."

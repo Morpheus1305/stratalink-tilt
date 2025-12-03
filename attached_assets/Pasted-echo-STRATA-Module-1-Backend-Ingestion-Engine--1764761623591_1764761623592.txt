@@ -1,0 +1,529 @@
+echo "🚀 STRATA Module 1 — Backend + Ingestion Engine"
+
+############################################
+# 1. Directory structure
+############################################
+mkdir -p analytics/aggregator/exchanges
+mkdir -p analytics/aggregator/config
+mkdir -p analytics/engines
+mkdir -p docs
+
+echo "📁 Backend directories created."
+
+############################################
+# 2. Backend doc
+############################################
+cat > docs/analytics-backend.md << 'EOF'
+# STRATA Analytics Backend — Module 1
+
+This backend module includes:
+- Symbol registry (Top 10 tokens)
+- Multi-exchange price aggregator (Binance, Coinbase, Kraken)
+- Orderbook depth engine (10/25/50/100/200bps) for Top 10 tokens
+- Funding engine (Binance perps: BTCUSDT, ETHUSDT, SOLUSDT)
+- Liquidation engine (Binance forced orders)
+- Composite stress engine
+- Summary commentary engine (placeholder)
+- Express API server with 5-second background ingestion loop
+
+All data consumers (UI, PoLi, internal tools) should call:
+- /api/price
+- /api/prices
+- /api/stress/full
+- /api/summary
+EOF
+
+echo "📝 docs/analytics-backend.md written."
+
+############################################
+# 3. Symbol map (Top 10 depth universe)
+############################################
+cat > analytics/aggregator/config/symbols.ts << 'EOF'
+export const DEPTH_TOKENS = [
+  "BTC","ETH","SOL","XRP","ADA","AVAX","LINK","MATIC","DOT","NEAR"
+];
+
+export const SYMBOL_MAP: Record<string, { binance: string | null; coinbase: string | null; kraken: string | null }> = {
+  BTC:  { binance: "BTCUSDT",  coinbase: "BTC-USD",     kraken: "XBTUSD" },
+  ETH:  { binance: "ETHUSDT",  coinbase: "ETH-USD",     kraken: "ETHUSD" },
+  SOL:  { binance: "SOLUSDT",  coinbase: "SOL-USD",     kraken: "SOLUSD" },
+  XRP:  { binance: "XRPUSDT",  coinbase: "XRP-USD",     kraken: "XRPUSD" },
+  ADA:  { binance: "ADAUSDT",  coinbase: "ADA-USD",     kraken: "ADAUSD" },
+  AVAX: { binance: "AVAXUSDT", coinbase: "AVAX-USD",    kraken: "AVAXUSD" },
+  LINK: { binance: "LINKUSDT", coinbase: "LINK-USD",    kraken: "LINKUSD" },
+  MATIC:{ binance: "MATICUSDT",coinbase: "MATIC-USD",   kraken: "MATICUSD" },
+  DOT:  { binance: "DOTUSDT",  coinbase: "DOT-USD",     kraken: "DOTUSD" },
+  NEAR: { binance: "NEARUSDT", coinbase: "NEAR-USD",    kraken: "NEARUSD" },
+};
+EOF
+
+echo "📌 SYMBOL_MAP + DEPTH_TOKENS created."
+
+############################################
+# 4. Exchange connectors
+############################################
+cat > analytics/aggregator/exchanges/binance.ts << 'EOF'
+import axios from "axios";
+
+export async function fetchBinancePrice(symbol: string): Promise<number> {
+  const url = \`https://api.binance.com/api/v3/ticker/price?symbol=\${symbol}\`;
+  const { data } = await axios.get(url, { timeout: 700 });
+  return Number(data.price);
+}
+
+export async function fetchBinanceDepth(symbol: string) {
+  const url = \`https://api.binance.com/api/v3/depth?symbol=\${symbol}&limit=1000\`;
+  const { data } = await axios.get(url, { timeout: 1000 });
+  return data;
+}
+
+export async function fetchBinanceFunding(symbol: string) {
+  const url = \`https://fapi.binance.com/fapi/v1/premiumIndex?symbol=\${symbol}\`;
+  const { data } = await axios.get(url, { timeout: 1000 });
+  return {
+    fundingRate: Number(data.lastFundingRate ?? data.fundingRate ?? 0),
+    markPrice: Number(data.markPrice ?? 0),
+    nextFundingTime: data.nextFundingTime,
+  };
+}
+
+export async function fetchBinanceLiquidations(symbol: string) {
+  const url = \`https://fapi.binance.com/fapi/v1/allForceOrders?symbol=\${symbol}\`;
+  const { data } = await axios.get(url, { timeout: 2000 });
+  return data;
+}
+EOF
+
+cat > analytics/aggregator/exchanges/coinbase.ts << 'EOF'
+import axios from "axios";
+
+export async function fetchCoinbasePrice(symbol: string): Promise<number> {
+  const url = \`https://api.exchange.coinbase.com/products/\${symbol}/ticker\`;
+  const { data } = await axios.get(url, { timeout: 700 });
+  return Number(data.price);
+}
+EOF
+
+cat > analytics/aggregator/exchanges/kraken.ts << 'EOF'
+import axios from "axios";
+
+export async function fetchKrakenPrice(pair: string): Promise<number> {
+  const url = \`https://api.kraken.com/0/public/Ticker?pair=\${pair}\`;
+  const { data } = await axios.get(url, { timeout: 1200 });
+  const key = Object.keys(data.result)[0];
+  return Number(data.result[key].c[0]);
+}
+EOF
+
+echo "🔗 Binance / Coinbase / Kraken connectors written."
+
+############################################
+# 5. Multi-exchange price aggregator
+############################################
+cat > analytics/aggregator/aggregator.ts << 'EOF'
+import { SYMBOL_MAP } from "./config/symbols";
+import { fetchBinancePrice } from "./exchanges/binance";
+import { fetchCoinbasePrice } from "./exchanges/coinbase";
+import { fetchKrakenPrice } from "./exchanges/kraken";
+
+type AggregatedPrice = {
+  symbol: string;
+  quote: string;
+  price: number;
+  source: string;
+  ts: number;
+};
+
+const CACHE = new Map<string, AggregatedPrice>();
+const TTL_MS = 3000;
+
+export async function getAggregatedPrice({ symbol, quote = "USD" }: { symbol: string; quote?: string }) {
+  const key = \`\${symbol.toUpperCase()}-\${quote.toUpperCase()}\`;
+  const cached = CACHE.get(key);
+  if (cached && Date.now() - cached.ts < TTL_MS) {
+    return { ...cached, cached: true };
+  }
+
+  const map = SYMBOL_MAP[symbol as keyof typeof SYMBOL_MAP];
+  if (!map) throw new Error("Unsupported symbol: " + symbol);
+
+  const calls: Promise<{ src: string; price: number } | null>[] = [];
+
+  if (map.binance) {
+    calls.push(
+      fetchBinancePrice(map.binance)
+        .then((p) => ({ src: "binance", price: p }))
+        .catch(() => null)
+    );
+  }
+
+  if (map.coinbase) {
+    calls.push(
+      fetchCoinbasePrice(map.coinbase)
+        .then((p) => ({ src: "coinbase", price: p }))
+        .catch(() => null)
+    );
+  }
+
+  if (map.kraken) {
+    calls.push(
+      fetchKrakenPrice(map.kraken)
+        .then((p) => ({ src: "kraken", price: p }))
+        .catch(() => null)
+    );
+  }
+
+  const results = (await Promise.all(calls)).filter((x): x is { src: string; price: number } => x !== null);
+
+  if (!results.length) throw new Error("No valid prices");
+
+  const prices = results.map((r) => r.price).sort((a, b) => a - b);
+  const median = prices[Math.floor(prices.length / 2)];
+  const sane = results.filter((r) => Math.abs(r.price - median) / median < 0.1);
+  const candidates = sane.length ? sane : results;
+
+  const priority = ["binance", "coinbase", "kraken"];
+  for (const p of priority) {
+    const found = candidates.find((c) => c.src === p);
+    if (found) {
+      const out: AggregatedPrice = {
+        symbol: symbol.toUpperCase(),
+        quote: quote.toUpperCase(),
+        price: found.price,
+        source: found.src,
+        ts: Date.now(),
+      };
+      CACHE.set(key, out);
+      return out;
+    }
+  }
+
+  const fallback: AggregatedPrice = {
+    symbol: symbol.toUpperCase(),
+    quote: quote.toUpperCase(),
+    price: median,
+    source: "median",
+    ts: Date.now(),
+  };
+  CACHE.set(key, fallback);
+  return fallback;
+}
+EOF
+
+echo "🧮 Price aggregator implemented."
+
+############################################
+# 6. Depth engine (10/25/50/100/200bps for Top 10 tokens)
+############################################
+cat > analytics/engines/depthEngine.ts << 'EOF'
+import { DEPTH_TOKENS, SYMBOL_MAP } from "../aggregator/config/symbols";
+import { fetchBinanceDepth } from "../aggregator/exchanges/binance";
+
+const BANDS = [0.001, 0.0025, 0.005, 0.01, 0.02]; // 10,25,50,100,200 bps
+
+let DEPTH_CACHE: any = {};
+export function getDepthCache() {
+  return DEPTH_CACHE;
+}
+
+function computeDepth(mid: number, bids: any[], asks: any[], band: number) {
+  const lower = mid * (1 - band);
+  const upper = mid * (1 + band);
+
+  let bidUSD = 0;
+  for (const [px, qty] of bids) {
+    const p = Number(px), q = Number(qty);
+    if (p < lower) break;
+    bidUSD += p * q;
+  }
+
+  let askUSD = 0;
+  for (const [px, qty] of asks) {
+    const p = Number(px), q = Number(qty);
+    if (p > upper) break;
+    askUSD += p * q;
+  }
+
+  const total = bidUSD + askUSD;
+  const imbalance = total > 0 ? (bidUSD - askUSD) / total : 0;
+
+  return { bidUSD, askUSD, imbalance };
+}
+
+export async function ingestDepth() {
+  const out: any = {};
+  for (const symbol of DEPTH_TOKENS) {
+    const map = SYMBOL_MAP[symbol];
+    if (!map?.binance) continue;
+
+    try {
+      const ob = await fetchBinanceDepth(map.binance);
+      const bids = ob.bids;
+      const asks = ob.asks;
+      if (!bids?.length || !asks?.length) continue;
+
+      const bestBid = Number(bids[0][0]);
+      const bestAsk = Number(asks[0][0]);
+      const mid = (bestBid + bestAsk) / 2;
+
+      const depthBands: any = {};
+      for (const band of BANDS) {
+        const key = \`\${(band * 10000).toFixed(0)}bps\`;
+        depthBands[key] = computeDepth(mid, bids, asks, band);
+      }
+
+      out[symbol] = {
+        mid,
+        bands: depthBands,
+      };
+    } catch (err) {
+      console.error("Depth ingest error", symbol, err);
+    }
+  }
+
+  DEPTH_CACHE = out;
+}
+EOF
+
+echo "🌊 Depth engine ready."
+
+############################################
+# 7. Funding engine
+############################################
+cat > analytics/engines/fundingEngine.ts << 'EOF'
+import { fetchBinanceFunding } from "../aggregator/exchanges/binance";
+
+let FUNDING_CACHE: any = {};
+export function getFundingCache() {
+  return FUNDING_CACHE;
+}
+
+export async function ingestFunding() {
+  const symbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT"];
+  const out: any = {};
+  for (const s of symbols) {
+    try {
+      const data = await fetchBinanceFunding(s);
+      const key = s.replace("USDT", "");
+      out[key] = data;
+    } catch (err) {
+      console.error("Funding ingest error", s, err);
+    }
+  }
+  FUNDING_CACHE = out;
+}
+EOF
+
+echo "💸 Funding engine ready."
+
+############################################
+# 8. Liquidation engine
+############################################
+cat > analytics/engines/liquidationEngine.ts << 'EOF'
+import { fetchBinanceLiquidations } from "../aggregator/exchanges/binance";
+
+let LIQ_CACHE: any = {};
+export function getLiquidationCache() {
+  return LIQ_CACHE;
+}
+
+export async function ingestLiquidations() {
+  const symbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT"];
+  const out: any = {};
+  for (const s of symbols) {
+    try {
+      const data = await fetchBinanceLiquidations(s);
+      const longs = data
+        .filter((x: any) => x.side === "BUY")
+        .reduce((acc: number, c: any) => acc + Number(c.price) * Number(c.qty), 0);
+      const shorts = data
+        .filter((x: any) => x.side === "SELL")
+        .reduce((acc: number, c: any) => acc + Number(c.price) * Number(c.qty), 0);
+      const total = longs + shorts;
+      const imbalance = total > 0 ? (longs - shorts) / total : 0;
+      const key = s.replace("USDT", "");
+      out[key] = { longs, shorts, imbalance };
+    } catch (err) {
+      console.error("Liquidation ingest error", s, err);
+    }
+  }
+  LIQ_CACHE = out;
+}
+EOF
+
+echo "🔥 Liquidation engine ready."
+
+############################################
+# 9. Composite stress engine
+############################################
+cat > analytics/engines/stressEngine.ts << 'EOF'
+import { getDepthCache } from "./depthEngine";
+import { getFundingCache } from "./fundingEngine";
+import { getLiquidationCache } from "./liquidationEngine";
+
+export function stressEngine() {
+  const depth = getDepthCache();
+  const funding = getFundingCache();
+  const liq = getLiquidationCache();
+
+  let score = 0;
+  const drivers: string[] = [];
+
+  // Funding stress
+  for (const key of Object.keys(funding)) {
+    const fr = funding[key]?.fundingRate ?? 0;
+    if (fr < -0.0005) {
+      score += 15;
+      drivers.push(`Funding inversion on ${key}`);
+    } else if (fr < 0) {
+      score += 5;
+      drivers.push(`Negative funding on ${key}`);
+    }
+  }
+
+  // Liquidation stress
+  for (const key of Object.keys(liq)) {
+    const { imbalance, longs, shorts } = liq[key];
+    const notional = longs + shorts;
+    if (notional > 10_000_000 && imbalance < -0.3) {
+      score += 20;
+      drivers.push(`Long-liquidation skew on ${key}`);
+    } else if (notional > 10_000_000 && imbalance > 0.3) {
+      score += 10;
+      drivers.push(`Short-liquidation skew on ${key}`);
+    }
+  }
+
+  // Depth stress (focus on BTC 10bps band as headline signal)
+  const btc = depth["BTC"];
+  const ten = btc?.bands?.["10bps"];
+  if (ten) {
+    const totalDepth = ten.bidUSD + ten.askUSD;
+    if (totalDepth < 20_000_000) {
+      score += 20;
+      drivers.push("Thin BTC depth at 10bps");
+    } else if (totalDepth < 40_000_000) {
+      score += 10;
+      drivers.push("Moderate BTC depth at 10bps");
+    }
+  }
+
+  const regime = score < 20 ? "LOW" : score < 50 ? "MODERATE" : "HIGH";
+
+  return {
+    stress_score: score,
+    regime,
+    drivers,
+    depth,
+    funding,
+    liquidations: liq,
+  };
+}
+EOF
+
+echo "🧠 Composite stress engine written."
+
+############################################
+# 10. Summary commentary engine (placeholder)
+############################################
+cat > analytics/engines/summaryEngine.ts << 'EOF'
+export function summaryEngine() {
+  return {
+    dominant_factor:
+      "A CEX-driven positioning day with moderate leverage resets and selective risk rotation.",
+    market_regime:
+      "Today traded as a mild risk-off rotation: BTC held up vs. alts, spreads stayed orderly, and stablecoins absorbed most of the de-risking."
+  };
+}
+EOF
+
+echo "📝 Summary engine placeholder written."
+
+############################################
+# 11. Express API server + 5s ingestion loop
+############################################
+cat > analytics/aggregator/server.ts << 'EOF'
+import express from "express";
+import cors from "cors";
+
+import { getAggregatedPrice } from "./aggregator";
+import { stressEngine } from "../engines/stressEngine";
+import { summaryEngine } from "../engines/summaryEngine";
+
+import { ingestDepth } from "../engines/depthEngine";
+import { ingestFunding } from "../engines/fundingEngine";
+import { ingestLiquidations } from "../engines/liquidationEngine";
+
+const app = express();
+app.use(cors());
+
+// Single price
+app.get("/api/price", async (req, res) => {
+  try {
+    const symbol = String(req.query.symbol || "").toUpperCase();
+    if (!symbol) return res.status(400).json({ error: "Missing symbol" });
+    const data = await getAggregatedPrice({ symbol });
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: "Price fetch failed", details: err?.message ?? String(err) });
+  }
+});
+
+// Batch prices
+app.get("/api/prices", async (req, res) => {
+  try {
+    const raw = String(req.query.symbols || "");
+    const symbols = raw
+      .split(",")
+      .map((s) => s.trim().toUpperCase())
+      .filter(Boolean);
+    const results = await Promise.all(symbols.map((s) => getAggregatedPrice({ symbol: s })));
+    res.json({ prices: results });
+  } catch (err: any) {
+    res.status(500).json({ error: "Batch price fetch failed", details: err?.message ?? String(err) });
+  }
+});
+
+// Full stress state
+app.get("/api/stress/full", (req, res) => {
+  try {
+    const state = stressEngine();
+    res.json(state);
+  } catch (err: any) {
+    res.status(500).json({ error: "Stress calculation failed", details: err?.message ?? String(err) });
+  }
+});
+
+// Summary commentary
+app.get("/api/summary", (req, res) => {
+  res.json(summaryEngine());
+});
+
+// Healthcheck
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok", ts: new Date().toISOString() });
+});
+
+// 5-second ingestion loop
+async function ingestAll() {
+  try {
+    await Promise.all([ingestDepth(), ingestFunding(), ingestLiquidations()]);
+    console.log("Ingestion cycle complete:", new Date().toISOString());
+  } catch (err) {
+    console.error("Ingestion cycle error", err);
+  }
+}
+
+setInterval(ingestAll, 5000);
+ingestAll();
+
+const PORT = Number(process.env.PORT) || 3001;
+app.listen(PORT, () => {
+  console.log("STRATA Analytics backend listening on port", PORT);
+});
+EOF
+
+echo "🚦 API server + 5s ingestion loop created."
+
+echo "✅ STRATA Module 1 complete (backend + ingestion)."
+echo "➡ Next steps: ensure you have axios, express, cors, ts-node, typescript installed and wire up Module 2 (dashboard) when ready."

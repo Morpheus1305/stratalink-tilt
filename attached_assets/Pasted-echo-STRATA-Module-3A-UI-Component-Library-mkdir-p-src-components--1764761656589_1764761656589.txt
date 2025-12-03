@@ -1,0 +1,140 @@
+echo "🚀 STRATA Module 3A — UI Component Library"
+
+mkdir -p src/components
+
+############################################
+# 1. Card.tsx — universal STRATA card
+############################################
+cat > src/components/Card.tsx << 'EOF'
+import React from "react";
+
+export default function Card({
+  title,
+  children,
+  style = {},
+}: {
+  title?: string;
+  children: any;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <div
+      style={{
+        background: "#0b1020",
+        borderRadius: 12,
+        padding: 16,
+        border: "1px solid #1a2138",
+        ...style,
+      }}
+    >
+      {title && (
+        <div
+          style={{
+            fontSize: 12,
+            color: "#8ea3c7",
+            marginBottom: 12,
+            letterSpacing: 1,
+            textTransform: "uppercase",
+          }}
+        >
+          {title}
+        </div>
+      )}
+      {children}
+    </div>
+  );
+}
+EOF
+
+echo "📦 Card component created."
+
+############################################
+# 2. Badge.tsx — RAG indicator for stress regime
+############################################
+cat > src/components/Badge.tsx << 'EOF'
+import React from "react";
+
+export function Badge({ regime }: { regime: string }) {
+  const color =
+    regime === "HIGH"
+      ? "#d9534f"
+      : regime === "MODERATE"
+      ? "#f0ad4e"
+      : "#5cb85c";
+
+  return (
+    <span
+      style={{
+        background: color,
+        padding: "2px 8px",
+        borderRadius: 6,
+        fontSize: 12,
+        color: "#fff",
+        marginLeft: 8,
+      }}
+    >
+      {regime}
+    </span>
+  );
+}
+EOF
+
+echo "🔖 Badge component created."
+
+############################################
+# 3. Grid.tsx — layout helper
+############################################
+cat > src/components/Grid.tsx << 'EOF'
+import React from "react";
+
+export function Grid({
+  cols = 3,
+  children,
+  gap = 16,
+}: {
+  cols?: number;
+  children: any;
+  gap?: number;
+}) {
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: `repeat(${cols}, minmax(0,1fr))`,
+        gap,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+EOF
+
+echo "🔲 Grid component created."
+
+############################################
+# 4. Label.tsx — uniform STRATA label
+############################################
+cat > src/components/Label.tsx << 'EOF'
+import React from "react";
+
+export default function Label({ children }: { children: any }) {
+  return (
+    <div
+      style={{
+        fontSize: 12,
+        color: "#8ea3c7",
+        letterSpacing: 1,
+        marginBottom: 6,
+        textTransform: "uppercase",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+EOF
+
+echo "🏷 Label component created."
+
+echo "🎉 Module 3A complete — core UI components installed."

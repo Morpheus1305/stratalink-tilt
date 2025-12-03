@@ -1,0 +1,105 @@
+echo "🚀 STRATA Module 4 — Final Integration & Wiring"
+
+############################################
+# Replace src/App.tsx with the full dashboard layout
+############################################
+cat > src/App.tsx << 'EOF'
+import React, { useEffect, useState } from "react";
+
+import TokenSelector from "./components/TokenSelector";
+import MarketSnapshot from "./components/MarketSnapshot";
+import StressPanel from "./components/StressPanel";
+import SummaryPanel from "./components/SummaryPanel";
+import DepthPanel from "./components/DepthPanel";
+import AltBaskets from "./components/AltBaskets";
+
+export default function App() {
+  const [selectedToken, setSelectedToken] = useState("BTC");
+  const [prices, setPrices] = useState<any[]>([]);
+  const [stress, setStress] = useState<any>(null);
+  const [summary, setSummary] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  async function loadAll() {
+    try {
+      const [pRes, sRes, sumRes] = await Promise.all([
+        fetch("/api/prices?symbols=BTC,ETH,SOL,XRP,ADA,AVAX,LINK,MATIC,DOT,NEAR"),
+        fetch("/api/stress/full"),
+        fetch("/api/summary"),
+      ]);
+
+      setPrices((await pRes.json()).prices || []);
+      setStress(await sRes.json());
+      setSummary(await sumRes.json());
+    } catch (err) {
+      console.error("Dashboard load error:", err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadAll();
+    const id = setInterval(loadAll, 15000); // refresh every 15s
+    return () => clearInterval(id);
+  }, []);
+
+  return (
+    <div style={{ padding: "24px 32px", maxWidth: 1300, margin: "0 auto" }}>
+      {/* Header */}
+      <header style={{ marginBottom: 24 }}>
+        <div style={{ fontSize: 12, letterSpacing: 3, color: "#8ea3c7" }}>
+          STRATA • ANALYTICS
+        </div>
+        <h1 style={{ margin: "4px 0 0", fontSize: 26 }}>
+          Daily Crypto Market Structure Attribution
+        </h1>
+      </header>
+
+      {/* Token Selector */}
+      <div style={{ marginBottom: 20 }}>
+        <TokenSelector value={selectedToken} onChange={setSelectedToken} />
+      </div>
+
+      {/* Loading State */}
+      {loading && <div>Loading live market data…</div>}
+
+      {/* Grid Layout for Key Panels */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3, 1fr)",
+          gap: 20,
+          marginBottom: 20,
+        }}
+      >
+        <MarketSnapshot prices={prices} />
+        <StressPanel stress={stress} />
+        <SummaryPanel summary={summary} />
+      </div>
+
+      {/* Lower Grid: Depth + Baskets */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "2fr 1fr",
+          gap: 20,
+          marginBottom: 20,
+        }}
+      >
+        <DepthPanel stress={stress} />
+        <AltBaskets prices={prices} />
+      </div>
+
+      {/* Footer */}
+      <footer style={{ marginTop: 24, fontSize: 11, color: "#6d7da2" }}>
+        STRATA • Liquidity Truth Layer — Internal institutional prototype.
+      </footer>
+    </div>
+  );
+}
+EOF
+
+echo "🎉 Module 4: App.tsx fully integrated!"
+echo "🚀 STRATA Dashboard is now complete."
+echo "➡ Run: npm run dev"
