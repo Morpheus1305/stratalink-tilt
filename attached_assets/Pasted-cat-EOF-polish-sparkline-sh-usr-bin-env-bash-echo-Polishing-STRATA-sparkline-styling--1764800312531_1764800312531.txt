@@ -1,3 +1,10 @@
+cat << 'EOF' > polish-sparkline.sh
+#!/usr/bin/env bash
+
+echo "✨ Polishing STRATA sparkline styling…"
+
+cat > src/components/Sparkline.tsx << 'EOT'
+import React from "react";
 import {
   LineChart,
   Line,
@@ -7,6 +14,7 @@ import {
   Tooltip,
   ReferenceLine,
   CartesianGrid,
+  defs,
 } from "recharts";
 
 type SparkPoint = { v: number };
@@ -18,6 +26,13 @@ type Props = {
   zeroLine?: boolean;
 };
 
+/**
+ * Premium sparkline used across STRATA Analytics:
+ * - Rounded lines
+ * - Subtle horizontal grid
+ * - Optional zero-line
+ * - Dark tooltip styling
+ */
 export default function Sparkline({
   data,
   color = "#5cb85c",
@@ -33,18 +48,23 @@ export default function Sparkline({
   }
 
   const chartData = data.map((d, idx) => ({ i: idx, v: d.v }));
+
+  // Very light version of the line colour for grid / halo
   const gridColor = "#242b3f";
 
   return (
     <div style={{ width: "100%", height: 70 }}>
       <ResponsiveContainer>
         <LineChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+          {/* Horizontal grid only, very subtle */}
           <CartesianGrid
             stroke={gridColor}
             strokeDasharray="3 3"
             vertical={false}
           />
+
           <XAxis dataKey="i" hide />
+
           <YAxis
             width={40}
             tickFormatter={yFormatter}
@@ -52,12 +72,14 @@ export default function Sparkline({
             tickLine={false}
             axisLine={false}
           />
+
           {zeroLine && (
             <ReferenceLine y={0} stroke="#444a63" strokeDasharray="2 2" />
           )}
+
           <Tooltip
             cursor={{ stroke: "#ffffff30", strokeWidth: 1 }}
-            formatter={(value: number) => [yFormatter(value), "Δ"]}
+            formatter={(value: any) => [yFormatter(value as number), "Δ"]}
             labelFormatter={() => ""}
             contentStyle={{
               background: "#050814",
@@ -68,6 +90,8 @@ export default function Sparkline({
               color: "#c3d0ea",
             }}
           />
+
+          {/* Main line */}
           <Line
             type="monotone"
             dataKey="v"
@@ -82,3 +106,9 @@ export default function Sparkline({
     </div>
   );
 }
+EOT
+
+echo "✅ Sparkline polished. Restart dev server: npm run dev"
+EOF
+
+bash polish-sparkline.sh
