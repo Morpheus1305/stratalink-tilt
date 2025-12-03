@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -17,7 +17,7 @@ import {
   VolatilityConePanel,
   CexDexGauge,
   StablecoinFlowPanel,
-  SparklinePanel,
+  LiveSparklinesPanel,
 } from "@/components/analytics";
 import DepthPanel from "@/components/DepthPanel";
 
@@ -80,8 +80,26 @@ type IngestionStatus = {
   liquidationTokens: number;
 };
 
+type Point = { t: number; v: number };
+type SeriesMap = Record<string, Point[]>;
+
+const MAX_POINTS = 30;
+
+function pushSeries(map: SeriesMap, key: string, value: number): SeriesMap {
+  const now = Date.now();
+  const existing = map[key] || [];
+  const nextArr = [...existing, { t: now, v: value }].slice(-MAX_POINTS);
+  return { ...map, [key]: nextArr };
+}
+
 export default function AnalyticsPage() {
   const [selectedToken, setSelectedToken] = useState("BTC");
+  
+  const [priceSeries, setPriceSeries] = useState<SeriesMap>({});
+  const [depthSeries, setDepthSeries] = useState<SeriesMap>({});
+  const [fundingSeries, setFundingSeries] = useState<SeriesMap>({});
+  
+  const lastUpdateRef = useRef<number>(0);
 
   const { data: stress, isLoading: stressLoading } = useQuery<StressData>({
     queryKey: ["/api/analytics/stress"],
@@ -108,7 +126,57 @@ export default function AnalyticsPage() {
     refetchInterval: 5000,
   });
 
+  useEffect(() => {
+    const now = Date.now();
+    if (now - lastUpdateRef.current < 4000) return;
+    lastUpdateRef.current = now;
+
+    const depth = depthData?.depth;
+    const funding = fundingData?.funding;
+
+    if (depth) {
+      setPriceSeries((prev) => {
+        let next = { ...prev };
+        for (const sym of Object.keys(depth)) {
+          const mid = depth[sym]?.mid;
+          if (mid && mid > 0) {
+            next = pushSeries(next, sym, mid);
+          }
+        }
+        return next;
+      });
+
+      setDepthSeries((prev) => {
+        let next = { ...prev };
+        for (const sym of Object.keys(depth)) {
+          const bands = depth[sym]?.bands;
+          const ten = bands?.["10bps"];
+          const total = (ten?.bidUSD ?? 0) + (ten?.askUSD ?? 0);
+          if (total > 0) {
+            next = pushSeries(next, sym, total);
+          }
+        }
+        return next;
+      });
+    }
+
+    if (funding) {
+      setFundingSeries((prev) => {
+        let next = { ...prev };
+        for (const sym of Object.keys(funding)) {
+          const rate = funding[sym]?.fundingRate ?? 0;
+          next = pushSeries(next, sym, rate);
+        }
+        return next;
+      });
+    }
+  }, [depthData, fundingData]);
+
   const isLoading = stressLoading || depthLoading || fundingLoading || liquidationLoading;
+
+  const priceSeriesForToken = priceSeries[selectedToken] || [];
+  const depthSeriesForToken = depthSeries[selectedToken] || [];
+  const fundingSeriesForToken = fundingSeries[selectedToken] || [];
 
   return (
     <div
@@ -165,12 +233,13 @@ export default function AnalyticsPage() {
         </Card>
       )}
 
-      {/* Live Sparklines */}
+      {/* Live Token-Aware Sparklines */}
       <div style={{ marginBottom: 20 }}>
-        <SparklinePanel
-          depth={depthData?.depth}
-          funding={fundingData?.funding}
-          selectedToken={selectedToken}
+        <LiveSparklinesPanel
+          token={selectedToken}
+          price={priceSeriesForToken}
+          depth={depthSeriesForToken}
+          funding={fundingSeriesForToken}
         />
       </div>
 

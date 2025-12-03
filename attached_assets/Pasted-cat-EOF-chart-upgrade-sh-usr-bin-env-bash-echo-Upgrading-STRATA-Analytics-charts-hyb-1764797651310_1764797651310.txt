@@ -1,0 +1,507 @@
+cat << 'EOF' > chart-upgrade.sh
+#!/usr/bin/env bash
+
+echo "🔧 Upgrading STRATA Analytics charts (hybrid, token-aware)…"
+
+############################################
+# 1) Replace Sparkline.tsx with richer version
+############################################
+mkdir -p src/components
+
+cat > src/components/Sparkline.tsx << 'EOT'
+import React from "react";
+import {
+  LineChart,
+  Line,
+  ResponsiveContainer,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ReferenceLine,
+} from "recharts";
+
+type SparkPoint = { v: number };
+
+type Props = {
+  data: SparkPoint[];
+  color?: string;
+  yFormatter?: (v: number) => string;
+  zeroLine?: boolean;
+};
+
+export default function Sparkline({
+  data,
+  color = "#5cb85c",
+  yFormatter = (v) => v.toFixed(2),
+  zeroLine = true,
+}: Props) {
+  if (!data || data.length < 2) {
+    return (
+      <div style={{ fontSize: 11, color: "#8ea3c7" }}>
+        Collecting data…
+      </div>
+    );
+  }
+
+  // Recharts wants an explicit x key; we just use the index.
+  const chartData = data.map((d, idx) => ({ i: idx, v: d.v }));
+
+  return (
+    <div style={{ width: "100%", height: 60 }}>
+      <ResponsiveContainer>
+        <LineChart data={chartData}>
+          <XAxis dataKey="i" hide />
+          <YAxis
+            width={40}
+            tickFormatter={yFormatter}
+            tick={{ fontSize: 10, fill: "#8ea3c7" }}
+            tickLine={false}
+            axisLine={false}
+          />
+          {zeroLine && <ReferenceLine y={0} stroke="#444a63" strokeDasharray="3 3" />}
+          <Tooltip
+            cursor={false}
+            formatter={(value: any) => [yFormatter(value as number), "Δ"]}
+            labelFormatter={() => ""}
+            contentStyle={{
+              background: "#050814",
+              border: "1px solid #1a2138",
+              fontSize: 11,
+            }}
+          />
+          <Line
+            type="monotone"
+            dataKey="v"
+            stroke={color}
+            strokeWidth={2}
+            dot={false}
+            isAnimationActive={false}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+EOT
+
+############################################
+# 2) New LiveSparklinesPanel.tsx
+############################################
+cat > src/components/LiveSparklinesPanel.tsx << 'EOT'
+import React from "react";
+import Card from "./Card";
+import Sparkline from "./Sparkline";
+
+type Point = { t: number; v: number };
+
+type Series = Point[];
+
+type Props = {
+  token: string;
+  price: Series;
+  depth: Series;
+  funding: Series;
+};
+
+function normalizePct(series: Series): { v: number }[] {
+  if (!series || series.length < 2) return [];
+  const base = series[0].v;
+  if (!base || base === 0) return series.map(() => ({ v: 0 }));
+  return series.map((p) => ({ v: ((p.v / base) - 1) * 100 }));
+}
+
+function latest(series: Series): Point | null {
+  if (!series || !series.length) return null;
+  return series[series.length - 1];
+}
+
+function pctChange(series: Series): number | null {
+  if (!series || series.length < 2) return null;
+  const first = series[0].v;
+  const last = series[series.length - 1].v;
+  if (!first) return null;
+  return (last / first - 1) * 100;
+}
+
+export default function LiveSparklinesPanel({
+  token,
+  price,
+  depth,
+  funding,
+}: Props) {
+  const priceLast = latest(price);
+  const pricePct = pctChange(price);
+
+  const depthLast = latest(depth);
+  const depthPct = pctChange(depth);
+
+  const fundingLast = latest(funding);
+  const fundingPct = pctChange(funding);
+
+  const priceSpark = normalizePct(price);
+  const depthSpark = normalizePct(depth);
+  const fundingSpark = normalizePct(funding);
+
+  const pctFmt = (v: number | null) =>
+    v == null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
+
+  return (
+    <Card title="Live Sparklines (30-point rolling window)">
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3, 1fr)",
+          gap: 24,
+          alignItems: "flex-start",
+        }}
+      >
+        {/* BTC / Selected token price */}
+        <div>
+          <div
+            style={{
+              fontSize: 11,
+              color: "#8ea3c7",
+              letterSpacing: 1.5,
+              textTransform: "uppercase",
+              marginBottom: 4,
+            }}
+          >
+            {token} Price
+          </div>
+          <div style={{ fontSize: 14, marginBottom: 2 }}>
+            {priceLast ? `$${priceLast.v.toLocaleString()}` : "—"}
+            <span
+              style={{
+                marginLeft: 8,
+                fontSize: 11,
+                color: pricePct != null && pricePct >= 0 ? "#5cb85c" : "#d9534f",
+              }}
+            >
+              {pctFmt(pricePct)}
+            </span>
+          </div>
+          <Sparkline
+            data={priceSpark}
+            color="#5cb85c"
+            yFormatter={(v) => v.toFixed(2) + "%"}
+          />
+        </div>
+
+        {/* 10bps depth */}
+        <div>
+          <div
+            style={{
+              fontSize: 11,
+              color: "#8ea3c7",
+              letterSpacing: 1.5,
+              textTransform: "uppercase",
+              marginBottom: 4,
+            }}
+          >
+            {token} 10bps Depth (USD)
+          </div>
+          <div style={{ fontSize: 14, marginBottom: 2 }}>
+            {depthLast ? `$${(depthLast.v / 1_000_000).toFixed(2)}M` : "—"}
+            <span
+              style={{
+                marginLeft: 8,
+                fontSize: 11,
+                color: depthPct != null && depthPct >= 0 ? "#5cb85c" : "#d9534f",
+              }}
+            >
+              {pctFmt(depthPct)}
+            </span>
+          </div>
+          <Sparkline
+            data={depthSpark}
+            color="#2cc7ff"
+            yFormatter={(v) => v.toFixed(2) + "%"}
+          />
+        </div>
+
+        {/* Funding */}
+        <div>
+          <div
+            style={{
+              fontSize: 11,
+              color: "#8ea3c7",
+              letterSpacing: 1.5,
+              textTransform: "uppercase",
+              marginBottom: 4,
+            }}
+          >
+            {token} Funding Rate
+          </div>
+          <div style={{ fontSize: 14, marginBottom: 2 }}>
+            {fundingLast ? (fundingLast.v * 100).toFixed(4) + "%" : "—"}
+            <span
+              style={{
+                marginLeft: 8,
+                fontSize: 11,
+                color:
+                  fundingPct != null && fundingPct >= 0 ? "#5cb85c" : "#d9534f",
+              }}
+            >
+              {pctFmt(fundingPct)}
+            </span>
+          </div>
+          <Sparkline
+            data={normalizePct(funding)}
+            color="#ffcc33"
+            yFormatter={(v) => v.toFixed(2) + "%"}
+            zeroLine={true}
+          />
+        </div>
+      </div>
+    </Card>
+  );
+}
+EOT
+
+############################################
+# 3) Rewrite src/App.tsx for token-aware series + panel
+############################################
+cat > src/App.tsx << 'EOT'
+import React, { useEffect, useState } from "react";
+
+import TokenSelector from "./components/TokenSelector";
+import MarketSnapshot from "./components/MarketSnapshot";
+import StressPanel from "./components/StressPanel";
+import SummaryPanel from "./components/SummaryPanel";
+import DepthPanel from "./components/DepthPanel";
+import AltBaskets from "./components/AltBaskets";
+import RegimePill from "./components/RegimePill";
+import StressHeatmap from "./components/StressHeatmap";
+import TokenLiquidityCards from "./components/TokenLiquidityCards";
+import FundingPanel from "./components/FundingPanel";
+import WhaleImbalancePanel from "./components/WhaleImbalancePanel";
+import ExchangeFragmentationPanel from "./components/ExchangeFragmentationPanel";
+import LiquidityVelocityPanel from "./components/LiquidityVelocityPanel";
+import VolatilityConePanel from "./components/VolatilityConePanel";
+import CexDexGauge from "./components/CexDexGauge";
+import StablecoinFlowPanel from "./components/StablecoinFlowPanel";
+import LiveSparklinesPanel from "./components/LiveSparklinesPanel";
+
+type Point = { t: number; v: number };
+type SeriesMap = Record<string, Point[]>;
+
+const MAX_POINTS = 30;
+
+function pushSeries(map: SeriesMap, key: string, value: number): SeriesMap {
+  const now = Date.now();
+  const existing = map[key] || [];
+  const nextArr = [...existing, { t: now, v: value }].slice(-MAX_POINTS);
+  return { ...map, [key]: nextArr };
+}
+
+export default function App() {
+  const [selectedToken, setSelectedToken] = useState("BTC");
+  const [prices, setPrices] = useState<any[]>([]);
+  const [stress, setStress] = useState<any | null>(null);
+  const [summary, setSummary] = useState<any | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const [priceSeries, setPriceSeries] = useState<SeriesMap>({});
+  const [depthSeries, setDepthSeries] = useState<SeriesMap>({});
+  const [fundingSeries, setFundingSeries] = useState<SeriesMap>({});
+
+  async function loadAll() {
+    try {
+      const [pRes, sRes, sumRes] = await Promise.all([
+        fetch("/api/prices?symbols=BTC,ETH,SOL,XRP,ADA,AVAX,LINK,MATIC,DOT,NEAR"),
+        fetch("/api/stress/full"),
+        fetch("/api/summary"),
+      ]);
+
+      const pr = (await pRes.json()).prices || [];
+      const st = await sRes.json();
+      const sum = await sumRes.json();
+
+      setPrices(pr);
+      setStress(st);
+      setSummary(sum);
+
+      // ---- Time series updates (all tokens) ----
+      const latestPrices: Record<string, number> = {};
+      for (const row of pr) {
+        if (row.symbol && typeof row.price === "number") {
+          latestPrices[row.symbol] = row.price;
+        }
+      }
+
+      setPriceSeries((prev) => {
+        let next = { ...prev };
+        for (const sym of Object.keys(latestPrices)) {
+          next = pushSeries(next, sym, latestPrices[sym]);
+        }
+        return next;
+      });
+
+      const depth = st?.depth || {};
+      setDepthSeries((prev) => {
+        let next = { ...prev };
+        for (const sym of Object.keys(depth)) {
+          const bands = depth[sym]?.bands;
+          const ten = bands?.["10bps"];
+          const total =
+            (ten?.bidUSD ?? 0) +
+            (ten?.askUSD ?? 0);
+          next = pushSeries(next, sym, total);
+        }
+        return next;
+      });
+
+      const funding = st?.funding || {};
+      setFundingSeries((prev) => {
+        let next = { ...prev };
+        for (const sym of Object.keys(funding)) {
+          const rate = funding[sym]?.fundingRate ?? 0;
+          next = pushSeries(next, sym, rate);
+        }
+        return next;
+      });
+    } catch (err) {
+      console.error("Dashboard load error:", err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadAll();
+    const id = setInterval(loadAll, 15000); // refresh every 15s
+    return () => clearInterval(id);
+  }, []);
+
+  const priceSeriesForToken = priceSeries[selectedToken] || [];
+  const depthSeriesForToken = depthSeries[selectedToken] || [];
+  const fundingSeriesForToken = fundingSeries[selectedToken] || [];
+
+  return (
+    <div style={{ padding: "24px 32px", maxWidth: 1300, margin: "0 auto" }}>
+      {/* Header */}
+      <header style={{ marginBottom: 24 }}>
+        <div style={{ fontSize: 12, letterSpacing: 3, color: "#8ea3c7" }}>
+          STRATA • ANALYTICS
+        </div>
+        <h1 style={{ margin: "4px 0 0", fontSize: 26 }}>
+          Daily Crypto Market Structure Attribution
+        </h1>
+      </header>
+
+      {/* Token Selector + Regime pill */}
+      <div
+        style={{
+          marginBottom: 20,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 16,
+          flexWrap: "wrap",
+        }}
+      >
+        <TokenSelector value={selectedToken} onChange={setSelectedToken} />
+        <RegimePill
+          stressScore={stress?.stress_score}
+          regime={stress?.regime}
+        />
+      </div>
+
+      {loading && <div>Loading live market data…</div>}
+
+      {/* Top row: Snapshot + Stress + Summary */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3, 1fr)",
+          gap: 20,
+          marginBottom: 20,
+        }}
+      >
+        <MarketSnapshot prices={prices} />
+        <StressPanel stress={stress} />
+        <SummaryPanel summary={summary} />
+      </div>
+
+      {/* Stress attribution + token liquidity cards */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1.2fr 2.8fr",
+          gap: 20,
+          marginBottom: 20,
+        }}
+      >
+        <StressHeatmap stress={stress} />
+        <TokenLiquidityCards stress={stress} prices={prices} />
+      </div>
+
+      {/* Depth + Funding */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "2.2fr 1.8fr",
+          gap: 20,
+          marginBottom: 20,
+        }}
+      >
+        <DepthPanel stress={stress} />
+        <FundingPanel stress={stress} />
+      </div>
+
+      {/* Baskets + fragmentation + velocity */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1.4fr 1.4fr 1.2fr",
+          gap: 20,
+          marginBottom: 20,
+        }}
+      >
+        <AltBaskets prices={prices} />
+        <ExchangeFragmentationPanel prices={prices} />
+        <LiquidityVelocityPanel stress={stress} />
+      </div>
+
+      {/* Planned panels */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1.4fr 1.4fr 1.2fr",
+          gap: 20,
+          marginBottom: 20,
+        }}
+      >
+        <VolatilityConePanel />
+        <CexDexGauge />
+        <StablecoinFlowPanel />
+      </div>
+
+      {/* NEW: Live token-aware sparklines */}
+      <div style={{ marginBottom: 20 }}>
+        <LiveSparklinesPanel
+          token={selectedToken}
+          price={priceSeriesForToken}
+          depth={depthSeriesForToken}
+          funding={fundingSeriesForToken}
+        />
+      </div>
+
+      {/* Whale imbalance (we keep it as a standalone qualitative panel) */}
+      <div style={{ marginBottom: 20 }}>
+        <WhaleImbalancePanel stress={stress} />
+      </div>
+
+      {/* Footer */}
+      <footer style={{ marginTop: 8, fontSize: 11, color: "#6d7da2" }}>
+        STRATA • Liquidity Truth Layer — Internal institutional prototype.
+      </footer>
+    </div>
+  );
+}
+EOT
+
+echo "✅ Chart upgrade script written. Run: bash chart-upgrade.sh"
+EOF
+
+bash chart-upgrade.sh
