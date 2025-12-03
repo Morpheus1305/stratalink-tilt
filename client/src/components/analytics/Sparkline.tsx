@@ -1,6 +1,7 @@
 import {
   LineChart,
   Line,
+  Area,
   ResponsiveContainer,
   XAxis,
   YAxis,
@@ -14,6 +15,8 @@ type SparkPoint = { v: number };
 type Props = {
   data: SparkPoint[];
   color?: string;
+  fillColor?: string;
+  filled?: boolean;
   yFormatter?: (v: number) => string;
   zeroLine?: boolean;
 };
@@ -21,6 +24,8 @@ type Props = {
 export default function Sparkline({
   data,
   color = "#5cb85c",
+  fillColor = "#2cc7ff40",
+  filled = false,
   yFormatter = (v) => v.toFixed(2),
   zeroLine = true,
 }: Props) {
@@ -33,18 +38,22 @@ export default function Sparkline({
   }
 
   const chartData = data.map((d, idx) => ({ i: idx, v: d.v }));
-  const gridColor = "#242b3f";
 
   return (
     <div style={{ width: "100%", height: 70 }}>
       <ResponsiveContainer>
         <LineChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-          <CartesianGrid
-            stroke={gridColor}
-            strokeDasharray="3 3"
-            vertical={false}
-          />
+          <defs>
+            <linearGradient id="depthFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity={0.35} />
+              <stop offset="100%" stopColor={color} stopOpacity={0.05} />
+            </linearGradient>
+          </defs>
+
+          <CartesianGrid stroke="#242b3f" strokeDasharray="3 3" vertical={false} />
+
           <XAxis dataKey="i" hide />
+
           <YAxis
             width={40}
             tickFormatter={yFormatter}
@@ -52,9 +61,11 @@ export default function Sparkline({
             tickLine={false}
             axisLine={false}
           />
+
           {zeroLine && (
             <ReferenceLine y={0} stroke="#444a63" strokeDasharray="2 2" />
           )}
+
           <Tooltip
             cursor={{ stroke: "#ffffff30", strokeWidth: 1 }}
             formatter={(value: number) => [yFormatter(value), "Δ"]}
@@ -68,6 +79,17 @@ export default function Sparkline({
               color: "#c3d0ea",
             }}
           />
+
+          {filled && (
+            <Area
+              type="monotone"
+              dataKey="v"
+              stroke="none"
+              fill="url(#depthFill)"
+              isAnimationActive={false}
+            />
+          )}
+
           <Line
             type="monotone"
             dataKey="v"
