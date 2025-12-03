@@ -1,3 +1,13 @@
+cat << 'EOF' > sparkline-subtle-tint-upgrade.sh
+#!/usr/bin/env bash
+
+echo "🎨 Applying subtle-tint polish to STRATA sparklines…"
+
+############################################
+# 1) Replace src/components/Sparkline.tsx
+############################################
+cat > src/components/Sparkline.tsx << 'EOT'
+import React from "react";
 import {
   LineChart,
   Line,
@@ -26,6 +36,10 @@ type Props = {
   stale?: boolean;
 };
 
+/**
+ * Softly lighten / darken a hex color by mixing with white or black.
+ * factor in [-0.3, +0.3] where + = lighter, - = darker.
+ */
 function adjustColor(hex: string, factor: number): string {
   if (!hex.startsWith("#") || (hex.length !== 7 && hex.length !== 4)) {
     return hex;
@@ -38,6 +52,7 @@ function adjustColor(hex: string, factor: number): string {
     g = parseInt(hex.slice(3, 5), 16);
     b = parseInt(hex.slice(5, 7), 16);
   } else {
+    // #abc → #aabbcc
     r = parseInt(hex[1] + hex[1], 16);
     g = parseInt(hex[2] + hex[2], 16);
     b = parseInt(hex[3] + hex[3], 16);
@@ -55,15 +70,18 @@ function adjustColor(hex: string, factor: number): string {
   return `#${toHex(mix(r))}${toHex(mix(g))}${toHex(mix(b))}`;
 }
 
+/** Direction-sensitive colour for depth (subtle green/red tint). */
 function computeDynamicColor(series: SparkPoint[], baseColor: string): string {
   if (series.length < 2) return baseColor;
   const prev = series[series.length - 2].v;
   const last = series[series.length - 1].v;
 
   if (last > prev) {
+    // Improving liquidity → gentle green tint
     return adjustColor("#23e07b", 0.05);
   }
   if (last < prev) {
+    // Eroding liquidity → gentle red tint
     return adjustColor("#ff5252", -0.05);
   }
   return baseColor;
@@ -87,14 +105,17 @@ export default function Sparkline({
     );
   }
 
+  // Base values & volatility range
   const values = data.map((d) => d.v);
   const min = Math.min(...values);
   const max = Math.max(...values);
   const range = max - min || 1;
 
+  // Volatility-driven glow factor (stronger than before)
   const volFactor = Math.min(1, Math.max(0.15, range / 3));
   const fillOpacity = Math.min(0.85, 0.12 + volFactor * 1.8);
 
+  // Micro-bar magnitudes
   const mags = data.map((d, idx) =>
     idx === 0 ? 0 : Math.abs(d.v - data[idx - 1].v)
   );
@@ -103,13 +124,16 @@ export default function Sparkline({
   const chartData = data.map((d, idx) => ({
     i: idx,
     v: d.v,
+    // normalised 0.1–1.0 for visibility
     b: 0.1 + 0.9 * (mags[idx] / maxMag),
   }));
 
   const lastIndex = chartData.length - 1;
 
+  // Choose final line colour
   const baseColor = dynamicFill ? computeDynamicColor(data, color) : color;
 
+  // Stale dimming
   const opacity = stale ? 0.35 : 1;
 
   return (
@@ -120,18 +144,21 @@ export default function Sparkline({
           margin={{ top: 10, right: 8, left: 0, bottom: 0 }}
         >
           <defs>
+            {/* Soft two-stop gradient for subtle stroke tint */}
             <linearGradient id="sparkLineGrad" x1="0" y1="0" x2="1" y2="0">
               <stop offset="0%" stopColor={adjustColor(baseColor, -0.08)} />
               <stop offset="100%" stopColor={adjustColor(baseColor, 0.1)} />
             </linearGradient>
           </defs>
 
+          {/* Subtle horizontal grid only */}
           <CartesianGrid
             stroke="#242b3f"
             strokeDasharray="2 3"
             vertical={false}
           />
 
+          {/* Mini time axis: t-30s → t-0 */}
           <XAxis
             dataKey="i"
             tickFormatter={(i) =>
@@ -156,7 +183,7 @@ export default function Sparkline({
           )}
 
           <Tooltip
-            formatter={(value: number) => [labelFormatter(value), "Δ"]}
+            formatter={(value: any) => [labelFormatter(value as number), "Δ"]}
             labelFormatter={() => ""}
             contentStyle={{
               background: "#050814",
@@ -168,6 +195,7 @@ export default function Sparkline({
             }}
           />
 
+          {/* Micro-bars for move intensity, mainly used on depth */}
           {barEnabled && (
             <Bar
               dataKey="b"
@@ -177,6 +205,7 @@ export default function Sparkline({
             />
           )}
 
+          {/* Filled area with volatility-based glow */}
           {filled && (
             <Area
               type="monotone"
@@ -188,6 +217,7 @@ export default function Sparkline({
             />
           )}
 
+          {/* Main line, using subtle gradient stroke */}
           <Line
             type="monotone"
             dataKey="v"
@@ -202,3 +232,9 @@ export default function Sparkline({
     </div>
   );
 }
+EOT
+
+echo "✅ Subtle-tint sparkline polish applied. Restart dev server with: npm run dev"
+EOF
+
+bash sparkline-subtle-tint-upgrade.sh
