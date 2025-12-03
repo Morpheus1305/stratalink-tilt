@@ -1,14 +1,23 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { 
-  Activity, 
-  AlertTriangle, 
-  Zap,
-  RefreshCw
-} from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+import {
+  TokenSelector,
+  RegimePill,
+  StressHeatmap,
+  TokenLiquidityCards,
+  FundingPanel,
+  WhaleImbalancePanel,
+  ExchangeFragmentationPanel,
+  LiquidityVelocityPanel,
+  VolatilityConePanel,
+  CexDexGauge,
+  StablecoinFlowPanel,
+} from "@/components/analytics";
 import DepthPanel from "@/components/DepthPanel";
 
 type StressDriver = {
@@ -54,6 +63,14 @@ type FundingData = {
   source: string;
 };
 
+type LiquidationData = {
+  longs: number;
+  shorts: number;
+  total: number;
+  imbalance: number;
+  regime: string;
+};
+
 type IngestionStatus = {
   isIngesting: boolean;
   lastFullIngest: number;
@@ -62,35 +79,9 @@ type IngestionStatus = {
   liquidationTokens: number;
 };
 
-function formatUSD(value: number): string {
-  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}M`;
-  if (value >= 1_000) return `$${(value / 1_000).toFixed(1)}K`;
-  return `$${value.toFixed(2)}`;
-}
-
-function formatPercent(value: number): string {
-  return `${(value * 100).toFixed(4)}%`;
-}
-
-function getRegimeColor(regime: string): string {
-  switch (regime) {
-    case "LOW": return "text-green-400";
-    case "MODERATE": return "text-yellow-400";
-    case "HIGH": return "text-orange-400";
-    case "EXTREME": return "text-red-400";
-    default: return "text-gray-400";
-  }
-}
-
-function getSeverityVariant(severity: string): "default" | "secondary" | "destructive" {
-  switch (severity) {
-    case "HIGH": return "destructive";
-    case "MEDIUM": return "secondary";
-    default: return "default";
-  }
-}
-
 export default function AnalyticsPage() {
+  const [selectedToken, setSelectedToken] = useState("BTC");
+
   const { data: stress, isLoading: stressLoading } = useQuery<StressData>({
     queryKey: ["/api/analytics/stress"],
     refetchInterval: 5000,
@@ -106,160 +97,131 @@ export default function AnalyticsPage() {
     refetchInterval: 5000,
   });
 
+  const { data: liquidationData, isLoading: liquidationLoading } = useQuery<{ liquidations: Record<string, LiquidationData>; summary: any }>({
+    queryKey: ["/api/analytics/liquidations"],
+    refetchInterval: 5000,
+  });
+
   const { data: status } = useQuery<IngestionStatus>({
     queryKey: ["/api/analytics/status"],
     refetchInterval: 5000,
   });
 
+  const isLoading = stressLoading || depthLoading || fundingLoading || liquidationLoading;
+
   return (
-    <div className="min-h-screen bg-background p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">STRATA Analytics</h1>
-          <p className="text-sm text-muted-foreground">Real-time market structure intelligence</p>
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#050814",
+        color: "#e1e6ef",
+        padding: 24,
+        fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif",
+      }}
+    >
+      {/* Header */}
+      <header style={{ marginBottom: 20 }}>
+        <div style={{ fontSize: 12, letterSpacing: 3, color: "#8ea3c7" }}>
+          STRATA • ANALYTICS
         </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <RefreshCw className={cn("h-3 w-3", status?.isIngesting && "animate-spin")} />
-          <span>
-            {status ? `${status.depthTokens} tokens tracked` : "Loading..."}
-          </span>
+        <h1 style={{ margin: "4px 0 0", fontSize: 26 }}>
+          Daily Crypto Market Structure Attribution
+        </h1>
+      </header>
+
+      {/* Token Selector + Regime Pill */}
+      <div
+        style={{
+          marginBottom: 20,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 16,
+          flexWrap: "wrap",
+        }}
+      >
+        <TokenSelector value={selectedToken} onChange={setSelectedToken} />
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <RegimePill
+            stressScore={stress?.stressScore}
+            regime={stress?.regime}
+          />
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <RefreshCw className={cn("h-3 w-3", status?.isIngesting && "animate-spin")} />
+            <span>
+              {status ? `${status.depthTokens} tokens tracked` : "Loading..."}
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Stress Score Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card className="lg:col-span-1 border-border/50">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-primary" />
-              Stress Score
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {stressLoading ? (
-              <Skeleton className="h-24 w-full" />
-            ) : stress ? (
-              <div className="space-y-3">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-5xl font-mono font-bold text-foreground">
-                    {stress.stressScore}
-                  </span>
-                  <span className="text-muted-foreground">/100</span>
-                </div>
-                <Badge 
-                  variant="outline" 
-                  className={cn("text-xs", getRegimeColor(stress.regime))}
-                  data-testid="badge-stress-regime"
-                >
-                  {stress.regime} STRESS
-                </Badge>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  {stress.commentary}
-                </p>
-              </div>
-            ) : null}
-          </CardContent>
-        </Card>
-
-        <Card className="lg:col-span-2 border-border/50">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Zap className="h-4 w-4 text-primary" />
-              Active Stress Drivers
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {stressLoading ? (
-              <Skeleton className="h-24 w-full" />
-            ) : stress?.drivers?.length ? (
-              <div className="space-y-2">
-                {stress.drivers.slice(0, 5).map((driver, i) => (
-                  <div 
-                    key={i} 
-                    className="flex items-center justify-between p-2 rounded bg-muted/30"
-                    data-testid={`row-driver-${i}`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Badge variant={getSeverityVariant(driver.severity)} className="text-xs">
-                        {driver.category}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">{driver.description}</span>
-                    </div>
-                    <span className="text-xs font-mono text-foreground">+{driver.contribution}</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">No active stress drivers</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Depth Analysis */}
-      {depthLoading ? (
-        <Card className="border-border/50">
+      {/* Loading State */}
+      {isLoading && (
+        <Card className="border-border/50 mb-5">
           <CardContent className="p-6">
             <Skeleton className="h-48 w-full" />
           </CardContent>
         </Card>
-      ) : (
-        <DepthPanel depth={depthData?.depth} />
       )}
 
-      {/* Funding Rates */}
-      <Card className="border-border/50">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <Activity className="h-4 w-4 text-primary" />
-            Perpetual Funding Rates
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {fundingLoading ? (
-            <Skeleton className="h-24 w-full" />
-          ) : fundingData?.funding ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {Object.entries(fundingData.funding).map(([symbol, data]) => (
-                <div 
-                  key={symbol} 
-                  className="p-4 rounded-lg bg-muted/30 space-y-2"
-                  data-testid={`card-funding-${symbol}`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono font-medium text-foreground">{symbol}</span>
-                    <Badge variant="outline" className="text-xs capitalize">
-                      {data.source}
-                    </Badge>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-xs">
-                      <span className="text-muted-foreground">Current Rate</span>
-                      <span className={cn(
-                        "font-mono",
-                        data.fundingRate >= 0 ? "text-green-400" : "text-red-400"
-                      )}>
-                        {formatPercent(data.fundingRate)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-muted-foreground">Annualized</span>
-                      <span className={cn(
-                        "font-mono",
-                        data.fundingRateAnnualized >= 0 ? "text-green-400" : "text-red-400"
-                      )}>
-                        {data.fundingRateAnnualized.toFixed(2)}% APR
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">No funding data available</p>
-          )}
-        </CardContent>
-      </Card>
+      {/* Stress attribution + token liquidity cards */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1.2fr 2.8fr",
+          gap: 20,
+          marginBottom: 20,
+        }}
+      >
+        <StressHeatmap drivers={stress?.drivers} />
+        <TokenLiquidityCards depth={depthData?.depth} />
+      </div>
+
+      {/* Depth + Funding */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "2.2fr 1.8fr",
+          gap: 20,
+          marginBottom: 20,
+        }}
+      >
+        <DepthPanel depth={depthData?.depth} />
+        <FundingPanel funding={fundingData?.funding} />
+      </div>
+
+      {/* Lower analytics: Whale imbalance + fragmentation + velocity */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1.4fr 1.4fr 1.2fr",
+          gap: 20,
+          marginBottom: 20,
+        }}
+      >
+        <WhaleImbalancePanel liquidations={liquidationData?.liquidations} />
+        <ExchangeFragmentationPanel depth={depthData?.depth} />
+        <LiquidityVelocityPanel depth={depthData?.depth} />
+      </div>
+
+      {/* Planned panels: vol cone, CEX/DEX gauge, stablecoin flows */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1.4fr 1.4fr 1.2fr",
+          gap: 20,
+          marginBottom: 20,
+        }}
+      >
+        <VolatilityConePanel />
+        <CexDexGauge />
+        <StablecoinFlowPanel />
+      </div>
+
+      {/* Footer */}
+      <footer style={{ marginTop: 24, fontSize: 11, color: "#6d7da2" }}>
+        STRATA • Liquidity Truth Layer — Internal institutional prototype.
+      </footer>
     </div>
   );
 }

@@ -1,0 +1,905 @@
+cat << 'EOF' > strata-analytics-ui.patch
+diff --git a/client/src/components/TokenSelector.tsx b/client/src/components/TokenSelector.tsx
+index 1111111..2222222 100644
+--- a/client/src/components/TokenSelector.tsx
++++ b/client/src/components/TokenSelector.tsx
+@@ -1,23 +1,52 @@
+ import React from "react";
+ 
+-const TOKENS = [
+-  "BTC","ETH","SOL","XRP","ADA","AVAX","LINK","MATIC","DOT","NEAR"
+-];
++// Grouped token selector with basic taxonomy
++const GROUPS: { label: string; tokens: string[] }[] = [
++  {
++    label: "Layer 1 / Majors",
++    tokens: ["BTC", "ETH", "SOL", "ADA", "AVAX", "NEAR"],
++  },
++  {
++    label: "DeFi / Infrastructure",
++    tokens: ["LINK", "MATIC", "DOT"],
++  },
++  {
++    label: "Other Large Caps",
++    tokens: ["XRP"],
++  },
++];
+ 
+ export default function TokenSelector({
+   value,
+   onChange,
+ }: {
+   value: string;
+   onChange: (s: string) => void;
+ }) {
+   return (
+-    <select
+-      value={value}
+-      onChange={(e) => onChange(e.target.value)}
+-      style={{
+-        padding: "8px 12px",
+-        background: "#0b1020",
+-        color: "#fff",
+-        borderRadius: 8,
+-        border: "1px solid #1a2138",
+-        fontSize: 14,
+-      }}
+-    >
+-      {TOKENS.map((t) => (
+-        <option key={t} value={t}>
+-          {t}
+-        </option>
+-      ))}
+-    </select>
++    <div style={{ display: "inline-flex", flexDirection: "column", gap: 4 }}>
++      <label
++        style={{
++          fontSize: 11,
++          color: "#8ea3c7",
++          letterSpacing: 1,
++          textTransform: "uppercase",
++        }}
++      >
++        Token Focus
++      </label>
++      <select
++        value={value}
++        onChange={(e) => onChange(e.target.value)}
++        style={{
++          padding: "8px 12px",
++          background: "#0b1020",
++          color: "#fff",
++          borderRadius: 8,
++          border: "1px solid #1a2138",
++          fontSize: 14,
++          minWidth: 220,
++        }}
++      >
++        {GROUPS.map((g) => (
++          <optgroup key={g.label} label={g.label}>
++            {g.tokens.map((t) => (
++              <option key={t} value={t}>
++                {t}
++              </option>
++            ))}
++          </optgroup>
++        ))}
++      </select>
++    </div>
+   );
+ }
+diff --git a/client/src/components/RegimePill.tsx b/client/src/components/RegimePill.tsx
+new file mode 100644
+index 0000000..3333333
+--- /dev/null
++++ b/client/src/components/RegimePill.tsx
+@@ -0,0 +1,66 @@
++import React from "react";
++
++type Props = {
++  stressScore?: number;
++  regime?: string;
++};
++
++// Simple regime classifier mapped from stress score & regime label.
++export default function RegimePill({ stressScore = 0, regime }: Props) {
++  let label = "Calm";
++  let bg = "#1b3b2a";
++  let fg = "#8af0b2";
++
++  if (regime === "HIGH" || stressScore >= 60) {
++    label = "Deleveraging / Stress";
++    bg = "#3a1114";
++    fg = "#ff9fa8";
++  } else if (regime === "MODERATE" || stressScore >= 30) {
++    label = "Rotation / Cautious Risk-Off";
++    bg = "#3a2b10";
++    fg = "#ffd88a";
++  }
++
++  return (
++    <div
++      style={{
++        display: "inline-flex",
++        alignItems: "center",
++        gap: 8,
++        padding: "6px 12px",
++        borderRadius: 999,
++        background: bg,
++        color: fg,
++        fontSize: 12,
++      }}
++    >
++      <span
++        style={{
++          width: 8,
++          height: 8,
++          borderRadius: "50%",
++          background: fg,
++        }}
++      />
++      <span style={{ textTransform: "uppercase", letterSpacing: 1 }}>
++        {label}
++      </span>
++      <span style={{ opacity: 0.7 }}>
++        · Stress {stressScore?.toFixed?.(0) ?? 0}/100
++      </span>
++    </div>
++  );
++}
+diff --git a/client/src/components/StressHeatmap.tsx b/client/src/components/StressHeatmap.tsx
+new file mode 100644
+index 0000000..4444444
+--- /dev/null
++++ b/client/src/components/StressHeatmap.tsx
+@@ -0,0 +1,106 @@
++import React from "react";
++import Card from "./Card";
++
++type Props = {
++  stress: any;
++};
++
++// Crude attribution by parsing driver text into buckets.
++export default function StressHeatmap({ stress }: Props) {
++  if (!stress) {
++    return <Card title="Stress Attribution Heatmap">No stress data.</Card>;
++  }
++
++  const drivers: string[] = stress.drivers || [];
++
++  const buckets: Record<
++    string,
++    { label: string; score: number; color: string }
++  > = {
++    depth: { label: "Depth / Orderbook", score: 0, color: "#ff6b6b" },
++    funding: { label: "Funding / Leverage", score: 0, color: "#f7b733" },
++    liquidation: { label: "Liquidations", score: 0, color: "#f25f5c" },
++    spreads: { label: "Spreads / Volatility", score: 0, color: "#4ecdc4" },
++    cexdex: { label: "CEX / DEX Imbalance", score: 0, color: "#556bff" },
++  };
++
++  for (const d of drivers) {
++    const text = d.toLowerCase();
++    if (text.includes("depth") || text.includes("thin")) {
++      buckets.depth.score += 10;
++    }
++    if (text.includes("funding")) {
++      buckets.funding.score += 10;
++    }
++    if (text.includes("liquidation")) {
++      buckets.liquidation.score += 10;
++    }
++    if (text.includes("spread") || text.includes("volatility")) {
++      buckets.spreads.score += 7;
++    }
++    if (text.includes("cex") || text.includes("dex")) {
++      buckets.cexdex.score += 5;
++    }
++  }
++
++  const rows = Object.values(buckets).filter((b) => b.score > 0);
++  if (!rows.length) {
++    return (
++      <Card title="Stress Attribution Heatmap">
++        <div style={{ fontSize: 13, color: "#c3d0ea" }}>
++          No specific drivers flagged. Market microstructure appears orderly.
++        </div>
++      </Card>
++    );
++  }
++
++  const maxScore = Math.max(...rows.map((r) => r.score), 1);
++
++  return (
++    <Card title="Active Stress Drivers (Attribution)">
++      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
++        {rows.map((r) => {
++          const pct = (r.score / maxScore) * 100;
++          return (
++            <div key={r.label} style={{ fontSize: 12 }}>
++              <div
++                style={{
++                  display: "flex",
++                  justifyContent: "space-between",
++                  marginBottom: 4,
++                }}
++              >
++                <span>{r.label}</span>
++                <span style={{ opacity: 0.8 }}>+{r.score}</span>
++              </div>
++              <div
++                style={{
++                  height: 6,
++                  borderRadius: 999,
++                  background: "#151a2b",
++                  overflow: "hidden",
++                }}
++              >
++                <div
++                  style={{
++                    width: `${pct}%`,
++                    height: "100%",
++                    background: `linear-gradient(90deg, ${r.color}, #ffffff40)`,
++                  }}
++                />
++              </div>
++            </div>
++          );
++        })}
++      </div>
++    </Card>
++  );
++}
+diff --git a/client/src/components/TokenLiquidityCards.tsx b/client/src/components/TokenLiquidityCards.tsx
+new file mode 100644
+index 0000000..5555555
+--- /dev/null
++++ b/client/src/components/TokenLiquidityCards.tsx
+@@ -0,0 +1,129 @@
++import React from "react";
++import Card from "./Card";
++import { Grid } from "./Grid";
++
++type Props = {
++  stress: any;
++  prices: any[];
++};
++
++// Simple rating based on 10bps depth; this will get more sophisticated later.
++function getRating(depth10bpsUSD: number) {
++  if (!depth10bpsUSD || depth10bpsUSD <= 0) return { rating: "Unrated", color: "#777" };
++  if (depth10bpsUSD > 40_000_000) return { rating: "A", color: "#5cb85c" };
++  if (depth10bpsUSD > 20_000_000) return { rating: "BBB", color: "#f0ad4e" };
++  return { rating: "BB", color: "#d9534f" };
++}
++
++export default function TokenLiquidityCards({ stress, prices }: Props) {
++  const depth = stress?.depth || {};
++  if (!Object.keys(depth).length) {
++    return <Card title="Token Liquidity Overview">No depth data.</Card>;
++  }
++
++  const priceLookup: Record<string, number> = {};
++  for (const row of prices || []) {
++    priceLookup[row.symbol] = row.price;
++  }
++
++  const symbols = Object.keys(depth);
++
++  return (
++    <Card title="Token Liquidity Snapshot">
++      <Grid cols={3} gap={12}>
++        {symbols.map((sym) => {
++          const row = depth[sym];
++          const ten = row?.bands?.["10bps"];
++          const total = (ten?.bidUSD ?? 0) + (ten?.askUSD ?? 0);
++          const { rating, color } = getRating(total);
++          const imbalance = row.imbalance ?? 0;
++
++          const skewLabel =
++            Math.abs(imbalance) < 0.05
++              ? "Balanced"
++              : imbalance > 0
++              ? "Bid-skew"
++              : "Ask-skew";
++
++          const mid = priceLookup[sym];
++
++          const skewPct = Math.min(Math.abs(imbalance) * 100, 100);
++
++          return (
++            <div
++              key={sym}
++              style={{
++                background: "#050814",
++                borderRadius: 10,
++                padding: 12,
++                border: "1px solid #1a2138",
++                display: "flex",
++                flexDirection: "column",
++                gap: 6,
++              }}
++            >
++              <div
++                style={{
++                  display: "flex",
++                  justifyContent: "space-between",
++                  alignItems: "center",
++                  marginBottom: 4,
++                }}
++              >
++                <div
++                  style={{
++                    fontSize: 11,
++                    color: "#8ea3c7",
++                    letterSpacing: 1.5,
++                  }}
++                >
++                  {sym}
++                </div>
++                <span
++                  style={{
++                    fontSize: 11,
++                    padding: "2px 8px",
++                    borderRadius: 999,
++                    border: `1px solid ${color}`,
++                    color,
++                  }}
++                >
++                  {rating}
++                </span>
++              </div>
++
++              <div style={{ fontSize: 16, fontWeight: 600 }}>
++                {mid ? `$${mid.toLocaleString()}` : "—"}
++              </div>
++
++              <div style={{ fontSize: 11, color: "#c3d0ea" }}>
++                10bps Depth:{" "}
++                <strong>
++                  {total ? `$${(total / 1_000_000).toFixed(2)}M` : "—"}
++                </strong>
++              </div>
++
++              <div style={{ fontSize: 11, color: "#c3d0ea" }}>
++                Book Skew: {skewLabel}{" "}
++                {imbalance ? `(${(imbalance * 100).toFixed(1)}%)` : ""}
++              </div>
++
++              {/* Mini "histogram" bar to visualise skew (Module C) */}
++              <div
++                style={{
++                  height: 6,
++                  borderRadius: 999,
++                  background: "#151a2b",
++                  overflow: "hidden",
++                  marginTop: 4,
++                }}
++              >
++                <div
++                  style={{
++                    width: `${skewPct}%`,
++                    height: "100%",
++                    background:
++                      imbalance >= 0
++                        ? "linear-gradient(90deg, #5cb85c, #ffffff40)"
++                        : "linear-gradient(90deg, #d9534f, #ffffff40)",
++                    marginLeft: imbalance >= 0 ? 0 : `${100 - skewPct}%`,
++                    transition: "width 0.2s ease",
++                  }}
++                />
++              </div>
++            </div>
++          );
++        })}
++      </Grid>
++    </Card>
++  );
++}
+diff --git a/client/src/components/FundingPanel.tsx b/client/src/components/FundingPanel.tsx
+new file mode 100644
+index 0000000..6666666
+--- /dev/null
++++ b/client/src/components/FundingPanel.tsx
+@@ -0,0 +1,94 @@
++import React from "react";
++import Card from "./Card";
++import { Grid } from "./Grid";
++
++type Props = {
++  stress: any;
++};
++
++function classify(rate: number) {
++  if (rate < -0.001) return { label: "Short crowded", color: "#5cb85c" };
++  if (rate < 0) return { label: "Mild short bias", color: "#8bc34a" };
++  if (rate < 0.001) return { label: "Neutral", color: "#ffd54f" };
++  return { label: "Long crowded", color: "#ff7043" };
++}
++
++export default function FundingPanel({ stress }: Props) {
++  const funding = stress?.funding || {};
++  const keys = Object.keys(funding);
++
++  if (!keys.length) {
++    return <Card title="Perpetual Funding">No funding data.</Card>;
++  }
++
++  return (
++    <Card title="Perpetual Funding (Snapshot)">
++      <Grid cols={3} gap={12}>
++        {keys.map((k) => {
++          const f = funding[k];
++          const rate = f?.fundingRate ?? 0;
++          const annualised = rate * 3 * 365 * 100; // 8h windows → approx 3/day
++          const { label, color } = classify(rate);
++
++          return (
++            <div
++              key={k}
++              style={{
++                background: "#050814",
++                borderRadius: 10,
++                padding: 12,
++                border: "1px solid #1a2138",
++              }}
++            >
++              <div
++                style={{
++                  fontSize: 11,
++                  color: "#8ea3c7",
++                  letterSpacing: 1.5,
++                }}
++              >
++                {k} Perps
++              </div>
++              <div style={{ fontSize: 18, fontWeight: 600, marginTop: 4 }}>
++                {(rate * 100).toFixed(4)}%
++              </div>
++              <div style={{ fontSize: 11, color: "#c3d0ea" }}>
++                Annualised ~ {annualised.toFixed(2)}%
++              </div>
++              <div
++                style={{
++                  marginTop: 6,
++                  fontSize: 11,
++                  padding: "2px 6px",
++                  borderRadius: 999,
++                  border: `1px solid ${color}`,
++                  color,
++                  display: "inline-block",
++                }}
++              >
++                {label}
++              </div>
++            </div>
++          );
++        })}
++      </Grid>
++    </Card>
++  );
++}
+diff --git a/client/src/components/WhaleImbalancePanel.tsx b/client/src/components/WhaleImbalancePanel.tsx
+new file mode 100644
+index 0000000..7777777
+--- /dev/null
++++ b/client/src/components/WhaleImbalancePanel.tsx
+@@ -0,0 +1,92 @@
++import React from "react";
++import Card from "./Card";
++
++type Props = {
++  stress: any;
++};
++
++export default function WhaleImbalancePanel({ stress }: Props) {
++  const liq = stress?.liquidations || {};
++  const entries: { token: string; longs: number; shorts: number; imbalance: number }[] =
++    Object.keys(liq).map((k) => ({
++      token: k,
++      longs: liq[k].longs ?? 0,
++      shorts: liq[k].shorts ?? 0,
++      imbalance: liq[k].imbalance ?? 0,
++    }));
++
++  const notable = entries.filter((e) => {
++    const notional = e.longs + e.shorts;
++    return notional > 10_000_000 && Math.abs(e.imbalance) > 0.3;
++  });
++
++  return (
++    <Card title="Whale Imbalance & Liquidations">
++      {!notable.length ? (
++        <div style={{ fontSize: 13, color: "#c3d0ea" }}>
++          No large directional liquidation skews detected in the last window.
++        </div>
++      ) : (
++        <ul style={{ paddingLeft: 16, fontSize: 13, color: "#c3d0ea" }}>
++          {notable.map((e) => {
++            const notional = (e.longs + e.shorts) / 1_000_000;
++            const side =
++              e.imbalance < 0 ? "Long liquidations dominant" : "Short liquidations dominant";
++            const color = e.imbalance < 0 ? "#d9534f" : "#5cb85c";
++            return (
++              <li key={e.token} style={{ marginBottom: 4 }}>
++                <span style={{ color, fontWeight: 600 }}>{e.token}</span> ·{" "}
++                {side} · ~${notional.toFixed(1)}M notional
++              </li>
++            );
++          })}
++        </ul>
++      )}
++    </Card>
++  );
++}
+diff --git a/client/src/components/ExchangeFragmentationPanel.tsx b/client/src/components/ExchangeFragmentationPanel.tsx
+new file mode 100644
+index 0000000..8888888
+--- /dev/null
++++ b/client/src/components/ExchangeFragmentationPanel.tsx
+@@ -0,0 +1,71 @@
++import React from "react";
++import Card from "./Card";
++
++type Props = {
++  prices: any[];
++};
++
++// Uses dominant price source per token as a crude fragmentation proxy.
++export default function ExchangeFragmentationPanel({ prices }: Props) {
++  if (!prices || !prices.length) {
++    return <Card title="Exchange Fragmentation">No price data.</Card>;
++  }
++
++  const counts: Record<string, number> = {};
++  for (const row of prices) {
++    const src = (row.source || "unknown").toLowerCase();
++    counts[src] = (counts[src] || 0) + 1;
++  }
++
++  const total = prices.length || 1;
++  const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
++
++  return (
++    <Card title="Exchange Fragmentation (Dominant Source per Token)">
++      <ul style={{ fontSize: 12, color: "#c3d0ea", paddingLeft: 16 }}>
++        {entries.map(([src, cnt]) => (
++          <li key={src}>
++            <strong style={{ textTransform: "capitalize" }}>{src}</strong>:{" "}
++            {cnt} tokens (~{((cnt / total) * 100).toFixed(1)}%)
++          </li>
++        ))}
++      </ul>
++      <div style={{ marginTop: 8, fontSize: 11, color: "#8ea3c7" }}>
++        Note: This is based on the current dominant pricing venue per token. A
++        deeper fragmentation model will include full depth by venue.
++      </div>
++    </Card>
++  );
++}
+diff --git a/client/src/components/LiquidityVelocityPanel.tsx b/client/src/components/LiquidityVelocityPanel.tsx
+new file mode 100644
+index 0000000..9999999
+--- /dev/null
++++ b/client/src/components/LiquidityVelocityPanel.tsx
+@@ -0,0 +1,91 @@
++import React, { useEffect, useRef, useState } from "react";
++import Card from "./Card";
++
++type Props = {
++  stress: any;
++};
++
++// Compares current vs previous BTC 10bps depth to infer "velocity".
++export default function LiquidityVelocityPanel({ stress }: Props) {
++  const [delta, setDelta] = useState<number | null>(null);
++  const prevDepthRef = useRef<any>(null);
++
++  useEffect(() => {
++    const depth = stress?.depth;
++    if (!depth || !depth["BTC"]) return;
++
++    const ten = depth["BTC"].bands?.["10bps"];
++    const total = (ten?.bidUSD ?? 0) + (ten?.askUSD ?? 0);
++
++    if (prevDepthRef.current != null) {
++      const prev = prevDepthRef.current as number;
++      setDelta(total - prev);
++    }
++
++    prevDepthRef.current = total;
++  }, [stress]);
++
++  let label = "Stable";
++  let color = "#8ea3c7";
++
++  if (delta != null) {
++    if (delta < -5_000_000) {
++      label = "Fast Outflows";
++      color = "#d9534f";
++    } else if (delta < -1_000_000) {
++      label = "Eroding Depth";
++      color = "#f0ad4e";
++    } else if (delta > 5_000_000) {
++      label = "Strong Inflows";
++      color = "#5cb85c";
++    } else if (delta > 1_000_000) {
++      label = "Recovering Liquidity";
++      color = "#8bc34a";
++    }
++  }
++
++  return (
++    <Card title="Liquidity Velocity (BTC 10bps)">
++      <div style={{ fontSize: 13, color: "#c3d0ea", marginBottom: 6 }}>
++        {delta == null ? (
++          "Waiting for second snapshot to compute depth velocity…"
++        ) : (
++          <>
++            Latest change in BTC 10bps depth:{" "}
++            <strong
++              style={{ color }}
++            >{`${delta >= 0 ? "+" : ""}$${(delta / 1_000_000).toFixed(2)}M`}</strong>
++          </>
++        )}
++      </div>
++      <div
++        style={{
++          fontSize: 12,
++          color,
++          padding: "4px 8px",
++          borderRadius: 999,
++          border: `1px solid ${color}`,
++          display: "inline-block",
++        }}
++      >
++        {label}
++      </div>
++      <div style={{ marginTop: 8, fontSize: 11, color: "#8ea3c7" }}>
++        Computed from consecutive polling intervals of BTC depth at 10bps.
++      </div>
++    </Card>
++  );
++}
+diff --git a/client/src/components/VolatilityConePanel.tsx b/client/src/components/VolatilityConePanel.tsx
+new file mode 100644
+index 0000000..aaa0000
+--- /dev/null
++++ b/client/src/components/VolatilityConePanel.tsx
+@@ -0,0 +1,40 @@
++import React from "react";
++import Card from "./Card";
++
++export default function VolatilityConePanel() {
++  return (
++    <Card title="Volatility Cone (Planned)">
++      <div style={{ fontSize: 13, color: "#c3d0ea", marginBottom: 8 }}>
++        This panel will display realised vs implied volatility across 1d / 7d /
++        30d windows once the volatility backend is wired in.
++      </div>
++      <div
++        style={{
++          marginTop: 8,
++          borderRadius: 10,
++          border: "1px dashed #30384d",
++          padding: 12,
++          fontSize: 12,
++          color: "#8ea3c7",
++        }}
++      >
++        Backend hook required:{" "}
++        <code>GET /api/vol/{`{symbol}`}</code> with realised & implied vol
++        term-structure.
++      </div>
++    </Card>
++  );
++}
+diff --git a/client/src/components/CexDexGauge.tsx b/client/src/components/CexDexGauge.tsx
+new file mode 100644
+index 0000000..bbb0000
+--- /dev/null
++++ b/client/src/components/CexDexGauge.tsx
+@@ -0,0 +1,38 @@
++import React from "react";
++import Card from "./Card";
++
++export default function CexDexGauge() {
++  return (
++    <Card title="CEX / DEX Spread Divergence (Planned)">
++      <div style={{ fontSize: 13, color: "#c3d0ea", marginBottom: 8 }}>
++        This gauge will track the spread differential between centralised
++        venues and leading DEXs for the selected token.
++      </div>
++      <div
++        style={{
++          marginTop: 8,
++          borderRadius: 10,
++          border: "1px dashed #30384d",
++          padding: 12,
++          fontSize: 12,
++          color: "#8ea3c7",
++        }}
++      >
++        Backend hook required:{" "}
++        <code>GET /api/spreads/cex-dex/{`{symbol}`}</code> with best bid/ask
++        per venue.
++      </div>
++    </Card>
++  );
++}
+diff --git a/client/src/components/StablecoinFlowPanel.tsx b/client/src/components/StablecoinFlowPanel.tsx
+new file mode 100644
+index 0000000..ccc0000
+--- /dev/null
++++ b/client/src/components/StablecoinFlowPanel.tsx
+@@ -0,0 +1,42 @@
++import React from "react";
++import Card from "./Card";
++
++export default function StablecoinFlowPanel() {
++  return (
++    <Card title="Net Stablecoin Flows (Planned)">
++      <div style={{ fontSize: 13, color: "#c3d0ea", marginBottom: 8 }}>
++        This panel will show net USDC / USDT flows into and out of major
++        venues, plus dominance shifts and pool imbalances.
++      </div>
++      <div
++        style={{
++          marginTop: 8,
++          borderRadius: 10,
++          border: "1px dashed #30384d",
++          padding: 12,
++          fontSize: 12,
++          color: "#8ea3c7",
++        }}
++      >
++        Backend hook required:{" "}
++        <code>GET /api/flows/stablecoins</code> with per-chain / per-venue
++        aggregates.
++      </div>
++    </Card>
++  );
++}
+diff --git a/src/App.tsx b/src/App.tsx
+index ddd1111..eee2222 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -1,9 +1,18 @@
+ import React, { useEffect, useState } from "react";
+ 
+ import TokenSelector from "./components/TokenSelector";
+ import MarketSnapshot from "./components/MarketSnapshot";
+ import StressPanel from "./components/StressPanel";
+ import SummaryPanel from "./components/SummaryPanel";
+ import DepthPanel from "./components/DepthPanel";
+ import AltBaskets from "./components/AltBaskets";
++import RegimePill from "./components/RegimePill";
++import StressHeatmap from "./components/StressHeatmap";
++import TokenLiquidityCards from "./components/TokenLiquidityCards";
++import FundingPanel from "./components/FundingPanel";
++import WhaleImbalancePanel from "./components/WhaleImbalancePanel";
++import ExchangeFragmentationPanel from "./components/ExchangeFragmentationPanel";
++import LiquidityVelocityPanel from "./components/LiquidityVelocityPanel";
++import VolatilityConePanel from "./components/VolatilityConePanel";
++import CexDexGauge from "./components/CexDexGauge";
++import StablecoinFlowPanel from "./components/StablecoinFlowPanel";
+ 
+ export default function App() {
+   const [selectedToken, setSelectedToken] = useState("BTC");
+@@ -36,13 +45,25 @@ export default function App() {
+         <div style={{ fontSize: 12, letterSpacing: 3, color: "#8ea3c7" }}>
+           STRATA • ANALYTICS
+         </div>
+         <h1 style={{ margin: "4px 0 0", fontSize: 26 }}>
+           Daily Crypto Market Structure Attribution
+         </h1>
+       </header>
+ 
+       {/* Token Selector */}
+-      <div style={{ marginBottom: 20 }}>
++      <div
++        style={{
++          marginBottom: 20,
++          display: "flex",
++          justifyContent: "space-between",
++          alignItems: "center",
++          gap: 16,
++          flexWrap: "wrap",
++        }}
++      >
+         <TokenSelector value={selectedToken} onChange={setSelectedToken} />
++        <RegimePill
++          stressScore={stress?.stress_score}
++          regime={stress?.regime}
++        />
+       </div>
+@@ -51,20 +72,42 @@ export default function App() {
+       {loading && <div>Loading live market data…</div>}
+ 
+-      {/* Grid Layout for Key Panels */}
++      {/* Top row: Snapshot + Stress + Summary */}
+       <div
+         style={{
+           display: "grid",
+           gridTemplateColumns: "repeat(3, 1fr)",
+           gap: 20,
+           marginBottom: 20,
+         }}
+       >
+         <MarketSnapshot prices={prices} />
+         <StressPanel stress={stress} />
+         <SummaryPanel summary={summary} />
+       </div>
+ 
+-      {/* Lower Grid: Depth + Baskets */}
++      {/* Stress attribution + token liquidity cards */}
++      <div
++        style={{
++          display: "grid",
++          gridTemplateColumns: "1.2fr 2.8fr",
++          gap: 20,
++          marginBottom: 20,
++        }}
++      >
++        <StressHeatmap stress={stress} />
++        <TokenLiquidityCards stress={stress} prices={prices} />
++      </div>
++
++      {/* Depth + Funding + Whale Imbalance */}
++      <div
++        style={{
++          display: "grid",
++          gridTemplateColumns: "2.2fr 1.8fr",
++          gap: 20,
++          marginBottom: 20,
++        }}
++      >
++        <DepthPanel stress={stress} />
++        <FundingPanel stress={stress} />
++      </div>
++
++      {/* Lower analytics: baskets + fragmentation + velocity */}
+       <div
+         style={{
+-          display: "grid",
+-          gridTemplateColumns: "2fr 1fr",
+-          gap: 20,
+-          marginBottom: 20,
++          display: "grid",
++          gridTemplateColumns: "1.4fr 1.4fr 1.2fr",
++          gap: 20,
++          marginBottom: 20,
+         }}
+       >
+-        <DepthPanel stress={stress} />
+-        <AltBaskets prices={prices} />
++        <AltBaskets prices={prices} />
++        <ExchangeFragmentationPanel prices={prices} />
++        <LiquidityVelocityPanel stress={stress} />
+       </div>
++
++      {/* Planned panels: vol cone, CEX/DEX gauge, stablecoin flows */}
++      <div
++        style={{
++          display: "grid",
++          gridTemplateColumns: "1.4fr 1.4fr 1.2fr",
++          gap: 20,
++          marginBottom: 20,
++        }}
++      >
++        <VolatilityConePanel />
++        <CexDexGauge />
++        <StablecoinFlowPanel />
++      </div>
+ 
+       {/* Footer */}
+       <footer style={{ marginTop: 24, fontSize: 11, color: "#6d7da2" }}>
+         STRATA • Liquidity Truth Layer — Internal institutional prototype.
+       </footer>
+     </div>
+   );
+ }
+EOF
+
+git apply strata-analytics-ui.patch
