@@ -7,6 +7,7 @@ const tabs = [
   { id: "portfolio", label: "PORTFOLIO", path: "/platform/portfolio" },
   { id: "alerts", label: "ALERTS", path: "/platform/alerts" },
   { id: "scorecard", label: "SCORECARD", path: "/platform/scorecard" },
+  { id: "analytics", label: "ANALYTICS", path: "/platform/analytics" },
 ];
 
 export function PlatformTabs() {

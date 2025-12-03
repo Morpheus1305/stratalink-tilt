@@ -1,0 +1,64 @@
+diff --git a/client/src/pages/analytics/AnalyticsPage.tsx b/client/src/pages/analytics/AnalyticsPage.tsx
+new file mode 100644
+index 0000000..e1f2c34
+--- /dev/null
++++ b/client/src/pages/analytics/AnalyticsPage.tsx
+@@ -0,0 +1,22 @@
++import React from "react";
++import App from "../../../src/App";  // STRATA Dashboard App (Modules 2–4)
++
++/**
++ * AnalyticsPage mounts the STRATA Analytics Dashboard
++ * inside the standard TILT authenticated layout.
++ */
++export default function AnalyticsPage() {
++  return (
++    <div style={{ padding: 24 }}>
++      <App />
++    </div>
++  );
++}
++
+diff --git a/client/src/App.tsx b/client/src/App.tsx
+index 4fd3c9a..b81c778 100644
+--- a/client/src/App.tsx
++++ b/client/src/App.tsx
+@@ -15,6 +15,7 @@ import Scorecard from "@/pages/scorecard";
+ import LoginPage from "@/pages/LoginPage";
+ import VerifyOTPPage from "@/pages/VerifyOTPPage";
+ import IdentityLandingPage from "@/pages/identity/IdentityLandingPage";
++import AnalyticsPage from "@/pages/analytics/AnalyticsPage";
+ 
+ import LiquidityFragmentationPage from "@/pages/identity/LiquidityFragmentationPage";
+ import MMIntegrityPage from "@/pages/identity/MMIntelligencePage";
+@@ -63,6 +64,17 @@ function Router() {
+           </RequireAuth>
+         )}
+       </Route>
++
++      {/* STRATA Analytics Dashboard */}
++      <Route path="/platform/analytics">
++        {() => (
++          <RequireAuth>
++            <AnalyticsPage />
++          </RequireAuth>
++        )}
++      </Route>
++
++
+       <Route path="/identity">
+         {() => (
+           <RequireAuth>
+diff --git a/client/src/components/NavBar.tsx b/client/src/components/NavBar.tsx
+index 1234567..89abcde 100644
+--- a/client/src/components/NavBar.tsx
++++ b/client/src/components/NavBar.tsx
+@@ -42,7 +42,7 @@ export default function NavBar() {
+         <Link href="/platform/portfolio">Portfolio</Link>
+         <Link href="/platform/alerts">Alerts</Link>
+         <Link href="/platform/scorecard">Scorecard</Link>
+-        <Link href="/analytics">Analytics</Link>
++        <Link href="/platform/analytics">Analytics</Link>
+       </nav>
+ 
+       {/* Identity / Actions */}

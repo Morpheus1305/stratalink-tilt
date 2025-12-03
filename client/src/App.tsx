@@ -14,6 +14,7 @@ import Scorecard from "@/pages/scorecard";
 import LoginPage from "@/pages/LoginPage";
 import VerifyOTPPage from "@/pages/VerifyOTPPage";
 import IdentityLandingPage from "@/pages/identity/IdentityLandingPage";
+import AnalyticsPage from "@/pages/analytics/AnalyticsPage";
 import LiquidityFragmentationPage from "@/pages/identity/LiquidityFragmentationPage";
 import MMIntegrityPage from "@/pages/identity/MMIntegrityPage";
 import PoliPlusPage from "@/pages/identity/PoliPlusPage";
@@ -63,6 +64,13 @@ function Router() {
         {() => (
           <RequireAuth>
             <Scorecard />
+          </RequireAuth>
+        )}
+      </Route>
+      <Route path="/platform/analytics">
+        {() => (
+          <RequireAuth>
+            <AnalyticsPage />
           </RequireAuth>
         )}
       </Route>
