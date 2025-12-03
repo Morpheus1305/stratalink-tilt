@@ -4,14 +4,12 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
   Activity, 
-  TrendingUp, 
-  TrendingDown, 
   AlertTriangle, 
-  BarChart3,
   Zap,
   RefreshCw
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import DepthPanel from "@/components/DepthPanel";
 
 type StressDriver = {
   category: string;
@@ -199,76 +197,15 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Depth Analysis */}
-      <Card className="border-border/50">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <BarChart3 className="h-4 w-4 text-primary" />
-            Orderbook Depth (Top 10 Tokens)
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {depthLoading ? (
+      {depthLoading ? (
+        <Card className="border-border/50">
+          <CardContent className="p-6">
             <Skeleton className="h-48 w-full" />
-          ) : depthData?.depth ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-border/50">
-                    <th className="text-left py-2 text-muted-foreground font-medium">Token</th>
-                    <th className="text-right py-2 text-muted-foreground font-medium">Mid Price</th>
-                    <th className="text-right py-2 text-muted-foreground font-medium">Spread</th>
-                    <th className="text-right py-2 text-muted-foreground font-medium">10bps Depth</th>
-                    <th className="text-right py-2 text-muted-foreground font-medium">100bps Depth</th>
-                    <th className="text-right py-2 text-muted-foreground font-medium">Imbalance</th>
-                    <th className="text-right py-2 text-muted-foreground font-medium">Source</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {Object.entries(depthData.depth).map(([symbol, data]) => (
-                    <tr 
-                      key={symbol} 
-                      className="border-b border-border/30 hover:bg-muted/20"
-                      data-testid={`row-depth-${symbol}`}
-                    >
-                      <td className="py-2 font-mono font-medium text-foreground">{symbol}</td>
-                      <td className="py-2 text-right font-mono text-foreground">
-                        ${data.mid.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                      </td>
-                      <td className="py-2 text-right font-mono text-muted-foreground">
-                        {data.spreadBps.toFixed(2)} bps
-                      </td>
-                      <td className="py-2 text-right font-mono text-foreground">
-                        {formatUSD(data.bands["10bps"]?.totalUSD || 0)}
-                      </td>
-                      <td className="py-2 text-right font-mono text-foreground">
-                        {formatUSD(data.bands["100bps"]?.totalUSD || 0)}
-                      </td>
-                      <td className="py-2 text-right">
-                        <span className={cn(
-                          "font-mono",
-                          data.bands["10bps"]?.imbalance > 0 ? "text-green-400" : "text-red-400"
-                        )}>
-                          {data.bands["10bps"]?.imbalance > 0 ? (
-                            <TrendingUp className="inline h-3 w-3 mr-1" />
-                          ) : (
-                            <TrendingDown className="inline h-3 w-3 mr-1" />
-                          )}
-                          {(data.bands["10bps"]?.imbalance * 100).toFixed(1)}%
-                        </span>
-                      </td>
-                      <td className="py-2 text-right text-muted-foreground capitalize">
-                        {data.source}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">No depth data available</p>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      ) : (
+        <DepthPanel depth={depthData?.depth} />
+      )}
 
       {/* Funding Rates */}
       <Card className="border-border/50">

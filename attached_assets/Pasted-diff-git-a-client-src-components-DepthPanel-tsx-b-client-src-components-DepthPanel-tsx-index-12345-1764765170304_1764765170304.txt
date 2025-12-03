@@ -1,0 +1,139 @@
+diff --git a/client/src/components/DepthPanel.tsx b/client/src/components/DepthPanel.tsx
+index 1234567..abcdef0 100644
+--- a/client/src/components/DepthPanel.tsx
++++ b/client/src/components/DepthPanel.tsx
+@@ -1,68 +1,139 @@
+-import React from "react";
+-import Card from "./Card";
+-
+-export default function DepthPanel({ stress }: { stress: any }) {
+-  const depth = stress?.depth;
+-  if (!depth) return <Card title="Market Depth">No depth data.</Card>;
+-
+-  const tokens = Object.keys(depth);
+-
+-  return (
+-    <Card title="Orderbook Depth — 10bps → 100bps">
+-      <table style={{ width: "100%", fontSize: 12, color: "#c3d0ea" }}>
+-        <thead>
+-          <tr style={{ textAlign: "left", color: "#8ea3c7" }}>
+-            <th>Token</th>
+-            <th>10bps</th>
+-            <th>100bps</th>
+-          </tr>
+-        </thead>
+-        <tbody>
+-          {tokens.map((t) => (
+-            <tr key={t}>
+-              <td style={{ padding: "6px 0" }}>{t}</td>
+-              <td>
+-                ${
+-                  depth[t]?.bands?.["10bps"]
+-                    ? (
+-                        (depth[t].bands["10bps"].bidUSD ?? 0) +
+-                        (depth[t].bands["10bps"].askUSD ?? 0)
+-                      ) / 1_000_000
+-                    : 0
+-                }
+-                M
+-              </td>
+-              <td>
+-                ${
+-                  depth[t]?.bands?.["100bps"]
+-                    ? (
+-                        (depth[t].bands["100bps"].bidUSD ?? 0) +
+-                        (depth[t].bands["100bps"].askUSD ?? 0)
+-                      ) / 1_000_000
+-                    : 0
+-                }
+-                M
+-              </td>
+-            </tr>
+-          ))}
+-        </tbody>
+-      </table>
+-    </Card>
+-  );
+-}
++import React from "react";
++import Card from "./Card";
++
++/**
++ * Updated DepthPanel — now supports full 5-band depth:
++ * 10bps, 25bps, 50bps, 100bps, 200bps
++ */
++export default function DepthPanel({ stress }: { stress: any }) {
++  const depth = stress?.depth;
++  if (!depth) return <Card title="Orderbook Depth (Top 10 Tokens)">No depth data.</Card>;
++
++  const tokens = Object.keys(depth);
++
++  const bands = [
++    { key: "10bps", label: "10bps" },
++    { key: "25bps", label: "25bps" },
++    { key: "50bps", label: "50bps" },
++    { key: "100bps", label: "100bps" },
++    { key: "200bps", label: "200bps" },
++  ];
++
++  function fmtMillions(value: number) {
++    if (!value || value === 0) return "—";
++    return "$" + (value / 1_000_000).toFixed(2) + "M";
++  }
++
++  return (
++    <Card title="Orderbook Depth (Top 10 Tokens)">
++      <table style={{ width: "100%", fontSize: 12, color: "#c3d0ea" }}>
++        <thead>
++          <tr style={{ textAlign: "left", color: "#8ea3c7" }}>
++            <th style={{ paddingBottom: 8 }}>Token</th>
++            <th style={{ paddingBottom: 8 }}>Mid Price</th>
++            <th style={{ paddingBottom: 8 }}>Spread</th>
++
++            {bands.map((b) => (
++              <th key={b.key} style={{ paddingBottom: 8 }}>
++                {b.label} Depth
++              </th>
++            ))}
++
++            <th style={{ paddingBottom: 8 }}>Imbalance</th>
++            <th style={{ paddingBottom: 8 }}>Source</th>
++          </tr>
++        </thead>
++
++        <tbody>
++          {tokens.map((t) => {
++            const row = depth[t];
++            if (!row) return null;
++
++            const { mid, spread, bands: depthBands, source, imbalance } = row;
++
++            return (
++              <tr key={t}>
++                <td style={{ padding: "6px 0" }}>{t}</td>
++
++                <td>${mid?.toLocaleString()}</td>
++
++                <td>{spread?.toFixed?.(2) ?? "0.00"} bps</td>
++
++                {bands.map((b) => {
++                  const entry = depthBands[b.key];
++                  const total = (entry?.bidUSD ?? 0) + (entry?.askUSD ?? 0);
++                  return <td key={b.key}>{fmtMillions(total)}</td>;
++                })}
++
++                <td>
++                  {imbalance
++                    ? (imbalance * 100).toFixed(1) + "%"
++                    : "—"}
++                </td>
++
++                <td>{source ?? "—"}</td>
++              </tr>
++            );
++          })}
++        </tbody>
++      </table>
++    </Card>
++  );
++}
