@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import {
   LineChart,
   Line,
@@ -15,60 +16,76 @@ type SparkPoint = { v: number };
 type Props = {
   data: SparkPoint[];
   color?: string;
-  fillColor?: string;
   filled?: boolean;
+  dynamicFill?: boolean;
+  labelFormatter?: (v: number) => string;
   yFormatter?: (v: number) => string;
   zeroLine?: boolean;
+  animate?: boolean;
 };
+
+function computeDynamicColor(series: SparkPoint[], baseColor: string) {
+  if (series.length < 2) return baseColor;
+  const prev = series[series.length - 2].v;
+  const last = series[series.length - 1].v;
+
+  if (last > prev) return "#23e07b";
+  if (last < prev) return "#ff5252";
+  return baseColor;
+}
 
 export default function Sparkline({
   data,
   color = "#5cb85c",
-  fillColor = "#2cc7ff40",
   filled = false,
+  dynamicFill = false,
+  labelFormatter = (v) => v.toFixed(2),
   yFormatter = (v) => v.toFixed(2),
   zeroLine = true,
+  animate = false,
 }: Props) {
   if (!data || data.length < 2) {
     return (
-      <div style={{ fontSize: 11, color: "#8ea3c7" }}>
-        Collecting data…
-      </div>
+      <div style={{ fontSize: 11, color: "#8ea3c7" }}>Collecting data…</div>
     );
   }
 
+  const fillColor = useMemo(() => {
+    return dynamicFill ? computeDynamicColor(data, color) : color;
+  }, [data, color, dynamicFill]);
+
   const chartData = data.map((d, idx) => ({ i: idx, v: d.v }));
+  const lastIndex = chartData.length - 1;
 
   return (
-    <div style={{ width: "100%", height: 70 }}>
+    <div style={{ width: "100%", height: 80 }}>
       <ResponsiveContainer>
-        <LineChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-          <defs>
-            <linearGradient id="depthFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={color} stopOpacity={0.35} />
-              <stop offset="100%" stopColor={color} stopOpacity={0.05} />
-            </linearGradient>
-          </defs>
+        <LineChart data={chartData} margin={{ top: 10, right: 8, left: 0, bottom: 0 }}>
+          <CartesianGrid stroke="#242b3f" strokeDasharray="2 3" vertical={false} />
 
-          <CartesianGrid stroke="#242b3f" strokeDasharray="3 3" vertical={false} />
-
-          <XAxis dataKey="i" hide />
+          <XAxis
+            dataKey="i"
+            tickFormatter={(i) => (i === 0 ? "t-30s" : i === lastIndex ? "t-0" : "")}
+            ticks={[0, lastIndex]}
+            tick={{ fill: "#6d7da2", fontSize: 9 }}
+            axisLine={false}
+            tickLine={false}
+          />
 
           <YAxis
             width={40}
             tickFormatter={yFormatter}
             tick={{ fontSize: 10, fill: "#8ea3c7" }}
-            tickLine={false}
             axisLine={false}
+            tickLine={false}
           />
 
           {zeroLine && (
-            <ReferenceLine y={0} stroke="#444a63" strokeDasharray="2 2" />
+            <ReferenceLine y={0} stroke="#444a63" strokeDasharray="3 2" />
           )}
 
           <Tooltip
-            cursor={{ stroke: "#ffffff30", strokeWidth: 1 }}
-            formatter={(value: number) => [yFormatter(value), "Δ"]}
+            formatter={(value: number) => [labelFormatter(value), "Δ"]}
             labelFormatter={() => ""}
             contentStyle={{
               background: "#050814",
@@ -85,19 +102,19 @@ export default function Sparkline({
               type="monotone"
               dataKey="v"
               stroke="none"
-              fill="url(#depthFill)"
-              isAnimationActive={false}
+              fill={fillColor + (animate ? "90" : "40")}
+              isAnimationActive={animate}
             />
           )}
 
           <Line
             type="monotone"
             dataKey="v"
-            stroke={color}
-            strokeWidth={2.2}
+            stroke={fillColor}
+            strokeWidth={2.4}
             dot={false}
-            isAnimationActive={false}
             strokeLinecap="round"
+            isAnimationActive={animate}
           />
         </LineChart>
       </ResponsiveContainer>

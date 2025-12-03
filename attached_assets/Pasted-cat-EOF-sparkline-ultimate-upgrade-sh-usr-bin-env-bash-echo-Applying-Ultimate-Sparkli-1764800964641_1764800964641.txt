@@ -1,0 +1,295 @@
+cat << 'EOF' > sparkline-ultimate-upgrade.sh
+#!/usr/bin/env bash
+
+echo "🚀 Applying Ultimate Sparkline Upgrade (A+B+C+D)…"
+
+############################################
+# 1) Replace Sparkline.tsx with animated, dynamic, filled support
+############################################
+
+cat > src/components/Sparkline.tsx << 'EOT'
+import React, { useMemo } from "react";
+import {
+  LineChart,
+  Line,
+  Area,
+  ResponsiveContainer,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ReferenceLine,
+  CartesianGrid,
+} from "recharts";
+
+type SparkPoint = { v: number };
+
+type Props = {
+  data: SparkPoint[];
+  color?: string;
+  filled?: boolean;
+  dynamicFill?: boolean;       // NEW → depth-based dynamic color
+  labelFormatter?: (v: number) => string;
+  yFormatter?: (v: number) => string;
+  zeroLine?: boolean;
+  animate?: boolean;           // NEW → shimmer animation
+};
+
+/** compute fill color based on last delta */
+function computeDynamicColor(series: SparkPoint[], baseColor: string) {
+  if (series.length < 2) return baseColor;
+  const prev = series[series.length - 2].v;
+  const last = series[series.length - 1].v;
+
+  if (last > prev) return "#23e07b";    // liquidity ↑ strong green
+  if (last < prev) return "#ff5252";    // liquidity ↓ red
+  return baseColor;                     // neutral
+}
+
+export default function Sparkline({
+  data,
+  color = "#5cb85c",
+  filled = false,
+  dynamicFill = false,
+  labelFormatter = (v) => v.toFixed(2),
+  yFormatter = (v) => v.toFixed(2),
+  zeroLine = true,
+  animate = false,
+}: Props) {
+  if (!data || data.length < 2) {
+    return (
+      <div style={{ fontSize: 11, color: "#8ea3c7" }}>Collecting data…</div>
+    );
+  }
+
+  const fillColor = useMemo(() => {
+    return dynamicFill ? computeDynamicColor(data, color) : color;
+  }, [data, color, dynamicFill]);
+
+  const chartData = data.map((d, idx) => ({ i: idx, v: d.v }));
+
+  const lastIndex = chartData.length - 1;
+
+  return (
+    <div style={{ width: "100%", height: 80 }}>
+      <ResponsiveContainer>
+        <LineChart data={chartData} margin={{ top: 10, right: 8, left: 0, bottom: 0 }}>
+
+          {/* SUBTLE horizontal grid (no vertical clutter) */}
+          <CartesianGrid stroke="#242b3f" strokeDasharray="2 3" vertical={false} />
+
+          {/* MINI TIME AXIS (t-29 → t-0) */}
+          <XAxis
+            dataKey="i"
+            tickFormatter={(i) => (i === 0 ? "t-30s" : i === lastIndex ? "t-0" : "")}
+            ticks={[0, lastIndex]}
+            tick={{ fill: "#6d7da2", fontSize: 9 }}
+            axisLine={false}
+            tickLine={false}
+          />
+
+          <YAxis
+            width={40}
+            tickFormatter={yFormatter}
+            tick={{ fontSize: 10, fill: "#8ea3c7" }}
+            axisLine={false}
+            tickLine={false}
+          />
+
+          {zeroLine && (
+            <ReferenceLine y={0} stroke="#444a63" strokeDasharray="3 2" />
+          )}
+
+          <Tooltip
+            formatter={(value: any) => [labelFormatter(value as number), "Δ"]}
+            labelFormatter={() => ""}
+            contentStyle={{
+              background: "#050814",
+              border: "1px solid #1a2138",
+              borderRadius: 8,
+              padding: "6px 8px",
+              fontSize: 11,
+              color: "#c3d0ea",
+            }}
+          />
+
+          {/* FILLED AREA (with animated shimmer) */}
+          {filled && (
+            <Area
+              type="monotone"
+              dataKey="v"
+              stroke="none"
+              fill={fillColor + (animate ? "90" : "40")}
+              isAnimationActive={animate}
+            />
+          )}
+
+          {/* MAIN LINE (premium rounded style) */}
+          <Line
+            type="monotone"
+            dataKey="v"
+            stroke={fillColor}
+            strokeWidth={2.4}
+            dot={false}
+            strokeLinecap="round"
+            isAnimationActive={animate}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+EOT
+
+############################################
+# 2) Upgrade LiveSparklinesPanel to enable A+B+C+D
+############################################
+
+cat > src/components/LiveSparklinesPanel.tsx << 'EOT'
+import React from "react";
+import Card from "./Card";
+import Sparkline from "./Sparkline";
+
+type Point = { t: number; v: number };
+type Series = Point[];
+
+type Props = {
+  token: string;
+  price: Series;
+  depth: Series;
+  funding: Series;
+};
+
+function normalizePct(series: Series): { v: number }[] {
+  if (!series || series.length < 2) return [];
+  const base = series[0].v;
+  return series.map((p) => ({ v: ((p.v / base) - 1) * 100 }));
+}
+
+function latest(series: Series) {
+  if (!series || series.length === 0) return null;
+  return series[series.length - 1];
+}
+
+function pctChange(series: Series): number | null {
+  if (series.length < 2) return null;
+  const first = series[0].v;
+  const last = series[series.length - 1].v;
+  return (last / first - 1) * 100;
+}
+
+const pctFmt = (v: number | null) =>
+  v == null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
+
+export default function LiveSparklinesPanel({ token, price, depth, funding }: Props) {
+  const priceLast = latest(price);
+  const pricePct = pctChange(price);
+
+  const depthLast = latest(depth);
+  const depthPct = pctChange(depth);
+
+  const fundingLast = latest(funding);
+  const fundingPct = pctChange(funding);
+
+  const priceSpark = normalizePct(price);
+  const depthSpark = normalizePct(depth);
+  const fundingSpark = normalizePct(funding);
+
+  return (
+    <Card title="Live Microstructure Sparklines (30-point window)">
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3, 1fr)",
+          gap: 30,
+        }}
+      >
+        {/* PRICE */}
+        <div>
+          <div style={{ fontSize: 11, color: "#8ea3c7", marginBottom: 4, letterSpacing: 1.5 }}>
+            {token} Price
+          </div>
+          <div style={{ fontSize: 14, marginBottom: 6 }}>
+            {priceLast ? `$${priceLast.v.toLocaleString()}` : "—"}
+            <span
+              style={{
+                marginLeft: 8,
+                fontSize: 11,
+                color: pricePct != null && pricePct >= 0 ? "#5cb85c" : "#d9534f",
+              }}
+            >
+              {pctFmt(pricePct)}
+            </span>
+          </div>
+          <Sparkline
+            data={priceSpark}
+            color="#5cb85c"
+            filled={true}       // Price now has optional filled look
+            animate={true}
+            yFormatter={(v) => v.toFixed(2) + "%"}
+            dynamicFill={false}
+          />
+        </div>
+
+        {/* DEPTH  → Filled, animated, dynamic color */}
+        <div>
+          <div style={{ fontSize: 11, color: "#8ea3c7", marginBottom: 4, letterSpacing: 1.5 }}>
+            {token} 10bps Depth
+          </div>
+          <div style={{ fontSize: 14, marginBottom: 6 }}>
+            {depthLast ? `$${(depthLast.v / 1_000_000).toFixed(2)}M` : "—"}
+            <span
+              style={{
+                marginLeft: 8,
+                fontSize: 11,
+                color: depthPct != null && depthPct >= 0 ? "#23e07b" : "#ff5252",
+              }}
+            >
+              {pctFmt(depthPct)}
+            </span>
+          </div>
+          <Sparkline
+            data={depthSpark}
+            color="#2cc7ff"
+            filled={true}
+            dynamicFill={true}   // A+B+C → dynamic color fill
+            animate={true}       // A → shimmer animate
+            yFormatter={(v) => v.toFixed(2) + "%"}
+          />
+        </div>
+
+        {/* FUNDING */}
+        <div>
+          <div style={{ fontSize: 11, color: "#8ea3c7", marginBottom: 4, letterSpacing: 1.5 }}>
+            {token} Funding Rate
+          </div>
+          <div style={{ fontSize: 14, marginBottom: 6 }}>
+            {fundingLast ? (fundingLast.v * 100).toFixed(4) + "%" : "—"}
+            <span
+              style={{
+                marginLeft: 8,
+                fontSize: 11,
+                color: fundingPct != null && fundingPct >= 0 ? "#5cb85c" : "#d9534f",
+              }}
+            >
+              {pctFmt(fundingPct)}
+            </span>
+          </div>
+          <Sparkline
+            data={fundingSpark}
+            color="#ffcc33"
+            filled={false}     // keep funding as clean line or change to true
+            animate={true}
+            yFormatter={(v) => v.toFixed(2) + "%"}
+            dynamicFill={false}
+          />
+        </div>
+      </div>
+    </Card>
+  );
+}
+EOT
+
+echo "✅ Ultimate Sparkline Upgrade Installed (A+B+C+D). Restart with npm run dev."
+EOF
+
+bash sparkline-ultimate-upgrade.sh

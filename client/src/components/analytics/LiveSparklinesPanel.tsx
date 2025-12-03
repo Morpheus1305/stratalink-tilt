@@ -14,22 +14,23 @@ type Props = {
 function normalizePct(series: Series): { v: number }[] {
   if (!series || series.length < 2) return [];
   const base = series[0].v;
-  if (!base) return series.map(() => ({ v: 0 }));
   return series.map((p) => ({ v: ((p.v / base) - 1) * 100 }));
 }
 
 function latest(series: Series) {
-  if (!series?.length) return null;
+  if (!series || series.length === 0) return null;
   return series[series.length - 1];
 }
 
 function pctChange(series: Series): number | null {
-  if (!series || series.length < 2) return null;
+  if (series.length < 2) return null;
   const first = series[0].v;
   const last = series[series.length - 1].v;
-  if (!first) return null;
   return (last / first - 1) * 100;
 }
+
+const pctFmt = (v: number | null) =>
+  v == null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
 
 export default function LiveSparklinesPanel({ token, price, depth, funding }: Props) {
   const priceLast = latest(price);
@@ -45,24 +46,21 @@ export default function LiveSparklinesPanel({ token, price, depth, funding }: Pr
   const depthSpark = normalizePct(depth);
   const fundingSpark = normalizePct(funding);
 
-  const pctFmt = (v: number | null) =>
-    v == null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
-
   return (
-    <Card title="Live Sparklines (30-point rolling window)">
+    <Card title="Live Microstructure Sparklines (30-point window)">
       <div
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(3, 1fr)",
-          gap: 28,
+          gap: 30,
         }}
       >
-        {/* Price */}
+        {/* PRICE */}
         <div>
           <div style={{ fontSize: 11, color: "#8ea3c7", marginBottom: 4, letterSpacing: 1.5 }}>
             {token} Price
           </div>
-          <div style={{ fontSize: 14, marginBottom: 4 }}>
+          <div style={{ fontSize: 14, marginBottom: 6 }}>
             {priceLast ? `$${priceLast.v.toLocaleString()}` : "—"}
             <span
               style={{
@@ -77,23 +75,25 @@ export default function LiveSparklinesPanel({ token, price, depth, funding }: Pr
           <Sparkline
             data={priceSpark}
             color="#5cb85c"
-            filled={false}
+            filled={true}
+            animate={true}
             yFormatter={(v) => v.toFixed(2) + "%"}
+            dynamicFill={false}
           />
         </div>
 
-        {/* DEPTH – FILLED LIQUIDITY AREA */}
+        {/* DEPTH → Filled, animated, dynamic color */}
         <div>
           <div style={{ fontSize: 11, color: "#8ea3c7", marginBottom: 4, letterSpacing: 1.5 }}>
-            {token} 10bps Depth (USD)
+            {token} 10bps Depth
           </div>
-          <div style={{ fontSize: 14, marginBottom: 4 }}>
+          <div style={{ fontSize: 14, marginBottom: 6 }}>
             {depthLast ? `$${(depthLast.v / 1_000_000).toFixed(2)}M` : "—"}
             <span
               style={{
                 marginLeft: 8,
                 fontSize: 11,
-                color: depthPct != null && depthPct >= 0 ? "#5cb85c" : "#d9534f",
+                color: depthPct != null && depthPct >= 0 ? "#23e07b" : "#ff5252",
               }}
             >
               {pctFmt(depthPct)}
@@ -103,16 +103,18 @@ export default function LiveSparklinesPanel({ token, price, depth, funding }: Pr
             data={depthSpark}
             color="#2cc7ff"
             filled={true}
+            dynamicFill={true}
+            animate={true}
             yFormatter={(v) => v.toFixed(2) + "%"}
           />
         </div>
 
-        {/* Funding */}
+        {/* FUNDING */}
         <div>
           <div style={{ fontSize: 11, color: "#8ea3c7", marginBottom: 4, letterSpacing: 1.5 }}>
             {token} Funding Rate
           </div>
-          <div style={{ fontSize: 14, marginBottom: 4 }}>
+          <div style={{ fontSize: 14, marginBottom: 6 }}>
             {fundingLast ? (fundingLast.v * 100).toFixed(4) + "%" : "—"}
             <span
               style={{
@@ -128,7 +130,9 @@ export default function LiveSparklinesPanel({ token, price, depth, funding }: Pr
             data={fundingSpark}
             color="#ffcc33"
             filled={false}
+            animate={true}
             yFormatter={(v) => v.toFixed(2) + "%"}
+            dynamicFill={false}
           />
         </div>
       </div>
