@@ -1,0 +1,108 @@
+cat << 'EOF' > client-charting.patch
+diff --git a/src/components/Sparkline.tsx b/src/components/Sparkline.tsx
+new file mode 100644
+index 0000000..aaa1111
+--- /dev/null
++++ b/src/components/Sparkline.tsx
+@@ -0,0 +1,63 @@
++import React from "react";
++import {
++  LineChart,
++  Line,
++  ResponsiveContainer,
++} from "recharts";
++
++export default function Sparkline({ data, color = "#5cb85c" }) {
++  if (!data || data.length < 2) {
++    return (
++      <div style={{ fontSize: 11, color: "#8ea3c7" }}>
++        Collecting data…
++      </div>
++    );
++  }
++
++  return (
++    <div style={{ width: "100%", height: 40 }}>
++      <ResponsiveContainer>
++        <LineChart data={data}>
++          <Line
++            type="monotone"
++            dataKey="v"
++            stroke={color}
++            strokeWidth={2}
++            dot={false}
++            isAnimationActive={false}
++          />
++        </LineChart>
++      </ResponsiveContainer>
++    </div>
++  );
++}
+diff --git a/src/App.tsx b/src/App.tsx
+index eee2222..fff3333 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -18,6 +18,10 @@ import CexDexGauge from "./components/CexDexGauge";
+ import StablecoinFlowPanel from "./components/StablecoinFlowPanel";
++
++// Sparkline support
++import Sparkline from "./components/Sparkline";
++
+ export default function App() {
+   const [selectedToken, setSelectedToken] = useState("BTC");
+   const [prices, setPrices] = useState([]);
+@@ -25,6 +29,12 @@ export default function App() {
+   const [summary, setSummary] = useState({});
+   const [loading, setLoading] = useState(false);
++
++  // Time-series buffers (Option A)
++  const [priceSeries, setPriceSeries] = useState({});
++  const [depthSeries, setDepthSeries] = useState({});
++  const [fundingSeries, setFundingSeries] = useState({});
++
+   async function fetchAll() {
+     setLoading(true);
+@@ -45,6 +55,64 @@ export default function App() {
+       setSummary(sum);
+       setLoading(false);
+ 
++      // --- Time-series updates ---
++      // Extract latest price per symbol
++      const latestPrices = {};
++      for (const row of pr) latestPrices[row.symbol] = row.price;
++
++      // Update price sparkline series
++      setPriceSeries((prev) => {
++        const next = { ...prev };
++        for (const sym of Object.keys(latestPrices)) {
++          const val = latestPrices[sym];
++          if (!next[sym]) next[sym] = [];
++          next[sym] = [...next[sym], { v: val }].slice(-30);
++        }
++        return next;
++      });
++
++      // Depth series: record BTC 10bps depth
++      const btcDepth =
++        st.depth?.BTC?.bands?.["10bps"]?.bidUSD +
++          st.depth?.BTC?.bands?.["10bps"]?.askUSD || 0;
++
++      setDepthSeries((prev) => {
++        const next = { ...prev };
++        if (!next["BTC"]) next["BTC"] = [];
++        next["BTC"] = [...next["BTC"], { v: btcDepth }].slice(-30);
++        return next;
++      });
++
++      // Funding series (BTC only for MVP)
++      const btcFunding = st.funding?.BTC?.fundingRate || 0;
++
++      setFundingSeries((prev) => {
++        const next = { ...prev };
++        if (!next["BTC"]) next["BTC"] = [];
++        next["BTC"] = [...next["BTC"], { v: btcFunding }].slice(-30);
++        return next;
++      });
++
+     } catch (e) {
+       console.error("ERR", e);

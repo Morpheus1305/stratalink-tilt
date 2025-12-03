@@ -17,6 +17,7 @@ import {
   VolatilityConePanel,
   CexDexGauge,
   StablecoinFlowPanel,
+  SparklinePanel,
 } from "@/components/analytics";
 import DepthPanel from "@/components/DepthPanel";
 
@@ -163,6 +164,15 @@ export default function AnalyticsPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Live Sparklines */}
+      <div style={{ marginBottom: 20 }}>
+        <SparklinePanel
+          depth={depthData?.depth}
+          funding={fundingData?.funding}
+          selectedToken={selectedToken}
+        />
+      </div>
 
       {/* Stress attribution + token liquidity cards */}
       <div

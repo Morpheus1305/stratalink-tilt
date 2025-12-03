@@ -11,3 +11,5 @@ export { default as LiquidityVelocityPanel } from "./LiquidityVelocityPanel";
 export { default as VolatilityConePanel } from "./VolatilityConePanel";
 export { default as CexDexGauge } from "./CexDexGauge";
 export { default as StablecoinFlowPanel } from "./StablecoinFlowPanel";
+export { default as Sparkline } from "./Sparkline";
+export { default as SparklinePanel } from "./SparklinePanel";
