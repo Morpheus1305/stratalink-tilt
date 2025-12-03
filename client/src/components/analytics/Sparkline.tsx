@@ -3,6 +3,7 @@ import {
   LineChart,
   Line,
   Area,
+  Bar,
   ResponsiveContainer,
   XAxis,
   YAxis,
@@ -22,6 +23,8 @@ type Props = {
   yFormatter?: (v: number) => string;
   zeroLine?: boolean;
   animate?: boolean;
+  barEnabled?: boolean;
+  stale?: boolean;
 };
 
 function computeDynamicColor(series: SparkPoint[], baseColor: string) {
@@ -43,6 +46,8 @@ export default function Sparkline({
   yFormatter = (v) => v.toFixed(2),
   zeroLine = true,
   animate = false,
+  barEnabled = false,
+  stale = false,
 }: Props) {
   if (!data || data.length < 2) {
     return (
@@ -50,22 +55,41 @@ export default function Sparkline({
     );
   }
 
-  const fillColor = useMemo(() => {
-    return dynamicFill ? computeDynamicColor(data, color) : color;
-  }, [data, color, dynamicFill]);
+  const values = data.map((d) => d.v);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  const volFactor = Math.min(1, Math.max(0.15, range / 5));
 
-  const chartData = data.map((d, idx) => ({ i: idx, v: d.v }));
+  const baseColor = dynamicFill ? computeDynamicColor(data, color) : color;
+
+  const chartData = data.map((d, idx) => {
+    const prev = idx > 0 ? data[idx - 1].v : d.v;
+    const mag = Math.abs(d.v - prev);
+    return { i: idx, v: d.v, b: mag };
+  });
+
   const lastIndex = chartData.length - 1;
+  const opacity = stale ? 0.35 : 1;
 
   return (
-    <div style={{ width: "100%", height: 80 }}>
+    <div style={{ width: "100%", height: 80, opacity }}>
       <ResponsiveContainer>
-        <LineChart data={chartData} margin={{ top: 10, right: 8, left: 0, bottom: 0 }}>
-          <CartesianGrid stroke="#242b3f" strokeDasharray="2 3" vertical={false} />
+        <LineChart
+          data={chartData}
+          margin={{ top: 10, right: 8, left: 0, bottom: 0 }}
+        >
+          <CartesianGrid
+            stroke="#242b3f"
+            strokeDasharray="2 3"
+            vertical={false}
+          />
 
           <XAxis
             dataKey="i"
-            tickFormatter={(i) => (i === 0 ? "t-30s" : i === lastIndex ? "t-0" : "")}
+            tickFormatter={(i) =>
+              i === 0 ? "t-30s" : i === lastIndex ? "t-0" : ""
+            }
             ticks={[0, lastIndex]}
             tick={{ fill: "#6d7da2", fontSize: 9 }}
             axisLine={false}
@@ -97,12 +121,22 @@ export default function Sparkline({
             }}
           />
 
+          {barEnabled && (
+            <Bar
+              dataKey="b"
+              fill="#2cc7ff60"
+              barSize={3}
+              isAnimationActive={animate}
+            />
+          )}
+
           {filled && (
             <Area
               type="monotone"
               dataKey="v"
               stroke="none"
-              fill={fillColor + (animate ? "90" : "40")}
+              fill={baseColor}
+              fillOpacity={0.15 + volFactor * 0.5}
               isAnimationActive={animate}
             />
           )}
@@ -110,7 +144,7 @@ export default function Sparkline({
           <Line
             type="monotone"
             dataKey="v"
-            stroke={fillColor}
+            stroke={baseColor}
             strokeWidth={2.4}
             dot={false}
             strokeLinecap="round"

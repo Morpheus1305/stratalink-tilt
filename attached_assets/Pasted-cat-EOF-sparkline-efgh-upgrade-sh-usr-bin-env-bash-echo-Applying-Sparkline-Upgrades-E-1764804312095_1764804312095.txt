@@ -1,3 +1,187 @@
+cat << 'EOF' > sparkline-efgh-upgrade.sh
+#!/usr/bin/env bash
+
+echo "🚀 Applying Sparkline Upgrades E+F+G+H …"
+
+############################################
+# 1) Enhanced Sparkline.tsx
+############################################
+cat > src/components/Sparkline.tsx << 'EOT'
+import React, { useMemo } from "react";
+import {
+  LineChart,
+  Line,
+  Area,
+  Bar,
+  ResponsiveContainer,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ReferenceLine,
+  CartesianGrid,
+} from "recharts";
+
+type SparkPoint = { v: number };
+
+type Props = {
+  data: SparkPoint[];
+  color?: string;
+  filled?: boolean;
+  dynamicFill?: boolean;       // depth-based dynamic color (C)
+  labelFormatter?: (v: number) => string;
+  yFormatter?: (v: number) => string;
+  zeroLine?: boolean;
+  animate?: boolean;           // shimmer / breathing (F)
+  barEnabled?: boolean;        // micro-bars (G)
+  stale?: boolean;             // dim visuals if stale (H)
+};
+
+/** compute fill color based on latest delta (for dynamic depth coloring) */
+function computeDynamicColor(series: SparkPoint[], baseColor: string) {
+  if (series.length < 2) return baseColor;
+  const prev = series[series.length - 2].v;
+  const last = series[series.length - 1].v;
+
+  if (last > prev) return "#23e07b";    // liquidity improving
+  if (last < prev) return "#ff5252";    // liquidity eroding
+  return baseColor;                     // neutral
+}
+
+export default function Sparkline({
+  data,
+  color = "#5cb85c",
+  filled = false,
+  dynamicFill = false,
+  labelFormatter = (v) => v.toFixed(2),
+  yFormatter = (v) => v.toFixed(2),
+  zeroLine = true,
+  animate = false,
+  barEnabled = false,
+  stale = false,
+}: Props) {
+  if (!data || data.length < 2) {
+    return (
+      <div style={{ fontSize: 11, color: "#8ea3c7" }}>Collecting data…</div>
+    );
+  }
+
+  // Compute basic volatility range for glow intensity (E)
+  const values = data.map((d) => d.v);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  // Normalise: more range => more intensity (clamped)
+  const volFactor = Math.min(1, Math.max(0.15, range / 5)); // tuned for % series
+
+  const baseColor = dynamicFill ? computeDynamicColor(data, color) : color;
+
+  // Build chart data with micro-bar magnitude (G)
+  const chartData = data.map((d, idx) => {
+    const prev = idx > 0 ? data[idx - 1].v : d.v;
+    const mag = Math.abs(d.v - prev);   // intensity of move
+    return { i: idx, v: d.v, b: mag };
+  });
+
+  const lastIndex = chartData.length - 1;
+
+  // Stale dimming factor (H)
+  const opacity = stale ? 0.35 : 1;
+
+  return (
+    <div style={{ width: "100%", height: 80, opacity }}>
+      <ResponsiveContainer>
+        <LineChart
+          data={chartData}
+          margin={{ top: 10, right: 8, left: 0, bottom: 0 }}
+        >
+          {/* SUBTLE horizontal grid */}
+          <CartesianGrid
+            stroke="#242b3f"
+            strokeDasharray="2 3"
+            vertical={false}
+          />
+
+          {/* MINI TIME AXIS (t-30s → t-0) */}
+          <XAxis
+            dataKey="i"
+            tickFormatter={(i) =>
+              i === 0 ? "t-30s" : i === lastIndex ? "t-0" : ""
+            }
+            ticks={[0, lastIndex]}
+            tick={{ fill: "#6d7da2", fontSize: 9 }}
+            axisLine={false}
+            tickLine={false}
+          />
+
+          <YAxis
+            width={40}
+            tickFormatter={yFormatter}
+            tick={{ fontSize: 10, fill: "#8ea3c7" }}
+            axisLine={false}
+            tickLine={false}
+          />
+
+          {zeroLine && (
+            <ReferenceLine y={0} stroke="#444a63" strokeDasharray="3 2" />
+          )}
+
+          <Tooltip
+            formatter={(value: any) => [labelFormatter(value as number), "Δ"]}
+            labelFormatter={() => ""}
+            contentStyle={{
+              background: "#050814",
+              border: "1px solid #1a2138",
+              borderRadius: 8,
+              padding: "6px 8px",
+              fontSize: 11,
+              color: "#c3d0ea",
+            }}
+          />
+
+          {/* MICRO-BARS → show intensity per step (G) */}
+          {barEnabled && (
+            <Bar
+              dataKey="b"
+              fill="#2cc7ff60"
+              barSize={3}
+              isAnimationActive={animate}
+            />
+          )}
+
+          {/* FILLED AREA (for depth / price) with volatility-sensitive glow (E+F) */}
+          {filled && (
+            <Area
+              type="monotone"
+              dataKey="v"
+              stroke="none"
+              fill={baseColor}
+              fillOpacity={0.15 + volFactor * 0.5}
+              isAnimationActive={animate}
+            />
+          )}
+
+          {/* MAIN LINE */}
+          <Line
+            type="monotone"
+            dataKey="v"
+            stroke={baseColor}
+            strokeWidth={2.4}
+            dot={false}
+            strokeLinecap="round"
+            isAnimationActive={animate}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+EOT
+
+############################################
+# 2) Upgrade LiveSparklinesPanel to pass stale + bar flags
+############################################
+cat > src/components/LiveSparklinesPanel.tsx << 'EOT'
+import React from "react";
 import Card from "./Card";
 import Sparkline from "./Sparkline";
 
@@ -168,7 +352,7 @@ export default function LiveSparklinesPanel({
             animate={true}
             yFormatter={(v) => v.toFixed(2) + "%"}
             labelFormatter={(v) => v.toFixed(2) + "%"}
-            barEnabled={true}
+            barEnabled={true}     // micro-bars ON for depth (G)
             stale={depthStale}
           />
         </div>
@@ -227,3 +411,9 @@ export default function LiveSparklinesPanel({
     </Card>
   );
 }
+EOT
+
+echo "✅ Sparkline E+F+G+H upgrades applied. Restart dev server (npm run dev)."
+EOF
+
+bash sparkline-efgh-upgrade.sh
