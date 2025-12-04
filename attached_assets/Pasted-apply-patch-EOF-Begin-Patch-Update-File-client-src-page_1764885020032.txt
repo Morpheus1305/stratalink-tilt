@@ -1,0 +1,88 @@
+apply_patch << 'EOF'
+*** Begin Patch
+*** Update File: client/src/pages/analytics/AnalyticsPage.tsx
+@@
++import { useMicroFeed } from "@/contexts/MicrostructureFeed";
++import Sparkline from "@/components/Sparkline";
+
+ export default function AnalyticsPage() {
++
++  // ⬇ Global real-time feed
++  const {
++    priceSeries,
++    depthSeries,
++    fundingSeries,
++    token,
++    setToken,
++    stale,
++  } = useMicroFeed();
++
+   return (
+     <div className="w-full h-full flex flex-col gap-6">
++
++      {/* TOKEN SELECTOR */}
++      <div className="flex items-center gap-3">
++        <label className="text-xs text-neutral-400">TOKEN FOCUS</label>
++        <select
++          value={token}
++          onChange={(e) => setToken(e.target.value)}
++          className="bg-[#0c0f1a] px-2 py-1 rounded-md text-sm border border-[#1a1f2e]"
++        >
++          <option>BTC</option>
++          <option>ETH</option>
++          <option>SOL</option>
++          <option>AVAX</option>
++          <option>ADA</option>
++          <option>XRP</option>
++        </select>
++      </div>
++
++      {/* LIVE SPARKLINES */}
++      <div className="rounded-xl border border-[#1a1f2e] bg-[#0c0f1a] p-4">
++        <h3 className="text-sm text-neutral-300 mb-3">
++          LIVE MICROSTRUCTURE SPARKLINES (30-POINT WINDOW)
++        </h3>
++
++        {/* PRICE */}
++        <div className="mb-4">
++          <div className="text-xs text-neutral-500 mb-1">BTC Price</div>
++          <Sparkline
++            data={priceSeries}
++            filled
++            dynamicFill={false}
++            stale={stale}
++            labelFormatter={(v) => `$${v.toLocaleString()}`}
++          />
++        </div>
++
++        {/* DEPTH */}
++        <div className="mb-4">
++          <div className="text-xs text-neutral-500 mb-1">BTC 10bps Depth</div>
++          <Sparkline
++            data={depthSeries}
++            filled
++            dynamicFill
++            barEnabled
++            stale={stale}
++          />
++        </div>
++
++        {/* FUNDING */}
++        <div className="mb-1">
++          <div className="text-xs text-neutral-500 mb-1">BTC Funding Rate</div>
++          <Sparkline
++            data={fundingSeries}
++            filled={false}
++            dynamicFill={false}
++            stale={stale}
++          />
++          <div className="text-[10px] text-neutral-500 mt-1">
++            Annualised: {(fundingSeries.at(-1)?.v * 365 || 0).toFixed(2)}% APR
++          </div>
++        </div>
++      </div>
+     </div>
+   );
+ }
+*** End Patch
+EOF

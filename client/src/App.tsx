@@ -22,6 +22,7 @@ import IdentityAlertsPage from "@/pages/identity/IdentityAlertsPage";
 import RegSurveillancePage from "@/pages/identity/RegSurveillancePage";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { TokenProvider } from "@/contexts/TokenContext";
+import { MicrostructureFeedProvider } from "@/contexts/MicrostructureFeed";
 import { RequireAuth } from "@/components/RequireAuth";
 import { useEffect, useState } from "react";
 
@@ -137,16 +138,18 @@ function App() {
   }, [theme]);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <TokenProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Router />
-          </TooltipProvider>
-        </TokenProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+    <MicrostructureFeedProvider>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <TokenProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Router />
+            </TooltipProvider>
+          </TokenProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </MicrostructureFeedProvider>
   );
 }
 

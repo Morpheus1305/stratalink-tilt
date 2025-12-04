@@ -1,0 +1,86 @@
+mkdir -p client/src/contexts
+
+cat << 'EOF' > client/src/contexts/MicrostructureFeed.tsx
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { getAggregatedPrice } from "@/aggregator/getAggregatedPrice";
+import { getDepth10bps } from "@/aggregator/getDepth";
+import { getFundingRate } from "@/aggregator/getFunding";
+
+type SparkPoint = { v: number; t: number };
+
+type FeedState = {
+  priceSeries: SparkPoint[];
+  depthSeries: SparkPoint[];
+  fundingSeries: SparkPoint[];
+  token: string;
+  setToken: (t: string) => void;
+  stale: boolean;
+};
+
+const MicrostructureFeedContext = createContext<FeedState | null>(null);
+
+export function useMicroFeed() {
+  const ctx = useContext(MicrostructureFeedContext);
+  if (!ctx) throw new Error("useMicroFeed must be inside provider");
+  return ctx;
+}
+
+export function MicrostructureFeedProvider({ children }: { children: any }) {
+  const [token, setToken] = useState("BTC");
+
+  const [priceSeries, setPriceSeries] = useState<SparkPoint[]>([]);
+  const [depthSeries, setDepthSeries] = useState<SparkPoint[]>([]);
+  const [fundingSeries, setFundingSeries] = useState<SparkPoint[]>([]);
+  const [stale, setStale] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const poll = async () => {
+      try {
+        const [price, depth, funding] = await Promise.all([
+          getAggregatedPrice(token),
+          getDepth10bps(token),
+          getFundingRate(token),
+        ]);
+
+        if (!mounted) return;
+
+        const now = Date.now();
+
+        setPriceSeries((p) => [...p.slice(-29), { v: price, t: now }]);
+        setDepthSeries((p) => [...p.slice(-29), { v: depth, t: now }]);
+        setFundingSeries((p) => [...p.slice(-29), { v: funding, t: now }]);
+
+        setStale(false);
+      } catch (e) {
+        console.log("Microstructure feed error:", e);
+        setStale(true);
+      }
+    };
+
+    poll();
+    const id = setInterval(poll, 2000);
+
+    return () => {
+      mounted = false;
+      clearInterval(id);
+    };
+  }, [token]);
+
+  return (
+    <MicrostructureFeedContext.Provider
+      value={{
+        priceSeries,
+        depthSeries,
+        fundingSeries,
+        token,
+        setToken,
+        stale,
+      }}
+    >
+      {children}
+    </MicrostructureFeedContext.Provider>
+  );
+}
+EOF
