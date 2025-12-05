@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+cat << 'EOF' > client/src/components/LiquidityVelocitySparkline.tsx
+import React, { useMemo } from "react";
 import { useMicroFeed } from "@/contexts/MicrostructureFeed";
 import {
   ResponsiveContainer,
@@ -16,55 +17,53 @@ import {
 
 type Point = { v: number; t: number };
 
-type VelocityPoint = { i: number; v: number };
-type DepthChangePoint = { i: number; dv: number };
-type ReplayPoint = { i: number; pulse: number };
-
-/**
- * VELOCITY (Δdepth / Δtime → $M/min)
- */
-function buildVelocitySeries(depthSeries: Point[]): VelocityPoint[] {
+//
+// 1) VELOCITY (Δdepth / Δtime → $M/min)
+//
+function buildVelocitySeries(depthSeries: Point[]) {
   if (!depthSeries || depthSeries.length < 2) return [];
-  const out: VelocityPoint[] = [];
+  const out: any[] = [];
 
   for (let i = 1; i < depthSeries.length; i++) {
     const prev = depthSeries[i - 1];
     const curr = depthSeries[i];
-    const dt = (curr.t - prev.t) / 60000;
+    const dt = (curr.t - prev.t) / 60000; // → minutes
     if (dt <= 0) continue;
     const dv = curr.v - prev.v;
-    out.push({ i, v: dv / dt / 1_000_000 });
+    out.push({ i, v: dv / dt / 1_000_000 }); // → $M/min
   }
 
+  // Duplicate first point if only one exists
   if (out.length === 1) out.push({ i: out[0].i + 1, v: out[0].v });
 
   return out;
 }
 
-/**
- * DEPTH CHANGE (absolute Δdepth → USD)
- */
-function buildDepthChangeSeries(depthSeries: Point[]): DepthChangePoint[] {
+//
+// 2) DEPTH CHANGE (absolute Δdepth → USD)
+//
+function buildDepthChangeSeries(depthSeries: Point[]) {
   if (!depthSeries || depthSeries.length < 2) return [];
-  const out: DepthChangePoint[] = [];
+  const out: any[] = [];
 
   for (let i = 1; i < depthSeries.length; i++) {
     const prev = depthSeries[i - 1];
     const curr = depthSeries[i];
     const dv = curr.v - prev.v;
-    out.push({ i, dv });
+    out.push({ i, dv: dv });
   }
 
+  // Duplicate first point if only one exists
   if (out.length === 1) out.push({ i: out[0].i + 1, dv: out[0].dv });
 
   return out;
 }
 
-/**
- * MICROSTRUCTURE REPLAY (event overlay)
- * Convert depth pulses into bars (red = outflow, green = inflow)
- */
-function buildReplaySeries(depthSeries: Point[]): ReplayPoint[] {
+//
+// 3) MICROSTRUCTURE REPLAY (event overlay)
+//    → Convert depth pulses into bars (red = outflow, green = inflow)
+//
+function buildReplaySeries(depthSeries: Point[]) {
   if (!depthSeries || depthSeries.length < 2) return [];
   return depthSeries.slice(1).map((p, i) => ({
     i: i + 1,
@@ -102,10 +101,12 @@ export default function LiquidityVelocitySparkline() {
   return (
     <div className="flex flex-col space-y-3">
 
+      {/* HEADER */}
       <div className="text-[10px] uppercase tracking-[0.16em] text-neutral-500">
         Liquidity Dynamics (Velocity + Depth Change)
       </div>
 
+      {/* VELOCITY VALUE */}
       <div className="text-xs" style={{ color: velColor }}>
         {latestVel == null
           ? stale
@@ -114,6 +115,7 @@ export default function LiquidityVelocitySparkline() {
           : `${latestVel >= 0 ? "+" : ""}${latestVel.toFixed(2)}M/min`}
       </div>
 
+      {/* VELOCITY SPARKLINE */}
       <div style={{ height: 80 }}>
         {velocity.length === 0 ? (
           <div className="text-[11px] text-neutral-500 h-full flex items-center">
@@ -131,25 +133,17 @@ export default function LiquidityVelocitySparkline() {
 
               <CartesianGrid stroke="#242b3f" strokeDasharray="2 3" vertical={false} />
               <XAxis dataKey="i" hide />
-              <YAxis 
-                tick={{ fill: "#6d7da2", fontSize: 9 }}
-                tickFormatter={(v: number) => `${v.toFixed(1)}M`} 
-                axisLine={false} 
-                tickLine={false} 
-              />
+              <YAxis tick={{ fill: "#6d7da2", fontSize: 9 }}
+                     tickFormatter={(v) => `${v.toFixed(1)}M`} axisLine={false} tickLine={false} />
 
               <ReferenceLine y={0} stroke="#444a63" strokeDasharray="3 2" />
 
               <Tooltip
-                formatter={(value: number) => [`${value.toFixed(3)}M/min`, "Velocity"]}
+                formatter={(value) => [`${(value as number).toFixed(3)}M/min`, "Velocity"]}
                 labelFormatter={() => ""}
                 contentStyle={{
-                  background: "#050814", 
-                  border: "1px solid #1a2138",
-                  borderRadius: 8, 
-                  padding: "6px 8px", 
-                  fontSize: 11, 
-                  color: "#c3d0ea",
+                  background: "#050814", border: "1px solid #1a2138",
+                  borderRadius: 8, padding: "6px 8px", fontSize: 11, color: "#c3d0ea",
                 }}
               />
 
@@ -160,6 +154,7 @@ export default function LiquidityVelocitySparkline() {
         )}
       </div>
 
+      {/* DEPTH CHANGE CHART */}
       <div className="text-[10px] uppercase tracking-[0.16em] text-neutral-500">
         Depth Change (Δdepth per sample)
       </div>
@@ -181,6 +176,7 @@ export default function LiquidityVelocitySparkline() {
         </ResponsiveContainer>
       </div>
 
+      {/* MICROSTRUCTURE REPLAY */}
       <div className="text-[10px] uppercase tracking-[0.16em] text-neutral-500">
         Microstructure Replay (Depth Pulses)
       </div>
@@ -193,7 +189,8 @@ export default function LiquidityVelocitySparkline() {
               radius={[3, 3, 3, 3]}
               fill="#23e07b"
               isAnimationActive={true}
-            />
+            >
+            </Bar>
             <ReferenceLine y={0} stroke="#444a63" />
             <XAxis hide />
             <YAxis hide />
@@ -204,3 +201,4 @@ export default function LiquidityVelocitySparkline() {
     </div>
   );
 }
+EOF
