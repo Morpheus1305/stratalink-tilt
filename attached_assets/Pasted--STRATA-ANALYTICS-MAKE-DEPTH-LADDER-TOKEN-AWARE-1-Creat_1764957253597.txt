@@ -1,4 +1,12 @@
-import { useEffect, useState } from "react";
+# 🔧 STRATA ANALYTICS – MAKE DEPTH LADDER TOKEN-AWARE
+
+## 1️⃣ Create a DynamicDepthLadder component
+
+**File:** `client/src/components/DynamicDepthLadder.tsx`  
+(Create it or replace whatever is there with the code below.)
+
+```tsx
+import React, { useEffect, useState } from "react";
 import { useMicroFeed } from "@/contexts/MicrostructureFeed";
 
 type BandKey = "10bps" | "25bps" | "50bps" | "100bps" | "200bps";
@@ -19,6 +27,7 @@ type LadderState = {
 const BANDS: BandKey[] = ["10bps", "25bps", "50bps", "100bps", "200bps"];
 
 export default function DynamicDepthLadder() {
+  // 👇 this must come from the same context your token selector uses
   const { token } = useMicroFeed();
   const [state, setState] = useState<LadderState>({
     loading: true,
@@ -32,10 +41,11 @@ export default function DynamicDepthLadder() {
     const fetchBands = async () => {
       try {
         setState((s) => ({ ...s, loading: true, error: null }));
-        const res = await fetch("/api/analytics/stress/full");
+        const res = await fetch("/api/stress/full");
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
 
+        // ⚠️ Expecting shape: json.depth[token].bands["10bps"].{bidUSD, askUSD}
         const tokenDepth = json?.depth?.[token];
         const bands: DepthBands | null = tokenDepth?.bands ?? null;
 
@@ -46,11 +56,11 @@ export default function DynamicDepthLadder() {
             bands,
           });
         }
-      } catch (e: unknown) {
+      } catch (e: any) {
         if (!cancelled) {
           setState({
             loading: false,
-            error: e instanceof Error ? e.message : "Error loading depth ladder",
+            error: e?.message ?? "Error loading depth ladder",
             bands: null,
           });
         }
@@ -58,7 +68,7 @@ export default function DynamicDepthLadder() {
     };
 
     fetchBands();
-    const id = setInterval(fetchBands, 15000);
+    const id = setInterval(fetchBands, 15000); // refresh every 15s
     return () => {
       cancelled = true;
       clearInterval(id);
