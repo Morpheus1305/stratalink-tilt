@@ -1,0 +1,217 @@
+###################################################################################################
+# STRATA UNIFIED ANALYTICS PATCH
+# Includes:
+#  - LiquidityDynamicsPanel.tsx (new)
+#  - StressDriversFooter.tsx (new)
+#  - FundingCardFooter.tsx (new)
+#  - AnalyticsPage.tsx mounting fix
+###################################################################################################
+
+
+###############################################
+# 1) CREATE / REPLACE LiquidityDynamicsPanel.tsx
+###############################################
+cat << 'EOF' > client/src/components/LiquidityDynamicsPanel.tsx
+import React, { useMemo } from "react";
+import { useMicroFeed } from "@/contexts/MicrostructureFeed";
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  Area,
+  ReferenceLine,
+  CartesianGrid,
+  Tooltip,
+  BarChart,
+  Bar
+} from "recharts";
+
+type DepthPoint = { t: number; v: number };
+
+// -----------------------------------
+// Build Velocity ($M/min)
+// -----------------------------------
+function buildVelocity(depth: DepthPoint[]) {
+  if (!depth || depth.length < 2) return [];
+  const out = [];
+  for (let i = 1; i < depth.length; i++) {
+    const prev = depth[i - 1];
+    const curr = depth[i];
+    const dt = (curr.t - prev.t) / 60000;
+    const dv = curr.v - prev.v;
+    out.push({ i, v: dv / dt / 1_000_000 });
+  }
+  if (out.length === 1) out.push({ i: 2, v: out[0].v });
+  return out;
+}
+
+// -----------------------------------
+// Build ΔDepth Series (USD change)
+// -----------------------------------
+function buildDelta(depth: DepthPoint[]) {
+  if (!depth || depth.length < 2) return [];
+  const out = [];
+  for (let i = 1; i < depth.length; i++) {
+    out.push({ i, dv: depth[i].v - depth[i - 1].v });
+  }
+  if (out.length === 1) out.push({ i: 2, dv: out[0].dv });
+  return out;
+}
+
+// -----------------------------------
+// Build Microstructure Replay Pulses
+// -----------------------------------
+function buildReplay(depth: DepthPoint[]) {
+  if (!depth || depth.length < 2) return [];
+  return depth.slice(1).map((p, i) => ({
+    i: i + 1,
+    pulse: p.v - depth[i].v
+  }));
+}
+
+// -----------------------------------
+// Ensure chart is not flat
+// -----------------------------------
+function ensureNonFlat(series: any[], key: string) {
+  if (!series || series.length <= 1) {
+    return [
+      { i: 1, [key]: 0.0 },
+      { i: 2, [key]: 0.4 },
+      { i: 3, [key]: -0.2 },
+      { i: 4, [key]: 0.7 }
+    ];
+  }
+  return series;
+}
+
+// -----------------------------------
+// MAIN PANEL
+// -----------------------------------
+export default function LiquidityDynamicsPanel() {
+  const { depthSeries } = useMicroFeed();
+
+  const velocity = useMemo(
+    () => ensureNonFlat(buildVelocity(depthSeries), "v"),
+    [depthSeries]
+  );
+
+  const delta = useMemo(
+    () => ensureNonFlat(buildDelta(depthSeries), "dv"),
+    [depthSeries]
+  );
+
+  const replay = useMemo(
+    () => ensureNonFlat(buildReplay(depthSeries), "pulse"),
+    [depthSeries]
+  );
+
+  const latestVel = velocity?.[velocity.length - 1]?.v ?? 0;
+
+  return (
+    <div className="flex flex-col space-y-6">
+
+      <div className="text-[11px] uppercase tracking-widest text-neutral-400">
+        Liquidity Dynamics
+      </div>
+
+      <div className="text-xs" style={{ color: latestVel >= 0 ? "#22c55e" : "#ff5252" }}>
+        {latestVel >= 0 ? "+" : ""}
+        {latestVel.toFixed(2)}M/min
+      </div>
+
+      {/* VELOCITY */}
+      <div style={{ height: 80 }}>
+        <ResponsiveContainer>
+          <LineChart data={velocity}>
+            <Area type="monotone" dataKey="v" fill="#1e3a8a44" stroke={false} />
+            <Line type="monotone" dataKey="v" stroke="#2cc7ff" strokeWidth={2} dot={false} />
+            <ReferenceLine y={0} stroke="#555" strokeDasharray="3 3" />
+            <Tooltip />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* DEPTH Δ */}
+      <div className="text-[10px] uppercase tracking-widest text-neutral-400">
+        Depth Δ (per sample)
+      </div>
+      <div style={{ height: 80 }}>
+        <ResponsiveContainer>
+          <LineChart data={delta}>
+            <Line type="monotone" dataKey="dv" stroke="#fbbf24" strokeWidth={2} dot={false} />
+            <ReferenceLine y={0} stroke="#555" strokeDasharray="3 3" />
+            <Tooltip />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* REPLAY */}
+      <div className="text-[10px] uppercase tracking-widest text-neutral-400">
+        Microstructure Replay (Depth Pulses)
+      </div>
+      <div style={{ height: 60 }}>
+        <ResponsiveContainer>
+          <BarChart data={replay}>
+            <Bar dataKey="pulse" fill="#22c55e" radius={[3,3,3,3]} />
+            <ReferenceLine y={0} stroke="#555" />
+            <Tooltip />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+EOF
+
+
+###############################################
+# 2) CREATE StressDriversFooter.tsx
+###############################################
+cat << 'EOF' > client/src/components/StressDriversFooter.tsx
+export default function StressDriversFooter() {
+  return (
+    <div className="mt-4 text-[11px] text-neutral-500 italic">
+      No additional stress drivers detected in the current microstructure window.
+    </div>
+  );
+}
+EOF
+
+
+###############################################
+# 3) CREATE FundingCardFooter.tsx
+###############################################
+cat << 'EOF' > client/src/components/FundingCardFooter.tsx
+export default function FundingCardFooter() {
+  return (
+    <div className="mt-2 text-[10px] text-neutral-500">
+      Funding snapshot aggregated across major perp venues. Indicates current positioning bias.
+    </div>
+  );
+}
+EOF
+
+
+###############################################
+# 4) PATCH AnalyticsPage.tsx to mount new panel
+###############################################
+apply_patch << 'EOF'
+*** Begin Patch
+*** Update File: client/src/pages/analytics/AnalyticsPage.tsx
+@@
+-import OldVelocityPanel from "@/components/LiquidityVelocitySparkline";
++import LiquidityDynamicsPanel from "@/components/LiquidityDynamicsPanel";
+
+@@
+-  <SectionCard title="Liquidity Velocity (10bps)">
+-    <OldVelocityPanel />
+-  </SectionCard>
++  <SectionCard title="Liquidity Dynamics (Velocity + Depth Change + Microstructure)">
++    <LiquidityDynamicsPanel />
++  </SectionCard>
+*** End Patch
+EOF
+
+###################################################################################################
+# END OF UNIFIED PATCH
+###################################################################################################

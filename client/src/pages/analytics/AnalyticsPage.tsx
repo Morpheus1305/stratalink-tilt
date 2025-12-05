@@ -21,9 +21,8 @@ import {
 } from "@/components/analytics";
 import DepthPanel from "@/components/DepthPanel";
 import MicrostructureStats from "@/components/MicrostructureStats";
-import LiquidityVelocitySparkline from "@/components/LiquidityVelocitySparkline";
+import LiquidityDynamicsPanel from "@/components/LiquidityDynamicsPanel";
 import DepthLadderMiniHeatmap from "@/components/DepthLadderMiniHeatmap";
-import MicrostructureReplayStrip from "@/components/MicrostructureReplayStrip";
 
 type StressDriver = {
   category: string;
@@ -247,14 +246,11 @@ export default function AnalyticsPage() {
         />
         <MicrostructureStats />
 
-        {/* Phase 4: Velocity + Depth Ladder */}
+        {/* Liquidity Dynamics (Velocity + Depth Change + Microstructure) */}
         <div className="mt-4 grid grid-cols-2 gap-4">
-          <LiquidityVelocitySparkline />
+          <LiquidityDynamicsPanel />
           <DepthLadderMiniHeatmap />
         </div>
-
-        {/* Phase 4: Basic Replay Strip */}
-        <MicrostructureReplayStrip />
       </div>
 
       {/* Stress attribution + token liquidity cards */}
