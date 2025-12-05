@@ -1,0 +1,298 @@
+# ================================================
+# STRATALINK ANALYTICS UPGRADE — UNIFIED PATCH
+# ================================================
+# This patch includes:
+# 1. DynamicDepthLadder component (fully token aware)
+# 2. AnalyticsPage wiring fix
+# 3. Token-binding upgrades across panels
+# 4. Filling the blank areas with proper microstructure metrics
+# ================================================
+
+
+
+# ------------------------------------------------
+# 1️⃣ CREATE: DynamicDepthLadder.tsx
+# ------------------------------------------------
+
+Create file:
+client/src/components/DynamicDepthLadder.tsx
+
+-----------------------------------------------
+CONTENT:
+-----------------------------------------------
+import React, { useEffect, useState } from "react";
+import { useMicroFeed } from "@/contexts/MicrostructureFeed";
+
+type BandKey = "10bps" | "25bps" | "50bps" | "100bps" | "200bps";
+type BandData = { bidUSD?: number; askUSD?: number };
+type DepthBands = Record<BandKey, BandData>;
+
+type LadderState = {
+  loading: boolean;
+  error: string | null;
+  bands: DepthBands | null;
+};
+
+const BANDS: BandKey[] = ["10bps", "25bps", "50bps", "100bps", "200bps"];
+
+export default function DynamicDepthLadder() {
+  const { token } = useMicroFeed();   // <-- the selected token
+  const [state, setState] = useState<LadderState>({
+    loading: true,
+    error: null,
+    bands: null,
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      try {
+        const res = await fetch("/api/stress/full");
+        const json = await res.json();
+        const tokenDepth = json?.depth?.[token];
+        const bands = tokenDepth?.bands ?? null;
+
+        if (!cancelled) {
+          setState({
+            loading: false,
+            error: bands ? null : "No depth data for this token",
+            bands,
+          });
+        }
+      } catch (e: any) {
+        if (!cancelled) {
+          setState({
+            loading: false,
+            error: e?.message ?? "Error loading ladder",
+            bands: null,
+          });
+        }
+      }
+    };
+
+    load();
+    const id = setInterval(load, 15000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [token]);
+
+  const { loading, error, bands } = state;
+
+  return (
+    <div className="flex flex-col">
+      <div className="text-[10px] uppercase tracking-[0.15em] text-neutral-400 mb-1">
+        Depth Ladder (Total USD) — {token}
+      </div>
+
+      {loading && <div className="text-[11px] text-neutral-500">Loading…</div>}
+      {error && <div className="text-[11px] text-red-400">{error}</div>}
+
+      {!loading && bands && (
+        <div className="grid grid-cols-5 gap-2">
+          {BANDS.map((b) => {
+            const d = bands[b] || {};
+            const total = (d.bidUSD ?? 0) + (d.askUSD ?? 0);
+            return (
+              <div
+                key={b}
+                className="rounded-lg bg-[#08111f] border border-[#1a2335] px-2 py-2 flex flex-col items-center"
+              >
+                <div className="text-[11px] text-neutral-300">{b}</div>
+                <div className="text-[11px] text-cyan-300">
+                  {total > 0 ? `$${(total / 1_000_000).toFixed(2)}M` : "—"}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="text-[10px] text-neutral-500 mt-2">
+        Relative depth across 10/25/50/100/200bps bands for {token}.
+      </div>
+    </div>
+  );
+}
+-----------------------------------------------
+
+
+
+# ------------------------------------------------
+# 2️⃣ MODIFY: AnalyticsPage — use DynamicDepthLadder
+# ------------------------------------------------
+
+In:
+client/src/pages/analytics/AnalyticsPage.tsx
+
+ADD AT TOP:
+-----------------------------------------------
+import DynamicDepthLadder from "@/components/DynamicDepthLadder";
+-----------------------------------------------
+
+FIND the existing “DEPTH LADDER (TOTAL USD)” block  
+and REPLACE the ENTIRE panel with:
+
+-----------------------------------------------
+<SectionCard>
+  <DynamicDepthLadder />
+</SectionCard>
+-----------------------------------------------
+
+
+
+# ------------------------------------------------
+# 3️⃣ FIX: Token Binding for Liquidity Velocity Panel
+# ------------------------------------------------
+
+In AnalyticsPage.tsx locate:
+
+❌ “LIQUIDITY VELOCITY (BTC 10bps)”
+❌ Hardcoded BTC API logic
+❌ Display not tied to selected token
+
+REPLACE the entire block with:
+
+-----------------------------------------------
+<SectionCard>
+  <div className="text-[11px] uppercase tracking-[0.16em] text-neutral-400">
+    Liquidity Velocity ({token} 10bps)
+  </div>
+
+  {velocityLoading && (
+    <div className="text-[11px] text-neutral-500">Computing velocity…</div>
+  )}
+
+  {!velocityLoading && (
+    <div className="text-[12px] text-cyan-300">
+      Latest change in {token} 10bps depth:{" "}
+      {velocity?.value ? `${velocity.value.toFixed(2)}M/min` : "—"}
+    </div>
+  )}
+
+  <div className="text-[10px] text-neutral-500">
+    Computed from rolling depth changes at the 10bps band.
+  </div>
+</SectionCard>
+-----------------------------------------------
+
+Also ensure:
+
+velocity = data.depth[token]?.velocity10bps  
+NOT hard-coded to BTC.
+
+
+
+# ------------------------------------------------
+# 4️⃣ FILL EMPTY PANELS (Stress Drivers + Funding Snapshot)
+# ------------------------------------------------
+
+Replace blank “ACTIVE STRESS DRIVERS (ATTRIBUTION)” block with:
+
+-----------------------------------------------
+<SectionCard>
+  <div className="text-[11px] uppercase tracking-[0.15em] text-neutral-400 mb-1">
+    Active Stress Drivers (Attribution)
+  </div>
+
+  <div className="flex flex-col gap-1">
+    <div className="text-[12px] text-red-300">
+      Depth compression: {stress?.depthCompression ?? 0}%
+    </div>
+
+    <div className="text-[12px] text-red-300">
+      Liquidations: {stress?.liquidations ?? 0}m USD
+    </div>
+
+    <div className="text-[12px] text-yellow-300">
+      Spread widening: {stress?.spreadWidening ?? 0}bps
+    </div>
+
+    <div className="text-[12px] text-blue-300">
+      Orderbook imbalance: {stress?.imbalance ?? 0}%
+    </div>
+  </div>
+</SectionCard>
+-----------------------------------------------
+
+This pulls real microstructure stress factors rather than red bars that do nothing.
+
+
+
+# ------------------------------------------------
+# 5️⃣ FIX PERPETUAL FUNDING SNAPSHOT
+# ------------------------------------------------
+
+Replace entire panel with:
+
+-----------------------------------------------
+<SectionCard>
+  <div className="text-[11px] uppercase tracking-[0.16em] text-neutral-400 mb-1">
+    Perpetual Funding (Snapshot)
+  </div>
+
+  <div className="grid grid-cols-3 gap-2">
+    {["BTC", "ETH", "SOL"].map((sym) => (
+      <div key={sym} className="bg-[#08111f] p-2 rounded border border-[#1a2335]">
+        <div className="text-[11px] text-neutral-300 mb-1">{sym} Perps</div>
+        <div className="text-[12px] text-cyan-300">
+          {funding?.[sym]?.rate ?? "—"}
+        </div>
+        <div className="text-[10px] text-neutral-500">
+          Annualised = {funding?.[sym]?.annualised ?? "—"}
+        </div>
+      </div>
+    ))}
+  </div>
+</SectionCard>
+-----------------------------------------------
+
+
+
+# ------------------------------------------------
+# 6️⃣ ENSURE GLOBAL TOKEN PROPAGATION
+# ------------------------------------------------
+
+Confirm that:
+
+const { token } = useMicroFeed();
+
+is passed to:
+
+- Depth Ladder  
+- Liquidity Velocity  
+- Realised Vol  
+- Snapshot Cards  
+- Microstructure Replay  
+- All Sparkline fetchers  
+
+If any component says:
+depth["btc"]
+vol["btc"]
+stress["btc"]
+
+→ Replace with:
+depth[token]
+vol[token]
+stress[token]
+
+
+
+# ------------------------------------------------
+# PATCH COMPLETE
+# ------------------------------------------------
+
+After applying, the following will update dynamically:
+- Depth Ladder  
+- Liquidity Velocity  
+- Stress Drivers  
+- Funding Snapshot  
+- All token-specific KPIs  
+
+Next step (Phase 6):  
+Make the charts actually *interesting* with rolling window statistics + gradients.
+
+# End of Patch
+-----------------------------------------------

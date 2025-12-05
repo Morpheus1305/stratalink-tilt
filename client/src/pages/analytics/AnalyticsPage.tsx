@@ -22,7 +22,7 @@ import {
 import DepthPanel from "@/components/DepthPanel";
 import MicrostructureStats from "@/components/MicrostructureStats";
 import LiquidityDynamicsPanel from "@/components/LiquidityDynamicsPanel";
-import DepthLadderMiniHeatmap from "@/components/DepthLadderMiniHeatmap";
+import DynamicDepthLadder from "@/components/DynamicDepthLadder";
 
 type StressDriver = {
   category: string;
@@ -246,10 +246,14 @@ export default function AnalyticsPage() {
         />
         <MicrostructureStats />
 
-        {/* Liquidity Dynamics (Velocity + Depth Change + Microstructure) */}
+        {/* Liquidity Dynamics + Token-Aware Depth Ladder */}
         <div className="mt-4 grid grid-cols-2 gap-4">
-          <LiquidityDynamicsPanel />
-          <DepthLadderMiniHeatmap />
+          <Card className="border-border/50 p-4">
+            <LiquidityDynamicsPanel />
+          </Card>
+          <Card className="border-border/50 p-4">
+            <DynamicDepthLadder />
+          </Card>
         </div>
       </div>
 
