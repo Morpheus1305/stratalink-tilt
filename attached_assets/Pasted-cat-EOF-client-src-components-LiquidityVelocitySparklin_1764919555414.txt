@@ -1,0 +1,74 @@
+cat << 'EOF' > client/src/components/LiquidityVelocitySparkline.tsx
+import React, { useMemo } from "react";
+import { useMicroFeed } from "@/contexts/MicrostructureFeed";
+import Sparkline from "./Sparkline";
+
+type Point = { v: number; t: number };
+type SparkPoint = { v: number };
+
+function buildVelocitySeries(depthSeries: Point[]): SparkPoint[] {
+  if (!depthSeries || depthSeries.length < 2) return [];
+  const result: SparkPoint[] = [];
+
+  for (let i = 1; i < depthSeries.length; i++) {
+    const prev = depthSeries[i - 1];
+    const curr = depthSeries[i];
+    const dtMs = curr.t - prev.t;
+    if (dtMs <= 0) continue;
+    const dtMin = dtMs / 60000;
+    if (!dtMin) continue;
+    const dv = curr.v - prev.v;
+    const perMin = dv / dtMin; // USD per minute
+    result.push({ v: perMin / 1_000_000 }); // expressed in $M / min
+  }
+
+  return result;
+}
+
+export default function LiquidityVelocitySparkline() {
+  const { depthSeries, stale } = useMicroFeed();
+
+  const velocitySeries = useMemo(
+    () => buildVelocitySeries(depthSeries),
+    [depthSeries]
+  );
+
+  const latest = velocitySeries.length
+    ? velocitySeries[velocitySeries.length - 1].v
+    : null;
+
+  const color =
+    latest == null
+      ? "#8ea3c7"
+      : latest >= 0
+      ? "#23e07b"
+      : "#ff5252";
+
+  return (
+    <div className="flex flex-col">
+      <div className="text-[10px] uppercase tracking-[0.16em] text-neutral-500 mb-1">
+        Liquidity Velocity (10bps)
+      </div>
+      <div className="text-xs mb-1" style={{ color }}>
+        {latest == null
+          ? stale
+            ? "Stale / unavailable"
+            : "Collecting…"
+          : `${latest >= 0 ? "+" : ""}${latest.toFixed(2)}M / min`}
+      </div>
+      <Sparkline
+        data={velocitySeries}
+        color="#2cc7ff"
+        filled={true}
+        dynamicFill={false}
+        animate={true}
+        barEnabled={false}
+        stale={stale}
+        yFormatter={(v) => `${v.toFixed(1)}M`}
+        labelFormatter={(v) => `${v.toFixed(2)}M / min`}
+        zeroLine={true}
+      />
+    </div>
+  );
+}
+EOF

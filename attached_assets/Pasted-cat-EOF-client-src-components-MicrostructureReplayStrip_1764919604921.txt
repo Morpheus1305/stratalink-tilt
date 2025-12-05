@@ -1,0 +1,72 @@
+cat << 'EOF' > client/src/components/MicrostructureReplayStrip.tsx
+import React, { useMemo, useState } from "react";
+import { useMicroFeed } from "@/contexts/MicrostructureFeed";
+
+type Point = { v: number; t: number };
+
+export default function MicrostructureReplayStrip() {
+  const { priceSeries, depthSeries, fundingSeries } = useMicroFeed();
+  const length = priceSeries.length;
+
+  const [cursorIdx, setCursorIdx] = useState<number | null>(null);
+
+  const idx = useMemo(
+    () => (cursorIdx == null ? (length ? length - 1 : 0) : cursorIdx),
+    [cursorIdx, length]
+  );
+
+  const pricePoint: Point | undefined = priceSeries[idx];
+  const depthPoint: Point | undefined = depthSeries[idx];
+  const fundingPoint: Point | undefined = fundingSeries[idx];
+  const latest: Point | undefined = priceSeries[length - 1];
+
+  const secondsAgo =
+    latest && pricePoint ? Math.max(0, (latest.t - pricePoint.t) / 1000) : 0;
+
+  return (
+    <div className="mt-4 rounded-lg bg-[#050814] border border-[#151a28] px-3 py-2">
+      <div className="flex items-center justify-between mb-1">
+        <div className="text-[10px] uppercase tracking-[0.16em] text-neutral-500">
+          Microstructure Replay (Last Window)
+        </div>
+        <div className="text-[10px] text-neutral-400">
+          Cursor:{" "}
+          {secondsAgo
+            ? `t-${Math.round(secondsAgo)}s`
+            : "t-0 (latest)"}
+        </div>
+      </div>
+      <input
+        type="range"
+        min={0}
+        max={Math.max(0, length - 1)}
+        value={idx}
+        onChange={(e) => setCursorIdx(parseInt(e.target.value, 10))}
+        className="w-full"
+      />
+      <div className="mt-2 grid grid-cols-3 gap-3 text-[10px] text-neutral-300">
+        <div>
+          <div className="text-neutral-500 mb-0.5">Price @ cursor</div>
+          <div className="text-xs">
+            {pricePoint ? `$${pricePoint.v.toLocaleString()}` : "—"}
+          </div>
+        </div>
+        <div>
+          <div className="text-neutral-500 mb-0.5">10bps Depth @ cursor</div>
+          <div className="text-xs">
+            {depthPoint
+              ? `$${(depthPoint.v / 1_000_000).toFixed(2)}M`
+              : "—"}
+          </div>
+        </div>
+        <div>
+          <div className="text-neutral-500 mb-0.5">Funding @ cursor</div>
+          <div className="text-xs">
+            {fundingPoint ? (fundingPoint.v * 100).toFixed(4) + "%" : "—"}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+EOF
