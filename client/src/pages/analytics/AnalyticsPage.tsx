@@ -20,6 +20,7 @@ import {
   LiveSparklinesPanel,
 } from "@/components/analytics";
 import DepthPanel from "@/components/DepthPanel";
+import MicrostructureStats from "@/components/MicrostructureStats";
 
 type StressDriver = {
   category: string;
@@ -241,6 +242,7 @@ export default function AnalyticsPage() {
           depth={depthSeriesForToken}
           funding={fundingSeriesForToken}
         />
+        <MicrostructureStats />
       </div>
 
       {/* Stress attribution + token liquidity cards */}

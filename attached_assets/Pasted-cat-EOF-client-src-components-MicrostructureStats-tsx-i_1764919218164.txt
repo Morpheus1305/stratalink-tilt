@@ -1,0 +1,132 @@
+cat << 'EOF' > client/src/components/MicrostructureStats.tsx
+import React from "react";
+import { useMicroFeed } from "@/contexts/MicrostructureFeed";
+
+function formatSigned(v: number, decimals = 2) {
+  const fixed = v.toFixed(decimals);
+  return v >= 0 ? `+${fixed}` : fixed;
+}
+
+function computeLiquidityVelocity(depthSeries: { v: number; t: number }[]) {
+  if (!depthSeries || depthSeries.length < 2) return null;
+  const first = depthSeries[0];
+  const last = depthSeries[depthSeries.length - 1];
+  const dtMs = last.t - first.t;
+  if (dtMs <= 0) return null;
+  const dtMin = dtMs / 60000;
+  if (dtMin === 0) return null;
+  const dv = last.v - first.v;
+  return dv / dtMin; // USD per minute
+}
+
+function computePriceRealisedVol(priceSeries: { v: number; t: number }[]) {
+  if (!priceSeries || priceSeries.length < 3) return null;
+  const rets: number[] = [];
+  for (let i = 1; i < priceSeries.length; i++) {
+    const p0 = priceSeries[i - 1].v;
+    const p1 = priceSeries[i].v;
+    if (!p0 || !p1) continue;
+    rets.push(Math.log(p1 / p0));
+  }
+  if (!rets.length) return null;
+
+  const mean = rets.reduce((a, b) => a + b, 0) / rets.length;
+  const varSum = rets.reduce((acc, r) => acc + (r - mean) * (r - mean), 0);
+  const variance = varSum / (rets.length - 1 || 1);
+  const sigma = Math.sqrt(variance);        // per-step vol
+
+  // Assume 30 points ≈ 1 hour; scale up to annualised (approx).
+  const stepsPerDay = 24;
+  const stepsPerYear = 252 * stepsPerDay;
+  const annualised = sigma * Math.sqrt(stepsPerYear);
+  return annualised * 100; // %
+}
+
+function computeFundingBias(fundingSeries: { v: number; t: number }[]) {
+  if (!fundingSeries || fundingSeries.length === 0) return null;
+  const last = fundingSeries[fundingSeries.length - 1].v;
+  const annualised = last * 365 * 100; // assume fundingSeries is daily rate (fraction)
+  let label = "Neutral";
+  if (annualised > 2) label = "Long-bias";
+  if (annualised < -2) label = "Short-bias";
+  return { annualised, label };
+}
+
+export default function MicrostructureStats() {
+  const { priceSeries, depthSeries, fundingSeries, stale } = useMicroFeed();
+
+  const vel = computeLiquidityVelocity(depthSeries);
+  const vol = computePriceRealisedVol(priceSeries);
+  const funding = computeFundingBias(fundingSeries);
+
+  const velColor =
+    vel == null
+      ? "#8ea3c7"
+      : vel >= 0
+      ? "#23e07b"
+      : "#ff5252";
+
+  const volColor = "#ffcc33";
+
+  const fundingColor =
+    funding == null
+      ? "#8ea3c7"
+      : funding.annualised > 2
+      ? "#23e07b"
+      : funding.annualised < -2
+      ? "#ff5252"
+      : "#8ea3c7";
+
+  return (
+    <div className="mt-3 grid grid-cols-3 gap-4 text-xs text-neutral-300">
+      <div className="flex flex-col">
+        <span className="text-[10px] uppercase tracking-[0.16em] text-neutral-500">
+          Liquidity Velocity (10bps)
+        </span>
+        <span style={{ color: velColor, fontSize: 12 }}>
+          {vel == null
+            ? stale
+              ? "Stale / unavailable"
+              : "Collecting…"
+            : `${vel >= 0 ? "+" : ""}$${(vel / 1_000_000).toFixed(2)}M / min`}
+        </span>
+        <span className="text-[10px] text-neutral-500">
+          Change in BTC 10bps depth over the rolling window.
+        </span>
+      </div>
+
+      <div className="flex flex-col">
+        <span className="text-[10px] uppercase tracking-[0.16em] text-neutral-500">
+          Price Realised Vol (30-pt, ann.)
+        </span>
+        <span style={{ color: volColor, fontSize: 12 }}>
+          {vol == null
+            ? stale
+              ? "Stale / unavailable"
+              : "Collecting…"
+            : `${formatSigned(vol, 2)}%`}
+        </span>
+        <span className="text-[10px] text-neutral-500">
+          Log-return vol scaled to annualised %, indicative only.
+        </span>
+      </div>
+
+      <div className="flex flex-col">
+        <span className="text-[10px] uppercase tracking-[0.16em] text-neutral-500">
+          Funding Bias
+        </span>
+        <span style={{ color: fundingColor, fontSize: 12 }}>
+          {funding == null
+            ? stale
+              ? "Stale / unavailable"
+              : "Collecting…"
+            : `${formatSigned(funding.annualised, 2)}% • ${funding.label}`}
+        </span>
+        <span className="text-[10px] text-neutral-500">
+          Annualised perp funding; sign shows long vs short pressure.
+        </span>
+      </div>
+    </div>
+  );
+}
+EOF
