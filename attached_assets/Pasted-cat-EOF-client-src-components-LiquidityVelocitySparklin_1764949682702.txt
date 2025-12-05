@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+cat << 'EOF' > client/src/components/LiquidityVelocitySparkline.tsx
+import React, { useMemo } from "react";
 import { useMicroFeed } from "@/contexts/MicrostructureFeed";
 import {
   ResponsiveContainer,
@@ -16,7 +17,7 @@ type Point = { v: number; t: number };
 
 type VelocityPoint = {
   i: number;
-  v: number;
+  v: number; // $M / min
 };
 
 /**
@@ -35,10 +36,11 @@ function buildVelocitySeries(depthSeries: Point[]): VelocityPoint[] {
     const dtMin = dtMs / 60000;
     if (!dtMin) continue;
     const dv = curr.v - prev.v;
-    const perMinUSD = dv / dtMin;
-    out.push({ i, v: perMinUSD / 1_000_000 });
+    const perMinUSD = dv / dtMin; // USD per minute
+    out.push({ i, v: perMinUSD / 1_000_000 }); // store as $M / min
   }
 
+  // If only one point, duplicate so we get a flat line instead of nothing
   if (out.length === 1) {
     out.push({ ...out[0], i: out[0].i + 1 });
   }
@@ -111,7 +113,7 @@ export default function LiquidityVelocitySparkline() {
               <YAxis
                 width={34}
                 tick={{ fill: "#6d7da2", fontSize: 9 }}
-                tickFormatter={(v: number) => `${v.toFixed(1)}M`}
+                tickFormatter={(v) => `${v.toFixed(1)}M`}
                 axisLine={false}
                 tickLine={false}
               />
@@ -123,8 +125,8 @@ export default function LiquidityVelocitySparkline() {
               />
 
               <Tooltip
-                formatter={(value: number) => [
-                  `${value.toFixed(2)}M / min`,
+                formatter={(value: any) => [
+                  `${(value as number).toFixed(2)}M / min`,
                   "Velocity",
                 ]}
                 labelFormatter={() => ""}
@@ -164,3 +166,4 @@ export default function LiquidityVelocitySparkline() {
     </div>
   );
 }
+EOF
