@@ -1,6 +1,7 @@
-import { useMemo } from "react";
+cat << 'EOF' > client/src/components/LiquidityVelocitySparkline.tsx
+import React, { useMemo } from "react";
 import { useMicroFeed } from "@/contexts/MicrostructureFeed";
-import Sparkline from "@/components/analytics/Sparkline";
+import Sparkline from "./Sparkline";
 
 type Point = { v: number; t: number };
 type SparkPoint = { v: number };
@@ -21,8 +22,8 @@ function buildVelocitySeries(depthSeries: Point[]): SparkPoint[] {
     const dtMin = dtMs / 60000;
     if (!dtMin) continue;
     const dv = curr.v - prev.v;
-    const perMinUSD = dv / dtMin;
-    result.push({ v: perMinUSD / 1_000_000 });
+    const perMinUSD = dv / dtMin; // USD per minute
+    result.push({ v: perMinUSD / 1_000_000 }); // store as $M / min
   }
 
   // If we only have one velocity point, duplicate it so Sparkline
@@ -75,8 +76,8 @@ export default function LiquidityVelocitySparkline() {
           animate={true}
           barEnabled={false}
           stale={stale}
-          yFormatter={(v: number) => `${v.toFixed(1)}M`}
-          labelFormatter={(v: number) => `${v.toFixed(2)}M / min`}
+          yFormatter={(v) => `${v.toFixed(1)}M`}
+          labelFormatter={(v) => `${v.toFixed(2)}M / min`}
           zeroLine={true}
         />
       </div>
@@ -86,3 +87,4 @@ export default function LiquidityVelocitySparkline() {
     </div>
   );
 }
+EOF
