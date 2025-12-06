@@ -8,7 +8,7 @@ import analyticsRoutes from "../analytics/routes";
 import liquidityRoutes from "./routes/liquidity";
 import executionRoutes from "./routes/execution";
 import intelRoutes from "./routes/intel";
-import commentaryRoutes from "./routes/commentary";
+import dailyCommentaryRouter from "./api/dailyCommentary";
 import { startIngestionLoop } from "../analytics/engines/ingestionManager";
 import { 
   loginRequestSchema, 
@@ -375,8 +375,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Mount intel routes
   app.use("/api/intel", intelRoutes);
 
-  // Mount commentary routes
-  app.use("/api/commentary", commentaryRoutes);
+  // Mount daily commentary routes
+  app.use("/api", dailyCommentaryRouter);
 
   // Start analytics ingestion loop
   startIngestionLoop();
