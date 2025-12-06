@@ -9,17 +9,36 @@ import {
   CartesianGrid,
 } from "recharts";
 import { useLiquidityTimeseries } from "@/hooks/useLiquidityTimeseries";
+import { format } from "date-fns";
 
 type Props = {
   token: string;
 };
 
-const WINDOWS: { label: string; value: "1h" | "24h" | "7d" | "30d" }[] = [
+type WindowType = "1h" | "24h" | "7d" | "30d";
+
+const WINDOWS: { label: string; value: WindowType }[] = [
   { label: "1h", value: "1h" },
   { label: "24h", value: "24h" },
   { label: "7d", value: "7d" },
   { label: "30d", value: "30d" },
 ];
+
+function formatTimeLabel(ts: number, window: WindowType): string {
+  const date = new Date(ts);
+  switch (window) {
+    case "1h":
+      return format(date, "HH:mm");
+    case "24h":
+      return format(date, "HH:mm");
+    case "7d":
+      return format(date, "MMM d");
+    case "30d":
+      return format(date, "MMM d");
+    default:
+      return format(date, "MMM d HH:mm");
+  }
+}
 
 export const LiquidityTimeseriesPanel: React.FC<Props> = ({ token }) => {
   const [window, setWindow] = useState<"1h" | "24h" | "7d" | "30d">("24h");
@@ -81,9 +100,12 @@ export const LiquidityTimeseriesPanel: React.FC<Props> = ({ token }) => {
               />
               <XAxis
                 dataKey="ts"
-                tick={false}
+                tick={{ fill: "#6d7da2", fontSize: 9 }}
+                tickFormatter={(ts) => formatTimeLabel(ts, window)}
                 axisLine={false}
                 tickLine={false}
+                interval="preserveStartEnd"
+                minTickGap={40}
               />
               <YAxis
                 tick={{ fill: "#6d7da2", fontSize: 10 }}
@@ -92,7 +114,7 @@ export const LiquidityTimeseriesPanel: React.FC<Props> = ({ token }) => {
                 tickLine={false}
               />
               <Tooltip
-                labelFormatter={() => ""}
+                labelFormatter={(ts) => format(new Date(ts), "MMM d, HH:mm")}
                 formatter={(value: any) => [
                   `$${(value / 1_000_000).toFixed(2)}M`,
                   "Depth (50bps)",
@@ -105,6 +127,7 @@ export const LiquidityTimeseriesPanel: React.FC<Props> = ({ token }) => {
                   fontSize: 11,
                   color: "#c3d0ea",
                 }}
+                labelStyle={{ color: "#8a8a8a", fontSize: 10, marginBottom: 4 }}
               />
               <Line
                 type="monotone"
