@@ -1,0 +1,132 @@
+# ============================================================
+# STRATALINK – DAILY MARKET COMMENTARY ENGINE
+# Integrates TSLE + Execution Intel into a daily summary
+# ============================================================
+
+##############################################################
+# 1) BACKEND SERVICE: dailyCommentary.ts
+#    File: server/services/dailyCommentary.ts
+##############################################################
+```ts
+import { computeTsleEngine } from "./tradeSizeEngine";
+import { computeExecutionIntel } from "./executionIntelligence";
+import type { TsleSide } from "./tradeSizeEngine";
+import type { SupportedToken } from "./cexOrderbooks";
+
+export type DailyCommentary = {
+  symbol: SupportedToken;
+  side: TsleSide;
+  dominantFactor: string;
+  marketStructureRegime: string;
+  executionSummaryBullets: string[];
+  executionRiskScore: number;
+  slippageRegime: string;
+  bestVenue: string;
+  maxSize25bps: number;
+  maxSize50bps: number;
+  generatedAt: number;
+};
+
+function formatUsdCompact(v: number): string {
+  if (!isFinite(v) || v <= 0) return "$0";
+  if (v >= 1_000_000_000) return `$${(v / 1_000_000_000).toFixed(1)}B`;
+  if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`;
+  if (v >= 1_000) return `$${(v / 1_000).toFixed(0)}K`;
+  return `$${v.toFixed(0)}`;
+}
+
+// very simple mapping based on risk & regime
+function buildDominantFactor(
+  symbol: string,
+  slippageRegime: string,
+  riskScore: number,
+  bestVenue: string
+): string {
+  if (riskScore >= 85) {
+    return `Deep, venue-diversified orderbook liquidity on ${bestVenue.toUpperCase()} is driving clean execution conditions in ${symbol}.`;
+  }
+  if (riskScore >= 65) {
+    return `Moderate fragmentation and slightly elevated slippage – ${symbol} execution is still mainly driven by ${bestVenue.toUpperCase()}, but books are thinner off-venue.`;
+  }
+  if (riskScore >= 45) {
+    return `Liquidity for ${symbol} is dominated by a small number of venues, with widening spreads and a ${slippageRegime.toLowerCase()} slippage regime.`;
+  }
+  return `Execution in ${symbol} is stress-driven: thin depth, wide spreads and a ${slippageRegime.toLowerCase()} slippage profile across venues.`;
+}
+
+function buildMarketStructureSentence(
+  symbol: string,
+  slippageRegime: string,
+  riskScore: number,
+  maxSize25bps: number,
+  maxSize50bps: number
+): string {
+  const s25 = formatUsdCompact(maxSize25bps);
+  const s50 = formatUsdCompact(maxSize50bps);
+
+  if (riskScore >= 85) {
+    return `Today is a “low-impact” regime for ${symbol}: flows up to ${s25} can be executed inside 25bps and roughly ${s50} inside 50bps without meaningful market impact.`;
+  }
+  if (riskScore >= 65) {
+    return `${symbol} sits in a “balanced” regime: flow up to ${s25} is generally safe inside 25bps, but the curve steepens beyond ${s50} as books thin out.`;
+  }
+  if (riskScore >= 45) {
+    return `${symbol} is in a “fragile liquidity” regime: impact accelerates sharply beyond ${s25}, and even ${s50} trades are starting to print in a ${slippageRegime.toLowerCase()} environment.`;
+  }
+  return `${symbol} is trading in a “deleveraging / stress” regime: even mid-sized orders quickly run into depth walls, and block trades will struggle to clear without significant price impact.`;
+}
+
+export async function computeDailyCommentary(
+  symbol: SupportedToken,
+  side: TsleSide
+): Promise<DailyCommentary> {
+  // 1) Pull TSLE (market impact curve + max sizes)
+  const tsle = await computeTsleEngine(symbol, side, 5_000_000);
+
+  const maxByBps = tsle.maxSizeByBps.reduce((acc, row) => {
+    acc[row.bps] = row.maxSizeUsd;
+    return acc;
+  }, {} as Record<number, number>);
+
+  // 2) Pull Execution Intelligence (regime, risk, venue)
+  const exec = await computeExecutionIntel(symbol, side);
+
+  const max25 = maxByBps[25] || 0;
+  const max50 = maxByBps[50] || 0;
+
+  const dominantFactor = buildDominantFactor(
+    symbol,
+    exec.slippageRegime,
+    exec.executionRiskScore,
+    exec.bestVenue
+  );
+
+  const marketStructureRegime = buildMarketStructureSentence(
+    symbol,
+    exec.slippageRegime,
+    exec.executionRiskScore,
+    max25,
+    max50
+  );
+
+  const bullets: string[] = [
+    `Max aggregate size <25bps impact: **${formatUsdCompact(max25)}**`,
+    `Max aggregate size <50bps impact: **${formatUsdCompact(max50)}**`,
+    `Slippage regime: **${exec.slippageRegime}**, execution risk score: **${exec.executionRiskScore}/100**`,
+    `Best venue today: **${exec.bestVenue.toUpperCase()}**, currently offering the deepest & most stable books.`,
+  ];
+
+  return {
+    symbol,
+    side,
+    dominantFactor,
+    marketStructureRegime,
+    executionSummaryBullets: bullets,
+    executionRiskScore: exec.executionRiskScore,
+    slippageRegime: exec.slippageRegime,
+    bestVenue: exec.bestVenue,
+    maxSize25bps: max25,
+    maxSize50bps: max50,
+    generatedAt: Date.now(),
+  };
+}

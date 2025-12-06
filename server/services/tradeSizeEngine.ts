@@ -1,5 +1,7 @@
 import { fetchVenueOrderbook, SupportedVenue, SupportedToken } from "./cexOrderbooks";
 
+export type TsleSide = "buy" | "sell";
+
 export interface TsleCurvePoint {
   sizeUsd: number;
   bestSlippageBps: number;
