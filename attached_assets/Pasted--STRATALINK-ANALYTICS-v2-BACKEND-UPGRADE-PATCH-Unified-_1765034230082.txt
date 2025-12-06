@@ -1,0 +1,320 @@
+# ============================
+# STRATALINK ANALYTICS v2 — BACKEND UPGRADE PATCH
+# Unified Patch: Timestamps, Timeseries, Depth, Velocity, Replay, Execution Costs,
+# Fragmentation, Venue Liquidity, PoLi Timeseries
+# ============================
+
+## 1. Create/Update Timestamp Utility
+# File: utils/timestamps.js
+-----------------------------------------------------
+export function toMsTimestamp(ts) {
+  if (!ts) return Date.now();
+
+  // Case 1 — Already in ms
+  if (typeof ts === "number" && ts > 100000000000) return ts;
+
+  // Case 2 — Seconds epoch → convert to ms
+  if (typeof ts === "number" && ts < 100000000000) return ts * 1000;
+
+  // Case 3 — ISO string → convert to ms
+  return new Date(ts).getTime();
+}
+-----------------------------------------------------
+
+
+## 2. Liquidity Timeseries Endpoint
+# File: routes/liquidityTimeseries.js
+-----------------------------------------------------
+import express from "express";
+import db from "../db.js";
+import { toMsTimestamp } from "../utils/timestamps.js";
+
+const router = express.Router();
+
+router.get("/api/liquidity/timeseries/:symbol", async (req, res) => {
+  try {
+    const symbol = req.params.symbol.toUpperCase();
+
+    const rows = await db.query(`
+      SELECT timestamp, depth_10bps, depth_25bps, depth_50bps, depth_100bps, depth_200bps
+      FROM liquidity_timeseries
+      WHERE symbol = $1
+      ORDER BY timestamp ASC
+      LIMIT 3000;
+    `, [symbol]);
+
+    const samples = rows.rows.map(r => ({
+      timestamp: toMsTimestamp(r.timestamp),
+      depth10bps: Number(r.depth_10bps),
+      depth25bps: Number(r.depth_25bps),
+      depth50bps: Number(r.depth_50bps),
+      depth100bps: Number(r.depth_100bps),
+      depth200bps: Number(r.depth_200bps)
+    }));
+
+    res.json({
+      symbol,
+      samples,
+      updated: Date.now()
+    });
+
+  } catch (err) {
+    console.error("Timeseries error:", err);
+    res.status(500).json({ error: "Failed to load timeseries" });
+  }
+});
+
+export default router;
+-----------------------------------------------------
+
+
+## 3. Liquidity Velocity Endpoint
+# File: routes/liquidityVelocity.js
+-----------------------------------------------------
+router.get("/api/liquidity/velocity/:symbol", async (req, res) => {
+  try {
+    const symbol = req.params.symbol.toUpperCase();
+
+    const rows = await db.query(`
+      SELECT timestamp, change_10bps
+      FROM liquidity_velocity
+      WHERE symbol = $1
+      ORDER BY timestamp ASC
+      LIMIT 2000;
+    `, [symbol]);
+
+    const samples = rows.rows.map(r => ({
+      timestamp: toMsTimestamp(r.timestamp),
+      velocity10bps: Number(r.change_10bps)
+    }));
+
+    res.json({
+      symbol,
+      samples,
+      updated: Date.now()
+    });
+
+  } catch (err) {
+    console.error("Velocity error:", err);
+    res.status(500).json({ error: "Failed to load velocity" });
+  }
+});
+-----------------------------------------------------
+
+
+## 4. Depth Ladder API (supports frontend Depth Ladder panel)
+# File: routes/depthLadder.js
+-----------------------------------------------------
+router.get("/api/liquidity/depth/ladder/:symbol", async (req, res) => {
+  try {
+    const symbol = req.params.symbol.toUpperCase();
+
+    const row = await db.query(`
+      SELECT depth_10bps, depth_25bps, depth_50bps, depth_100bps, depth_200bps
+      FROM current_orderbook_depth
+      WHERE symbol = $1
+      LIMIT 1;
+    `, [symbol]);
+
+    if (!row.rows.length) {
+      return res.json({ symbol, ladder: null, updated: Date.now() });
+    }
+
+    const d = row.rows[0];
+    res.json({
+      symbol,
+      ladder: {
+        "10bps": Number(d.depth_10bps),
+        "25bps": Number(d.depth_25bps),
+        "50bps": Number(d.depth_50bps),
+        "100bps": Number(d.depth_100bps),
+        "200bps": Number(d.depth_200bps)
+      },
+      updated: Date.now()
+    });
+
+  } catch (err) {
+    console.error("Depth Ladder error:", err);
+    res.status(500).json({ error: "Failed to load depth ladder" });
+  }
+});
+-----------------------------------------------------
+
+
+## 5. Microstructure Replay Module
+# File: routes/microstructureReplay.js
+-----------------------------------------------------
+router.get("/api/liquidity/replay/:symbol", async (req, res) => {
+  try {
+    const symbol = req.params.symbol.toUpperCase();
+
+    const rows = await db.query(`
+      SELECT timestamp, price, depth_10bps, funding_rate
+      FROM microstructure_replay
+      WHERE symbol = $1
+      ORDER BY timestamp ASC
+      LIMIT 2000;
+    `, [symbol]);
+
+    const frames = rows.rows.map(r => ({
+      timestamp: toMsTimestamp(r.timestamp),
+      price: Number(r.price),
+      depth10bps: Number(r.depth_10bps),
+      funding: Number(r.funding_rate)
+    }));
+
+    res.json({
+      symbol,
+      frames,
+      updated: Date.now()
+    });
+
+  } catch (err) {
+    console.error("Replay error:", err);
+    res.status(500).json({ error: "Failed to load microstructure replay" });
+  }
+});
+-----------------------------------------------------
+
+
+## 6. Execution Cost Calculator Backend
+# File: routes/executionCost.js
+-----------------------------------------------------
+router.get("/api/liquidity/execution/:symbol", async (req, res) => {
+  try {
+    const symbol = req.params.symbol.toUpperCase();
+    const size = Number(req.query.size || 100000);
+
+    const venues = ["binance", "coinbase", "kraken", "bybit"];
+
+    const rows = await db.query(`
+      SELECT venue, slippage_bps, slippage_usd, depth_utilised
+      FROM execution_costs
+      WHERE symbol = $1 AND trade_size = $2;
+    `, [symbol, size]);
+
+    const report = rows.rows.map(r => ({
+      venue: r.venue,
+      slippageBps: Number(r.slippage_bps),
+      slippageUsd: Number(r.slippage_usd),
+      depthUtilised: Number(r.depth_utilised)
+    }));
+
+    res.json({
+      symbol,
+      size,
+      venues: report,
+      updated: Date.now()
+    });
+
+  } catch (err) {
+    console.error("Execution cost error:", err);
+    res.status(500).json({ error: "Failed to compute execution cost" });
+  }
+});
+-----------------------------------------------------
+
+
+## 7. Cross-Venue Liquidity Fragmentation Index
+# File: routes/fragmentation.js
+-----------------------------------------------------
+router.get("/api/liquidity/fragmentation/:symbol", async (req, res) => {
+  try {
+    const symbol = req.params.symbol.toUpperCase();
+
+    const rows = await db.query(`
+      SELECT venue, real_liquidity_usd, reported_liquidity_usd
+      FROM venue_liquidity
+      WHERE symbol = $1;
+    `, [symbol]);
+
+    const venues = rows.rows.map(r => ({
+      venue: r.venue,
+      real: Number(r.real_liquidity_usd),
+      reported: Number(r.reported_liquidity_usd)
+    }));
+
+    const totalReal = venues.reduce((a, v) => a + v.real, 0);
+
+    const fragmentationIndex =
+      venues.length < 2
+        ? 0
+        : venues.reduce((a, v) => a + Math.abs(v.real / totalReal - 1 / venues.length), 0);
+
+    res.json({
+      symbol,
+      venues,
+      fragmentationIndex,
+      updated: Date.now()
+    });
+
+  } catch (err) {
+    console.error("Fragmentation error:", err);
+    res.status(500).json({ error: "Failed to load fragmentation index" });
+  }
+});
+-----------------------------------------------------
+
+
+## 8. PoLi Score Timeseries (Placeholder for your PoLi engine)
+# File: routes/poliTimeseries.js
+-----------------------------------------------------
+router.get("/api/poli/timeseries/:symbol", async (req, res) => {
+  try {
+    const symbol = req.params.symbol.toUpperCase();
+
+    const rows = await db.query(`
+      SELECT timestamp, poli_score, depth_component, volatility_component,
+             concentration_component, venue_component
+      FROM poli_timeseries
+      WHERE symbol = $1
+      ORDER BY timestamp ASC
+      LIMIT 1000;
+    `, [symbol]);
+
+    const samples = rows.rows.map(r => ({
+      timestamp: toMsTimestamp(r.timestamp),
+      score: Number(r.poli_score),
+      depth: Number(r.depth_component),
+      vol: Number(r.volatility_component),
+      concentration: Number(r.concentration_component),
+      venues: Number(r.venue_component)
+    }));
+
+    res.json({
+      symbol,
+      samples,
+      updated: Date.now()
+    });
+
+  } catch (err) {
+    console.error("PoLi timeseries error:", err);
+    res.status(500).json({ error: "Failed to load PoLi timeseries" });
+  }
+});
+-----------------------------------------------------
+
+
+## 9. Export all modules via main API router
+# File: routes/index.js
+-----------------------------------------------------
+import liquidityTimeseries from "./liquidityTimeseries.js";
+import liquidityVelocity from "./liquidityVelocity.js";
+import depthLadder from "./depthLadder.js";
+import microReplay from "./microstructureReplay.js";
+import execution from "./executionCost.js";
+import fragmentation from "./fragmentation.js";
+import poliTimeseries from "./poliTimeseries.js";
+
+router.use(liquidityTimeseries);
+router.use(liquidityVelocity);
+router.use(depthLadder);
+router.use(microReplay);
+router.use(execution);
+router.use(fragmentation);
+router.use(poliTimeseries);
+
+export default router;
+-----------------------------------------------------
+
+# END OF UNIFIED BACKEND PATCH
