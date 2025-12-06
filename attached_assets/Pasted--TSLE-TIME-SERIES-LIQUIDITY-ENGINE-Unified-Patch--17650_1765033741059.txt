@@ -1,0 +1,296 @@
+# ============================================
+# TSLE — TIME-SERIES LIQUIDITY ENGINE (Unified Patch)
+# ============================================
+
+## ============================================
+## 1) BACKEND: CREATE /server/services/liquidityTimeseries.ts
+## ============================================
+
+# NEW FILE: server/services/liquidityTimeseries.ts
+
+import fs from "fs";
+import path from "path";
+
+// Path where rolling data will be stored (simple JSON time-series cache)
+const DATA_PATH = path.join(process.cwd(), "data", "ts_liquidity.json");
+
+interface DepthSample {
+  timestamp: number;
+  token: string;
+  depth10bps: number;
+  depth25bps: number;
+  depth50bps: number;
+  depth100bps: number;
+  depth200bps: number;
+}
+
+interface TimeseriesResult {
+  samples: DepthSample[];
+  summary: {
+    meanDepth10bps: number;
+    liquidityVolatility: number;
+    halfLifeMinutes: number;
+  };
+}
+
+// -------------------------
+// Load / initialize storage
+// -------------------------
+function loadStore(): DepthSample[] {
+  try {
+    if (!fs.existsSync(DATA_PATH)) return [];
+    return JSON.parse(fs.readFileSync(DATA_PATH, "utf8"));
+  } catch {
+    return [];
+  }
+}
+
+function saveStore(data: DepthSample[]) {
+  fs.mkdirSync(path.dirname(DATA_PATH), { recursive: true });
+  fs.writeFileSync(DATA_PATH, JSON.stringify(data));
+}
+
+// -----------------------------------------
+// Append a new depth snapshot (called by API)
+// -----------------------------------------
+export function addDepthSnapshot(sample: DepthSample) {
+  const store = loadStore();
+  store.push(sample);
+
+  // Keep last 30 days only
+  const cutoff = Date.now() - 1000 * 60 * 60 * 24 * 30;
+  const filtered = store.filter((s) => s.timestamp >= cutoff);
+
+  saveStore(filtered);
+}
+
+// -----------------------------------------
+// Query rolling window (1h / 24h / 7d / 30d)
+// -----------------------------------------
+export function getTimeseries(
+  token: string,
+  window: "1h" | "24h" | "7d" | "30d"
+): TimeseriesResult {
+  const store = loadStore();
+  const now = Date.now();
+
+  const windowMs =
+    window === "1h"
+      ? 1000 * 60 * 60
+      : window === "24h"
+      ? 1000 * 60 * 60 * 24
+      : window === "7d"
+      ? 1000 * 60 * 60 * 24 * 7
+      : 1000 * 60 * 60 * 24 * 30;
+
+  const samples = store.filter(
+    (s) => s.token === token && s.timestamp >= now - windowMs
+  );
+
+  if (samples.length < 2) {
+    return {
+      samples,
+      summary: {
+        meanDepth10bps: 0,
+        liquidityVolatility: 0,
+        halfLifeMinutes: 0,
+      },
+    };
+  }
+
+  // ---- Mean (stability proxy)
+  const mean = samples.reduce((acc, v) => acc + v.depth10bps, 0) / samples.length;
+
+  // ---- Liquidity Volatility (stdev of depth10bps)
+  const variance =
+    samples.reduce((acc, v) => acc + Math.pow(v.depth10bps - mean, 2), 0) /
+    samples.length;
+
+  const volatility = Math.sqrt(variance);
+
+  // ---- Liquidity Half-Life (recovery speed)
+  // Defined as: minutes required for depth to return to mean after deviation
+  let halfLife = 0;
+  for (let i = 1; i < samples.length; i++) {
+    const change = Math.abs(samples[i].depth10bps - samples[i - 1].depth10bps);
+    if (change < mean * 0.1) {
+      halfLife = (samples[i].timestamp - samples[i - 1].timestamp) / 60000;
+      break;
+    }
+  }
+
+  return {
+    samples,
+    summary: {
+      meanDepth10bps: mean,
+      liquidityVolatility: volatility,
+      halfLifeMinutes: Math.round(halfLife),
+    },
+  };
+}
+
+export default {
+  addDepthSnapshot,
+  getTimeseries,
+};
+
+
+## ============================================
+## 2) BACKEND: CREATE API ENDPOINT /api/liquidity/timeseries
+## ============================================
+
+# NEW FILE: server/api/liquidityTimeseries.ts
+
+import { addDepthSnapshot, getTimeseries } from "../services/liquidityTimeseries";
+import type { Request, Response } from "express";
+
+export async function getTimeseriesHandler(req: Request, res: Response) {
+  const token = (req.query.token as string)?.toUpperCase() || "BTC";
+  const window = (req.query.window as string) as "1h" | "24h" | "7d" | "30d";
+
+  try {
+    const result = getTimeseries(token, window || "24h");
+    return res.json(result);
+  } catch (err) {
+    return res.status(500).json({ error: "TSLE fetch failure", detail: err });
+  }
+}
+
+// Optional: Inject depth snapshots (would be called every minute by cron)
+export async function postSnapshotHandler(req: Request, res: Response) {
+  try {
+    addDepthSnapshot(req.body);
+    return res.json({ ok: true });
+  } catch (err) {
+    return res.status(500).json({ error: "Unable to store snapshot", detail: err });
+  }
+}
+
+export default {
+  getTimeseriesHandler,
+  postSnapshotHandler,
+};
+
+
+## ============================================
+## 3) BACKEND: REGISTER NEW ROUTES IN server/index.ts
+## ============================================
+
+# MODIFY FILE: server/index.ts
+
+import liquidityTimeseries from "./api/liquidityTimeseries";
+
+app.get("/api/liquidity/timeseries", liquidityTimeseries.getTimeseriesHandler);
+app.post("/api/liquidity/snapshot", liquidityTimeseries.postSnapshotHandler);
+
+
+## ============================================
+## 4) CLIENT: CREATE API WRAPPER
+## ============================================
+
+# NEW FILE: client/src/lib/api/liquidityTimeseries.ts
+
+export async function fetchLiquidityTimeseries(token: string, window: string) {
+  const url = `/api/liquidity/timeseries?token=${token}&window=${window}`;
+  const res = await fetch(url);
+  return res.json();
+}
+
+
+## ============================================
+## 5) CLIENT: UI WIDGET (React Component)
+## ============================================
+
+# NEW FILE: client/src/components/analytics/LiquidityTimeseries.tsx
+
+import { useEffect, useState } from "react";
+import { fetchLiquidityTimeseries } from "@/lib/api/liquidityTimeseries";
+import { Line } from "react-chartjs-2";
+
+export default function LiquidityTimeseries({ token }: { token: string }) {
+  const [window, setWindow] = useState("24h");
+  const [data, setData] = useState<any>(null);
+
+  useEffect(() => {
+    fetchLiquidityTimeseries(token, window).then(setData);
+  }, [token, window]);
+
+  if (!data) return <div>Loading time-series liquidity…</div>;
+
+  const labels = data.samples.map((s: any) =>
+    new Date(s.timestamp).toLocaleTimeString()
+  );
+
+  const depths = data.samples.map((s: any) => s.depth10bps);
+
+  return (
+    <div className="p-4 rounded-lg bg-[#0D1117] border border-[#1E2633]">
+      <h3 className="text-lg font-semibold text-white mb-2">
+        Time-Series Liquidity — {token}
+      </h3>
+
+      <div className="flex gap-2 mb-4">
+        {["1h", "24h", "7d", "30d"].map((w) => (
+          <button
+            key={w}
+            onClick={() => setWindow(w)}
+            className={`px-3 py-1 rounded ${
+              w === window ? "bg-blue-600" : "bg-gray-700"
+            }`}
+          >
+            {w}
+          </button>
+        ))}
+      </div>
+
+      <Line
+        data={{
+          labels,
+          datasets: [
+            {
+              label: "Depth @ 10bps",
+              data: depths,
+              borderColor: "#00C2FF",
+              backgroundColor: "rgba(0,194,255,0.2)",
+              tension: 0.3,
+              fill: true,
+            },
+          ],
+        }}
+        options={{
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color: "#aaa" } },
+            y: { ticks: { color: "#aaa" } },
+          },
+        }}
+      />
+
+      <div className="mt-3 text-xs text-gray-300">
+        <div>Mean Depth: ${data.summary.meanDepth10bps.toFixed(0)}</div>
+        <div>Volatility: {data.summary.liquidityVolatility.toFixed(2)}</div>
+        <div>Half-Life: {data.summary.halfLifeMinutes} min</div>
+      </div>
+    </div>
+  );
+}
+
+
+## ============================================
+## 6) CLIENT: INSERT WIDGET INTO ANALYTICS PAGE
+## ============================================
+
+# MODIFY FILE: client/src/pages/analytics.tsx
+
+import LiquidityTimeseries from "@/components/analytics/LiquidityTimeseries";
+
+# Find the bottom section of the page and insert:
+
+<div className="col-span-12 mt-6">
+  <LiquidityTimeseries token={selectedToken} />
+</div>
+
+
+# ============================================
+# END OF TSLE UNIFIED PATCH  
+# ============================================
