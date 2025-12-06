@@ -1,6 +1,7 @@
 import express from "express";
 import { getOrderbookDepthHistory } from "../services/depthHistory";
 import { computeStabilityStats } from "../services/liquidityStats";
+import { computeVenueLiquiditySnapshot } from "../services/venueLiquidity";
 
 const router = express.Router();
 
@@ -28,6 +29,17 @@ router.get("/timeseries", async (req, res) => {
   } catch (err) {
     console.error("timeseries error", err);
     return res.status(500).json({ error: "Timeseries computation failed" });
+  }
+});
+
+router.get("/venues", async (req, res) => {
+  try {
+    const token = (req.query.token as string)?.toUpperCase() || "BTC";
+    const snapshot = await computeVenueLiquiditySnapshot(token);
+    return res.json(snapshot);
+  } catch (err) {
+    console.error("liquidity/venues error", err);
+    return res.status(500).json({ error: "Failed to compute venue liquidity" });
   }
 });
 
