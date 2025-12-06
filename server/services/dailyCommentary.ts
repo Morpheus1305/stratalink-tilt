@@ -1,6 +1,8 @@
 import { computeTsleEngine, TsleSide } from "./tradeSizeEngine";
 import { computeExecutionIntel } from "./executionIntelligence";
 import { SupportedToken } from "./cexOrderbooks";
+import { storage, CommentarySnapshot } from "../storage";
+import type { CommentaryDelta } from "@shared/schema";
 
 export type DailyCommentary = {
   symbol: SupportedToken;
@@ -14,6 +16,7 @@ export type DailyCommentary = {
   maxSize25bps: number;
   maxSize50bps: number;
   generatedAt: number;
+  delta: CommentaryDelta | null;
 };
 
 function formatUsdCompact(v: number): string {
@@ -24,25 +27,39 @@ function formatUsdCompact(v: number): string {
   return `$${v.toFixed(0)}`;
 }
 
+function formatDeltaPct(pct: number): string {
+  const sign = pct >= 0 ? "+" : "";
+  return `${sign}${pct.toFixed(1)}%`;
+}
+
+function getTodayDateUTC(): string {
+  return new Date().toISOString().split("T")[0];
+}
+
 function buildDominantFactor(
   symbol: string,
   slippageRegime: string,
   riskScore: number,
   bestVenue: string
 ): string {
+  const venue = bestVenue.toUpperCase();
+  
   if (riskScore >= 85) {
-    return `Deep, venue-diversified orderbook liquidity on ${bestVenue.toUpperCase()} is driving clean execution conditions in ${symbol}.`;
+    return `Order book is fully two-sided across ${venue}; sweep cost remains inside 18bps. Execution posture: FAVORABLE.`;
   }
-  if (riskScore >= 65) {
-    return `Moderate fragmentation and slightly elevated slippage – ${symbol} execution is still mainly driven by ${bestVenue.toUpperCase()}, but books are thinner off-venue.`;
+  if (riskScore >= 70) {
+    return `Depth concentrated on ${venue} with adequate secondary venue support. Sweep cost 18-35bps. Execution posture: CONSTRUCTIVE.`;
   }
-  if (riskScore >= 45) {
-    return `Liquidity for ${symbol} is dominated by a small number of venues, with widening spreads and a ${slippageRegime.toLowerCase()} slippage regime.`;
+  if (riskScore >= 55) {
+    return `Liquidity fragmented; ${venue} holds primary depth but secondary venues thin. Sweep cost 35-60bps. Execution posture: CAUTIOUS.`;
   }
-  return `Execution in ${symbol} is stress-driven: thin depth, wide spreads and a ${slippageRegime.toLowerCase()} slippage profile across venues.`;
+  if (riskScore >= 40) {
+    return `Books one-sided with widening spreads. ${venue} remains viable but off-venue depth sparse. Execution posture: DEFENSIVE.`;
+  }
+  return `Stress conditions: thin depth, wide spreads, ${slippageRegime.toLowerCase()} slippage profile. Execution posture: AVOID LARGE FLOWS.`;
 }
 
-function buildMarketStructureSentence(
+function buildMarketStructureRegime(
   symbol: string,
   slippageRegime: string,
   riskScore: number,
@@ -53,15 +70,89 @@ function buildMarketStructureSentence(
   const s50 = formatUsdCompact(maxSize50bps);
 
   if (riskScore >= 85) {
-    return `Today is a "low-impact" regime for ${symbol}: flows up to ${s25} can be executed inside 25bps and roughly ${s50} inside 50bps without meaningful market impact.`;
+    return `LOW-IMPACT regime: ${symbol} absorbs flows to ${s25} inside 25bps; ${s50} clears inside 50bps without material footprint.`;
   }
-  if (riskScore >= 65) {
-    return `${symbol} sits in a "balanced" regime: flow up to ${s25} is generally safe inside 25bps, but the curve steepens beyond ${s50} as books thin out.`;
+  if (riskScore >= 70) {
+    return `BALANCED regime: ${symbol} tolerates ${s25} inside 25bps. Impact curve steepens beyond ${s50}; recommend TWAP above this threshold.`;
   }
-  if (riskScore >= 45) {
-    return `${symbol} is in a "fragile liquidity" regime: impact accelerates sharply beyond ${s25}, and even ${s50} trades are starting to print in a ${slippageRegime.toLowerCase()} environment.`;
+  if (riskScore >= 55) {
+    return `FRAGILE regime: Impact accelerates sharply beyond ${s25}. Orders above ${s50} require execution algo or risk adverse selection.`;
   }
-  return `${symbol} is trading in a "deleveraging / stress" regime: even mid-sized orders quickly run into depth walls, and block trades will struggle to clear without significant price impact.`;
+  if (riskScore >= 40) {
+    return `STRESSED regime: Depth walls encountered at ${s25}. Block trades to ${s50} will print with 50-100bps impact.`;
+  }
+  return `DELEVERAGING regime: Mid-sized orders hit depth walls. Block trades face significant price impact; consider off-exchange RFQ.`;
+}
+
+function buildExecutionBullets(
+  maxSize25bps: number,
+  maxSize50bps: number,
+  slippageRegime: string,
+  riskScore: number,
+  bestVenue: string,
+  delta: CommentaryDelta | null
+): string[] {
+  const s25 = formatUsdCompact(maxSize25bps);
+  const s50 = formatUsdCompact(maxSize50bps);
+  const venue = bestVenue.toUpperCase();
+
+  const bullets: string[] = [
+    `Max size <25bps impact: **${s25}**`,
+    `Max size <50bps impact: **${s50}**`,
+    `Slippage regime: **${slippageRegime}** | Risk score: **${riskScore}/100**`,
+    `Primary venue: **${venue}**`,
+  ];
+
+  if (delta) {
+    const parts: string[] = [];
+    if (delta.riskScoreDelta !== null) {
+      const sign = delta.riskScoreDelta >= 0 ? "+" : "";
+      parts.push(`Risk ${sign}${delta.riskScoreDelta} pts`);
+    }
+    if (delta.maxSize25bpsDeltaPct !== null) {
+      parts.push(`25bps capacity ${formatDeltaPct(delta.maxSize25bpsDeltaPct)}`);
+    }
+    if (delta.regimeChange) {
+      parts.push(`Regime: ${delta.regimeChange}`);
+    }
+    if (parts.length > 0) {
+      bullets.push(`vs Prior: ${parts.join(" | ")}`);
+    }
+  }
+
+  return bullets;
+}
+
+function computeDelta(
+  current: { riskScore: number; max25: number; max50: number; regime: string },
+  prior: CommentarySnapshot | null
+): CommentaryDelta | null {
+  if (!prior) return null;
+
+  const riskScoreDelta = current.riskScore - prior.executionRiskScore;
+  
+  const max25DeltaPct =
+    prior.maxSize25bps > 0
+      ? ((current.max25 - prior.maxSize25bps) / prior.maxSize25bps) * 100
+      : null;
+  
+  const max50DeltaPct =
+    prior.maxSize50bps > 0
+      ? ((current.max50 - prior.maxSize50bps) / prior.maxSize50bps) * 100
+      : null;
+
+  let regimeChange: string | null = null;
+  if (prior.slippageRegime !== current.regime) {
+    regimeChange = `${prior.slippageRegime} → ${current.regime}`;
+  }
+
+  return {
+    riskScoreDelta,
+    maxSize25bpsDeltaPct: max25DeltaPct,
+    maxSize50bpsDeltaPct: max50DeltaPct,
+    regimeChange,
+    priorDate: prior.snapshotDate,
+  };
 }
 
 export async function computeDailyCommentary(
@@ -79,6 +170,14 @@ export async function computeDailyCommentary(
 
   const max25 = maxByBps[25] || 0;
   const max50 = maxByBps[50] || 0;
+  const today = getTodayDateUTC();
+
+  const priorSnapshot = await storage.getPriorSnapshot(symbol, side, today);
+
+  const delta = computeDelta(
+    { riskScore: exec.executionRiskScore, max25, max50, regime: exec.slippageRegime },
+    priorSnapshot
+  );
 
   const dominantFactor = buildDominantFactor(
     symbol,
@@ -87,7 +186,7 @@ export async function computeDailyCommentary(
     exec.bestVenue
   );
 
-  const marketStructureRegime = buildMarketStructureSentence(
+  const marketStructureRegime = buildMarketStructureRegime(
     symbol,
     exec.slippageRegime,
     exec.executionRiskScore,
@@ -95,12 +194,29 @@ export async function computeDailyCommentary(
     max50
   );
 
-  const bullets: string[] = [
-    `Max aggregate size <25bps impact: **${formatUsdCompact(max25)}**`,
-    `Max aggregate size <50bps impact: **${formatUsdCompact(max50)}**`,
-    `Slippage regime: **${exec.slippageRegime}**, execution risk score: **${exec.executionRiskScore}/100**`,
-    `Best venue today: **${exec.bestVenue.toUpperCase()}**, currently offering the deepest & most stable books.`,
-  ];
+  const bullets = buildExecutionBullets(
+    max25,
+    max50,
+    exec.slippageRegime,
+    exec.executionRiskScore,
+    exec.bestVenue,
+    delta
+  );
+
+  await storage.saveCommentarySnapshot({
+    symbol,
+    side,
+    snapshotDate: today,
+    executionRiskScore: exec.executionRiskScore,
+    maxSize25bps: max25,
+    maxSize50bps: max50,
+    slippageRegime: exec.slippageRegime,
+    dominantFactor,
+    marketStructureRegime,
+    executionSummaryBullets: bullets,
+    bestVenue: exec.bestVenue,
+    generatedAt: Date.now(),
+  });
 
   return {
     symbol,
@@ -114,5 +230,6 @@ export async function computeDailyCommentary(
     maxSize25bps: max25,
     maxSize50bps: max50,
     generatedAt: Date.now(),
+    delta,
   };
 }

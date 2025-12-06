@@ -1,5 +1,13 @@
 import { useEffect, useState } from "react";
 
+export type CommentaryDelta = {
+  riskScoreDelta: number | null;
+  maxSize25bpsDeltaPct: number | null;
+  maxSize50bpsDeltaPct: number | null;
+  regimeChange: string | null;
+  priorDate: string | null;
+};
+
 export type DailyCommentary = {
   symbol: string;
   side: "buy" | "sell";
@@ -12,6 +20,7 @@ export type DailyCommentary = {
   maxSize25bps: number;
   maxSize50bps: number;
   generatedAt: number;
+  delta: CommentaryDelta | null;
 };
 
 interface DailyCommentaryState {

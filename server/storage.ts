@@ -13,9 +13,27 @@ import type {
   PortfolioData,
   AlertsData,
   ScorecardData,
-  User
+  User,
+  CommentaryDelta
 } from "@shared/schema";
 import { users, otpCodes, loginAttempts } from "@shared/schema";
+
+// In-memory snapshot storage type
+export type CommentarySnapshot = {
+  id: number;
+  symbol: string;
+  side: "buy" | "sell";
+  snapshotDate: string; // YYYY-MM-DD
+  executionRiskScore: number;
+  maxSize25bps: number;
+  maxSize50bps: number;
+  slippageRegime: string;
+  dominantFactor: string;
+  marketStructureRegime: string;
+  executionSummaryBullets: string[];
+  bestVenue: string;
+  generatedAt: number;
+};
 import { db } from "./db";
 import { eq, and, lt } from "drizzle-orm";
 import { web3DataService } from "./apiClients";
@@ -39,10 +57,19 @@ export interface IStorage {
   incrementLoginAttempts(userId: string): Promise<number>;
   resetLoginAttempts(userId: string): Promise<void>;
   isUserLocked(userId: string): Promise<boolean>;
+  
+  // Commentary snapshot methods
+  saveCommentarySnapshot(snapshot: Omit<CommentarySnapshot, 'id'>): Promise<CommentarySnapshot>;
+  getLatestSnapshot(symbol: string, side: "buy" | "sell"): Promise<CommentarySnapshot | null>;
+  getPriorSnapshot(symbol: string, side: "buy" | "sell", beforeDate: string): Promise<CommentarySnapshot | null>;
 }
 
 export class MemStorage implements IStorage {
   private useLiveData: boolean = true;  // Enabled: Using Binance API for live data
+  
+  // In-memory storage for commentary snapshots
+  private commentarySnapshots: CommentarySnapshot[] = [];
+  private snapshotIdCounter: number = 1;
   
   private async fetchLiveMetrics(asset: string = 'BTC'): Promise<LiveMetric[] | null> {
     if (!this.useLiveData) return null;
@@ -1126,6 +1153,47 @@ export class MemStorage implements IStorage {
     }
     
     return true;
+  }
+
+  // Commentary snapshot methods
+  async saveCommentarySnapshot(snapshot: Omit<CommentarySnapshot, 'id'>): Promise<CommentarySnapshot> {
+    const newSnapshot: CommentarySnapshot = {
+      ...snapshot,
+      id: this.snapshotIdCounter++,
+    };
+    
+    // Check if we already have a snapshot for this symbol/side/date
+    const existingIdx = this.commentarySnapshots.findIndex(
+      s => s.symbol === snapshot.symbol && 
+           s.side === snapshot.side && 
+           s.snapshotDate === snapshot.snapshotDate
+    );
+    
+    if (existingIdx >= 0) {
+      // Update existing snapshot
+      this.commentarySnapshots[existingIdx] = { ...newSnapshot, id: this.commentarySnapshots[existingIdx].id };
+      return this.commentarySnapshots[existingIdx];
+    }
+    
+    // Add new snapshot
+    this.commentarySnapshots.push(newSnapshot);
+    return newSnapshot;
+  }
+
+  async getLatestSnapshot(symbol: string, side: "buy" | "sell"): Promise<CommentarySnapshot | null> {
+    const matching = this.commentarySnapshots
+      .filter(s => s.symbol === symbol && s.side === side)
+      .sort((a, b) => b.snapshotDate.localeCompare(a.snapshotDate));
+    
+    return matching[0] || null;
+  }
+
+  async getPriorSnapshot(symbol: string, side: "buy" | "sell", beforeDate: string): Promise<CommentarySnapshot | null> {
+    const matching = this.commentarySnapshots
+      .filter(s => s.symbol === symbol && s.side === side && s.snapshotDate < beforeDate)
+      .sort((a, b) => b.snapshotDate.localeCompare(a.snapshotDate));
+    
+    return matching[0] || null;
   }
 }
 

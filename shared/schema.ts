@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { pgTable, varchar, boolean, text, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, varchar, boolean, text, timestamp, integer, real, json, date } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 
 // Live Market Data Metrics
@@ -378,3 +378,71 @@ export const setupTOTPResponseSchema = z.object({
 });
 
 export type SetupTOTPResponse = z.infer<typeof setupTOTPResponseSchema>;
+
+// ========================================
+// Daily Commentary Snapshots (for Yesterday vs Today deltas)
+// ========================================
+
+export const dailyCommentarySnapshots = pgTable("daily_commentary_snapshots", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  symbol: varchar("symbol", { length: 20 }).notNull(),
+  side: varchar("side", { length: 10 }).notNull(),
+  snapshotDate: date("snapshot_date").notNull(),
+  executionRiskScore: integer("execution_risk_score").notNull(),
+  maxSize25bps: real("max_size_25bps").notNull(),
+  maxSize50bps: real("max_size_50bps").notNull(),
+  slippageRegime: varchar("slippage_regime", { length: 50 }).notNull(),
+  dominantFactor: text("dominant_factor").notNull(),
+  marketStructureRegime: text("market_structure_regime").notNull(),
+  executionSummaryBullets: json("execution_summary_bullets").$type<string[]>().notNull(),
+  bestVenue: varchar("best_venue", { length: 50 }).notNull(),
+  generatedAt: timestamp("generated_at").notNull().defaultNow(),
+});
+
+// Manual insert schema to avoid drizzle-zod compatibility issues
+export const insertCommentarySnapshotSchema = z.object({
+  symbol: z.string(),
+  side: z.string(),
+  snapshotDate: z.string(),
+  executionRiskScore: z.number(),
+  maxSize25bps: z.number(),
+  maxSize50bps: z.number(),
+  slippageRegime: z.string(),
+  dominantFactor: z.string(),
+  marketStructureRegime: z.string(),
+  executionSummaryBullets: z.array(z.string()),
+  bestVenue: z.string(),
+  generatedAt: z.number().optional(),
+});
+
+export type InsertCommentarySnapshot = z.infer<typeof insertCommentarySnapshotSchema>;
+export type SelectCommentarySnapshot = typeof dailyCommentarySnapshots.$inferSelect;
+
+// Zod schema for delta calculations
+export const commentaryDeltaSchema = z.object({
+  riskScoreDelta: z.number().nullable(),
+  maxSize25bpsDeltaPct: z.number().nullable(),
+  maxSize50bpsDeltaPct: z.number().nullable(),
+  regimeChange: z.string().nullable(),
+  priorDate: z.string().nullable(),
+});
+
+export type CommentaryDelta = z.infer<typeof commentaryDeltaSchema>;
+
+// Extended daily commentary response with deltas
+export const dailyCommentaryResponseSchema = z.object({
+  symbol: z.string(),
+  side: z.enum(["buy", "sell"]),
+  dominantFactor: z.string(),
+  marketStructureRegime: z.string(),
+  executionSummaryBullets: z.array(z.string()),
+  executionRiskScore: z.number(),
+  slippageRegime: z.string(),
+  bestVenue: z.string(),
+  maxSize25bps: z.number(),
+  maxSize50bps: z.number(),
+  generatedAt: z.number(),
+  delta: commentaryDeltaSchema.nullable(),
+});
+
+export type DailyCommentaryResponse = z.infer<typeof dailyCommentaryResponseSchema>;
