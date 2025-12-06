@@ -26,6 +26,7 @@ import DynamicDepthLadder from "@/components/DynamicDepthLadder";
 import { LiquidityTimeseriesPanel } from "@/components/analytics/LiquidityTimeseriesPanel";
 import { ExecutionCostCalculatorPanel } from "@/components/analytics/ExecutionCostCalculatorPanel";
 import ExecutionIntelPanel from "@/components/analytics/ExecutionIntelPanel";
+import DailyMarketCommentaryPanel from "@/components/analytics/DailyMarketCommentaryPanel";
 
 type StressDriver = {
   category: string;
@@ -238,6 +239,13 @@ export default function AnalyticsPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Daily Market Commentary - Full Width */}
+      <div className="grid grid-cols-12 gap-4 mb-5">
+        <div className="col-span-12">
+          <DailyMarketCommentaryPanel symbol={selectedToken} />
+        </div>
+      </div>
 
       {/* Live Token-Aware Sparklines */}
       <div style={{ marginBottom: 20 }}>
