@@ -1,0 +1,139 @@
+# ============================================================
+# STRATALINK — DAILY EXECUTION INTELLIGENCE ENGINE (A-LEVEL)
+# Extends TSLE → Converts raw data into actionable insights:
+#  - Daily execution commentary
+#  - Slippage regime classification
+#  - Venue comparison summaries
+#  - Max-size signals
+#  - Execution risk score (0–100)
+# ============================================================
+
+
+###############################################################
+# 1) BACKEND SERVICE: executionIntelligence.ts
+#    Converts TSLE output into analytics commentary
+#    File: server/services/executionIntelligence.ts
+###############################################################
+```ts
+import { computeTsleEngine } from "./tradeSizeEngine";
+
+export interface ExecutionIntel {
+  symbol: string;
+  side: "buy" | "sell";
+  maxSizeSignals: {
+    bps10: number;
+    bps25: number;
+    bps50: number;
+    bps100: number;
+  };
+  slippageRegime: "Ultra-Tight" | "Tight" | "Normal" | "Wide" | "Broken";
+  bestVenue: string;
+  venueSummary: string;
+  executionRiskScore: number; // 0–100 (100 = excellent execution environment)
+  commentary: string;
+  generatedAt: number;
+}
+
+function classifySlippage(bps: number): ExecutionIntel["slippageRegime"] {
+  if (bps < 5) return "Ultra-Tight";
+  if (bps < 15) return "Tight";
+  if (bps < 30) return "Normal";
+  if (bps < 70) return "Wide";
+  return "Broken";
+}
+
+function computeExecutionRisk(scoreInputs: {
+  bps25: number;
+  bps50: number;
+  venueCount: number;
+  venueBalance: number;
+}) {
+  const { bps25, bps50, venueCount, venueBalance } = scoreInputs;
+
+  let score = 100;
+
+  // Increase risk when slippage rises
+  score -= Math.min(bps25 * 0.5, 30);
+  score -= Math.min(bps50 * 0.2, 20);
+
+  // Penalize lack of venue diversity
+  if (venueCount === 1) score -= 25;
+  if (venueCount === 2) score -= 10;
+
+  // Penalize imbalance between venues
+  score -= Math.abs(venueBalance) * 15;
+
+  return Math.round(Math.max(0, Math.min(100, score)));
+}
+
+export async function computeExecutionIntel(
+  symbol: string,
+  side: "buy" | "sell"
+): Promise<ExecutionIntel> {
+  const tsle = await computeTsleEngine(symbol as any, side, 5_000_000);
+
+  const max = tsle.maxSizeByBps.reduce((acc, row) => {
+    acc[row.bps] = row.maxSizeUsd;
+    return acc;
+  }, {} as any);
+
+  const firstPoint = tsle.curve[0];
+  const regime = classifySlippage(firstPoint.bestSlippageBps);
+
+  // Determine best venue based on smallest slippage at $100k
+  const p100k = tsle.curve.find((p) => p.sizeUsd >= 100000);
+  const bestVenue = p100k?.bestVenue ?? "binance";
+
+  // Venue balance = how evenly depth is distributed (0 = perfect balance)
+  const venueDepths = tsle.venues.map(
+    (v) => v.maxSize25bps + v.maxSize50bps + v.maxSize100bps
+  );
+  const totalDepth = venueDepths.reduce((a, b) => a + b, 0);
+  const balance =
+    totalDepth > 0 ? (Math.max(...venueDepths) / totalDepth - 1 / venueDepths.length) : 0;
+
+  const riskScore = computeExecutionRisk({
+    bps25: firstPoint.bestSlippageBps,
+    bps50: p100k?.bestSlippageBps ?? 0,
+    venueCount: tsle.venues.length,
+    venueBalance: balance,
+  });
+
+  const commentary = `
+Execution environment for ${symbol} (${side}):
+- Slippage regime: **${regime}**
+- Best venue at $100k: **${bestVenue}**
+- Max tradeable size <25bps: **$${(max[25] / 1_000_000).toFixed(2)}m**
+- Risk Score: **${riskScore}/100**
+
+Interpretation:
+${
+  riskScore > 85
+    ? "Excellent execution conditions with deep, stable books across major venues."
+    : riskScore > 65
+    ? "Healthy liquidity, moderate fragmentation, acceptable slippage across venues."
+    : riskScore > 45
+    ? "Execution risk rising — watch venue imbalances and depth decay."
+    : riskScore > 25
+    ? "Poor liquidity environment — wide spreads and inconsistent depth across venues."
+    : "Severely impaired liquidity — expect strong price impact and unreliable execution."
+}
+`;
+
+  return {
+    symbol,
+    side,
+    maxSizeSignals: {
+      bps10: max[10],
+      bps25: max[25],
+      bps50: max[50],
+      bps100: max[100],
+    },
+    slippageRegime: regime,
+    bestVenue,
+    venueSummary: `${bestVenue} currently offers the most stable + deepest execution conditions.`,
+    executionRiskScore: riskScore,
+    commentary,
+    generatedAt: Date.now(),
+  };
+}

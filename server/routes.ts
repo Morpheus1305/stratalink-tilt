@@ -7,6 +7,7 @@ import { arkhamService } from "./arkhamClient";
 import analyticsRoutes from "../analytics/routes";
 import liquidityRoutes from "./routes/liquidity";
 import executionRoutes from "./routes/execution";
+import intelRoutes from "./routes/intel";
 import { startIngestionLoop } from "../analytics/engines/ingestionManager";
 import { 
   loginRequestSchema, 
@@ -369,6 +370,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mount execution routes
   app.use("/api/execution", executionRoutes);
+
+  // Mount intel routes
+  app.use("/api/intel", intelRoutes);
 
   // Start analytics ingestion loop
   startIngestionLoop();

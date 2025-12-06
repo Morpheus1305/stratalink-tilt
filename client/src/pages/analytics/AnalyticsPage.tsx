@@ -25,6 +25,7 @@ import LiquidityDynamicsPanel from "@/components/LiquidityDynamicsPanel";
 import DynamicDepthLadder from "@/components/DynamicDepthLadder";
 import { LiquidityTimeseriesPanel } from "@/components/analytics/LiquidityTimeseriesPanel";
 import { ExecutionCostCalculatorPanel } from "@/components/analytics/ExecutionCostCalculatorPanel";
+import ExecutionIntelPanel from "@/components/analytics/ExecutionIntelPanel";
 
 type StressDriver = {
   category: string;
@@ -321,6 +322,11 @@ export default function AnalyticsPage() {
         <section className="bg-[#050814] border border-[#111827] rounded-xl p-4">
           <ExecutionCostCalculatorPanel token={selectedToken} />
         </section>
+      </div>
+
+      {/* Execution Intelligence Panel */}
+      <div className="mb-5">
+        <ExecutionIntelPanel symbol={selectedToken} side="buy" />
       </div>
 
       {/* Footer */}
