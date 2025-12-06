@@ -23,6 +23,8 @@ import DepthPanel from "@/components/DepthPanel";
 import MicrostructureStats from "@/components/MicrostructureStats";
 import LiquidityDynamicsPanel from "@/components/LiquidityDynamicsPanel";
 import DynamicDepthLadder from "@/components/DynamicDepthLadder";
+import { LiquidityTimeseriesPanel } from "@/components/analytics/LiquidityTimeseriesPanel";
+import { ExecutionCostCalculatorPanel } from "@/components/analytics/ExecutionCostCalculatorPanel";
 
 type StressDriver = {
   category: string;
@@ -309,6 +311,16 @@ export default function AnalyticsPage() {
         <VolatilityConePanel />
         <CexDexGauge />
         <StablecoinFlowPanel />
+      </div>
+
+      {/* Time-Series Liquidity + Execution Cost Calculator */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mt-4 mb-5">
+        <section className="bg-[#050814] border border-[#111827] rounded-xl p-4">
+          <LiquidityTimeseriesPanel token={selectedToken} />
+        </section>
+        <section className="bg-[#050814] border border-[#111827] rounded-xl p-4">
+          <ExecutionCostCalculatorPanel token={selectedToken} />
+        </section>
       </div>
 
       {/* Footer */}
