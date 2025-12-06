@@ -1,0 +1,111 @@
+export type SupportedVenue = "binance" | "coinbase" | "kraken";
+export type SupportedToken = "BTC" | "ETH" | "SOL";
+
+const SYMBOLS = {
+  BTC: {
+    binance: "BTCUSDT",
+    coinbase: "BTC-USD",
+    kraken: "XBTUSD",
+  },
+  ETH: {
+    binance: "ETHUSDT",
+    coinbase: "ETH-USD",
+    kraken: "ETHUSD",
+  },
+  SOL: {
+    binance: "SOLUSDT",
+    coinbase: "SOL-USD",
+    kraken: "SOLUSD",
+  },
+};
+
+async function httpJson(url: string) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`HTTP ${r.status}: ${url}`);
+  return r.json();
+}
+
+export async function fetchVenueOrderbook(
+  venue: SupportedVenue,
+  token: SupportedToken
+) {
+  const symbol = SYMBOLS[token][venue];
+
+  if (venue === "binance") {
+    const json = await httpJson(
+      `https://api.binance.com/api/v3/depth?symbol=${symbol}&limit=100`
+    );
+    const bids = json.bids.map(([p, q]: [string, string]) => ({
+      price: +p,
+      sizeBase: +q,
+    }));
+    const asks = json.asks.map(([p, q]: [string, string]) => ({
+      price: +p,
+      sizeBase: +q,
+    }));
+    const mid = (bids[0].price + asks[0].price) / 2;
+    return { mid, bids, asks };
+  }
+
+  if (venue === "coinbase") {
+    const json = await httpJson(
+      `https://api.exchange.coinbase.com/products/${symbol}/book?level=2`
+    );
+    const bids = json.bids.map(([p, q]: [string, string]) => ({
+      price: +p,
+      sizeBase: +q,
+    }));
+    const asks = json.asks.map(([p, q]: [string, string]) => ({
+      price: +p,
+      sizeBase: +q,
+    }));
+    const mid = (+bids[0].price + +asks[0].price) / 2;
+    return { mid, bids, asks };
+  }
+
+  const json = await httpJson(
+    `https://api.kraken.com/0/public/Depth?pair=${symbol}&count=100`
+  );
+  const pairKey = Object.keys(json.result)[0];
+  const raw = json.result[pairKey];
+
+  const bids = raw.bids.map(([p, q]: [string, string]) => ({
+    price: +p,
+    sizeBase: +q,
+  }));
+  const asks = raw.asks.map(([p, q]: [string, string]) => ({
+    price: +p,
+    sizeBase: +q,
+  }));
+  const mid = (bids[0].price + asks[0].price) / 2;
+
+  return { mid, bids, asks };
+}
+
+export async function fetchVenueVolume24h(
+  venue: SupportedVenue,
+  token: SupportedToken
+) {
+  const symbol = SYMBOLS[token][venue];
+
+  if (venue === "binance") {
+    const json = await httpJson(
+      `https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`
+    );
+    return +json.quoteVolume;
+  }
+
+  if (venue === "coinbase") {
+    const json = await httpJson(
+      `https://api.exchange.coinbase.com/products/${symbol}/stats`
+    );
+    return +json.volume * +json.last;
+  }
+
+  const json = await httpJson(
+    `https://api.kraken.com/0/public/Ticker?pair=${symbol}`
+  );
+  const pairKey = Object.keys(json.result)[0];
+  const raw = json.result[pairKey];
+  return +raw.v[1] * +raw.c[0];
+}

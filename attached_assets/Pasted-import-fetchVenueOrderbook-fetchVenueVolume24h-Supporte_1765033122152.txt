@@ -1,0 +1,116 @@
+import {
+  fetchVenueOrderbook,
+  fetchVenueVolume24h,
+  SupportedVenue,
+  SupportedToken,
+} from "./cexOrderbooks";
+
+export type VenueLiquiditySnapshot = {
+  token: string;
+  totalDepth10bps: number;
+  totalDepth50bps: number;
+  venues: {
+    venue: SupportedVenue;
+    depth10bps: number;
+    depth50bps: number;
+    volume24hUsd: number;
+    shareDepth10bps: number;
+    shareDepth50bps: number;
+    shareVolume24h: number;
+  }[];
+  hhiDepth10bps: number;
+  fragmentationIndex: number;
+  fragmentationLabel: "Highly Fragmented" | "Balanced" | "Concentrated";
+};
+
+const VENUES: SupportedVenue[] = ["binance", "coinbase", "kraken"];
+
+export async function computeVenueLiquiditySnapshot(
+  token: string
+): Promise<VenueLiquiditySnapshot> {
+  const t = (token.toUpperCase() as SupportedToken) || "BTC";
+
+  const [orderbooks, volumes] = await Promise.all([
+    Promise.all(
+      VENUES.map(async (venue) => ({
+        venue,
+        ob: await fetchVenueOrderbook(venue, t),
+      }))
+    ),
+    Promise.all(
+      VENUES.map(async (venue) => ({
+        venue,
+        volume24hUsd: await fetchVenueVolume24h(venue, t),
+      }))
+    ),
+  ]);
+
+  const venueStats = orderbooks.map(({ venue, ob }) => {
+    const depth10bps = computeDepthAtBps(ob, 10);
+    const depth50bps = computeDepthAtBps(ob, 50);
+    const volRow = volumes.find((v) => v.venue === venue);
+    return {
+      venue,
+      depth10bps,
+      depth50bps,
+      volume24hUsd: volRow?.volume24hUsd ?? 0,
+    };
+  });
+
+  const totalDepth10bps = venueStats.reduce((s, v) => s + v.depth10bps, 0);
+  const totalDepth50bps = venueStats.reduce((s, v) => s + v.depth50bps, 0);
+  const totalVol = venueStats.reduce((s, v) => s + (v.volume24hUsd || 0), 0);
+
+  const venues = venueStats.map((v) => ({
+    venue: v.venue,
+    depth10bps: v.depth10bps,
+    depth50bps: v.depth50bps,
+    volume24hUsd: v.volume24hUsd,
+    shareDepth10bps:
+      totalDepth10bps > 0 ? v.depth10bps / totalDepth10bps : 0,
+    shareDepth50bps:
+      totalDepth50bps > 0 ? v.depth50bps / totalDepth50bps : 0,
+    shareVolume24h: totalVol > 0 ? v.volume24hUsd / totalVol : 0,
+  }));
+
+  const hhiDepth10bps = venues.reduce(
+    (hhi, v) => hhi + v.shareDepth10bps * v.shareDepth10bps,
+    0
+  );
+  const fragmentationIndex = 1 - hhiDepth10bps;
+
+  const fragmentationLabel =
+    hhiDepth10bps < 0.2
+      ? "Highly Fragmented"
+      : hhiDepth10bps < 0.35
+      ? "Balanced"
+      : "Concentrated";
+
+  return {
+    token: t,
+    totalDepth10bps,
+    totalDepth50bps,
+    venues,
+    hhiDepth10bps,
+    fragmentationIndex,
+    fragmentationLabel,
+  };
+}
+
+function computeDepthAtBps(ob: any, bps: number): number {
+  const maxMove = ob.mid * (bps / 10_000);
+
+  let bidDepth = 0;
+  for (const lvl of ob.bids) {
+    if (ob.mid - lvl.price > maxMove) break;
+    bidDepth += lvl.sizeBase * lvl.price;
+  }
+
+  let askDepth = 0;
+  for (const lvl of ob.asks) {
+    if (lvl.price - ob.mid > maxMove) break;
+    askDepth += lvl.sizeBase * lvl.price;
+  }
+
+  return bidDepth + askDepth;
+}
