@@ -6,6 +6,7 @@ import { web3DataService } from "./apiClients";
 import { arkhamService } from "./arkhamClient";
 import analyticsRoutes from "../analytics/routes";
 import liquidityRoutes from "./routes/liquidity";
+import executionRoutes from "./routes/execution";
 import { startIngestionLoop } from "../analytics/engines/ingestionManager";
 import { 
   loginRequestSchema, 
@@ -365,6 +366,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mount liquidity routes
   app.use("/api/liquidity", liquidityRoutes);
+
+  // Mount execution routes
+  app.use("/api/execution", executionRoutes);
 
   // Start analytics ingestion loop
   startIngestionLoop();
