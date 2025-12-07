@@ -1,0 +1,479 @@
+# ================================================
+# STRATA — TOKEN LIQUIDITY LEAGUE TABLE / HEATMAP
+# Layout: Option A (top of Analytics page)
+# ================================================
+# This patch does the following:
+#
+# 1. Defines a TokenLiquiditySummary type
+# 2. Creates a TokenLiquidityTable component (league table + heatmap)
+# 3. Integrates it into the Analytics page ABOVE Daily Commentary
+# 4. Adds a frontend-safe fetch helper with a synthetic fallback so the UI
+#    works even before the backend endpoint is live.
+#
+# Notes:
+# - Table is clickable: selecting a row calls onSelectToken(symbol)
+#   which should be wired to your existing token focus state.
+# - Colours:
+#   * Exec Regime pill: Ultra-Tight / Constructive / Stressed / Block-Only
+#   * Risk flag pill: Green / Amber / Red
+# ================================================
+
+
+# ------------------------------------------------
+# 1. Add TokenLiquiditySummary type
+# ------------------------------------------------
+# File: client/src/types/liquidity.ts  (create if not present)
+# ------------------------------------------------
+
+export type ExecutionRegime = "Ultra-Tight" | "Tight" | "Constructive" | "Stressed" | "Block-Only";
+
+export type RiskFlag = "green" | "amber" | "red";
+
+export interface TokenLiquiditySummary {
+  symbol: string;              // "BTC"
+  name?: string;               // "Bitcoin"
+  factorScore: number;         // 0–100 (5-Factor)
+  poliScore?: number;          // reserved for future PoLi integration
+  execRegime: ExecutionRegime;
+  max25bps: number;            // max trade size at <25bps impact (USD)
+  max50bps: number;            // max trade size at <50bps impact (USD)
+  bestVenue: string;           // "Kraken", "Coinbase", etc.
+  depth10: number;             // 10bps depth (USD)
+  depth10Change24h: number;    // % change vs yesterday
+  riskFlag: RiskFlag;
+}
+
+
+# ------------------------------------------------
+# 2. Add frontend fetch helper with synthetic fallback
+# ------------------------------------------------
+# File: client/src/lib/liquiditySummaryClient.ts  (new)
+# ------------------------------------------------
+
+import { TokenLiquiditySummary } from "@/types/liquidity";
+
+const syntheticSummary: TokenLiquiditySummary[] = [
+  {
+    symbol: "BTC",
+    name: "Bitcoin",
+    factorScore: 65,
+    poliScore: 88,
+    execRegime: "Ultra-Tight",
+    max25bps: 29_000_000,
+    max50bps: 35_000_000,
+    bestVenue: "Kraken",
+    depth10: 5_800_000,
+    depth10Change24h: 1.8,
+    riskFlag: "green",
+  },
+  {
+    symbol: "ETH",
+    name: "Ethereum",
+    factorScore: 56,
+    poliScore: 82,
+    execRegime: "Tight",
+    max25bps: 12_500_000,
+    max50bps: 18_300_000,
+    bestVenue: "Coinbase",
+    depth10: 3_200_000,
+    depth10Change24h: -0.9,
+    riskFlag: "green",
+  },
+  {
+    symbol: "SOL",
+    name: "Solana",
+    factorScore: 42,
+    poliScore: 71,
+    execRegime: "Constructive",
+    max25bps: 4_200_000,
+    max50bps: 7_600_000,
+    bestVenue: "Binance",
+    depth10: 1_100_000,
+    depth10Change24h: -4.5,
+    riskFlag: "amber",
+  },
+  {
+    symbol: "AVAX",
+    name: "Avalanche",
+    factorScore: 48,
+    execRegime: "Constructive",
+    max25bps: 2_800_000,
+    max50bps: 4_900_000,
+    bestVenue: "Binance",
+    depth10: 780_000,
+    depth10Change24h: 2.3,
+    riskFlag: "amber",
+  },
+  {
+    symbol: "LINK",
+    name: "Chainlink",
+    factorScore: 60,
+    execRegime: "Tight",
+    max25bps: 3_200_000,
+    max50bps: 5_400_000,
+    bestVenue: "Coinbase",
+    depth10: 910_000,
+    depth10Change24h: 0.7,
+    riskFlag: "green",
+  },
+  {
+    symbol: "DOT",
+    name: "Polkadot",
+    factorScore: 45,
+    execRegime: "Constructive",
+    max25bps: 1_600_000,
+    max50bps: 2_800_000,
+    bestVenue: "Binance",
+    depth10: 520_000,
+    depth10Change24h: -3.1,
+    riskFlag: "amber",
+  },
+  {
+    symbol: "NEAR",
+    name: "NEAR Protocol",
+    factorScore: 50,
+    execRegime: "Constructive",
+    max25bps: 1_900_000,
+    max50bps: 3_200_000,
+    bestVenue: "Binance",
+    depth10: 610_000,
+    depth10Change24h: 4.2,
+    riskFlag: "green",
+  },
+  {
+    symbol: "ADA",
+    name: "Cardano",
+    factorScore: 41,
+    execRegime: "Stressed",
+    max25bps: 900_000,
+    max50bps: 1_600_000,
+    bestVenue: "Binance",
+    depth10: 360_000,
+    depth10Change24h: -6.8,
+    riskFlag: "amber",
+  },
+  {
+    symbol: "XRP",
+    name: "XRP",
+    factorScore: 38,
+    execRegime: "Block-Only",
+    max25bps: 700_000,
+    max50bps: 1_200_000,
+    bestVenue: "Bybit",
+    depth10: 310_000,
+    depth10Change24h: -9.1,
+    riskFlag: "red",
+  },
+];
+
+export async function fetchTokenLiquiditySummary(): Promise<TokenLiquiditySummary[]> {
+  try {
+    const res = await fetch("/api/liquidity/summary");
+    if (!res.ok) {
+      // fall back if backend not wired yet
+      return syntheticSummary;
+    }
+    const data = await res.json();
+    if (!Array.isArray(data) || data.length === 0) {
+      return syntheticSummary;
+    }
+    return data;
+  } catch (e) {
+    // safe fallback for demo / offline mode
+    return syntheticSummary;
+  }
+}
+
+
+# ------------------------------------------------
+# 3. Create TokenLiquidityTable component
+# ------------------------------------------------
+# File: client/src/components/analytics/TokenLiquidityTable.tsx  (new)
+# ------------------------------------------------
+
+import React, { useEffect, useState } from "react";
+import { TokenLiquiditySummary } from "@/types/liquidity";
+import { fetchTokenLiquiditySummary } from "@/lib/liquiditySummaryClient";
+
+interface Props {
+  selectedToken: string;
+  onSelectToken: (symbol: string) => void;
+}
+
+const regimeClass = (regime: string) => {
+  switch (regime) {
+    case "Ultra-Tight":
+      return "bg-emerald-500/10 text-emerald-300 border-emerald-500/40";
+    case "Tight":
+      return "bg-sky-500/10 text-sky-300 border-sky-500/40";
+    case "Constructive":
+      return "bg-slate-500/10 text-slate-200 border-slate-500/40";
+    case "Stressed":
+      return "bg-amber-500/10 text-amber-300 border-amber-500/40";
+    case "Block-Only":
+      return "bg-red-500/10 text-red-300 border-red-500/40";
+    default:
+      return "bg-slate-600/10 text-slate-200 border-slate-500/30";
+  }
+};
+
+const riskClass = (flag: string) => {
+  switch (flag) {
+    case "green":
+      return "bg-emerald-500/10 text-emerald-300 border-emerald-500/40";
+    case "amber":
+      return "bg-amber-500/10 text-amber-300 border-amber-500/40";
+    case "red":
+      return "bg-red-500/10 text-red-300 border-red-500/40";
+    default:
+      return "bg-slate-600/10 text-slate-200 border-slate-500/30";
+  }
+};
+
+const TokenLiquidityTable: React.FC<Props> = ({ selectedToken, onSelectToken }) => {
+  const [rows, setRows] = useState<TokenLiquiditySummary[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    let mounted = true;
+    fetchTokenLiquiditySummary().then((data) => {
+      if (!mounted) return;
+      const sorted = [...data].sort((a, b) => b.factorScore - a.factorScore);
+      setRows(sorted);
+      setLoading(false);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <section className="mb-6 rounded-xl border border-surface-3 bg-surface-2 p-4">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-sm font-semibold text-gray-200 tracking-[0.16em] uppercase">
+            Token Liquidity League Table
+          </h2>
+          <span className="text-xs text-gray-400">Loading...</span>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="mb-6 rounded-xl border border-surface-3 bg-surface-2 p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <h2 className="text-sm font-semibold text-gray-200 tracking-[0.16em] uppercase">
+            Token Liquidity League Table
+          </h2>
+          <p className="text-xs text-gray-400 mt-1">
+            Ranked by 5-Factor Score & max tradeable size at &lt;25bps impact. Click a row to focus a token.
+          </p>
+        </div>
+        <div className="text-xs text-gray-400">
+          Exec Regime:{" "}
+          <span className="text-emerald-300">Ultra-Tight</span>,{" "}
+          <span className="text-sky-300">Tight</span>,{" "}
+          <span className="text-amber-300">Stressed</span>,{" "}
+          <span className="text-red-300">Block-Only</span>.
+        </div>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-xs">
+          <thead className="border-b border-surface-3 text-gray-400">
+            <tr className="text-[10px] uppercase tracking-[0.16em]">
+              <th className="py-2 pr-3 text-left">Token</th>
+              <th className="py-2 pr-3 text-right">5-Factor</th>
+              <th className="py-2 pr-3 text-right">&lt;25bps Size</th>
+              <th className="py-2 pr-3 text-right">&lt;50bps Size</th>
+              <th className="py-2 pr-3 text-left">Best Venue</th>
+              <th className="py-2 pr-3 text-right">10bps Depth</th>
+              <th className="py-2 pr-3 text-right">24h Δ Depth</th>
+              <th className="py-2 pr-3 text-left">Exec Regime</th>
+              <th className="py-2 pl-3 text-left">Risk</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => {
+              const isActive = row.symbol === selectedToken;
+              return (
+                <tr
+                  key={row.symbol}
+                  className={`cursor-pointer border-b border-surface-3/60 last:border-b-0 hover:bg-surface-3/60 ${
+                    isActive ? "bg-surface-3/70" : ""
+                  }`}
+                  onClick={() => onSelectToken(row.symbol)}
+                >
+                  <td className="py-2 pr-3 text-left">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`h-2 w-2 rounded-full ${
+                          isActive ? "bg-emerald-400" : "bg-slate-500"
+                        }`}
+                      />
+                      <div className="flex flex-col">
+                        <span className="text-gray-100 font-medium">{row.symbol}</span>
+                        {row.name && (
+                          <span className="text-[10px] text-gray-500 uppercase tracking-[0.12em]">
+                            {row.name}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="py-2 pr-3 text-right text-gray-100">
+                    {row.factorScore}
+                  </td>
+                  <td className="py-2 pr-3 text-right text-gray-100">
+                    ${row.max25bps.toLocaleString()}
+                  </td>
+                  <td className="py-2 pr-3 text-right text-gray-100">
+                    ${row.max50bps.toLocaleString()}
+                  </td>
+                  <td className="py-2 pr-3 text-left text-gray-200">
+                    {row.bestVenue}
+                  </td>
+                  <td className="py-2 pr-3 text-right text-gray-100">
+                    ${row.depth10.toLocaleString()}
+                  </td>
+                  <td
+                    className={`py-2 pr-3 text-right ${
+                      row.depth10Change24h >= 0 ? "text-emerald-300" : "text-red-300"
+                    }`}
+                  >
+                    {row.depth10Change24h >= 0 ? "▲" : "▼"}
+                    {Math.abs(row.depth10Change24h).toFixed(1)}%
+                  </td>
+                  <td className="py-2 pr-3 text-left">
+                    <span
+                      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${regimeClass(
+                        row.execRegime
+                      )}`}
+                    >
+                      {row.execRegime}
+                    </span>
+                  </td>
+                  <td className="py-2 pl-3 text-left">
+                    <span
+                      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${riskClass(
+                        row.riskFlag
+                      )}`}
+                    >
+                      {row.riskFlag === "green"
+                        ? "Low"
+                        : row.riskFlag === "amber"
+                        ? "Moderate"
+                        : "High"}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+};
+
+export default TokenLiquidityTable;
+
+
+# ------------------------------------------------
+# 4. Integrate league table into Analytics page
+# ------------------------------------------------
+# File: client/src/pages/analytics.tsx
+# (Names may vary; look for the main STRATA Analytics page component.)
+# ------------------------------------------------
+# Steps:
+#  - Import TokenLiquidityTable
+#  - Ensure you have a token focus state (you already do for the dropdown)
+#  - Render <TokenLiquidityTable> ABOVE the Daily Commentary card and pass:
+#      selectedToken = current token symbol (e.g. "BTC")
+#      onSelectToken = setter you already use for the token focus dropdown
+# ------------------------------------------------
+
+# 4.1 Import at top of analytics page
+
+import TokenLiquidityTable from "@/components/analytics/TokenLiquidityTable";
+
+
+# 4.2 Ensure you have token focus state exposed in this component
+# (You likely already have it, something like tokenFocus / setTokenFocus used by the dropdown.)
+# If not clearly named, find the state used for the existing "TOKEN FOCUS" selector and reuse it.
+
+const [tokenFocus, setTokenFocus] = useState<string>("BTC"); 
+# (If this already exists under a different name, DO NOT duplicate – reuse your existing state.)
+
+
+# 4.3 Wire the dropdown to this state (if not already)
+
+<select
+  value={tokenFocus}
+  onChange={(e) => setTokenFocus(e.target.value)}
+  ...
+>
+  ...
+</select>
+
+
+# 4.4 Insert the league table ABOVE the Daily Commentary block
+
+# BEFORE (simplified pseudo-structure)
+
+return (
+  <main className="...">
+    {/* existing token focus header, stress regime, etc. */}
+
+    {/* Daily Commentary card */}
+    <DailyCommentary ... />
+
+    {/* rest of analytics: sparklines, depth, TSLE, etc. */}
+  </main>
+);
+
+# AFTER — inject TokenLiquidityTable between header and DailyCommentary:
+
+return (
+  <main className="...">
+    {/* existing token focus header, stress regime, etc. */}
+
+    <TokenLiquidityTable
+      selectedToken={tokenFocus}
+      onSelectToken={setTokenFocus}
+    />
+
+    {/* Daily Commentary card */}
+    <DailyCommentary
+      token={tokenFocus}
+      ...
+    />
+
+    {/* rest of analytics: sparklines, depth, TSLE, etc. */}
+  </main>
+);
+
+
+# ------------------------------------------------
+# 5. (Optional) Backend endpoint stub
+# ------------------------------------------------
+# If you want the backend route ready for later, you can add:
+#
+# File: server/routes/liquiditySummary.ts (new)
+# ------------------------------------------------
+# import { Router } from "express";
+# const router = Router();
+#
+# router.get("/", (req, res) => {
+#   res.json(syntheticSummary); // You can reuse or replace with real data
+# });
+#
+# export default router;
+#
+# And register in your main server file (e.g. server/index.ts):
+#   app.use("/api/liquidity/summary", liquiditySummaryRouter);
+#
+# For now the frontend fallback already makes the table fully functional.
+# ================================================

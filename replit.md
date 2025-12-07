@@ -206,3 +206,33 @@ The "Yesterday vs Today" panel provides synthetic comparative analysis between c
 - Trend commentary sentence at bottom
 
 **Integration**: Displayed below Daily Commentary on Analytics page (`/platform/analytics`) when depth data and liquidity factors are loaded.
+
+## Token Liquidity League Table
+
+The League Table provides a sortable, clickable summary of all tracked tokens with execution regime classification and risk assessment.
+
+**Location**: `client/src/components/analytics/TokenLiquidityTable.tsx`
+
+**Data Source**: `client/src/lib/liquiditySummaryClient.ts` - Fetches from `/api/liquidity/summary` with synthetic fallback
+
+**Types**: `client/src/types/liquidity.ts` - TokenLiquiditySummary, ExecutionRegime, RiskFlag
+
+**Columns Displayed**:
+- Token (symbol + name)
+- 5-Factor Score
+- Max trade size at <25bps impact
+- Max trade size at <50bps impact
+- Best Venue
+- 10bps Depth
+- 24h Δ Depth (with ▲/▼ arrows)
+- Exec Regime pill (Ultra-Tight / Tight / Constructive / Stressed / Block-Only)
+- Risk flag pill (Low / Moderate / High)
+
+**Execution Regime Colors**:
+- Ultra-Tight: emerald
+- Tight: sky
+- Constructive: slate
+- Stressed: amber
+- Block-Only: red
+
+**Integration**: Displayed above Daily Commentary on Analytics page. Clicking a row updates the selected token across all panels.

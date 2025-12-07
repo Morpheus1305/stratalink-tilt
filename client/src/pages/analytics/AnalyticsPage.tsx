@@ -30,6 +30,7 @@ import DailyMarketCommentaryPanel from "@/components/analytics/DailyMarketCommen
 import { LiquidityFiveFactorPanel } from "@/components/analytics/LiquidityFiveFactorPanel";
 import { YesterdayVsTodayPanel } from "@/components/analytics/YesterdayVsTodayPanel";
 import { useLiquidityFactors } from "@/hooks/useLiquidityFactors";
+import TokenLiquidityTable from "@/components/analytics/TokenLiquidityTable";
 
 type StressDriver = {
   category: string;
@@ -244,6 +245,12 @@ export default function AnalyticsPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Token Liquidity League Table */}
+      <TokenLiquidityTable
+        selectedToken={selectedToken}
+        onSelectToken={setSelectedToken}
+      />
 
       {/* Daily Market Commentary + 5-Factor Score */}
       <div className="grid grid-cols-12 gap-4 mb-5">
