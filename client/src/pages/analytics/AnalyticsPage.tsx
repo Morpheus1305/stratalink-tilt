@@ -28,6 +28,8 @@ import { ExecutionCostCalculatorPanel } from "@/components/analytics/ExecutionCo
 import ExecutionIntelPanel from "@/components/analytics/ExecutionIntelPanel";
 import DailyMarketCommentaryPanel from "@/components/analytics/DailyMarketCommentaryPanel";
 import { LiquidityFiveFactorPanel } from "@/components/analytics/LiquidityFiveFactorPanel";
+import { YesterdayVsTodayPanel } from "@/components/analytics/YesterdayVsTodayPanel";
+import { useLiquidityFactors } from "@/hooks/useLiquidityFactors";
 
 type StressDriver = {
   category: string;
@@ -102,6 +104,8 @@ function pushSeries(map: SeriesMap, key: string, value: number): SeriesMap {
 
 export default function AnalyticsPage() {
   const [selectedToken, setSelectedToken] = useState("BTC");
+  
+  const { data: liquidityFactors } = useLiquidityFactors(selectedToken);
   
   const [priceSeries, setPriceSeries] = useState<SeriesMap>({});
   const [depthSeries, setDepthSeries] = useState<SeriesMap>({});
@@ -250,6 +254,23 @@ export default function AnalyticsPage() {
           <LiquidityFiveFactorPanel symbol={selectedToken} side="buy" />
         </div>
       </div>
+
+      {/* Yesterday vs Today Comparison */}
+      {depthData?.depth?.[selectedToken] && liquidityFactors && (
+        <div className="mb-5">
+          <YesterdayVsTodayPanel
+            symbol={selectedToken}
+            depth10bps={(depthData.depth[selectedToken].bands?.["10bps"]?.totalUSD || 0)}
+            depth25bps={(depthData.depth[selectedToken].bands?.["25bps"]?.totalUSD || 0)}
+            depth50bps={(depthData.depth[selectedToken].bands?.["50bps"]?.totalUSD || 0)}
+            factorScore={liquidityFactors.composite}
+            fragmentation={liquidityFactors.factors?.fragmentation || 50}
+            venueCount={liquidityFactors.meta?.venueCount || 3}
+            stability={liquidityFactors.factors?.stability}
+            executionRisk={100 - (liquidityFactors.factors?.execEfficiency || 50)}
+          />
+        </div>
+      )}
 
       {/* Live Token-Aware Sparklines */}
       <div style={{ marginBottom: 20 }}>

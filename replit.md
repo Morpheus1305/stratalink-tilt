@@ -185,3 +185,24 @@ The 5-Factor Model provides a weighted composite scoring system for institutiona
 - `DailyMarketCommentaryPanel` - Includes 5-Factor summary and cross-token comparison
 
 **Multi-Token Note**: The Daily Commentary panel includes a cross-token comparison: "Across BTC / ETH / SOL, BTC currently leads liquidity at 65/100 (BBB), with ETH 57, while SOL screens weakest at 42/100 (B)."
+
+## Yesterday vs Today Comparison Panel
+
+The "Yesterday vs Today" panel provides synthetic comparative analysis between current session metrics and simulated prior-session values.
+
+**Location**: `client/src/components/analytics/YesterdayVsTodayPanel.tsx`
+
+**Synthetic History Generator**: `client/src/utils/syntheticHistory.ts`
+- Generates controlled deltas (-8% to +8% for depth, ±5% for factor scores)
+- Provides realistic day-over-day comparison without historical data storage
+
+**Metrics Displayed** (6 metrics in 2 rows):
+- Row 1: 10bps Depth, 25bps Depth, 50bps Depth
+- Row 2: 5-Factor Score, Market Fragmentation, Venue Count
+
+**Visual Elements**:
+- Delta arrows: ▲ (emerald) for positive, ▼ (red) for negative
+- Percentage change with "vs" yesterday value
+- Trend commentary sentence at bottom
+
+**Integration**: Displayed below Daily Commentary on Analytics page (`/platform/analytics`) when depth data and liquidity factors are loaded.
