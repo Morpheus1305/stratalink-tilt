@@ -14,3 +14,4 @@ export { default as StablecoinFlowPanel } from "./StablecoinFlowPanel";
 export { default as Sparkline } from "./Sparkline";
 export { default as SparklinePanel } from "./SparklinePanel";
 export { default as LiveSparklinesPanel } from "./LiveSparklinesPanel";
+export { default as PerpetualFundingSnapshot } from "./PerpetualFundingSnapshot";

@@ -1,0 +1,195 @@
+# ================================================
+# STRATA ANALYTICS UI UPDATE
+# - Perp Funding bound to selected token
+# - Execution Intelligence side-by-side layout
+# ================================================
+
+# ------------------------------------------------
+# 1) Update funding snapshot logic to follow TOKEN FOCUS
+# ------------------------------------------------
+# File: client/src/hooks/useFundingSnapshot.ts
+# (Create if it does not exist yet – otherwise merge.)
+# ------------------------------------------------
+
+import { useQuery } from "@tanstack/react-query";
+
+export type FundingSnapshot = {
+  symbol: string;        // e.g. "BTC"
+  rate: number;          // current funding rate (% per 8h)
+  apr: number;           // annualised APR %
+  regime: string;        // "Neutral", "Mild short bias", etc.
+  change24h?: number;    // optional 24h delta
+};
+
+async function fetchFundingSnapshot(symbol: string): Promise<FundingSnapshot> {
+  const res = await fetch(`/api/funding/snapshot?symbol=${encodeURIComponent(symbol)}`);
+  if (!res.ok) {
+    throw new Error("Failed to fetch funding snapshot");
+  }
+  const data = await res.json();
+
+  // Adjust mapping if your backend schema differs:
+  return {
+    symbol: data.symbol ?? symbol,
+    rate: typeof data.rate === "number" ? data.rate : 0,
+    apr: typeof data.apr === "number" ? data.apr : 0,
+    regime: data.regime ?? "Neutral",
+    change24h: typeof data.change24h === "number" ? data.change24h : undefined,
+  };
+}
+
+/**
+ * Hook: returns funding snapshot for currently selected token,
+ * with a BTC fallback if the token has no tracked perps.
+ */
+export function useFundingSnapshot(symbol: string | undefined) {
+  const effectiveSymbol = symbol ?? "BTC";
+
+  return useQuery({
+    queryKey: ["funding-snapshot", effectiveSymbol],
+    queryFn: () => fetchFundingSnapshot(effectiveSymbol),
+    staleTime: 30_000, // 30s
+  });
+}
+
+# ------------------------------------------------
+# 2) Wire Perpetual Funding component to the hook
+# ------------------------------------------------
+# File: client/src/components/analytics/PerpetualFundingSnapshot.tsx
+# (Replace existing implementation with this version.)
+# ------------------------------------------------
+
+import React from "react";
+import { useFundingSnapshot } from "@/hooks/useFundingSnapshot";
+
+interface Props {
+  symbol: string;               // token focus symbol, e.g. "BTC", "ETH", "XRP"
+  label?: string;               // optional display label
+}
+
+const formatPct = (v: number | undefined) =>
+  v === undefined ? "—" : `${v.toFixed(4)}%`;
+
+const formatApr = (v: number | undefined) =>
+  v === undefined ? "—" : `${v.toFixed(2)}% APR`;
+
+export function PerpetualFundingSnapshot({ symbol, label }: Props) {
+  const { data, isLoading, isError } = useFundingSnapshot(symbol);
+
+  const titleSymbol = label ?? symbol.toUpperCase();
+
+  let body: React.ReactNode;
+  if (isLoading) {
+    body = <p className="text-xs text-slate-400">Loading funding data…</p>;
+  } else if (isError || !data) {
+    body = (
+      <p className="text-xs text-amber-400">
+        Funding data unavailable for {titleSymbol}. Showing placeholder.
+      </p>
+    );
+  } else {
+    body = (
+      <div className="flex flex-col gap-1 text-xs">
+        <div className="flex items-baseline justify-between">
+          <span className="text-slate-300">Current funding</span>
+          <span className="font-mono text-slate-50">{formatPct(data.rate)}</span>
+        </div>
+        <div className="flex items-baseline justify-between">
+          <span className="text-slate-300">Annualised</span>
+          <span className="font-mono text-slate-50">{formatApr(data.apr)}</span>
+        </div>
+        <div className="flex items-baseline justify-between">
+          <span className="text-slate-300">Regime</span>
+          <span className="font-mono text-emerald-300">{data.regime}</span>
+        </div>
+        {typeof data.change24h === "number" && (
+          <div className="flex items-baseline justify-between">
+            <span className="text-slate-300">Δ 24h</span>
+            <span
+              className={
+                "font-mono " + (data.change24h >= 0 ? "text-emerald-300" : "text-red-400")
+              }
+            >
+              {data.change24h >= 0 ? "+" : ""}
+              {data.change24h.toFixed(2)} bp
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl border border-slate-800 bg-slate-950/60 px-4 py-3">
+      <div className="mb-1 flex items-center justify-between">
+        <div className="text-xs font-medium uppercase tracking-wide text-slate-400">
+          Perpetual Funding — {titleSymbol}
+        </div>
+      </div>
+      {body}
+    </div>
+  );
+}
+
+export default PerpetualFundingSnapshot;
+
+# ------------------------------------------------
+# 3) Pass the current TOKEN FOCUS into the funding card
+# ------------------------------------------------
+# File: client/src/pages/analytics.tsx
+# (or wherever the main Daily Crypto Market Structure page lives)
+# ------------------------------------------------
+# Find the section where Perpetual Funding Snapshot is rendered.
+# It likely looks something like:
+#
+#   <PerpetualFundingSnapshot />
+#
+# or:
+#
+#   <PerpetualFundingSnapshot symbol="BTC" />
+#
+# Replace that block with this version, wiring in the selected token.
+
+import { useTokenFocus } from "@/contexts/TokenContext"; // already used elsewhere on the page
+
+// Inside the Analytics page component:
+const { focusToken } = useTokenFocus(); // e.g. "BTC", "ETH", "XRP"
+
+// ...
+
+<section className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+  {/* other cards in this row */}
+
+  <PerpetualFundingSnapshot symbol={focusToken ?? "BTC"} />
+
+  {/* other cards in this row */}
+</section>
+
+# ------------------------------------------------
+# 4) Put Execution Intelligence cards side-by-side
+# ------------------------------------------------
+# File: client/src/pages/analytics.tsx
+# ------------------------------------------------
+# Locate the block at the bottom that currently renders the
+# Execution Intelligence cards one under another, something like:
+#
+#   <ExecutionIntelligenceSummary ... />
+#   <ExecutionIntelligenceAnalysis ... />
+#
+# Replace *just* the layout wrapper with this:
+
+<section className="mt-6 grid grid-cols-1 xl:grid-cols-2 gap-4">
+  <ExecutionIntelligenceSummary
+    /* existing props stay exactly the same */
+  />
+  <ExecutionIntelligenceAnalysis
+    /* existing props stay exactly the same */
+  />
+</section>
+
+# On smaller screens they’ll still stack vertically,
+# but on desktop (xl and up) they’ll sit neatly side-by-side.
+
+# ================================================
+# End of patch
+# ================================================

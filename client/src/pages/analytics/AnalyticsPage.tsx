@@ -18,6 +18,7 @@ import {
   CexDexGauge,
   StablecoinFlowPanel,
   LiveSparklinesPanel,
+  PerpetualFundingSnapshot,
 } from "@/components/analytics";
 import DepthPanel from "@/components/DepthPanel";
 import MicrostructureStats from "@/components/MicrostructureStats";
@@ -313,7 +314,7 @@ export default function AnalyticsPage() {
         <TokenLiquidityCards depth={depthData?.depth} />
       </div>
 
-      {/* Depth + Funding */}
+      {/* Depth + Funding (Token-Aware) */}
       <div
         style={{
           display: "grid",
@@ -323,7 +324,10 @@ export default function AnalyticsPage() {
         }}
       >
         <DepthPanel depth={depthData?.depth} />
-        <FundingPanel funding={fundingData?.funding} />
+        <div className="space-y-4">
+          <PerpetualFundingSnapshot symbol={selectedToken} />
+          <FundingPanel funding={fundingData?.funding} />
+        </div>
       </div>
 
       {/* Lower analytics: Whale imbalance + fragmentation + velocity */}
@@ -364,10 +368,11 @@ export default function AnalyticsPage() {
         </section>
       </div>
 
-      {/* Execution Intelligence Panel */}
-      <div className="mb-5">
+      {/* Execution Intelligence Panel (side-by-side on xl) */}
+      <section className="mt-6 grid grid-cols-1 xl:grid-cols-2 gap-4 mb-5">
         <ExecutionIntelPanel symbol={selectedToken} side="buy" />
-      </div>
+        <ExecutionIntelPanel symbol={selectedToken} side="sell" />
+      </section>
 
       {/* Footer */}
       <footer style={{ marginTop: 24, fontSize: 11, color: "#6d7da2" }}>
