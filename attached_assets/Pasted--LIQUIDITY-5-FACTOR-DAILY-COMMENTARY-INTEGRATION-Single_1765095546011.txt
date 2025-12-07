@@ -1,0 +1,112 @@
+# ============================
+# LIQUIDITY 5-FACTOR → DAILY COMMENTARY INTEGRATION
+# Single-file patch: frontend/pages/analytics.jsx
+# ============================
+
+--- a/frontend/pages/analytics.jsx
++++ b/frontend/pages/analytics.jsx
+@@
+ import useLiquidityTimeseries from "../hooks/useLiquidityTimeseries";
+ import useLiquidityFactors from "../hooks/useLiquidityFactors";
+ import LiquidityFiveFactorPanel from "../components/LiquidityFiveFactorPanel";
+ 
++// ---------------------------------------------
++// Helper: format large USD values in human terms
++// ---------------------------------------------
++function formatUsdMillions(value) {
++  if (value == null || isNaN(value)) return "$0M";
++  const millions = value / 1_000_000;
++  if (millions >= 100) return `$${millions.toFixed(0)}M`;
++  if (millions >= 10) return `$${millions.toFixed(1)}M`;
++  return `$${millions.toFixed(2)}M`;
++}
++
++// ---------------------------------------------
++// Helper: classify a factor into a short label
++// ---------------------------------------------
++function classifyFactor(name, v) {
++  if (v >= 80) return `${name} strong`;
++  if (v >= 65) return `${name} constructive`;
++  if (v >= 50) return `${name} neutral`;
++  if (v >= 35) return `${name} fragile`;
++  return `${name} stressed`;
++}
++
++// ---------------------------------------------
++// Build one-line factor commentary string
++// ---------------------------------------------
++function buildFactorCommentary(factorData) {
++  if (!factorData || !factorData.factors) return null;
++
++  const { symbol, composite, rating, factors, meta } = factorData;
++
++  const depthLabel = classifyFactor("depth", factors.depthQuality);
++  const execLabel = classifyFactor("execution", factors.execEfficiency);
++  const stabilityLabel = classifyFactor("stability", factors.stability);
++  const fragLabel = classifyFactor("fragmentation", factors.fragmentation);
++  const riskLabel = classifyFactor("concentration risk", factors.riskConcentration);
++
++  const max25 = formatUsdMillions(meta.max25bps || 0);
++  const max50 = formatUsdMillions(meta.max50bps || 0);
++
++  return (
++    `Liquidity 5-Factor for ${symbol}: ${composite}/100 (${rating}). ` +
++    `${depthLabel}, ${stabilityLabel}, ${execLabel}; ` +
++    `fragmentation ${fragLabel}, ${riskLabel}. ` +
++    `Max <25bps capacity ≈ ${max25}, <50bps ≈ ${max50} across ` +
++    `${meta.venueCount || 0} venues (top venue ${meta.topShare ?? 0}%).`
++  );
++}
++
+ function AnalyticsPage() {
+   const [selectedToken, setSelectedToken] = useState("BTC");
+@@
+   const { data: tsData } = useLiquidityTimeseries(selectedToken);
+   const { data: factorData } = useLiquidityFactors(selectedToken);
++
++  const factorCommentary = buildFactorCommentary(factorData);
+@@
+   return (
+     <div className="analytics-page">
+-      {/* ============================
+-          STRATA DAILY COMMENTARY
+-         ============================ */}
+-      <DailyCommentaryHeader />
++      {/* ============================
++          STRATA DAILY COMMENTARY
++         ============================ */}
++      <section className="mb-6">
++        <div className="rounded-xl border border-slate-700 bg-slate-900/80 p-4">
++          <div className="flex items-center justify-between mb-2">
++            <h1 className="text-sm font-semibold tracking-wide text-slate-200">
++              STRATA Daily Commentary
++            </h1>
++            {/* Existing regime / risk badges remain unchanged, rendered by header component */}
++            <DailyCommentaryHeaderRight />
++          </div>
++
++          {/* Existing execution + TSLE commentary (unchanged) */}
++          <DailyCommentaryExecutionBlock />
++
++          {/* NEW: Liquidity 5-Factor overlay */}
++          {factorCommentary && (
++            <div className="mt-3 text-[11px] leading-snug text-slate-200">
++              {factorCommentary}
++            </div>
++          )}
++        </div>
++      </section>
+@@
+-      {/* ============================
+-          STRATA LIQUIDITY 5-FACTOR PANEL
+-         ============================ */}
+-      {factorData && (
+-        <LiquidityFiveFactorPanel data={factorData} />
+-      )}
++      {/* ============================
++          STRATA LIQUIDITY 5-FACTOR PANEL
++          (detailed visual view under the commentary)
++         ============================ */}
++      {factorData && <LiquidityFiveFactorPanel data={factorData} />}
+ 
+       {/* existing dashboard layout continues below */}

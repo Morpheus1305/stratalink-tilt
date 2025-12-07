@@ -1,8 +1,48 @@
 import { useDailyCommentary, CommentaryDelta } from "@/hooks/useDailyCommentary";
+import { useLiquidityFactors, LiquidityFactorsData } from "@/hooks/useLiquidityFactors";
 
 type Props = {
   symbol: string;
 };
+
+function formatUsdMillions(value: number | null | undefined): string {
+  if (value == null || isNaN(value)) return "$0M";
+  const millions = value / 1_000_000;
+  if (millions >= 100) return `$${millions.toFixed(0)}M`;
+  if (millions >= 10) return `$${millions.toFixed(1)}M`;
+  return `$${millions.toFixed(2)}M`;
+}
+
+function classifyFactor(name: string, v: number): string {
+  if (v >= 80) return `${name} strong`;
+  if (v >= 65) return `${name} constructive`;
+  if (v >= 50) return `${name} neutral`;
+  if (v >= 35) return `${name} fragile`;
+  return `${name} stressed`;
+}
+
+function buildFactorCommentary(factorData: LiquidityFactorsData | undefined): string | null {
+  if (!factorData || !factorData.factors) return null;
+
+  const { symbol, composite, rating, factors, meta } = factorData;
+
+  const depthLabel = classifyFactor("depth", factors.depthQuality);
+  const execLabel = classifyFactor("execution", factors.execEfficiency);
+  const stabilityLabel = classifyFactor("stability", factors.stability);
+  const fragLabel = classifyFactor("fragmentation", factors.fragmentation);
+  const riskLabel = classifyFactor("concentration risk", factors.riskConcentration);
+
+  const max25 = formatUsdMillions(meta.max25bps);
+  const max50 = formatUsdMillions(meta.max50bps);
+
+  return (
+    `Liquidity 5-Factor for ${symbol}: ${composite}/100 (${rating}). ` +
+    `${depthLabel}, ${stabilityLabel}, ${execLabel}; ` +
+    `fragmentation ${fragLabel}, ${riskLabel}. ` +
+    `Max <25bps capacity ≈ ${max25}, <50bps ≈ ${max50} across ` +
+    `${meta.venueCount || 0} venues (top venue ${meta.topShare ?? 0}%).`
+  );
+}
 
 function DeltaChip({ value, suffix = "" }: { value: number | null; suffix?: string }) {
   if (value === null) return null;
@@ -62,6 +102,9 @@ function DeltaSection({ delta }: { delta: CommentaryDelta | null }) {
 
 export default function DailyMarketCommentaryPanel({ symbol }: Props) {
   const { loading, error, data } = useDailyCommentary(symbol, "buy");
+  const { data: factorData } = useLiquidityFactors(symbol, "buy");
+  
+  const factorCommentary = buildFactorCommentary(factorData);
 
   return (
     <div
@@ -157,6 +200,17 @@ export default function DailyMarketCommentaryPanel({ symbol }: Props) {
               ))}
             </ul>
           </div>
+
+          {factorCommentary && (
+            <div className="border-t border-slate-700/50 pt-3">
+              <span className="uppercase tracking-wide text-[10px] text-gray-500 font-medium block mb-2">
+                Liquidity 5-Factor Summary
+              </span>
+              <p className="text-[11px] leading-snug text-gray-200" data-testid="text-factor-commentary">
+                {factorCommentary}
+              </p>
+            </div>
+          )}
 
           <div className="border-t border-slate-700/50 pt-3">
             <span className="uppercase tracking-wide text-[10px] text-gray-500 font-medium block mb-2">
