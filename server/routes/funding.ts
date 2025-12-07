@@ -3,7 +3,6 @@ import express from "express";
 const router = express.Router();
 
 const PROXY_BASE = "https://api.stratalink.dev";
-const USE_PROXY = true; // Set to true once proxy is deployed
 
 // Direct exchange fetchers (fallback)
 async function getOKXFundingDirect(symbol: string) {
@@ -13,45 +12,6 @@ async function getOKXFundingDirect(symbol: string) {
   const data = await res.json() as { data: { fundingRate: string }[] };
   const rate = parseFloat(data.data[0].fundingRate);
   return { venue: "OKX", rate, apr: rate * 3 * 365 * 100 };
-}
-
-async function getBinanceFundingDirect(symbol: string) {
-  const mapped = symbol.toUpperCase() + "USDT";
-  const res = await fetch(`https://fapi.binance.com/fapi/v1/premiumIndex?symbol=${mapped}`);
-  if (!res.ok) throw new Error("Binance failed");
-  const data = await res.json() as { lastFundingRate: string };
-  const rate = parseFloat(data.lastFundingRate);
-  return { venue: "Binance", rate, apr: rate * 3 * 365 * 100 };
-}
-
-async function getBybitFundingDirect(symbol: string) {
-  const mapped = symbol.toUpperCase() + "USDT";
-  const res = await fetch(`https://api.bybit.com/v5/market/funding/history?category=linear&symbol=${mapped}`);
-  if (!res.ok) throw new Error("Bybit failed");
-  const data = await res.json() as { result: { list: { fundingRate: string }[] } };
-  const rate = parseFloat(data.result.list[0].fundingRate);
-  return { venue: "Bybit", rate, apr: rate * 3 * 365 * 100 };
-}
-
-// Proxy fetcher
-async function fetchVenueProxy(venue: string, url: string): Promise<{ venue: string; rate: number | null; apr: number | null }> {
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
-    
-    const res = await fetch(url, { signal: controller.signal });
-    clearTimeout(timeout);
-    
-    if (!res.ok) throw new Error(`${venue} returned ${res.status}`);
-    const json = await res.json() as { rate?: number; apr?: number; fundingRate?: number };
-    
-    const rate = json.rate ?? json.fundingRate ?? null;
-    const apr = json.apr ?? (rate ? rate * 3 * 365 * 100 : null);
-    
-    return { venue, rate, apr };
-  } catch (err) {
-    return { venue, rate: null, apr: null };
-  }
 }
 
 function classifyRegime(rate: number): string {
@@ -65,31 +25,52 @@ router.get("/snapshot", async (req, res) => {
   try {
     const symbol = ((req.query.symbol as string) || "BTC").toUpperCase();
     
-    let results: { venue: string; rate: number; apr: number }[] = [];
-
-    if (USE_PROXY) {
-      // Try proxy first
-      const venues = await Promise.all([
-        fetchVenueProxy("Binance", `${PROXY_BASE}/perp/binance?symbol=${symbol}`),
-        fetchVenueProxy("Bybit", `${PROXY_BASE}/perp/bybit?symbol=${symbol}`),
-        fetchVenueProxy("OKX", `${PROXY_BASE}/perp/okx?symbol=${symbol}`),
-      ]);
-      results = venues.filter((v) => v.rate !== null) as { venue: string; rate: number; apr: number }[];
+    // Try proxy first (unified multi-venue endpoint)
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      
+      const proxyRes = await fetch(`${PROXY_BASE}/funding/snapshot?symbol=${symbol}`, {
+        signal: controller.signal
+      });
+      clearTimeout(timeout);
+      
+      if (proxyRes.ok) {
+        const proxyData = await proxyRes.json() as {
+          symbol: string;
+          venues: { venue: string; rate: number; apr: number }[];
+          medianRate: number;
+          avgRate: number;
+          regime: string;
+        };
+        
+        // Return proxy response directly if it has data
+        if (proxyData.venues && proxyData.venues.length > 0) {
+          return res.json({
+            symbol: proxyData.symbol,
+            rate: proxyData.medianRate,
+            apr: proxyData.medianRate * 3 * 365 * 100,
+            venues: proxyData.venues,
+            medianRate: proxyData.medianRate,
+            avgRate: proxyData.avgRate,
+            regime: proxyData.regime || classifyRegime(proxyData.avgRate),
+            change24h: null,
+            timestamp: Date.now(),
+            source: "proxy"
+          });
+        }
+      }
+    } catch (proxyErr) {
+      console.log("[Funding] Proxy failed, using fallback");
     }
 
-    // Fallback to direct calls if proxy failed
-    if (results.length === 0) {
-      const settled = await Promise.allSettled([
-        getBinanceFundingDirect(symbol),
-        getBybitFundingDirect(symbol),
-        getOKXFundingDirect(symbol),
-      ]);
-      results = settled
-        .filter((r): r is PromiseFulfilledResult<{ venue: string; rate: number; apr: number }> => 
-          r.status === "fulfilled"
-        )
-        .map((r) => r.value);
-    }
+    // Fallback to direct OKX call
+    const settled = await Promise.allSettled([getOKXFundingDirect(symbol)]);
+    const results = settled
+      .filter((r): r is PromiseFulfilledResult<{ venue: string; rate: number; apr: number }> => 
+        r.status === "fulfilled"
+      )
+      .map((r) => r.value);
 
     if (results.length === 0) {
       return res.status(503).json({
@@ -117,6 +98,7 @@ router.get("/snapshot", async (req, res) => {
       regime,
       change24h: null,
       timestamp: Date.now(),
+      source: "fallback"
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
