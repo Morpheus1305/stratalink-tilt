@@ -1,0 +1,139 @@
+// server/routes/tsle.ts
+
+import express, { Request, Response } from "express";
+import { computeTsleDepthSummary, DepthSnapshotInput, Side } from "../../lib/tsle/depthEngine";
+import axios from "axios";
+
+const router = express.Router();
+
+/**
+ * GET /api/tsle/depth?symbol=BTC&side=buy&size=100000
+ *
+ * This endpoint:
+ *  - Calls your existing depth snapshot route (/api/depth/snapshot)
+ *  - Normalises the result into DepthSnapshotInput
+ *  - Feeds it to the TSLE engine
+ *  - Returns a TSLE summary object for the UI
+ *
+ * NOTE: we call the local API via HTTP to avoid coupling to internal
+ * depth implementation details. You can refactor to call depth services
+ * directly later.
+ */
+
+router.get("/depth", async (req: Request, res: Response) => {
+  try {
+    const symbol = (req.query.symbol as string || "BTC").toUpperCase();
+    const side = ((req.query.side as string) || "buy").toLowerCase() as Side;
+    const requestedSize = parseFloat((req.query.size as string) || "100000");
+
+    // Call your existing depth snapshot endpoint on this same server.
+    // Adjust the URL/port if your dev/prod setup differs.
+    const baseUrl =
+      process.env.DEPTH_INTERNAL_URL ||
+      `http://127.0.0.1:${process.env.PORT || 3000}`;
+
+    const snapshotUrl = `${baseUrl}/api/depth/snapshot?symbol=${encodeURIComponent(
+      symbol
+    )}`;
+
+    const { data } = await axios.get(snapshotUrl, { timeout: 5000 });
+
+    /**
+     * EXPECTED data SHAPE (example, adapt to your actual structure):
+     *
+     * {
+     *   symbol: "BTC",
+     *   venues: [
+     *     {
+     *       venue: "binance",
+     *       bands: {
+     *         "10bps": 5000000,
+     *         "25bps": 9000000,
+     *         "50bps": 15000000,
+     *         "100bps": 22000000,
+     *         "200bps": 30000000
+     *       }
+     *     },
+     *     ...
+     *   ],
+     *   asOf: "2025-12-07T08:00:00Z"
+     * }
+     *
+     * If your actual fields differ, map them in the block below.
+     */
+
+    const snapshotInput: DepthSnapshotInput = {
+      symbol: data.symbol || symbol,
+      asOf: data.asOf,
+      venues: (data.venues || []).map((v: any) => ({
+        venue: v.venue || v.exchange || "unknown",
+        // TODO: if your keys differ, map them here.
+        depth10bps:
+          v.bands?.["10bps"] ??
+          v.depth10bps ??
+          v.depth_10bps ??
+          0,
+        depth25bps:
+          v.bands?.["25bps"] ??
+          v.depth25bps ??
+          v.depth_25bps ??
+          0,
+        depth50bps:
+          v.bands?.["50bps"] ??
+          v.depth50bps ??
+          v.depth_50bps ??
+          0,
+        depth100bps:
+          v.bands?.["100bps"] ??
+          v.depth100bps ??
+          v.depth_100bps ??
+          0,
+        depth200bps:
+          v.bands?.["200bps"] ??
+          v.depth200bps ??
+          v.depth_200bps ??
+          0,
+      })),
+    };
+
+    const summary = computeTsleDepthSummary(snapshotInput, {
+      side,
+      requestedSize,
+    });
+
+    res.json({
+      ok: true,
+      symbol: summary.symbol,
+      side: summary.side,
+      requestedSize: summary.requestedSize,
+      estImpactBps: summary.estImpactBps,
+      regime: summary.regime,
+      score: summary.score,
+      maxSizeAt25bps: summary.maxSizeAt25bps,
+      maxSizeAt50bps: summary.maxSizeAt50bps,
+      maxSizeAt100bps: summary.maxSizeAt100bps,
+      totals: {
+        depth10bps: summary.totalDepth10bps,
+        depth25bps: summary.totalDepth25bps,
+        depth50bps: summary.totalDepth50bps,
+        depth100bps: summary.totalDepth100bps,
+        depth200bps: summary.totalDepth200bps,
+      },
+      venues: summary.venues,
+      asOf: snapshotInput.asOf,
+      source: "tsle-depth-engine",
+    });
+  } catch (err: any) {
+    console.error("[TSLE] depth error:", err?.message || err);
+
+    res.status(500).json({
+      ok: false,
+      error: "TSLE_DEPTH_ERROR",
+      message:
+        err?.message ||
+        "Failed to compute TSLE depth. Check server logs for details.",
+    });
+  }
+});
+
+export default router;

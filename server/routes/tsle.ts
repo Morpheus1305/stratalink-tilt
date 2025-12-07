@@ -1,9 +1,20 @@
-import express from "express";
-import { computeTsleDepthSummary, type Side, type VenueDepthBand } from "../../lib/tsle/depthEngine";
+// server/routes/tsle.ts
+
+import express, { Request, Response } from "express";
+import { computeTsleDepthSummary, DepthSnapshotInput, VenueDepthBand, Side } from "../../lib/tsle/depthEngine";
+import axios from "axios";
 
 const router = express.Router();
 
-const PROXY_BASE = "https://api.stratalink.dev";
+/**
+ * GET /api/tsle/depth?symbol=BTC&side=buy&size=100000
+ *
+ * This endpoint:
+ *  - Calls your existing depth snapshot route (/api/depth/snapshot) at multiple bps levels
+ *  - Normalises the result into DepthSnapshotInput
+ *  - Feeds it to the TSLE engine
+ *  - Returns a TSLE summary object for the UI
+ */
 
 interface DepthVenue {
   venue: string;
@@ -12,75 +23,45 @@ interface DepthVenue {
   ok: boolean;
 }
 
-async function fetchDepthAtBps(symbol: string, bps: number): Promise<DepthVenue[]> {
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
-    
-    const res = await fetch(`${PROXY_BASE}/depth/snapshot?symbol=${symbol}&bps=${bps}`, {
-      signal: controller.signal
-    });
-    clearTimeout(timeout);
-    
-    if (res.ok) {
-      const data = await res.json() as { venues: DepthVenue[] };
-      if (data.venues?.length > 0) return data.venues;
-    }
-  } catch {}
-  
-  // Fallback to direct OKX
-  try {
-    const instId = `${symbol.toUpperCase()}-USDT-SWAP`;
-    const res = await fetch(`https://www.okx.com/api/v5/market/books?instId=${instId}&sz=400`);
-    if (!res.ok) return [];
-    
-    const json = await res.json() as { data: { bids: string[][]; asks: string[][] }[] };
-    const ob = json.data[0];
-    
-    const bestBid = parseFloat(ob.bids[0][0]);
-    const bestAsk = parseFloat(ob.asks[0][0]);
-    const mid = (bestBid + bestAsk) / 2;
-    const threshold = mid * (bps / 10000);
-
-    let bid = 0, ask = 0;
-    for (const lvl of ob.bids) {
-      const p = parseFloat(lvl[0]);
-      const q = parseFloat(lvl[1]);
-      if (p >= mid - threshold) bid += p * q;
-    }
-    for (const lvl of ob.asks) {
-      const p = parseFloat(lvl[0]);
-      const q = parseFloat(lvl[1]);
-      if (p <= mid + threshold) ask += p * q;
-    }
-
-    return [{ venue: "OKX", bid, ask, ok: true }];
-  } catch {
-    return [];
-  }
+interface DepthResponse {
+  symbol: string;
+  bps: number;
+  venues: DepthVenue[];
+  totalBid: number;
+  totalAsk: number;
+  timestamp: number;
+  source: string;
 }
 
-router.get("/depth", async (req, res) => {
+router.get("/depth", async (req: Request, res: Response) => {
   try {
-    const symbol = ((req.query.symbol as string) || "BTC").toUpperCase();
+    const symbol = (req.query.symbol as string || "BTC").toUpperCase();
     const side = ((req.query.side as string) || "buy").toLowerCase() as Side;
-    const requestedSize = Number(req.query.size) || 100000;
+    const requestedSize = parseFloat((req.query.size as string) || "100000");
 
-    // Fetch depth at multiple bps levels
-    const [d10, d25, d50, d100, d200] = await Promise.all([
-      fetchDepthAtBps(symbol, 10),
-      fetchDepthAtBps(symbol, 25),
-      fetchDepthAtBps(symbol, 50),
-      fetchDepthAtBps(symbol, 100),
-      fetchDepthAtBps(symbol, 200),
-    ]);
+    const baseUrl =
+      process.env.DEPTH_INTERNAL_URL ||
+      `http://127.0.0.1:${process.env.PORT || 5000}`;
+
+    // Fetch depth at all required bps levels in parallel
+    const bpsLevels = [10, 25, 50, 100, 200];
+    const depthPromises = bpsLevels.map(bps =>
+      axios.get<DepthResponse>(`${baseUrl}/api/depth/snapshot?symbol=${encodeURIComponent(symbol)}&bps=${bps}`, { timeout: 8000 })
+        .then(r => ({ bps, data: r.data }))
+        .catch(() => ({ bps, data: null }))
+    );
+
+    const depthResults = await Promise.all(depthPromises);
 
     // Build venue depth bands from the fetched data
     const venueMap = new Map<string, VenueDepthBand>();
-    
-    const processVenues = (venues: DepthVenue[], bandKey: keyof VenueDepthBand) => {
-      for (const v of venues) {
+
+    for (const result of depthResults) {
+      if (!result.data?.venues) continue;
+      
+      for (const v of result.data.venues) {
         if (!v.ok) continue;
+        
         const existing = venueMap.get(v.venue) || {
           venue: v.venue,
           depth10bps: 0,
@@ -89,31 +70,70 @@ router.get("/depth", async (req, res) => {
           depth100bps: 0,
           depth200bps: 0,
         };
+
+        // Use ask depth for buy side, bid depth for sell side
         const depth = side === "buy" ? v.ask : v.bid;
-        (existing as any)[bandKey] = depth;
+
+        switch (result.bps) {
+          case 10: existing.depth10bps = depth; break;
+          case 25: existing.depth25bps = depth; break;
+          case 50: existing.depth50bps = depth; break;
+          case 100: existing.depth100bps = depth; break;
+          case 200: existing.depth200bps = depth; break;
+        }
+
         venueMap.set(v.venue, existing);
       }
-    };
-
-    processVenues(d10, "depth10bps");
-    processVenues(d25, "depth25bps");
-    processVenues(d50, "depth50bps");
-    processVenues(d100, "depth100bps");
-    processVenues(d200, "depth200bps");
+    }
 
     const venues = Array.from(venueMap.values());
+    const asOf = depthResults.find(r => r.data)?.data?.timestamp 
+      ? new Date(depthResults.find(r => r.data)!.data!.timestamp).toISOString() 
+      : new Date().toISOString();
 
-    const summary = computeTsleDepthSummary(
-      { symbol, venues },
-      { side, requestedSize }
-    );
+    const snapshotInput: DepthSnapshotInput = {
+      symbol,
+      asOf,
+      venues,
+    };
+
+    const summary = computeTsleDepthSummary(snapshotInput, {
+      side,
+      requestedSize,
+    });
 
     res.json({
-      ...summary,
-      timestamp: Date.now(),
+      ok: true,
+      symbol: summary.symbol,
+      side: summary.side,
+      requestedSize: summary.requestedSize,
+      estImpactBps: summary.estImpactBps,
+      regime: summary.regime,
+      score: summary.score,
+      maxSizeAt25bps: summary.maxSizeAt25bps,
+      maxSizeAt50bps: summary.maxSizeAt50bps,
+      maxSizeAt100bps: summary.maxSizeAt100bps,
+      totals: {
+        depth10bps: summary.totalDepth10bps,
+        depth25bps: summary.totalDepth25bps,
+        depth50bps: summary.totalDepth50bps,
+        depth100bps: summary.totalDepth100bps,
+        depth200bps: summary.totalDepth200bps,
+      },
+      venues: summary.venues,
+      asOf: snapshotInput.asOf,
+      source: "tsle-depth-engine",
     });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    console.error("[TSLE] depth error:", err?.message || err);
+
+    res.status(500).json({
+      ok: false,
+      error: "TSLE_DEPTH_ERROR",
+      message:
+        err?.message ||
+        "Failed to compute TSLE depth. Check server logs for details.",
+    });
   }
 });
 
