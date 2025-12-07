@@ -27,6 +27,7 @@ import { LiquidityTimeseriesPanel } from "@/components/analytics/LiquidityTimese
 import { ExecutionCostCalculatorPanel } from "@/components/analytics/ExecutionCostCalculatorPanel";
 import ExecutionIntelPanel from "@/components/analytics/ExecutionIntelPanel";
 import DailyMarketCommentaryPanel from "@/components/analytics/DailyMarketCommentaryPanel";
+import { LiquidityFiveFactorPanel } from "@/components/analytics/LiquidityFiveFactorPanel";
 
 type StressDriver = {
   category: string;
@@ -240,10 +241,13 @@ export default function AnalyticsPage() {
         </Card>
       )}
 
-      {/* Daily Market Commentary - Full Width */}
+      {/* Daily Market Commentary + 5-Factor Score */}
       <div className="grid grid-cols-12 gap-4 mb-5">
-        <div className="col-span-12">
+        <div className="col-span-12 lg:col-span-8">
           <DailyMarketCommentaryPanel symbol={selectedToken} />
+        </div>
+        <div className="col-span-12 lg:col-span-4">
+          <LiquidityFiveFactorPanel symbol={selectedToken} side="buy" />
         </div>
       </div>
 

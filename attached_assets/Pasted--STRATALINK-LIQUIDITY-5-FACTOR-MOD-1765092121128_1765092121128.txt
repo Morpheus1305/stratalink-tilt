@@ -1,0 +1,281 @@
+# ============================================================
+# STRATALINK — LIQUIDITY 5-FACTOR MODEL & SCORE
+# Factors:
+#   1) Depth Quality (DQ)
+#   2) Execution Efficiency (EE)
+#   3) Liquidity Stability (LS)
+#   4) Market Fragmentation (MF)
+#   5) Risk Concentration (RC)
+# Composite:
+#   STRATA Liquidity 5-Factor Score (0–100) + Rating band
+# ============================================================
+
+
+##############################################################
+# 1) BACKEND SERVICE: liquidityFactors.ts
+#    File: server/services/liquidityFactors.ts
+##############################################################
+```ts
+import { computeTsleEngine } from "./tradeSizeEngine";
+import { computeExecutionIntel } from "./executionIntelligence";
+// If you already have a depth / venue snapshot & time-series service,
+// wire them in here. Otherwise these helpers can be adapted by Replit AI.
+import { getVenueDepthSnapshot } from "./venueDepthSnapshot"; // TODO: implement if missing
+import { getLiquidityTimeseries } from "./liquidityTimeseriesService"; // TODO: implement if missing
+
+export type LiquidityFactorResult = {
+  symbol: string;
+  depthQuality: number;         // DQ  (0–100)
+  executionEfficiency: number;  // EE  (0–100)
+  liquidityStability: number;   // LS  (0–100)
+  marketFragmentation: number;  // MF  (0–100)
+  riskConcentration: number;    // RC  (0–100)
+  compositeScore: number;       // 0–100
+  ratingBand: "AAA" | "AA" | "A" | "BBB" | "BB" | "B" | "CCC";
+  meta: {
+    maxSize25bps: number;
+    maxSize50bps: number;
+    venueCount: number;
+    topVenueShare: number;
+  };
+  generatedAt: number;
+};
+
+/**
+ * Utility: clamp 0–100
+ */
+function clampScore(x: number): number {
+  if (!isFinite(x)) return 0;
+  if (x < 0) return 0;
+  if (x > 100) return 100;
+  return Math.round(x);
+}
+
+/**
+ * Utility: map composite score to rating band.
+ * This is NOT the PoLi rating – it's a daily microstructure rating.
+ */
+function mapScoreToBand(score: number): LiquidityFactorResult["ratingBand"] {
+  if (score >= 90) return "AAA";
+  if (score >= 82) return "AA";
+  if (score >= 74) return "A";
+  if (score >= 66) return "BBB";
+  if (score >= 58) return "BB";
+  if (score >= 50) return "B";
+  return "CCC";
+}
+
+/**
+ * Depth Quality (DQ)
+ * ------------------
+ * Based primarily on:
+ *   - Max tradeable size at 25bps and 50bps from TSLE
+ *   - We assume depth from ~10k up to ~100m is meaningful
+ */
+function computeDepthQuality(maxSize25: number, maxSize50: number): number {
+  // Use log scale to avoid domination by whales
+  const base = Math.log10(Math.max(maxSize25, 1));
+  const extra = Math.log10(Math.max(maxSize50, 1));
+
+  // Rough normalization:
+  //  10k  -> ~4
+  //  1m   -> ~6
+  //  100m -> ~8
+  const depthRaw = (base - 4) * 20 + (extra - 4) * 10; // up to ~100
+  return clampScore(depthRaw);
+}
+
+/**
+ * Execution Efficiency (EE)
+ * -------------------------
+ * Uses:
+ *   - Execution risk score from ExecutionIntel (0–100)
+ *   - Slippage regime (Ultra-Tight, Tight, Normal, Wide, Broken)
+ */
+function computeExecutionEfficiency(
+  executionRiskScore: number,
+  slippageRegime: string
+): number {
+  let regimeAdj = 0;
+  switch (slippageRegime) {
+    case "Ultra-Tight":
+      regimeAdj = +10;
+      break;
+    case "Tight":
+      regimeAdj = +5;
+      break;
+    case "Normal":
+      regimeAdj = 0;
+      break;
+    case "Wide":
+      regimeAdj = -10;
+      break;
+    case "Broken":
+      regimeAdj = -25;
+      break;
+    default:
+      regimeAdj = 0;
+  }
+  return clampScore(executionRiskScore + regimeAdj);
+}
+
+/**
+ * Liquidity Stability (LS)
+ * ------------------------
+ * Uses:
+ *   - Depth at 10bps time-series over 24h
+ *   - We compute relative volatility of depth: std / mean
+ *   - Higher volatility => lower stability
+ */
+function computeLiquidityStability(depthSeries: number[]): number {
+  if (!depthSeries.length) return 50;
+  const n = depthSeries.length;
+  const mean =
+    depthSeries.reduce((acc, x) => acc + x, 0) / (n || 1);
+
+  if (mean <= 0) return 30;
+
+  const variance =
+    depthSeries.reduce((acc, x) => acc + (x - mean) * (x - mean), 0) /
+    (n || 1);
+  const std = Math.sqrt(variance);
+
+  const relVol = std / mean; // e.g. 0.1 = stable, 1.0 = wild
+
+  // Map relVol to stability score: 0.05 => ~95, 0.2 => ~75, 0.5 => ~40, 1.0 => ~10
+  const raw = 110 - relVol * 140;
+  return clampScore(raw);
+}
+
+/**
+ * Market Fragmentation (MF)
+ * -------------------------
+ * Uses:
+ *   - Venue depth shares (10bps or 25bps) across venues
+ *   - Ideal case: 3–6 reasonably balanced venues
+ *   - Score penalizes both extreme concentration AND extreme fragmentation.
+ */
+function computeMarketFragmentation(venueShares: number[]): number {
+  if (!venueShares.length) return 40;
+
+  // Normalize
+  const sum = venueShares.reduce((a, b) => a + b, 0) || 1;
+  const weights = venueShares.map((x) => x / sum);
+
+  // Herfindahl index (HHI)
+  const hhi = weights.reduce((acc, w) => acc + w * w, 0); // 1 = monopoly, 1/N = equal
+
+  // We treat HHI around 0.2–0.3 as "good" (3–5 venues with balance)
+  // Higher or lower is worse.
+  const diffFromIdeal = Math.abs(hhi - 0.25);
+
+  // Map diff to score: 0.0 => 100, 0.25 => 50, 0.5 => 10
+  const raw = 110 - diffFromIdeal * 240;
+  return clampScore(raw);
+}
+
+/**
+ * Risk Concentration (RC)
+ * -----------------------
+ * Uses:
+ *   - Top venue depth share (% of total)
+ *   - Venue count
+ * Higher topShare => lower RC score (more risk).
+ */
+function computeRiskConcentration(topShare: number, venueCount: number): number {
+  // topShare in [0,1]
+  const top = Math.max(0, Math.min(1, topShare || 0));
+
+  // Baseline: 100 - 70 * topShare  (so 100% -> 30)
+  let base = 100 - 70 * top;
+
+  // Penalty if fewer venues
+  if (venueCount <= 1) base -= 25;
+  else if (venueCount === 2) base -= 10;
+  else if (venueCount === 3) base -= 5;
+
+  return clampScore(base);
+}
+
+/**
+ * MAIN ENTRY:
+ * computeLiquidityFactors(symbol)
+ */
+export async function computeLiquidityFactors(
+  symbol: string
+): Promise<LiquidityFactorResult> {
+  const side: "buy" | "sell" = "buy";
+
+  // 1) TSLE for max size at 25/50 bps
+  const tsle = await computeTsleEngine(symbol as any, side, 5_000_000);
+  const maxByBps = tsle.maxSizeByBps.reduce((acc, row) => {
+    acc[row.bps] = row.maxSizeUsd;
+    return acc;
+  }, {} as Record<number, number>);
+  const max25 = maxByBps[25] || 0;
+  const max50 = maxByBps[50] || 0;
+
+  // 2) ExecutionIntel
+  const exec = await computeExecutionIntel(symbol as any, side);
+
+  // 3) Venue depth snapshot (for fragmentation & concentration)
+  //    Expect: { venue: string; depthUsd: number }[]
+  const venueSnapshot =
+    (await getVenueDepthSnapshot(symbol as any)) || [];
+  const venueDepths = venueSnapshot.map((v) => v.depthUsd || 0);
+  const totalDepth = venueDepths.reduce((a, b) => a + b, 0) || 1;
+  const sorted = [...venueDepths].sort((a, b) => b - a);
+  const topVenueDepth = sorted[0] || 0;
+  const topVenueShare = topVenueDepth / totalDepth;
+  const venueCount = venueDepths.filter((x) => x > 0).length;
+
+  // 4) Depth time-series for stability (e.g. 24h of 10bps depth)
+  const series = await getLiquidityTimeseries(symbol as any, {
+    windowHours: 24,
+    bps: 10,
+  });
+  const depthSeries = series?.points?.map((p: any) => p.depthUsd || 0) || [];
+
+  // 5) Compute per-factor scores
+  const depthQuality = computeDepthQuality(max25, max50);
+  const executionEfficiency = computeExecutionEfficiency(
+    exec.executionRiskScore,
+    exec.slippageRegime
+  );
+  const liquidityStability = computeLiquidityStability(depthSeries);
+  const marketFragmentation = computeMarketFragmentation(venueDepths);
+  const riskConcentration = computeRiskConcentration(
+    topVenueShare,
+    venueCount
+  );
+
+  // 6) Composite: weighted sum
+  //    DQ: 30%, EE: 25%, LS: 20%, MF: 15%, RC: 10%
+  const composite =
+    depthQuality * 0.3 +
+    executionEfficiency * 0.25 +
+    liquidityStability * 0.2 +
+    marketFragmentation * 0.15 +
+    riskConcentration * 0.1;
+
+  const compositeScore = clampScore(composite);
+  const ratingBand = mapScoreToBand(compositeScore);
+
+  return {
+    symbol,
+    depthQuality,
+    executionEfficiency,
+    liquidityStability,
+    marketFragmentation,
+    riskConcentration,
+    compositeScore,
+    ratingBand,
+    meta: {
+      maxSize25bps: max25,
+      maxSize50bps: max50,
+      venueCount,
+      topVenueShare,
+    },
+    generatedAt: Date.now(),
+  };
+}

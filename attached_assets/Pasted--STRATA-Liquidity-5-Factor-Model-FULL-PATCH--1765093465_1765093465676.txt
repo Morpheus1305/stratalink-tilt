@@ -1,0 +1,256 @@
+# ============================
+#  STRATA Liquidity 5-Factor Model — FULL PATCH
+# ============================
+
+# ============================================
+# 1) backend/api/liquidity/factors.js
+# ============================================
+# NEW FILE — Provides 5-factor scores per token.
+
+--- a/backend/api/liquidity/factors.js
++++ b/backend/api/liquidity/factors.js
+@@
++import express from "express";
++import { getOrderbookDepth } from "../lib/depth.js";
++import { getVenueData } from "../lib/venues.js";
++import { getLiquidityTimeseries } from "../lib/liquidityTimeseries.js";
++
++const router = express.Router();
++
++// Helper to convert raw to score (0–100)
++function normalize(value, min, max) {
++  if (value <= min) return 0;
++  if (value >= max) return 100;
++  return Math.round(((value - min) / (max - min)) * 100);
++}
++
++// Liquidity 5-Factor endpoint
++router.get("/:symbol", async (req, res) => {
++  try {
++    const symbol = req.params.symbol.toUpperCase();
++
++    // ============= DATA GATHERING =============
++    const depth = await getOrderbookDepth(symbol);            // { "10bps": … , "25bps": … }
++    const venues = await getVenueData(symbol);                // { venues: [], topShare: n }
++    const ts = await getLiquidityTimeseries(symbol, "24h");   // array of liquidity values
++
++    // ============= FACTOR CALCULATIONS =============
++    const d10 = depth["10bps"] || 0;
++    const d25 = depth["25bps"] || 0;
++    const d50 = depth["50bps"] || 0;
++
++    // Depth Quality (0–100)
++    const depthQuality =
++      normalize(d25, 0, 15000000) * 0.6 +
++      normalize(d50, 0, 30000000) * 0.4;
++
++    // Execution Efficiency (slippage proxy)
++    const slippage10 = d10 < 1000000 ? 0.03 : d10 < 5000000 ? 0.01 : 0.005;
++    const execEfficiency = normalize(1 / slippage10, 0, 300);
++
++    // Liquidity Stability — volatility of depth
++    const mean = ts.reduce((a, b) => a + b, 0) / ts.length;
++    const variance = ts.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / ts.length;
++    const stdev = Math.sqrt(variance);
++    const stability = normalize(mean / (stdev || 1), 0, 20);
++
++    // Market Fragmentation — more venues = better
++    const venueCount = venues.venues.length;
++    const fragmentation = normalize(venueCount, 1, 10);
++
++    // Risk Concentration — top venue share (inverse)
++    const rc = normalize(100 - venues.topShare, 0, 100);
++
++    // Composite Score
++    const composite = Math.round(
++      0.30 * depthQuality +
++      0.25 * execEfficiency +
++      0.20 * stability +
++      0.15 * fragmentation +
++      0.10 * rc
++    );
++
++    // Rating band
++    let rating = "B";
++    if (composite >= 90) rating = "AAA";
++    else if (composite >= 80) rating = "AA";
++    else if (composite >= 70) rating = "A";
++    else if (composite >= 60) rating = "BBB";
++
++    // Meta stats
++    const meta = {
++      max25bps: d25,
++      max50bps: d50,
++      venueCount,
++      topShare: venues.topShare,
++    };
++
++    res.json({
++      symbol,
++      composite,
++      rating,
++      factors: {
++        depthQuality,
++        execEfficiency,
++        stability,
++        fragmentation,
++        riskConcentration: rc,
++      },
++      meta,
++    });
++  } catch (err) {
++    console.error("5-Factor error", err);
++    res.status(500).json({ error: "Failed to compute liquidity factors" });
++  }
++});
++
++export default router;
+
+
+# ============================================
+# 2) backend/server.js — REGISTER ENDPOINT
+# ============================================
+
+--- a/backend/server.js
++++ b/backend/server.js
+@@
+ import liquidityTimeseries from "./api/liquidity/timeseries.js";
++import liquidityFactors from "./api/liquidity/factors.js";
+ 
+ app.use("/api/liquidity/timeseries", liquidityTimeseries);
++app.use("/api/liquidity/factors", liquidityFactors);
+
+
+# ============================================
+# 3) frontend/hooks/useLiquidityFactors.js
+# ============================================
+
+--- a/frontend/hooks/useLiquidityFactors.js
++++ b/frontend/hooks/useLiquidityFactors.js
+@@
++import { useEffect, useState } from "react";
++
++export default function useLiquidityFactors(symbol) {
++  const [data, setData] = useState(null);
++  const [loading, setLoading] = useState(true);
++
++  useEffect(() => {
++    if (!symbol) return;
++    setLoading(true);
++
++    fetch(`/api/liquidity/factors/${symbol}`)
++      .then((r) => r.json())
++      .then((d) => {
++        setData(d);
++        setLoading(false);
++      })
++      .catch(() => setLoading(false));
++  }, [symbol]);
++
++  return { data, loading };
++}
+
+
+# ============================================
+# 4) frontend/components/LiquidityFiveFactorPanel.jsx
+# ============================================
+
+--- a/frontend/components/LiquidityFiveFactorPanel.jsx
++++ b/frontend/components/LiquidityFiveFactorPanel.jsx
+@@
++import React from "react";
++
++export default function LiquidityFiveFactorPanel({ data }) {
++  if (!data) return null;
++
++  const bar = (value) => (
++    <div className="w-full bg-slate-800 h-2 rounded">
++      <div
++        className="h-2 bg-blue-400 rounded"
++        style={{ width: `${value}%` }}
++      ></div>
++    </div>
++  );
++
++  return (
++    <div className="p-4 rounded-xl bg-slate-900 border border-slate-700 mt-6">
++      <div className="flex justify-between items-center mb-4">
++        <h2 className="text-lg font-semibold text-slate-200">
++          Liquidity 5-Factor Score — {data.symbol}
++        </h2>
++        <div className="text-xl font-bold text-blue-300">
++          {data.composite}/100 ({data.rating})
++        </div>
++      </div>
++
++      <div className="space-y-3">
++        <div>
++          <div className="text-sm text-slate-400">Depth Quality</div>
++          {bar(data.factors.depthQuality)}
++        </div>
++        <div>
++          <div className="text-sm text-slate-400">Execution Efficiency</div>
++          {bar(data.factors.execEfficiency)}
++        </div>
++        <div>
++          <div className="text-sm text-slate-400">Liquidity Stability</div>
++          {bar(data.factors.stability)}
++        </div>
++        <div>
++          <div className="text-sm text-slate-400">Market Fragmentation</div>
++          {bar(data.factors.fragmentation)}
++        </div>
++        <div>
++          <div className="text-sm text-slate-400">Risk Concentration</div>
++          {bar(data.factors.riskConcentration)}
++        </div>
++      </div>
++
++      <div className="grid grid-cols-4 gap-4 mt-6 text-slate-300 text-sm">
++        <div>
++          <div className="text-slate-500 text-xs">Max \<25bps</div>
++          ${data.meta.max25bps.toLocaleString()}
++        </div>
++        <div>
++          <div className="text-slate-500 text-xs">Max \<50bps</div>
++          ${data.meta.max50bps.toLocaleString()}
++        </div>
++        <div>
++          <div className="text-slate-500 text-xs">Venues</div>
++          {data.meta.venueCount}
++        </div>
++        <div>
++          <div className="text-slate-500 text-xs">Top Venue Share</div>
++          {data.meta.topShare}%
++        </div>
++      </div>
++    </div>
++  );
++}
+
+
+# ============================================
+# 5) Insert Panel into analytics page
+# ============================================
+
+--- a/frontend/pages/analytics.jsx
++++ b/frontend/pages/analytics.jsx
+@@
+ import useLiquidityTimeseries from "../hooks/useLiquidityTimeseries";
++import useLiquidityFactors from "../hooks/useLiquidityFactors";
++import LiquidityFiveFactorPanel from "../components/LiquidityFiveFactorPanel";
+@@
+   const { data: tsData } = useLiquidityTimeseries(selectedToken);
++  const { data: factorData } = useLiquidityFactors(selectedToken);
+@@
+   return (
+     <div className="analytics-page">
++
++      {/* ============================
++          STRATA LIQUIDITY 5-FACTOR PANEL
++         ============================ */}
++      {factorData && (
++        <LiquidityFiveFactorPanel data={factorData} />
++      )}
++
+       {/* existing dashboard layout continues below */}
