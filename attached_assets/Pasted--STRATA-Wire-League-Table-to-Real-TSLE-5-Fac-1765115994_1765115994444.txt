@@ -1,5 +1,33 @@
+# ================================================
+# STRATA — Wire League Table to Real TSLE & 5-Factor
+# ================================================
+# This patch updates the *frontend aggregator* so the
+# Token Liquidity League Table pulls from the same
+# APIs that power:
+#  - Liquidity 5-Factor Score card
+#  - Execution Intelligence / TSLE
+#
+# It assumes you have endpoints of the form:
+#   GET /api/liquidity/five-factor?symbol=BTC
+#   GET /api/execution/intel?symbol=BTC
+#
+# If your actual paths differ, just adjust the two
+# fetch URLs inside fetchForToken() below.
+#
+# ================================================
+
+# ------------------------------------------------
+# 1) Replace liquiditySummaryClient.ts with this version
+# ------------------------------------------------
+# File: client/src/lib/liquiditySummaryClient.ts
+# ------------------------------------------------
+
 import { TokenLiquiditySummary } from "@/types/liquidity";
 
+/**
+ * Synthetic fallback data so the table still renders
+ * even if the backend is offline or not fully wired yet.
+ */
 const syntheticSummary: TokenLiquiditySummary[] = [
   {
     symbol: "BTC",
@@ -114,14 +142,47 @@ const syntheticSummary: TokenLiquiditySummary[] = [
   },
 ];
 
+/**
+ * Tokens to show in the league table.
+ * You can add/remove here as needed – the table will automatically
+ * query TSLE + 5-Factor for each.
+ */
 const TRACKED_TOKENS = syntheticSummary.map((r) => r.symbol);
 
+/**
+ * Helper: map 5-Factor API response to the fields we need.
+ *
+ * EXPECTED (example) SHAPE:
+ *   GET /api/liquidity/five-factor?symbol=BTC
+ *   -> { score: 65, breakdown: {...}, depthQuality: 88, ... }
+ *
+ * If your actual shape differs, adjust this mapper only.
+ */
 function mapFiveFactor(symbol: string, data: any) {
   return {
     factorScore: typeof data?.score === "number" ? data.score : 50,
+    // Optional: we COULD derive riskFlag from factorScore here, but
+    // we’ll normally let execution intel / risk engine set that.
   };
 }
 
+/**
+ * Helper: map TSLE / Execution Intel API response.
+ *
+ * EXPECTED (example) SHAPE:
+ *   GET /api/execution/intel?symbol=BTC
+ *   -> {
+ *        regime: "Ultra-Tight",
+ *        maxSize25bps: 29000000,
+ *        maxSize50bps: 35000000,
+ *        bestVenue: "Kraken",
+ *        depth10bps: 5800000,
+ *        depth10bpsChange24h: 1.8,
+ *        riskFlag: "green"
+ *      }
+ *
+ * Adjust field names here if your endpoint returns different keys.
+ */
 function mapExecutionIntel(symbol: string, data: any) {
   return {
     execRegime: (data?.regime ?? "Constructive") as TokenLiquiditySummary["execRegime"],
@@ -135,6 +196,13 @@ function mapExecutionIntel(symbol: string, data: any) {
   };
 }
 
+/**
+ * Fetch real TSLE + 5-Factor for a single token.
+ * Falls back to the synthetic row for that token on error.
+ *
+ * IMPORTANT:
+ *   If your endpoints are named differently, change the two `fetch(...)` URLs below.
+ */
 async function fetchForToken(symbol: string): Promise<TokenLiquiditySummary> {
   const fallback = syntheticSummary.find((r) => r.symbol === symbol);
   try {
@@ -156,7 +224,7 @@ async function fetchForToken(symbol: string): Promise<TokenLiquiditySummary> {
       symbol,
       name: fallback?.name ?? symbol,
       factorScore: five.factorScore,
-      poliScore: fallback?.poliScore,
+      poliScore: fallback?.poliScore, // placeholder until PoLi is fully wired
       execRegime: exec.execRegime,
       max25bps: exec.max25bps,
       max50bps: exec.max50bps,
@@ -171,6 +239,7 @@ async function fetchForToken(symbol: string): Promise<TokenLiquiditySummary> {
     console.error("Failed to fetch liquidity summary for", symbol, err);
     if (fallback) return fallback;
 
+    // Last-resort ultra-defensive default
     return {
       symbol,
       name: symbol,
@@ -187,12 +256,22 @@ async function fetchForToken(symbol: string): Promise<TokenLiquiditySummary> {
   }
 }
 
+/**
+ * Main: fetch league table rows backed by real TSLE + 5-Factor.
+ * If everything fails (e.g. dev environment with no backend),
+ * we fall back to the syntheticSummary array.
+ */
 export async function fetchTokenLiquiditySummary(): Promise<TokenLiquiditySummary[]> {
   try {
     const rows = await Promise.all(TRACKED_TOKENS.map(fetchForToken));
+    // sort by factor score, desc
     return rows.sort((a, b) => b.factorScore - a.factorScore);
   } catch (err) {
     console.error("Falling back to synthetic league table data", err);
     return syntheticSummary;
   }
 }
+
+# ================================================
+# End of patch
+# ================================================
