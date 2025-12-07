@@ -1,4 +1,4 @@
-import { useDailyCommentary, CommentaryDelta } from "@/hooks/useDailyCommentary";
+import { useDailyCommentary } from "@/hooks/useDailyCommentary";
 import { useLiquidityFactors, LiquidityFactorsData } from "@/hooks/useLiquidityFactors";
 import useLiquidityFactorsBatch, { BatchFactorsResult } from "@/hooks/useLiquidityFactorsBatch";
 
@@ -80,62 +80,6 @@ function buildMultiTokenNote(batch: BatchFactorsResult | undefined): string | nu
   }
   note += `, while ${laggard.sym} screens weakest at ${laggard.composite}/100 (${laggard.rating}).`;
   return note;
-}
-
-function DeltaChip({ value, suffix = "" }: { value: number | null; suffix?: string }) {
-  if (value === null) return null;
-  const isPositive = value >= 0;
-  const sign = isPositive ? "+" : "";
-  const color = isPositive ? "text-emerald-400" : "text-rose-400";
-  return (
-    <span className={`font-mono text-[11px] ${color}`}>
-      {sign}{value.toFixed(1)}{suffix}
-    </span>
-  );
-}
-
-function DeltaSection({ delta }: { delta: CommentaryDelta | null }) {
-  if (!delta) {
-    return (
-      <div className="text-[11px] text-gray-500 italic">
-        First capture — no prior data available.
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-wrap items-center gap-3 text-[11px]">
-      {delta.riskScoreDelta !== null && (
-        <div className="flex items-center gap-1">
-          <span className="text-gray-400">Risk:</span>
-          <DeltaChip value={delta.riskScoreDelta} suffix=" pts" />
-        </div>
-      )}
-      {delta.maxSize25bpsDeltaPct !== null && (
-        <div className="flex items-center gap-1">
-          <span className="text-gray-400">25bps Cap:</span>
-          <DeltaChip value={delta.maxSize25bpsDeltaPct} suffix="%" />
-        </div>
-      )}
-      {delta.maxSize50bpsDeltaPct !== null && (
-        <div className="flex items-center gap-1">
-          <span className="text-gray-400">50bps Cap:</span>
-          <DeltaChip value={delta.maxSize50bpsDeltaPct} suffix="%" />
-        </div>
-      )}
-      {delta.regimeChange && (
-        <div className="flex items-center gap-1">
-          <span className="text-gray-400">Regime:</span>
-          <span className="text-cyan-400 font-mono">{delta.regimeChange}</span>
-        </div>
-      )}
-      {delta.priorDate && (
-        <div className="text-gray-500">
-          vs {delta.priorDate}
-        </div>
-      )}
-    </div>
-  );
 }
 
 const HEADLINE_TOKENS = ["BTC", "ETH", "SOL"];
@@ -264,13 +208,6 @@ export default function DailyMarketCommentaryPanel({ symbol }: Props) {
               </p>
             </div>
           )}
-
-          <div className="border-t border-slate-700/50 pt-3">
-            <span className="uppercase tracking-wide text-[10px] text-gray-500 font-medium block mb-2">
-              Yesterday vs Today
-            </span>
-            <DeltaSection delta={data.delta} />
-          </div>
         </>
       )}
     </div>

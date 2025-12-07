@@ -1,0 +1,75 @@
+# ================================================
+# STRATA — Remove Legacy "YESTERDAY VS TODAY" Text Block
+# ================================================
+# Goal:
+# - Remove the old static "YESTERDAY VS TODAY – First capture — no prior data available."
+#   line from the Daily Commentary panel.
+# - Keep the NEW Yesterday-vs-Today comparison module we just built.
+#
+# Approach:
+# - Find the legacy subsection that sits under "CROSS-TOKEN COMPARISON (BTC / ETH / SOL)"
+#   and delete that tiny block.
+# ================================================
+
+# ------------------------------------------------
+# 1. Locate the Daily Commentary layout
+# ------------------------------------------------
+# Look for the component that renders the STRATA Daily Commentary header and
+# the "CROSS-TOKEN COMPARISON (BTC / ETH / SOL)" text.
+#
+# In most setups this will be something like:
+#   client/src/components/analytics/DailyCommentary.tsx
+#   or
+#   client/src/pages/analytics.tsx
+#
+# Search for this exact string:
+#   "YESTERDAY VS TODAY"
+# ------------------------------------------------
+
+# BEFORE (example)
+
+<section className="mt-6 border-t border-surface-3 pt-4">
+  <h4 className="text-xs font-semibold tracking-[0.16em] text-gray-400 mb-1">
+    CROSS-TOKEN COMPARISON (BTC / ETH / SOL)
+  </h4>
+  <p className="text-sm text-gray-300">
+    Across BTC / ETH / SOL, BTC currently leads liquidity at 65/100 (BBB), with ETH 56, while SOL screens weakest at 39/100 (B).
+  </p>
+
+  <div className="mt-6">
+    <h4 className="text-xs font-semibold tracking-[0.16em] text-gray-400 mb-1">
+      YESTERDAY VS TODAY
+    </h4>
+    <p className="text-sm text-gray-400 italic">
+      First capture — no prior data available.
+    </p>
+  </div>
+</section>
+
+# ------------------------------------------------
+# 2. Remove ONLY the legacy YESTERDAY VS TODAY block
+# ------------------------------------------------
+# Keep the cross-token comparison paragraph. Delete the inner <div> containing
+# the "YESTERDAY VS TODAY" heading and italic sentence.
+# ------------------------------------------------
+
+# AFTER
+
+<section className="mt-6 border-t border-surface-3 pt-4">
+  <h4 className="text-xs font-semibold tracking-[0.16em] text-gray-400 mb-1">
+    CROSS-TOKEN COMPARISON (BTC / ETH / SOL)
+  </h4>
+  <p className="text-sm text-gray-300">
+    Across BTC / ETH / SOL, BTC currently leads liquidity at 65/100 (BBB), with ETH 56, while SOL screens weakest at 39/100 (B).
+  </p>
+</section>
+
+# ------------------------------------------------
+# 3. Confirm the new Yesterday-vs-Today module is the only one
+# ------------------------------------------------
+# The analytics page should now:
+#   - Still show CROSS-TOKEN COMPARISON
+#   - No longer show the "YESTERDAY VS TODAY — First capture..." line
+#   - Still show the NEW Yesterday vs Today comparison block with depth/factor deltas
+#     further down in the layout.
+# ================================================
