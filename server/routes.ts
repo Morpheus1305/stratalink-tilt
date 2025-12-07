@@ -9,6 +9,7 @@ import liquidityRoutes from "./routes/liquidity";
 import executionRoutes from "./routes/execution";
 import intelRoutes from "./routes/intel";
 import fundingRoutes from "./routes/funding";
+import depthRoutes from "./routes/depth";
 import dailyCommentaryRouter from "./api/dailyCommentary";
 import { startIngestionLoop } from "../analytics/engines/ingestionManager";
 import { 
@@ -366,6 +367,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mount funding routes (live exchange data)
   app.use("/api/funding", fundingRoutes);
+
+  // Mount depth routes (multi-venue orderbook)
+  app.use("/api/depth", depthRoutes);
 
   // Mount analytics routes
   app.use("/api/analytics", analyticsRoutes);
