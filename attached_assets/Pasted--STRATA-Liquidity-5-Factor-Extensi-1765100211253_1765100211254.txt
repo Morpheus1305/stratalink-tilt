@@ -1,0 +1,450 @@
+# ============================================================
+# STRATA — Liquidity 5-Factor Extensions
+# 1) Batch 5-Factor endpoint
+# 2) Batch hook + MiniFactor pill
+# 3) Token Snapshot cards with 5-Factor mini blurbs
+# 4) Multi-token Daily Note (BTC/ETH/SOL) in commentary
+# ============================================================
+
+# --------------------------------------------
+# 1) backend/api/liquidity/factors.js
+#    Refactor to expose a shared compute function
+#    and add /batch?symbols=BTC,ETH,SOL
+# --------------------------------------------
+
+--- a/backend/api/liquidity/factors.js
++++ b/backend/api/liquidity/factors.js
+@@
+-import express from "express";
+-import { getOrderbookDepth } from "../lib/depth.js";
+-import { getVenueData } from "../lib/venues.js";
+-import { getLiquidityTimeseries } from "../lib/liquidityTimeseries.js";
+-
+-const router = express.Router();
+-
+-// Helper to convert raw to score (0–100)
+-function normalize(value, min, max) {
+-  if (value <= min) return 0;
+-  if (value >= max) return 100;
+-  return Math.round(((value - min) / (max - min)) * 100);
+-}
+-
+-// Liquidity 5-Factor endpoint
+-router.get("/:symbol", async (req, res) => {
+-  try {
+-    const symbol = req.params.symbol.toUpperCase();
+-
+-    // ============= DATA GATHERING =============
+-    const depth = await getOrderbookDepth(symbol);            // { "10bps": … , "25bps": … }
+-    const venues = await getVenueData(symbol);                // { venues: [], topShare: n }
+-    const ts = await getLiquidityTimeseries(symbol, "24h");   // array of liquidity values
+-
+-    // ============= FACTOR CALCULATIONS =============
+-    const d10 = depth["10bps"] || 0;
+-    const d25 = depth["25bps"] || 0;
+-    const d50 = depth["50bps"] || 0;
+-
+-    // Depth Quality (0–100)
+-    const depthQuality =
+-      normalize(d25, 0, 15000000) * 0.6 +
+-      normalize(d50, 0, 30000000) * 0.4;
+-
+-    // Execution Efficiency (slippage proxy)
+-    const slippage10 = d10 < 1000000 ? 0.03 : d10 < 5000000 ? 0.01 : 0.005;
+-    const execEfficiency = normalize(1 / slippage10, 0, 300);
+-
+-    // Liquidity Stability — volatility of depth
+-    const mean = ts.reduce((a, b) => a + b, 0) / ts.length;
+-    const variance = ts.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / ts.length;
+-    const stdev = Math.sqrt(variance);
+-    const stability = normalize(mean / (stdev || 1), 0, 20);
+-
+-    // Market Fragmentation — more venues = better
+-    const venueCount = venues.venues.length;
+-    const fragmentation = normalize(venueCount, 1, 10);
+-
+-    // Risk Concentration — top venue share (inverse)
+-    const rc = normalize(100 - venues.topShare, 0, 100);
+-
+-    // Composite Score
+-    const composite = Math.round(
+-      0.30 * depthQuality +
+-      0.25 * execEfficiency +
+-      0.20 * stability +
+-      0.15 * fragmentation +
+-      0.10 * rc
+-    );
+-
+-    // Rating band
+-    let rating = "B";
+-    if (composite >= 90) rating = "AAA";
+-    else if (composite >= 80) rating = "AA";
+-    else if (composite >= 70) rating = "A";
+-    else if (composite >= 60) rating = "BBB";
+-
+-    // Meta stats
+-    const meta = {
+-      max25bps: d25,
+-      max50bps: d50,
+-      venueCount,
+-      topShare: venues.topShare,
+-    };
+-
+-    res.json({
+-      symbol,
+-      composite,
+-      rating,
+-      factors: {
+-        depthQuality,
+-        execEfficiency,
+-        stability,
+-        fragmentation,
+-        riskConcentration: rc,
+-      },
+-      meta,
+-    });
+-  } catch (err) {
+-    console.error("5-Factor error", err);
+-    res.status(500).json({ error: "Failed to compute liquidity factors" });
+-  }
+-});
+-
+-export default router;
++import express from "express";
++import { getOrderbookDepth } from "../lib/depth.js";
++import { getVenueData } from "../lib/venues.js";
++import { getLiquidityTimeseries } from "../lib/liquidityTimeseries.js";
++
++const router = express.Router();
++
++// Helper to convert raw to score (0–100)
++function normalize(value, min, max) {
++  if (value <= min) return 0;
++  if (value >= max) return 100;
++  return Math.round(((value - min) / (max - min)) * 100);
++}
++
++// Core computation so we can reuse for batch + single
++async function computeLiquidityFactors(symbol) {
++  const sym = symbol.toUpperCase();
++
++  const depth = await getOrderbookDepth(sym);
++  const venues = await getVenueData(sym);
++  const ts = await getLiquidityTimeseries(sym, "24h");
++
++  const d10 = depth["10bps"] || 0;
++  const d25 = depth["25bps"] || 0;
++  const d50 = depth["50bps"] || 0;
++
++  const depthQuality =
++    normalize(d25, 0, 15000000) * 0.6 +
++    normalize(d50, 0, 30000000) * 0.4;
++
++  const slippage10 = d10 < 1000000 ? 0.03 : d10 < 5000000 ? 0.01 : 0.005;
++  const execEfficiency = normalize(1 / slippage10, 0, 300);
++
++  const mean = ts.reduce((a, b) => a + b, 0) / (ts.length || 1);
++  const variance =
++    ts.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / (ts.length || 1);
++  const stdev = Math.sqrt(variance);
++  const stability = normalize(mean / (stdev || 1), 0, 20);
++
++  const venueCount = venues.venues.length;
++  const fragmentation = normalize(venueCount, 1, 10);
++
++  const rc = normalize(100 - venues.topShare, 0, 100);
++
++  const composite = Math.round(
++    0.30 * depthQuality +
++      0.25 * execEfficiency +
++      0.20 * stability +
++      0.15 * fragmentation +
++      0.10 * rc
++  );
++
++  let rating = "B";
++  if (composite >= 90) rating = "AAA";
++  else if (composite >= 80) rating = "AA";
++  else if (composite >= 70) rating = "A";
++  else if (composite >= 60) rating = "BBB";
++
++  const meta = {
++    max25bps: d25,
++    max50bps: d50,
++    venueCount,
++    topShare: venues.topShare,
++  };
++
++  return {
++    symbol: sym,
++    composite,
++    rating,
++    factors: {
++      depthQuality,
++      execEfficiency,
++      stability,
++      fragmentation,
++      riskConcentration: rc,
++    },
++    meta,
++  };
++}
++
++// -------- Batch endpoint must be declared BEFORE "/:symbol" --------
++// GET /api/liquidity/factors/batch?symbols=BTC,ETH,SOL
++router.get("/batch", async (req, res) => {
++  try {
++    const q = (req.query.symbols || "").toString();
++    const symbols = q
++      .split(",")
++      .map((s) => s.trim().toUpperCase())
++      .filter(Boolean);
++
++    if (!symbols.length) {
++      return res.status(400).json({ error: "symbols query param required" });
++    }
++
++    const result = {};
++    for (const s of symbols) {
++      result[s] = await computeLiquidityFactors(s);
++    }
++    res.json(result);
++  } catch (err) {
++    console.error("5-Factor batch error", err);
++    res.status(500).json({ error: "Failed to compute batch liquidity factors" });
++  }
++});
++
++// Single-token endpoint
++router.get("/:symbol", async (req, res) => {
++  try {
++    const payload = await computeLiquidityFactors(req.params.symbol);
++    res.json(payload);
++  } catch (err) {
++    console.error("5-Factor error", err);
++    res.status(500).json({ error: "Failed to compute liquidity factors" });
++  }
++});
++
++export default router;
+
+# (server.js is already wired to /api/liquidity/factors from previous patch)
+
+
+# --------------------------------------------
+# 2) frontend/hooks/useLiquidityFactorsBatch.js
+#    Hook to fetch factors for multiple tokens
+# --------------------------------------------
+
+--- a/frontend/hooks/useLiquidityFactorsBatch.js
++++ b/frontend/hooks/useLiquidityFactorsBatch.js
+@@
++import { useEffect, useState } from "react";
++
++export default function useLiquidityFactorsBatch(symbols) {
++  const [data, setData] = useState(null);
++  const [loading, setLoading] = useState(false);
++
++  useEffect(() => {
++    if (!symbols || !symbols.length) return;
++    const list = symbols.join(",");
++    setLoading(true);
++    fetch(`/api/liquidity/factors/batch?symbols=${encodeURIComponent(list)}`)
++      .then((r) => r.json())
++      .then((d) => {
++        setData(d);
++        setLoading(false);
++      })
++      .catch(() => setLoading(false));
++  }, [JSON.stringify(symbols)]);
++
++  return { data, loading };
++}
+
+
+# --------------------------------------------
+# 3) frontend/components/MiniFactorPill.jsx
+#    Tiny pill for each token card
+# --------------------------------------------
+
+--- a/frontend/components/MiniFactorPill.jsx
++++ b/frontend/components/MiniFactorPill.jsx
+@@
++import React from "react";
++
++export default function MiniFactorPill({ factor }) {
++  if (!factor) return null;
++  const score = factor.composite;
++  const rating = factor.rating;
++
++  let tone = "bg-slate-800 text-slate-200 border-slate-700";
++  if (score >= 80) tone = "bg-emerald-900/60 text-emerald-200 border-emerald-500/60";
++  else if (score >= 65) tone = "bg-sky-900/60 text-sky-200 border-sky-500/60";
++  else if (score >= 50) tone = "bg-amber-900/60 text-amber-200 border-amber-500/60";
++  else tone = "bg-rose-900/60 text-rose-200 border-rose-500/60";
++
++  return (
++    <div
++      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] ${tone}`}
++    >
++      <span>5F {rating}</span>
++      <span className="opacity-80">· {score}/100</span>
++    </div>
++  );
++}
+
+
+# --------------------------------------------
+# 4) Token Liquidity Snapshot — inject mini pills
+#    Assumes a component like frontend/components/TokenLiquiditySnapshot.jsx
+#    that renders the grid of per-token cards.
+#    We add batch factors + MiniFactorPill under each token.
+# --------------------------------------------
+
+--- a/frontend/components/TokenLiquiditySnapshot.jsx
++++ b/frontend/components/TokenLiquiditySnapshot.jsx
+@@
+ import React from "react";
++import useLiquidityFactorsBatch from "../hooks/useLiquidityFactorsBatch";
++import MiniFactorPill from "./MiniFactorPill";
+@@
+ export default function TokenLiquiditySnapshot({ tokens }) {
+-  // existing implementation that maps tokens to cards
+-  return (
+-    <section>{/* ... */}</section>
+-  );
++  // Infer symbol list from tokens prop (e.g. [{symbol: "BTC", ...}, ...])
++  const symbols = Array.isArray(tokens)
++    ? tokens.map((t) => (t.symbol || t.ticker || "").toUpperCase()).filter(Boolean)
++    : [];
++
++  const { data: factorMap } = useLiquidityFactorsBatch(symbols);
++
++  return (
++    <section className="space-y-3">
++      <div className="flex items-center justify-between">
++        <h2 className="text-xs font-semibold tracking-wide text-slate-300">
++          TOKEN LIQUIDITY SNAPSHOT
++        </h2>
++      </div>
++
++      <div className="grid gap-3 xl:grid-cols-4 lg:grid-cols-3 md:grid-cols-2 sm:grid-cols-1">
++        {tokens.map((token) => {
++          const sym = (token.symbol || token.ticker || "").toUpperCase();
++          const f = factorMap?.[sym];
++
++          return (
++            <div
++              key={sym}
++              className="rounded-xl border border-slate-700 bg-slate-900/80 p-3 flex flex-col justify-between"
++            >
++              <div className="flex items-center justify-between mb-1">
++                <div className="text-[11px] font-medium text-slate-200">
++                  {sym}
++                </div>
++                {/* Existing BB / risk badge etc can stay here */}
++              </div>
++
++              {/* Existing price + depth + skew rows remain here */}
++              <div className="text-xs text-slate-100 mb-1">
++                ${token.priceFormatted}
++              </div>
++              <div className="text-[10px] text-slate-400 mb-2">
++                10bps Depth: {token.depth10bpsFormatted}
++              </div>
++
++              {/* NEW: mini 5-Factor pill at the bottom of the card */}
++              <div className="mt-auto pt-1 flex items-center justify-between">
++                <div className="text-[10px] text-slate-500">
++                  Book Skew: {token.skewLabel}
++                </div>
++                <MiniFactorPill factor={f} />
++              </div>
++            </div>
++          );
++        })}
++      </div>
++    </section>
++  );
+ }
+
+
+# --------------------------------------------
+# 5) analytics.jsx — multi-token daily note
+#    BTC / ETH / SOL 5-Factor summary
+# --------------------------------------------
+
+--- a/frontend/pages/analytics.jsx
++++ b/frontend/pages/analytics.jsx
+@@
+ import useLiquidityTimeseries from "../hooks/useLiquidityTimeseries";
+ import useLiquidityFactors from "../hooks/useLiquidityFactors";
++import useLiquidityFactorsBatch from "../hooks/useLiquidityFactorsBatch";
+ import LiquidityFiveFactorPanel from "../components/LiquidityFiveFactorPanel";
+@@
+   const { data: tsData } = useLiquidityTimeseries(selectedToken);
+   const { data: factorData } = useLiquidityFactors(selectedToken);
++
++  // Batch 5-Factor for headline tokens (for multi-token note)
++  const headlineTokens = ["BTC", "ETH", "SOL"];
++  const { data: batchFactors } = useLiquidityFactorsBatch(headlineTokens);
+@@
+   const factorCommentary = buildFactorCommentary(factorData);
++
++  // Build cross-token note: "BTC strongest, SOL weakest" style
++  function buildMultiTokenNote(batch) {
++    if (!batch) return null;
++    const entries = Object.entries(batch)
++      .map(([sym, val]) => ({ sym, composite: val.composite }))
++      .filter((x) => typeof x.composite === "number");
++
++    if (!entries.length) return null;
++
++    entries.sort((a, b) => b.composite - a.composite);
++    const leader = entries[0];
++    const laggard = entries[entries.length - 1];
++
++    const mid =
++      entries.length > 2
++        ? entries
++            .slice(1, entries.length - 1)
++            .map((e) => `${e.sym} ${e.composite}`)
++            .join(", ")
++        : null;
++
++    let note = `Across BTC / ETH / SOL, ${leader.sym} currently leads liquidity at ${leader.composite}/100`;
++    if (mid) {
++      note += `, with ${mid},`;
++    }
++    note += ` while ${laggard.sym} screens weakest at ${laggard.composite}/100.`;
++    return note;
++  }
++
++  const multiTokenNote = buildMultiTokenNote(batchFactors);
+@@
+-      <section className="mb-6">
++      <section className="mb-6">
+         <div className="rounded-xl border border-slate-700 bg-slate-900/80 p-4">
+           <div className="flex items-center justify-between mb-2">
+             <h1 className="text-sm font-semibold tracking-wide text-slate-200">
+               STRATA Daily Commentary
+             </h1>
+@@
+           {/* Existing execution + TSLE commentary (unchanged) */}
+           <DailyCommentaryExecutionBlock />
+ 
+           {/* NEW: Liquidity 5-Factor overlay */}
+           {factorCommentary && (
+             <div className="mt-3 text-[11px] leading-snug text-slate-200">
+               {factorCommentary}
+             </div>
+           )}
++
++          {/* NEW: cross-token 5-Factor summary (BTC/ETH/SOL) */}
++          {multiTokenNote && (
++            <div className="mt-2 text-[11px] leading-snug text-slate-300">
++              {multiTokenNote}
++            </div>
++          )}
+         </div>
+       </section>

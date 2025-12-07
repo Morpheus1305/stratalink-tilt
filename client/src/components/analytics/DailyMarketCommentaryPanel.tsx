@@ -1,5 +1,6 @@
 import { useDailyCommentary, CommentaryDelta } from "@/hooks/useDailyCommentary";
 import { useLiquidityFactors, LiquidityFactorsData } from "@/hooks/useLiquidityFactors";
+import useLiquidityFactorsBatch, { BatchFactorsResult } from "@/hooks/useLiquidityFactorsBatch";
 
 type Props = {
   symbol: string;
@@ -42,6 +43,43 @@ function buildFactorCommentary(factorData: LiquidityFactorsData | undefined): st
     `Max <25bps capacity ≈ ${max25}, <50bps ≈ ${max50} across ` +
     `${meta.venueCount || 0} venues (top venue ${meta.topShare ?? 0}%).`
   );
+}
+
+function buildMultiTokenNote(batch: BatchFactorsResult | undefined): string | null {
+  if (!batch) return null;
+
+  const entries = Object.entries(batch)
+    .map(([sym, val]) => ({ sym, composite: val?.composite ?? 0, rating: val?.rating ?? "N/A" }))
+    .filter((x) => x.composite > 0);
+
+  if (entries.length === 0) return null;
+  if (entries.length === 1) {
+    const only = entries[0];
+    return `${only.sym} scores ${only.composite}/100 (${only.rating}).`;
+  }
+
+  entries.sort((a, b) => b.composite - a.composite);
+  const leader = entries[0];
+  const laggard = entries[entries.length - 1];
+
+  if (leader.sym === laggard.sym || leader.composite === laggard.composite) {
+    return `BTC, ETH, and SOL are scoring comparably around ${leader.composite}/100.`;
+  }
+
+  const mid =
+    entries.length > 2
+      ? entries
+          .slice(1, entries.length - 1)
+          .map((e) => `${e.sym} ${e.composite}`)
+          .join(", ")
+      : null;
+
+  let note = `Across BTC / ETH / SOL, ${leader.sym} currently leads liquidity at ${leader.composite}/100 (${leader.rating})`;
+  if (mid) {
+    note += `, with ${mid}`;
+  }
+  note += `, while ${laggard.sym} screens weakest at ${laggard.composite}/100 (${laggard.rating}).`;
+  return note;
 }
 
 function DeltaChip({ value, suffix = "" }: { value: number | null; suffix?: string }) {
@@ -100,11 +138,15 @@ function DeltaSection({ delta }: { delta: CommentaryDelta | null }) {
   );
 }
 
+const HEADLINE_TOKENS = ["BTC", "ETH", "SOL"];
+
 export default function DailyMarketCommentaryPanel({ symbol }: Props) {
   const { loading, error, data } = useDailyCommentary(symbol, "buy");
   const { data: factorData } = useLiquidityFactors(symbol, "buy");
+  const { data: batchFactors } = useLiquidityFactorsBatch(HEADLINE_TOKENS);
   
   const factorCommentary = buildFactorCommentary(factorData);
+  const multiTokenNote = buildMultiTokenNote(batchFactors);
 
   return (
     <div
@@ -208,6 +250,17 @@ export default function DailyMarketCommentaryPanel({ symbol }: Props) {
               </span>
               <p className="text-[11px] leading-snug text-gray-200" data-testid="text-factor-commentary">
                 {factorCommentary}
+              </p>
+            </div>
+          )}
+
+          {multiTokenNote && (
+            <div className="border-t border-slate-700/50 pt-3">
+              <span className="uppercase tracking-wide text-[10px] text-gray-500 font-medium block mb-2">
+                Cross-Token Comparison (BTC / ETH / SOL)
+              </span>
+              <p className="text-[11px] leading-snug text-slate-300" data-testid="text-multi-token-note">
+                {multiTokenNote}
               </p>
             </div>
           )}
