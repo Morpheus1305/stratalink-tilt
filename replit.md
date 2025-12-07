@@ -154,3 +154,34 @@ python daily_engine.py
 **Output**:
 - `output/daily_summary.json` - Structured JSON data
 - `output/daily_summary.md` - Human-readable Markdown report
+
+## STRATA Liquidity 5-Factor Model
+
+The 5-Factor Model provides a weighted composite scoring system for institutional liquidity assessment.
+
+**Factor Weights**:
+- Depth Quality: 30% (orderbook depth at 25bps and 50bps)
+- Execution Efficiency: 25% (slippage proxy based on 10bps depth)
+- Liquidity Stability: 20% (volatility of depth over 24h)
+- Market Fragmentation: 15% (venue count, more = better)
+- Risk Concentration: 10% (inverse of top venue share)
+
+**Rating Bands**: AAA (90+), AA (80-89), A (70-79), BBB (60-69), BB (50-59), B (<50)
+
+**Factor Classification**: strong (80+), constructive (65-79), neutral (50-64), fragile (35-49), stressed (<35)
+
+**API Endpoints** (in `server/routes/liquidity.ts`):
+- `GET /api/liquidity/factors/:symbol` - Single token 5-Factor scores
+- `GET /api/liquidity/factors/batch?symbols=BTC,ETH,SOL` - Batch 5-Factor for multiple tokens
+
+**Frontend Hooks**:
+- `useLiquidityFactors(symbol)` - Single token factors
+- `useLiquidityFactorsBatch(symbols[])` - Batch factors for multiple tokens
+
+**Frontend Components** (in `client/src/components/analytics/`):
+- `LiquidityFiveFactorPanel` - Full visual panel with factor progress bars
+- `MiniFactorPill` - Compact pill showing "5F BBB · 65/100"
+- `TokenLiquiditySnapshot` - Token grid cards with 5-Factor pills
+- `DailyMarketCommentaryPanel` - Includes 5-Factor summary and cross-token comparison
+
+**Multi-Token Note**: The Daily Commentary panel includes a cross-token comparison: "Across BTC / ETH / SOL, BTC currently leads liquidity at 65/100 (BBB), with ETH 57, while SOL screens weakest at 42/100 (B)."
