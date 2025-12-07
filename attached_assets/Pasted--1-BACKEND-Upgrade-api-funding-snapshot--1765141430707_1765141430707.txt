@@ -1,0 +1,162 @@
+# ============================================
+# 1. BACKEND: Upgrade /api/funding/snapshot
+# ============================================
+# File: routes/api/funding/snapshot.ts (or .js)
+
+import express from "express";
+import fetch from "node-fetch";
+
+const router = express.Router();
+
+router.get("/", async (req, res) => {
+  const symbol = (req.query.symbol || "BTC").toString().toUpperCase();
+
+  async function fetchVenue(venue, url) {
+    try {
+      const r = await fetch(url);
+      const j = await r.json();
+      return {
+        venue,
+        rate: j.rate,
+        apr: j.apr,
+      };
+    } catch (err) {
+      return { venue, rate: null, apr: null };
+    }
+  }
+
+  const venues = await Promise.all([
+    fetchVenue("Binance", `https://api.stratalink.dev/perp/binance?symbol=${symbol}`),
+    fetchVenue("Bybit",   `https://api.stratalink.dev/perp/bybit?symbol=${symbol}`),
+    fetchVenue("OKX",     `https://api.stratalink.dev/perp/okx?symbol=${symbol}`),
+  ]);
+
+  const clean = venues.filter(v => v.rate !== null);
+
+  const medianRate = clean.map(v => v.rate).sort((a,b)=>a-b)[Math.floor(clean.length/2)];
+  const avgRate = clean.reduce((a,b)=>a + b.rate, 0) / clean.length;
+
+  function classify(rate) {
+    if (Math.abs(rate) < 0.0001) return "Ultra-Tight";
+    if (Math.abs(rate) < 0.0005) return "Tight";
+    if (Math.abs(rate) < 0.0015) return "Neutral";
+    return "Stressed";
+  }
+
+  const regime = classify(avgRate);
+
+  res.json({
+    symbol,
+    venues: clean,
+    medianRate,
+    avgRate,
+    regime,
+  });
+});
+
+export default router;
+
+
+
+# ============================================
+# 2. FRONTEND COMPONENT: Multi-Venue Funding UI
+# ============================================
+# File: components/PerpetualFundingSnapshot.tsx
+
+import React, { useEffect, useState } from "react";
+
+export default function PerpetualFundingSnapshot({ symbol }: { symbol: string }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      const res = await fetch(`/api/funding/snapshot?symbol=${symbol}`);
+      const json = await res.json();
+      setData(json);
+      setLoading(false);
+    }
+    load();
+  }, [symbol]);
+
+  if (loading) return <div className="text-slate-500 text-sm">Loading funding…</div>;
+  if (!data) return <div className="text-red-500 text-sm">Funding unavailable</div>;
+
+  const { venues, medianRate, avgRate, regime } = data;
+
+  return (
+    <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-800">
+      <h3 className="text-slate-200 font-semibold text-sm mb-3">
+        Perpetual Funding — {symbol}
+      </h3>
+
+      <div className="grid grid-cols-3 gap-3 mb-4">
+        {venues.map((v:any) => (
+          <div key={v.venue} className="bg-slate-800/60 p-3 rounded-lg border border-slate-700">
+            <div className="text-slate-400 text-xs">{v.venue}</div>
+            <div className="text-slate-100 text-lg font-semibold">
+              {(v.rate * 100).toFixed(4)}%
+            </div>
+            <div className="text-slate-500 text-xs">APR {v.apr.toFixed(1)}%</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="border-t border-slate-700 pt-3">
+        <div className="flex justify-between text-xs text-slate-400">
+          <span>Median Rate</span>
+          <span className="text-slate-200">{(medianRate * 100).toFixed(4)}%</span>
+        </div>
+        <div className="flex justify-between text-xs text-slate-400 mt-1">
+          <span>Average Rate</span>
+          <span className="text-slate-200">{(avgRate * 100).toFixed(4)}%</span>
+        </div>
+        <div className="flex justify-between text-xs text-slate-400 mt-1">
+          <span>Funding Regime</span>
+          <span className={
+            regime === "Ultra-Tight" ? "text-emerald-400" :
+            regime === "Tight"        ? "text-yellow-400" :
+            regime === "Neutral"      ? "text-sky-400" :
+                                        "text-red-400"
+          }>
+            {regime}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+
+# ============================================
+# 3. EXECUTION-INTELLIGENCE UPGRADE
+# ============================================
+# File: lib/executionIntelligence.ts
+
+export function integrateFundingIntoExecution(exec, fundingRegime) {
+  if (fundingRegime === "Ultra-Tight") exec.riskScore += 5;
+  else if (fundingRegime === "Tight") exec.riskScore += 2;
+  else if (fundingRegime === "Neutral") exec.riskScore += 0;
+  else if (fundingRegime === "Stressed") exec.riskScore -= 5;
+
+  exec.riskScore = Math.min(100, Math.max(0, exec.riskScore));
+  return exec;
+}
+
+
+
+# ============================================
+# 4. DASHBOARD INTEGRATION
+# ============================================
+# File: pages/dashboard.tsx (or equivalent)
+
+import PerpetualFundingSnapshot from "../components/PerpetualFundingSnapshot";
+
+// Inside your layout, wherever funding lives:
+<PerpetualFundingSnapshot symbol={selectedToken} />
+
+# ============================================
+# END OF UNIFIED PATCH
+# ============================================
