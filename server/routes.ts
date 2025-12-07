@@ -10,6 +10,7 @@ import executionRoutes from "./routes/execution";
 import intelRoutes from "./routes/intel";
 import fundingRoutes from "./routes/funding";
 import depthRoutes from "./routes/depth";
+import tsleRoutes from "./routes/tsle";
 import dailyCommentaryRouter from "./api/dailyCommentary";
 import { startIngestionLoop } from "../analytics/engines/ingestionManager";
 import { 
@@ -370,6 +371,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mount depth routes (multi-venue orderbook)
   app.use("/api/depth", depthRoutes);
+
+  // Mount TSLE routes (Trade Size Liquidity Engine)
+  app.use("/api/tsle", tsleRoutes);
 
   // Mount analytics routes
   app.use("/api/analytics", analyticsRoutes);

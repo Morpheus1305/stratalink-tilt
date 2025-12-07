@@ -1,0 +1,221 @@
+# TSLE Depth Integration – Unified Patch
+
+This patch adds:
+
+1. `lib/tsle/depthEngine.ts` – core Trade Size Liquidity Engine
+2. `server/routes/tsle.ts` – API route: `GET /api/tsle/depth?symbol=BTC&side=buy&size=100000`
+3. `server/routes.ts` – mount the TSLE router
+4. `client/src/utils/tsleDepth.ts` – frontend helper to call the TSLE API
+
+---
+
+## 1. New file: `lib/tsle/depthEngine.ts`
+
+Create the folder if needed: `lib/tsle/` and add:
+
+```ts
+// lib/tsle/depthEngine.ts
+
+/**
+ * Trade Size Liquidity Engine (TSLE)
+ *
+ * This module takes a depth snapshot (multi-venue, multi-bps)
+ * and answers three questions:
+ *
+ *  1) Max tradeable size at <X bps (25 / 50 / 100)
+ *  2) Expected impact for a requested trade size
+ *  3) Overall execution regime (Ultra-Tight / Tight / Neutral / Stressed)
+ */
+
+export type Side = "buy" | "sell";
+
+export interface VenueDepthBand {
+  venue: string;
+  // Absolute USD depth available *on the relevant side* at each band
+  depth10bps: number;
+  depth25bps: number;
+  depth50bps: number;
+  depth100bps: number;
+  depth200bps: number;
+}
+
+export interface DepthSnapshotInput {
+  symbol: string;
+  // per-venue depth bands. You should map these from your existing /api/depth/snapshot output.
+  venues: VenueDepthBand[];
+  // optional – used only for commentary / safety
+  asOf?: string;
+}
+
+export interface TsleDepthSummary {
+  symbol: string;
+  side: Side;
+  // capacity under key thresholds
+  maxSizeAt25bps: number;
+  maxSizeAt50bps: number;
+  maxSizeAt100bps: number;
+
+  // expected impact for requested size (bps)
+  requestedSize: number;
+  estImpactBps: number;
+
+  // qualitative regime
+  regime: "Ultra-Tight" | "Tight" | "Neutral" | "Stressed" | "Broken";
+  score: number; // 0-100
+
+  // breakdown for UI
+  totalDepth10bps: number;
+  totalDepth25bps: number;
+  totalDepth50bps: number;
+  totalDepth100bps: number;
+  totalDepth200bps: number;
+
+  venues: {
+    venue: string;
+    share25bps: number; // % of <25bps capacity
+    share50bps: number;
+    share100bps: number;
+  }[];
+}
+
+/**
+ * Helper: sum a particular band across venues
+ */
+function sumBand(venues: VenueDepthBand[], key: keyof VenueDepthBand): number {
+  return venues.reduce((acc, v) => acc + (v[key] || 0), 0);
+}
+
+/**
+ * Helper: classify regime based on depth profile + impact.
+ * You can tweak thresholds as you observe real data.
+ */
+function classifyRegime(
+  max25: number,
+  max50: number,
+  max100: number,
+  estImpactBps: number
+): { regime: TsleDepthSummary["regime"]; score: number } {
+  // crude heuristics – tune later
+  if (estImpactBps <= 5 && max25 > max50 * 0.6) {
+    return { regime: "Ultra-Tight", score: 95 };
+  }
+  if (estImpactBps <= 10 && max25 > max50 * 0.4) {
+    return { regime: "Tight", score: 85 };
+  }
+  if (estImpactBps <= 25) {
+    return { regime: "Neutral", score: 70 };
+  }
+  if (estImpactBps <= 50) {
+    return { regime: "Stressed", score: 45 };
+  }
+  return { regime: "Broken", score: 20 };
+}
+
+/**
+ * Estimate expected price impact (bps) for a given trade size,
+ * given the step-wise depth function.
+ *
+ * Very simple: we assume piecewise linear between bands.
+ */
+function estimateImpactBps(
+  size: number,
+  total10: number,
+  total25: number,
+  total50: number,
+  total100: number,
+  total200: number
+): number {
+  if (size <= 0) return 0;
+
+  if (size <= total10) return 5; // stays inside 10bps band
+  if (size <= total25) {
+    const frac = (size - total10) / Math.max(total25 - total10, 1);
+    return 10 + frac * 10; // 10-20 bps
+  }
+  if (size <= total50) {
+    const frac = (size - total25) / Math.max(total50 - total25, 1);
+    return 25 + frac * 25; // 25-50 bps
+  }
+  if (size <= total100) {
+    const frac = (size - total50) / Math.max(total100 - total50, 1);
+    return 50 + frac * 50; // 50-100 bps
+  }
+  if (size <= total200) {
+    const frac = (size - total100) / Math.max(total200 - total100, 1);
+    return 100 + frac * 100; // 100-200 bps
+  }
+
+  // beyond 200 bps territory
+  return 250;
+}
+
+/**
+ * Core TSLE function.
+ *
+ * Given a depth snapshot & requested size, returns a summary suitable
+ * for Execution Cost Calculator, Execution Intel, league table, etc.
+ */
+export function computeTsleDepthSummary(
+  snapshot: DepthSnapshotInput,
+  params: { side: Side; requestedSize: number }
+): TsleDepthSummary {
+  const { side, requestedSize } = params;
+
+  // For now, side doesn't change the calculation – we assume snapshot already
+  // contains bid-side depth for "sell" and ask-side depth for "buy".
+  // Later we can pass separate bid/ask arrays & choose appropriately.
+
+  const venues = snapshot.venues || [];
+
+  const total10 = sumBand(venues, "depth10bps");
+  const total25 = sumBand(venues, "depth25bps");
+  const total50 = sumBand(venues, "depth50bps");
+  const total100 = sumBand(venues, "depth100bps");
+  const total200 = sumBand(venues, "depth200bps");
+
+  const maxSizeAt25bps = total25;
+  const maxSizeAt50bps = total50;
+  const maxSizeAt100bps = total100;
+
+  const estImpactBps = estimateImpactBps(
+    requestedSize,
+    total10,
+    total25,
+    total50,
+    total100,
+    total200
+  );
+
+  const { regime, score } = classifyRegime(
+    maxSizeAt25bps,
+    maxSizeAt50bps,
+    maxSizeAt100bps,
+    estImpactBps
+  );
+
+  // venue-level shares
+  const venuesShares = venues.map((v) => ({
+    venue: v.venue,
+    share25bps: total25 > 0 ? (v.depth25bps / total25) * 100 : 0,
+    share50bps: total50 > 0 ? (v.depth50bps / total50) * 100 : 0,
+    share100bps: total100 > 0 ? (v.depth100bps / total100) * 100 : 0,
+  }));
+
+  return {
+    symbol: snapshot.symbol,
+    side,
+    maxSizeAt25bps,
+    maxSizeAt50bps,
+    maxSizeAt100bps,
+    requestedSize,
+    estImpactBps,
+    regime,
+    score,
+    totalDepth10bps: total10,
+    totalDepth25bps: total25,
+    totalDepth50bps: total50,
+    totalDepth100bps: total100,
+    totalDepth200bps: total200,
+    venues: venuesShares,
+  };
+}
