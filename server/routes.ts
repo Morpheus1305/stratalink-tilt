@@ -8,6 +8,7 @@ import analyticsRoutes from "../analytics/routes";
 import liquidityRoutes from "./routes/liquidity";
 import executionRoutes from "./routes/execution";
 import intelRoutes from "./routes/intel";
+import fundingRoutes from "./routes/funding";
 import dailyCommentaryRouter from "./api/dailyCommentary";
 import { startIngestionLoop } from "../analytics/engines/ingestionManager";
 import { 
@@ -363,36 +364,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Funding snapshot endpoint (token-aware)
-  const MOCK_FUNDING: Record<string, { rate: number; apr: number; regime: string; change24h: number }> = {
-    BTC: { rate: 0.0031, apr: 12.4, regime: "Neutral", change24h: 0.52 },
-    ETH: { rate: -0.0012, apr: -4.3, regime: "Mild short bias", change24h: -0.21 },
-    SOL: { rate: 0.0048, apr: 18.9, regime: "Mild long bias", change24h: 0.77 },
-    XRP: { rate: 0.0022, apr: 8.0, regime: "Neutral", change24h: 0.15 },
-    ADA: { rate: -0.0008, apr: -2.9, regime: "Mild short bias", change24h: -0.18 },
-    AVAX: { rate: 0.0035, apr: 12.8, regime: "Neutral", change24h: 0.42 },
-    LINK: { rate: 0.0018, apr: 6.6, regime: "Neutral", change24h: 0.28 },
-    DOT: { rate: -0.0015, apr: -5.5, regime: "Short crowded", change24h: -0.35 },
-    NEAR: { rate: 0.0025, apr: 9.1, regime: "Neutral", change24h: 0.31 },
-    MATIC: { rate: 0.0012, apr: 4.4, regime: "Neutral", change24h: 0.08 },
-  };
-
-  app.get("/api/funding/snapshot", (req, res) => {
-    const symbol = ((req.query.symbol as string) ?? "BTC").toUpperCase();
-    const data = MOCK_FUNDING[symbol];
-
-    if (!data) {
-      return res.status(200).json({
-        symbol,
-        rate: null,
-        apr: null,
-        regime: "Unavailable",
-        change24h: null,
-      });
-    }
-
-    return res.json({ symbol, ...data });
-  });
+  // Mount funding routes (live exchange data)
+  app.use("/api/funding", fundingRoutes);
 
   // Mount analytics routes
   app.use("/api/analytics", analyticsRoutes);
