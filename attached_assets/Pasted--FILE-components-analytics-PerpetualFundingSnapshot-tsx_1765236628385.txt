@@ -1,6 +1,6 @@
 // FILE: components/analytics/PerpetualFundingSnapshot.tsx
 
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 /**
  * Types that match the Cloudflare Worker funding proxy response.
@@ -69,11 +69,6 @@ const regimeBg = (regime: string): string => {
 
 // --------- main component ---------
 
-interface PerpetualFundingSnapshotProps {
-  symbol?: string;
-  label?: string;
-}
-
 /**
  * Perpetual Funding Snapshot (multi-venue, proxy-aware)
  *
@@ -82,28 +77,25 @@ interface PerpetualFundingSnapshotProps {
  * which forwards to the Cloudflare Worker and returns the
  * FundingSnapshot shape defined above.
  *
- * If your page already has a global "token focus" state,
- * you can pass it via the `symbol` prop so everything stays in sync.
+ * If your page already has a global “token focus” state,
+ * you can replace the `symbol` resolution below with that
+ * value so everything stays in sync.
  */
-const PerpetualFundingSnapshot = ({ symbol: propSymbol, label }: PerpetualFundingSnapshotProps) => {
-  const [internalSymbol, setInternalSymbol] = useState<string>("BTC");
+const PerpetualFundingSnapshot: React.FC = () => {
+  const [symbol, setSymbol] = useState<string>("BTC");
   const [state, setState] = useState<FetchState>({ status: "idle" });
-
-  // Use prop symbol if provided, otherwise use internal state
-  const symbol = propSymbol ?? internalSymbol;
 
   // Try to pick up symbol from query-string (?symbol=ETH) as a safe default.
   useEffect(() => {
-    if (propSymbol) return; // Don't override if prop is provided
     if (typeof window === "undefined") return;
     try {
       const url = new URL(window.location.href);
       const q = url.searchParams.get("symbol");
-      if (q) setInternalSymbol(q.toUpperCase());
+      if (q) setSymbol(q.toUpperCase());
     } catch {
       // ignore, keep BTC
     }
-  }, [propSymbol]);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -161,17 +153,13 @@ const PerpetualFundingSnapshot = ({ symbol: propSymbol, label }: PerpetualFundin
   }, [snapshot]);
 
   const venues: FundingVenue[] = snapshot?.venues ?? [];
-  const titleSymbol = label ?? symbol.toUpperCase();
 
   return (
-    <section 
-      className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 sm:px-5 sm:py-4 shadow-[0_0_0_1px_rgba(15,23,42,0.6)]"
-      data-testid={`panel-funding-snapshot-${symbol}`}
-    >
+    <section className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 sm:px-5 sm:py-4 shadow-[0_0_0_1px_rgba(15,23,42,0.6)]">
       <div className="flex items-center justify-between gap-3">
         <div>
           <div className="text-xs font-medium uppercase tracking-[0.14em] text-slate-400">
-            Perpetual Funding — {titleSymbol}
+            Perpetual Funding — {symbol}
           </div>
           <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <span className="text-lg font-semibold text-slate-50">

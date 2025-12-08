@@ -11,7 +11,7 @@ async function getOKXFundingDirect(symbol: string) {
   if (!res.ok) throw new Error("OKX failed");
   const data = await res.json() as { data: { fundingRate: string }[] };
   const rate = parseFloat(data.data[0].fundingRate);
-  return { venue: "OKX", rate, apr: rate * 3 * 365 * 100 };
+  return { venue: "OKX", rate, apr: rate * 3 * 365 * 100, ok: true, error: null };
 }
 
 function classifyRegime(rate: number): string {
@@ -38,25 +38,35 @@ router.get("/snapshot", async (req, res) => {
       if (proxyRes.ok) {
         const proxyData = await proxyRes.json() as {
           symbol: string;
-          venues: { venue: string; rate: number; apr: number }[];
+          venues: { venue: string; rate: number; apr: number; ok?: boolean; error?: string | null }[];
           medianRate: number;
           avgRate: number;
+          headlineRate?: number;
           regime: string;
         };
         
         // Return proxy response directly if it has data
         if (proxyData.venues && proxyData.venues.length > 0) {
+          // Ensure venues have ok/error fields
+          const normalizedVenues = proxyData.venues.map(v => ({
+            venue: v.venue,
+            rate: v.rate,
+            apr: v.apr,
+            ok: v.ok ?? true,
+            error: v.error ?? null
+          }));
+
+          const headlineRate = proxyData.headlineRate ?? proxyData.medianRate;
+
           return res.json({
             symbol: proxyData.symbol,
-            rate: proxyData.medianRate,
-            apr: proxyData.medianRate * 3 * 365 * 100,
-            venues: proxyData.venues,
+            source: "proxy",
+            venues: normalizedVenues,
             medianRate: proxyData.medianRate,
             avgRate: proxyData.avgRate,
+            headlineRate,
             regime: proxyData.regime || classifyRegime(proxyData.avgRate),
-            change24h: null,
-            timestamp: Date.now(),
-            source: "proxy"
+            timestamp: Date.now()
           });
         }
       }
@@ -66,18 +76,21 @@ router.get("/snapshot", async (req, res) => {
 
     // Fallback to direct OKX call
     const settled = await Promise.allSettled([getOKXFundingDirect(symbol)]);
-    const results = settled
-      .filter((r): r is PromiseFulfilledResult<{ venue: string; rate: number; apr: number }> => 
-        r.status === "fulfilled"
-      )
-      .map((r) => r.value);
+    const results: { venue: string; rate: number; apr: number; ok: boolean; error: string | null }[] = [];
+    for (const r of settled) {
+      if (r.status === "fulfilled") {
+        results.push(r.value);
+      }
+    }
 
     if (results.length === 0) {
       return res.status(503).json({
         symbol,
+        source: "fallback",
         venues: [],
-        medianRate: null,
-        avgRate: null,
+        medianRate: 0,
+        avgRate: 0,
+        headlineRate: 0,
         regime: "Unavailable",
         timestamp: Date.now(),
       });
@@ -90,15 +103,13 @@ router.get("/snapshot", async (req, res) => {
 
     res.json({
       symbol,
-      rate: medianRate,
-      apr: medianRate * 3 * 365 * 100,
+      source: "fallback",
       venues: results,
       medianRate,
       avgRate,
+      headlineRate: medianRate,
       regime,
-      change24h: null,
-      timestamp: Date.now(),
-      source: "fallback"
+      timestamp: Date.now()
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
