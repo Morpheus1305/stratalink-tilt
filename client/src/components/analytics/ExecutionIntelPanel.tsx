@@ -1,5 +1,6 @@
 import { useExecutionIntel } from "@/hooks/useExecutionIntel";
-import { Activity, TrendingUp, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
+import { useTsleDepth, formatUSD, getRegimeColor as getTsleRegimeColor } from "@/utils/tsleDepth";
+import { Activity, TrendingUp, AlertTriangle, CheckCircle2, XCircle, Zap } from "lucide-react";
 
 interface ExecutionIntelPanelProps {
   symbol: string;
@@ -41,6 +42,11 @@ function getRiskColor(score: number): string {
 
 export default function ExecutionIntelPanel({ symbol, side }: ExecutionIntelPanelProps) {
   const { loading, error, intel } = useExecutionIntel(symbol, side);
+  const { data: tsle, loading: tsleLoading } = useTsleDepth(symbol, { side, size: 100_000 });
+
+  const tsleRegimeLabel = tsle
+    ? `${tsle.regime} · ${tsle.score}/100`
+    : "Collecting liquidity data...";
 
   if (loading) {
     return (
@@ -84,6 +90,23 @@ export default function ExecutionIntelPanel({ symbol, side }: ExecutionIntelPane
         </span>
       </div>
 
+      {/* TSLE Live Regime Badge */}
+      {tsle && (
+        <div className="flex items-center gap-2 p-2 rounded-lg bg-[#0a0e1a] border border-[#1a2237]">
+          <Zap className="w-3 h-3 text-[#F5C211]" />
+          <span className="text-[10px] text-gray-400 uppercase tracking-wider">TSLE Live:</span>
+          <span className={`text-xs font-mono font-semibold ${getTsleRegimeColor(tsle.regime)}`}>
+            {tsleRegimeLabel}
+          </span>
+          <span className="text-[10px] text-gray-500 ml-auto">
+            Impact: ~{tsle.estImpactBps.toFixed(1)}bps @ $100K
+          </span>
+        </div>
+      )}
+      {tsleLoading && (
+        <div className="text-[10px] text-gray-500">Loading TSLE depth...</div>
+      )}
+
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1">
           <div className="text-[10px] text-gray-500 uppercase tracking-wider">Slippage Regime</div>
@@ -115,17 +138,15 @@ export default function ExecutionIntelPanel({ symbol, side }: ExecutionIntelPane
         <div className="text-[10px] text-gray-500 uppercase tracking-wider">Max Tradeable Size (Aggregated)</div>
         <div className="grid grid-cols-4 gap-2">
           {[
-            { label: "<10bps", value: intel.maxSizeSignals.bps10 },
-            { label: "<25bps", value: intel.maxSizeSignals.bps25 },
-            { label: "<50bps", value: intel.maxSizeSignals.bps50 },
-            { label: "<100bps", value: intel.maxSizeSignals.bps100 },
+            { label: "<10bps", value: tsle?.totals?.depth10bps ?? intel.maxSizeSignals.bps10 },
+            { label: "<25bps", value: tsle?.maxSizeAt25bps ?? intel.maxSizeSignals.bps25 },
+            { label: "<50bps", value: tsle?.maxSizeAt50bps ?? intel.maxSizeSignals.bps50 },
+            { label: "<100bps", value: tsle?.maxSizeAt100bps ?? intel.maxSizeSignals.bps100 },
           ].map(({ label, value }) => (
             <div key={label} className="bg-[#0a0e1a] rounded-lg p-2 text-center">
               <div className="text-[9px] text-gray-500">{label}</div>
               <div className="text-xs font-mono text-cyan-400">
-                ${value >= 1_000_000
-                  ? `${(value / 1_000_000).toFixed(1)}M`
-                  : `${(value / 1_000).toFixed(0)}K`}
+                {formatUSD(value)}
               </div>
             </div>
           ))}

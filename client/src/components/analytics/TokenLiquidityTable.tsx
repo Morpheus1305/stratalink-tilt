@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { TokenLiquiditySummary } from "@/types/liquidity";
 import { fetchTokenLiquiditySummary } from "@/lib/liquiditySummaryClient";
+import { useTsleDepth, formatUSD, getRegimeColor } from "@/utils/tsleDepth";
+import { Zap } from "lucide-react";
 
 interface Props {
   selectedToken: string;
@@ -40,6 +42,13 @@ const riskClass = (flag: string) => {
 const TokenLiquidityTable = ({ selectedToken, onSelectToken }: Props) => {
   const [rows, setRows] = useState<TokenLiquiditySummary[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+
+  // TSLE live data for selected token
+  const { data: tsle, loading: tsleLoading } = useTsleDepth(selectedToken, { side: "buy", size: 100_000 });
+
+  const tsleRegimeLabel = tsle
+    ? `${tsle.regime} · ${tsle.score}/100`
+    : "Collecting liquidity data...";
 
   useEffect(() => {
     let mounted = true;
@@ -85,6 +94,37 @@ const TokenLiquidityTable = ({ selectedToken, onSelectToken }: Props) => {
           <span className="text-amber-300">Stressed</span>,{" "}
           <span className="text-red-300">Block-Only</span>.
         </div>
+      </div>
+
+      {/* TSLE Live Status for Selected Token */}
+      <div className="mb-3 p-2 rounded-lg bg-muted/30 border border-border flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Zap className="w-3 h-3 text-[#F5C211]" />
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">TSLE Live</span>
+          <span className="text-xs font-mono text-foreground">{selectedToken}</span>
+        </div>
+        {tsleLoading ? (
+          <span className="text-[10px] text-muted-foreground">Loading...</span>
+        ) : tsle ? (
+          <>
+            <span className={`text-xs font-mono font-semibold ${getRegimeColor(tsle.regime)}`}>
+              {tsleRegimeLabel}
+            </span>
+            <span className="text-[10px] text-muted-foreground">
+              Impact: ~{tsle.estImpactBps.toFixed(1)}bps
+            </span>
+            <span className="text-[10px] text-muted-foreground">
+              Max @25bps: {formatUSD(tsle.maxSizeAt25bps)}
+            </span>
+            {tsle.venues && tsle.venues.length > 0 && (
+              <span className="text-[10px] text-muted-foreground ml-auto">
+                {tsle.venues.map(v => `${v.venue} ${v.share25bps.toFixed(0)}%`).join(", ")}
+              </span>
+            )}
+          </>
+        ) : (
+          <span className="text-[10px] text-muted-foreground">No data</span>
+        )}
       </div>
 
       <div className="overflow-x-auto">
