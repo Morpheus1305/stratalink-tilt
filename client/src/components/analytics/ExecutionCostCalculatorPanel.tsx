@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useExecutionCost } from "@/hooks/useExecutionCost";
+import { useTsleDepth, formatUSD, getRegimeColor } from "@/utils/tsleDepth";
 
 type Props = {
   token: string;
@@ -25,6 +26,12 @@ export const ExecutionCostCalculatorPanel: React.FC<Props> = ({ token }) => {
   );
 
   const { loading, error, result } = useExecutionCost(query);
+
+  // TSLE depth hook - always fetches live depth data
+  const { data: tsle, loading: tsleLoading, error: tsleError } = useTsleDepth(
+    token,
+    { side, size: sizeUsd }
+  );
 
   const best = result?.bestVenue ? result : null;
 
@@ -92,6 +99,66 @@ export const ExecutionCostCalculatorPanel: React.FC<Props> = ({ token }) => {
           Calculate
         </button>
       </div>
+
+      {/* TSLE Live Depth Summary - Always visible */}
+      {tsle && (
+        <div className="bg-[#050814] border border-[#1a2335] rounded p-3 text-[11px]">
+          <div className="text-[10px] uppercase tracking-[0.12em] text-neutral-500 mb-2">
+            TSLE Live Depth Analysis
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div>
+              <div className="text-neutral-500 text-[10px]">Est. Impact</div>
+              <div className="text-cyan-300 font-mono">
+                ~{tsle.estImpactBps.toFixed(1)} bps
+              </div>
+            </div>
+            <div>
+              <div className="text-neutral-500 text-[10px]">Regime</div>
+              <div className={`font-medium ${getRegimeColor(tsle.regime)}`}>
+                {tsle.regime}
+                <span className="text-neutral-400 ml-1">({tsle.score}/100)</span>
+              </div>
+            </div>
+            <div>
+              <div className="text-neutral-500 text-[10px]">Max @ &lt;25bps</div>
+              <div className="text-neutral-200 font-mono">
+                {formatUSD(tsle.maxSizeAt25bps)}
+              </div>
+            </div>
+            <div>
+              <div className="text-neutral-500 text-[10px]">Max @ &lt;50bps</div>
+              <div className="text-neutral-200 font-mono">
+                {formatUSD(tsle.maxSizeAt50bps)}
+              </div>
+            </div>
+          </div>
+          {tsle.venues && tsle.venues.length > 0 && (
+            <div className="mt-2 pt-2 border-t border-[#1a2335]">
+              <div className="text-[10px] text-neutral-500">
+                Venue share @ 25bps:{" "}
+                {tsle.venues.map((v, i) => (
+                  <span key={v.venue}>
+                    {i > 0 && ", "}
+                    <span className="text-neutral-300">{v.venue}</span>{" "}
+                    <span className="text-cyan-400">{v.share25bps.toFixed(0)}%</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {tsleLoading && (
+        <div className="text-[11px] text-neutral-500">Loading TSLE depth data…</div>
+      )}
+
+      {tsleError && (
+        <div className="text-[11px] text-amber-400">
+          TSLE: {tsleError}
+        </div>
+      )}
 
       <div className="min-h-[80px] text-[11px] text-neutral-300">
         {!submitted && (
@@ -175,9 +242,8 @@ export const ExecutionCostCalculatorPanel: React.FC<Props> = ({ token }) => {
       </div>
 
       <div className="text-[10px] text-neutral-500">
-        Estimates venue-level slippage and suggests best execution paths for{" "}
-        {token}. Backend must implement <code>/api/execution/cost</code> for
-        live routing.
+        TSLE provides live depth-based impact estimates. Click Calculate for
+        detailed venue-level slippage analysis.
       </div>
     </div>
   );
