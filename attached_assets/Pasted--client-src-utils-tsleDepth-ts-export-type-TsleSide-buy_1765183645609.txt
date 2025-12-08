@@ -1,0 +1,93 @@
+// client/src/utils/tsleDepth.ts
+
+export type TsleSide = "buy" | "sell";
+
+export interface TsleDepthResponse {
+  ok: boolean;
+  symbol: string;
+  side: TsleSide;
+  requestedSize: number;
+  estImpactBps: number;
+  regime: "Ultra-Tight" | "Tight" | "Neutral" | "Stressed" | "Broken";
+  score: number;
+  maxSizeAt25bps: number;
+  maxSizeAt50bps: number;
+  maxSizeAt100bps: number;
+  totals: {
+    depth10bps: number;
+    depth25bps: number;
+    depth50bps: number;
+    depth100bps: number;
+    depth200bps: number;
+  };
+  venues: {
+    venue: string;
+    share25bps: number;
+    share50bps: number;
+    share100bps: number;
+  }[];
+  asOf?: string;
+  source?: string;
+}
+
+export async function fetchTsleDepth(
+  symbol: string,
+  params?: { side?: TsleSide; size?: number }
+): Promise<TsleDepthResponse> {
+  const side = params?.side || "buy";
+  const size = params?.size ?? 100_000;
+
+  const qs = new URLSearchParams({
+    symbol: symbol.toUpperCase(),
+    side,
+    size: String(size),
+  });
+
+  const res = await fetch(`/api/tsle/depth?${qs.toString()}`);
+  if (!res.ok) {
+    throw new Error(`TSLE depth request failed: ${res.status}`);
+  }
+  return (await res.json()) as TsleDepthResponse;
+}
+
+/**
+ * Optional small hook – you can use this inside ExecutionCostCalculatorPanel,
+ * ExecutionIntelPanel, league table, etc.
+ */
+
+import { useEffect, useState } from "react";
+
+export function useTsleDepth(
+  symbol: string,
+  options: { side?: TsleSide; size?: number } = {}
+) {
+  const [data, setData] = useState<TsleDepthResponse | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function run() {
+      if (!symbol) return;
+      setLoading(true);
+      setError(null);
+      try {
+        const resp = await fetchTsleDepth(symbol, options);
+        if (!cancelled) setData(resp);
+      } catch (err: any) {
+        if (!cancelled) setError(err?.message || "TSLE depth error");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [symbol, options.side, options.size]);
+
+  return { data, loading, error };
+}
