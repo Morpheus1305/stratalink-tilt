@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import { useLiquidityStore } from "@/state/useLiquidityStore";
 
 //
-// TSLE SCORING PANEL – SAFE VERSION
-// - Works even if backend doesn't yet expose numeric scores
-// - Falls back to regime-based scoring
-// - Tolerates different field names for bands & scores
+// TSLE SCORING PANEL – ZUSTAND STORE VERSION
+// - Uses centralized Zustand store for TSLE data
+// - Falls back to regime-based scoring if no data
 //
 
 // ---------------------------------------------
@@ -16,7 +16,9 @@ const regimeColor = (regime: string | null | undefined) => {
       return "text-green-400";
     case "Tight":
       return "text-emerald-300";
-    case "Moderate":
+    case "Constructive":
+      return "text-sky-300";
+    case "Patchy":
       return "text-yellow-300";
     case "Thin":
       return "text-orange-400";
@@ -24,26 +26,6 @@ const regimeColor = (regime: string | null | undefined) => {
       return "text-red-500";
     default:
       return "text-gray-400";
-  }
-};
-
-// ---------------------------------------------
-// Regime → Default Score (fallback if no score from API)
-// ---------------------------------------------
-const scoreFromRegime = (regime: string | null | undefined): number | null => {
-  switch (regime) {
-    case "Ultra-Tight":
-      return 90;
-    case "Tight":
-      return 80;
-    case "Moderate":
-      return 65;
-    case "Thin":
-      return 45;
-    case "Broken":
-      return 25;
-    default:
-      return null;
   }
 };
 
@@ -56,7 +38,9 @@ const buildExecutionNote = (regime: string | null | undefined) => {
       return "Execution conditions excellent: deep liquidity, ultra-low slippage.";
     case "Tight":
       return "Stable liquidity profile; expected execution quality remains robust.";
-    case "Moderate":
+    case "Constructive":
+      return "Good depth available; normal execution conditions expected.";
+    case "Patchy":
       return "Moderate depth available; monitor order sizes during high volatility.";
     case "Thin":
       return "Liquidity impaired; spreads widen beyond norms. Size management required.";
@@ -72,37 +56,40 @@ const buildExecutionNote = (regime: string | null | undefined) => {
 // ---------------------------------------------
 interface TslePanelProps {
   symbol?: string;
+  score?: number;
+  regime?: string;
+  depth?: number;
+  funding?: number;
+  friction?: number;
 }
 
-export default function TslePanel({ symbol = "BTC" }: TslePanelProps) {
-  const [snapshot, setSnapshot] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+export default function TslePanel({ 
+  symbol = "BTC",
+  score: propScore,
+  regime: propRegime,
+  depth: propDepth,
+  funding: propFunding,
+  friction: propFriction,
+}: TslePanelProps) {
+  const { tsleData, refreshTSLE } = useLiquidityStore();
+  const data = tsleData[symbol];
 
-  const load = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch(`/api/tsle/snapshot?symbol=${symbol}`);
-      const data = await res.json();
-      console.log("TSLE snapshot", data);
-      setSnapshot(data);
-    } catch (err) {
-      console.error("TSLE Snapshot Error:", err);
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (!data) {
+      refreshTSLE();
     }
-  };
+  }, [symbol, data]);
 
-  useEffect(() => {
-    load();
-  }, [symbol]);
+  // Use props if provided, otherwise use store data
+  const score = propScore ?? data?.tsle ?? null;
+  const regime = propRegime ?? data?.regime ?? null;
+  const depthScore = propDepth ?? data?.depthScore ?? null;
+  const fundingScore = propFunding ?? data?.fundingScore ?? null;
+  const frictionScore = propFriction ?? data?.execIntegrity ?? null;
+  const stabilityScore = data?.stabilityScore ?? null;
+  const fragmentation = data?.fragmentation ?? null;
 
-  // Auto-refresh every 60s
-  useEffect(() => {
-    const id = setInterval(load, 60000);
-    return () => clearInterval(id);
-  }, []);
-
-  if (loading || !snapshot) {
+  if (!data && !propScore) {
     return (
       <div className="p-4 rounded-lg bg-white/5 text-sm text-gray-400">
         Loading TSLE Liquidity Engine…
@@ -110,83 +97,28 @@ export default function TslePanel({ symbol = "BTC" }: TslePanelProps) {
     );
   }
 
-  // ---------------------------------------------
-  // Flexible extraction of fields from snapshot
-  // ---------------------------------------------
-
-  const regime: string | null =
-    snapshot.regime ?? snapshot.liquidityRegime ?? snapshot.qualityBand ?? null;
-
-  // Score: try multiple possible names, then fall back to regime mapping
-  const apiScore: number | null =
-    snapshot.score ??
-    snapshot.tsleScore ??
-    snapshot.overallScore ??
-    snapshot.liquidityScore ??
-    null;
-
-  const score: number | null = apiScore ?? scoreFromRegime(regime);
-
-  // Component scores – best-effort; if not present we'll show "-"
-  const depthScore: number | null =
-    snapshot.depthScore ??
-    snapshot.components?.depth ??
-    snapshot.depthComponent ??
-    null;
-
-  const fundingScore: number | null =
-    snapshot.fundingScore ??
-    snapshot.components?.funding ??
-    snapshot.fundingComponent ??
-    null;
-
-  const frictionScore: number | null =
-    snapshot.frictionScore ??
-    snapshot.components?.friction ??
-    snapshot.frictionComponent ??
-    null;
-
-  // Bands – tolerant to different shapes:
-  // - snapshot.bands (preferred)
-  // - snapshot.depthBands
-  // - snapshot.levels (if array)
-  const rawBands =
-    snapshot.bands ??
-    snapshot.depthBands ??
-    snapshot.levels ??
-    [];
-
-  const bandsArray: any[] = Array.isArray(rawBands) ? rawBands : [];
-
-  const depthRows = bandsArray.map((b: any, idx: number) => {
-    // Be defensive about field names
-    const bps = b.bps ?? b.band ?? b.key ?? idx;
-    const bidUsd = b.bidUsd ?? b.bidsUsd ?? b.bid ?? 0;
-    const askUsd = b.askUsd ?? b.asksUsd ?? b.ask ?? 0;
-    const totalUsd =
-      b.totalUsd ?? b.notionalUsd ?? (Number(bidUsd) + Number(askUsd));
-
-    return {
-      bps,
-      bid: Number(bidUsd),
-      ask: Number(askUsd),
-      total: Number(totalUsd),
-    };
-  });
-
   const executionNote = buildExecutionNote(regime);
+
+  // Build depth bands from store data if available
+  const depthBands = data?.depth?.aggregate?.levels;
+  const depthRows = depthBands ? Object.entries(depthBands).map(([bps, level]: [string, any]) => ({
+    bps: parseInt(bps),
+    bid: level.bidUsd ?? 0,
+    ask: level.askUsd ?? 0,
+    total: level.totalUsd ?? 0,
+  })).sort((a, b) => a.bps - b.bps) : [];
 
   // ---------------------------------------------
   // Render
   // ---------------------------------------------
   return (
-    <div className="bg-white/5 rounded-lg p-4 flex flex-col gap-4">
+    <div className="bg-white/5 rounded-lg p-4 flex flex-col gap-4" data-testid="panel-tsle">
       {/* HEADER */}
       <div className="flex flex-col gap-1">
         <div className="text-lg font-bold">
           TSLE Score:{" "}
           <span className={regimeColor(regime)}>
-            {score !== null ? `${score}/100` : "N/A"}
+            {score !== null ? `${Math.round(score)}/100` : "N/A"}
           </span>
         </div>
 
@@ -197,16 +129,26 @@ export default function TslePanel({ symbol = "BTC" }: TslePanelProps) {
           </span>
         </div>
 
-        <div className="text-xs flex gap-4 opacity-70">
-          <span>
-            Depth: {depthScore !== null ? `${depthScore}/100` : "N/A"}
+        <div className="text-xs flex flex-wrap gap-4 opacity-70">
+          <span data-testid="text-depth-score">
+            Depth: {depthScore !== null ? `${Math.round(depthScore)}/100` : "N/A"}
           </span>
-          <span>
-            Funding: {fundingScore !== null ? `${fundingScore}/100` : "N/A"}
+          <span data-testid="text-funding-score">
+            Funding: {fundingScore !== null ? `${Math.round(fundingScore)}/100` : "N/A"}
           </span>
-          <span>
-            Friction: {frictionScore !== null ? `${frictionScore}/100` : "N/A"}
+          <span data-testid="text-friction-score">
+            Exec Integrity: {frictionScore !== null ? `${Math.round(frictionScore)}/100` : "N/A"}
           </span>
+          {stabilityScore !== null && (
+            <span data-testid="text-stability-score">
+              Stability: {Math.round(stabilityScore)}/100
+            </span>
+          )}
+          {fragmentation !== null && (
+            <span data-testid="text-fragmentation-score">
+              Fragmentation: {Math.round(fragmentation)}/100
+            </span>
+          )}
         </div>
       </div>
 
