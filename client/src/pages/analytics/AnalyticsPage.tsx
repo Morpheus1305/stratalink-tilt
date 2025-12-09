@@ -29,7 +29,7 @@ import { LiquidityTimeseriesPanel } from "@/components/analytics/LiquidityTimese
 import { ExecutionCostCalculatorPanel } from "@/components/analytics/ExecutionCostCalculatorPanel";
 import ExecutionIntelPanel from "@/components/analytics/ExecutionIntelPanel";
 import DailyMarketCommentaryPanel from "@/components/analytics/DailyMarketCommentaryPanel";
-import { LiquidityFiveFactorPanel } from "@/components/analytics/LiquidityFiveFactorPanel";
+import LiquidityFiveFactorPanel from "@/components/analytics/LiquidityFiveFactorPanel";
 import { YesterdayVsTodayPanel } from "@/components/analytics/YesterdayVsTodayPanel";
 import { useLiquidityFactors } from "@/hooks/useLiquidityFactors";
 import TokenLiquidityTable from "@/components/analytics/TokenLiquidityTable";
@@ -260,7 +260,15 @@ export default function AnalyticsPage() {
           <DailyMarketCommentaryPanel symbol={selectedToken} />
         </div>
         <div className="col-span-12 lg:col-span-4">
-          <LiquidityFiveFactorPanel symbol={selectedToken} side="buy" />
+          <LiquidityFiveFactorPanel factors={liquidityFactors ? {
+            depthQuality: liquidityFactors.factors?.depthQuality || 0,
+            executionEfficiency: liquidityFactors.factors?.execEfficiency || 0,
+            liquidityStability: liquidityFactors.factors?.stability || 0,
+            marketFragmentation: liquidityFactors.factors?.fragmentation || 0,
+            riskConcentration: liquidityFactors.factors?.riskConcentration || 0,
+            score: liquidityFactors.composite || 0,
+            grade: liquidityFactors.composite >= 90 ? "AAA" : liquidityFactors.composite >= 80 ? "AA" : liquidityFactors.composite >= 70 ? "A" : liquidityFactors.composite >= 60 ? "BBB" : liquidityFactors.composite >= 50 ? "BB" : "B",
+          } : null} />
         </div>
       </div>
 
