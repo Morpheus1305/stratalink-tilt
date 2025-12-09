@@ -30,6 +30,27 @@ const regimeColor = (regime: string | null | undefined) => {
 };
 
 // ---------------------------------------------
+// Depth Row Component
+// ---------------------------------------------
+interface DepthRowProps {
+  bps: string;
+  bid: string;
+  ask: string;
+  total: string;
+}
+
+function DepthRow({ bps, bid, ask, total }: DepthRowProps) {
+  return (
+    <tr className="border-t border-white/5">
+      <td className="px-2 py-1">{bps}bps</td>
+      <td className="px-2 py-1 text-right">{bid}</td>
+      <td className="px-2 py-1 text-right">{ask}</td>
+      <td className="px-2 py-1 text-right font-semibold">{total}</td>
+    </tr>
+  );
+}
+
+// ---------------------------------------------
 // Execution Commentary
 // ---------------------------------------------
 const buildExecutionNote = (regime: string | null | undefined) => {
@@ -99,14 +120,8 @@ export default function TslePanel({
 
   const executionNote = buildExecutionNote(regime);
 
-  // Build depth bands from store data if available
-  const depthBands = data?.depth?.aggregate?.levels;
-  const depthRows = depthBands ? Object.entries(depthBands).map(([bps, level]: [string, any]) => ({
-    bps: parseInt(bps),
-    bid: level.bidUsd ?? 0,
-    ask: level.askUsd ?? 0,
-    total: level.totalUsd ?? 0,
-  })).sort((a, b) => a.bps - b.bps) : [];
+  // Get depth levels from store
+  const levels = tsleData[symbol]?.depth?.aggregate?.levels;
 
   // ---------------------------------------------
   // Render
@@ -168,36 +183,22 @@ export default function TslePanel({
             </tr>
           </thead>
           <tbody>
-            {depthRows.length === 0 ? (
+            {levels ? (
+              Object.entries(levels).map(([bps, lvl]: [string, any]) => (
+                <DepthRow
+                  key={bps}
+                  bps={bps}
+                  bid={lvl.bidUsd.toLocaleString()}
+                  ask={lvl.askUsd.toLocaleString()}
+                  total={lvl.totalUsd.toLocaleString()}
+                />
+              ))
+            ) : (
               <tr>
-                <td
-                  colSpan={4}
-                  className="px-2 py-2 text-center text-xs opacity-60"
-                >
+                <td colSpan={4} className="px-2 py-2 text-center text-xs opacity-60">
                   No depth bands available yet for this token.
                 </td>
               </tr>
-            ) : (
-              depthRows.map((row, idx) => (
-                <tr key={idx} className="border-t border-white/5">
-                  <td className="px-2 py-1">{row.bps}bps</td>
-                  <td className="px-2 py-1 text-right">
-                    {row.bid.toLocaleString(undefined, {
-                      maximumFractionDigits: 0,
-                    })}
-                  </td>
-                  <td className="px-2 py-1 text-right">
-                    {row.ask.toLocaleString(undefined, {
-                      maximumFractionDigits: 0,
-                    })}
-                  </td>
-                  <td className="px-2 py-1 text-right font-semibold">
-                    {row.total.toLocaleString(undefined, {
-                      maximumFractionDigits: 0,
-                    })}
-                  </td>
-                </tr>
-              ))
             )}
           </tbody>
         </table>
