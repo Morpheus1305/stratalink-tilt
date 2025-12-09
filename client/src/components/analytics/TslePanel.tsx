@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import { stressBadgeColor, stressTextColor, getTsleScoreBadgeColor } from "@/utils/tsleDepth";
 
 type DepthBands = {
   "10": number;
@@ -36,15 +37,6 @@ function regimeColor(regime: string): string {
   if (r.includes("patchy")) return "bg-amber-500/15 text-amber-300 border-amber-500/40";
   if (r.includes("thin")) return "bg-orange-500/15 text-orange-300 border-orange-500/40";
   return "bg-red-500/15 text-red-300 border-red-500/40";
-}
-
-function stressColor(stress: string): string {
-  const s = stress.toLowerCase();
-  if (s === "calm") return "bg-emerald-500/10 text-emerald-300 border-emerald-500/30";
-  if (s === "watch") return "bg-sky-500/10 text-sky-300 border-sky-500/30";
-  if (s === "caution") return "bg-amber-500/10 text-amber-300 border-amber-500/30";
-  if (s === "stress") return "bg-orange-500/15 text-orange-300 border-orange-500/35";
-  return "bg-red-500/20 text-red-300 border-red-500/40";
 }
 
 function regimeBarColor(regime: string): string {
@@ -116,7 +108,7 @@ const TslePanel: React.FC<{ symbol: string }> = ({ symbol }) => {
       className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4 flex flex-col gap-3"
       data-testid={`panel-tsle-${symbol}`}
     >
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <div className="text-[11px] font-medium tracking-[0.16em] uppercase text-slate-400">
             Trade Size Liquidity Engine
@@ -125,7 +117,7 @@ const TslePanel: React.FC<{ symbol: string }> = ({ symbol }) => {
             {symbol} liquidity bands by impact (10-200bps)
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <div 
             className={cn("px-2 py-1 rounded-full border text-[10px] font-medium", regimeColor(regime))}
             data-testid={`badge-tsle-regime-${symbol}`}
@@ -133,7 +125,7 @@ const TslePanel: React.FC<{ symbol: string }> = ({ symbol }) => {
             TSLE · {regime} · {tsleScore}/100
           </div>
           <div 
-            className={cn("px-2 py-1 rounded-full border text-[10px] font-medium", stressColor(stressBucket))}
+            className={cn("px-2 py-1 rounded-full border text-[10px] font-medium", stressBadgeColor(stressBucket))}
             data-testid={`badge-tsle-stress-${symbol}`}
           >
             Stress · {stressBucket}
@@ -154,6 +146,18 @@ const TslePanel: React.FC<{ symbol: string }> = ({ symbol }) => {
             style={{ width: `${Math.min(100, tsleScore)}%` }}
           />
         </div>
+      </div>
+
+      <div className="flex items-center justify-between text-[11px] mt-1">
+        <span className="text-slate-300">
+          Intraday Liquidity Stress:&nbsp;
+          <span className={cn("font-semibold", stressTextColor(stressBucket))}>
+            {stressBucket}
+          </span>
+        </span>
+        <span className="text-slate-500 text-[10px]">
+          Updated every 60s
+        </span>
       </div>
 
       <div className="mt-2 grid grid-cols-5 gap-2 text-[10px]">

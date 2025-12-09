@@ -132,3 +132,43 @@ export function getRegimeBadgeColor(regime: TsleDepthResponse["regime"]): string
       return "border-slate-500 text-slate-400";
   }
 }
+
+export function stressCellColor(bucket?: string | null): string {
+  const b = (bucket || "").toLowerCase();
+  if (b === "calm") return "bg-emerald-500/15";
+  if (b === "watch") return "bg-sky-500/15";
+  if (b === "caution") return "bg-amber-500/20";
+  if (b === "stress") return "bg-orange-500/25";
+  if (b === "deleveraging") return "bg-red-500/30";
+  return "bg-slate-800/60";
+}
+
+export function stressTextColor(bucket?: string | null): string {
+  const b = (bucket || "").toLowerCase();
+  if (b === "calm") return "text-emerald-300";
+  if (b === "watch") return "text-sky-300";
+  if (b === "caution") return "text-amber-300";
+  if (b === "stress") return "text-orange-300";
+  if (b === "deleveraging") return "text-red-300";
+  return "text-slate-400";
+}
+
+export function stressBadgeColor(bucket?: string | null): string {
+  const b = (bucket || "").toLowerCase();
+  if (b === "calm") return "bg-emerald-500/10 text-emerald-300 border-emerald-500/30";
+  if (b === "watch") return "bg-sky-500/10 text-sky-300 border-sky-500/30";
+  if (b === "caution") return "bg-amber-500/10 text-amber-300 border-amber-500/30";
+  if (b === "stress") return "bg-orange-500/15 text-orange-300 border-orange-500/35";
+  if (b === "deleveraging") return "bg-red-500/20 text-red-300 border-red-500/40";
+  return "bg-slate-600/10 text-slate-200 border-slate-500/30";
+}
+
+export function getTsleScoreBadgeColor(score: number | null | undefined): string {
+  if (score == null) return "bg-slate-600/10 text-slate-200 border-slate-500/30";
+  if (score >= 85) return "bg-emerald-500/20 border-emerald-500/40 text-emerald-200";
+  if (score >= 70) return "bg-lime-500/20 border-lime-500/40 text-lime-200";
+  if (score >= 55) return "bg-sky-500/15 border-sky-500/35 text-sky-200";
+  if (score >= 40) return "bg-amber-500/15 border-amber-500/35 text-amber-200";
+  if (score >= 25) return "bg-orange-500/15 border-orange-500/40 text-orange-200";
+  return "bg-red-500/20 border-red-500/40 text-red-200";
+}

@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { TokenLiquiditySummary } from "@/types/liquidity";
 import { fetchTokenLiquiditySummary } from "@/lib/liquiditySummaryClient";
-import { useTsleDepth, formatUSD, getRegimeColor } from "@/utils/tsleDepth";
+import { useTsleDepth, formatUSD, getRegimeColor, getTsleScoreBadgeColor, stressBadgeColor, stressCellColor } from "@/utils/tsleDepth";
 import { Zap, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -43,15 +43,6 @@ const riskClass = (flag: string) => {
   }
 };
 
-const getTsleBadgeClass = (score: number | null | undefined): string => {
-  if (score == null) return "bg-slate-600/10 text-slate-200 border-slate-500/30";
-  if (score >= 85) return "bg-emerald-500/20 border-emerald-500/40 text-emerald-200";
-  if (score >= 70) return "bg-lime-500/20 border-lime-500/40 text-lime-200";
-  if (score >= 55) return "bg-sky-500/15 border-sky-500/35 text-sky-200";
-  if (score >= 40) return "bg-amber-500/15 border-amber-500/35 text-amber-200";
-  if (score >= 25) return "bg-orange-500/15 border-orange-500/40 text-orange-200";
-  return "bg-red-500/20 border-red-500/40 text-red-200";
-};
 
 const TokenLiquidityTable = ({ selectedToken, onSelectToken }: Props) => {
   const [rows, setRows] = useState<TokenLiquiditySummary[]>([]);
@@ -260,7 +251,7 @@ const TokenLiquidityTable = ({ selectedToken, onSelectToken }: Props) => {
                       <div
                         className={cn(
                           "inline-flex items-center gap-1 rounded-full border px-2 py-[2px] text-[10px] font-medium",
-                          getTsleBadgeClass(row.tsleScore)
+                          getTsleScoreBadgeColor(row.tsleScore)
                         )}
                         title={row.tsleRegime || ""}
                       >

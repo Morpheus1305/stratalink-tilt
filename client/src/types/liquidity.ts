@@ -6,6 +6,14 @@ export type TsleRegime = "Ultra-Tight" | "Tight" | "Constructive" | "Patchy" | "
 
 export type StressBucket = "Calm" | "Watch" | "Caution" | "Stress" | "Deleveraging";
 
+export const BUCKET_ORDER: readonly StressBucket[] = ["Calm", "Watch", "Caution", "Stress", "Deleveraging"] as const;
+
+export interface StressPoint {
+  symbol: string;
+  tsleScore?: number | null;
+  stressBucket?: StressBucket | null;
+}
+
 export interface TokenLiquiditySummary {
   symbol: string;
   name?: string;
