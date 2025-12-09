@@ -1,0 +1,446 @@
+// ===============================
+// FILE: server/lib/scoring/tsleScore.ts
+// New module — STRATA Liquidity TSLE Scoring Model 2.0
+// ===============================
+
+export type TsleRegime = "Ultra-Tight" | "Tight" | "Neutral" | "Stressed" | "Broken";
+
+export interface TsleDepthBand {
+  bidUsd: number;
+  askUsd: number;
+  totalUsd: number;
+}
+
+export interface TsleDepthAggregate {
+  mid: number | null;
+  levels: Record<string, TsleDepthBand>;
+}
+
+export interface TsleDepthSnapshot {
+  symbol: string;
+  source: string;
+  levels: number[];            // [10, 25, 50, 100, 200]
+  aggregate: TsleDepthAggregate;
+}
+
+export interface TsleFundingVenue {
+  venue: string;
+  ok: boolean;
+  rate: number | null;
+  apr: number | null;
+  error?: string | null;
+}
+
+export interface TsleFundingSnapshot {
+  symbol: string;
+  source: string;
+  venues: TsleFundingVenue[];
+  headlineRate: number;
+  medianRate: number;
+  avgRate: number;
+  regime: TsleRegime | string;
+}
+
+export interface TsleInputs {
+  symbol: string;
+  depth: TsleDepthSnapshot;
+  funding: TsleFundingSnapshot;
+}
+
+export interface TsleBandSnapshot {
+  bps: number;
+  bidUsd: number;
+  askUsd: number;
+  totalUsd: number;
+}
+
+export interface TsleScoreResult {
+  symbol: string;
+  score: number;                // 0–100
+  depthScore: number;           // 0–60
+  fundingScore: number;         // 0–25
+  frictionScore: number;        // 0–15
+  qualityBand: TsleRegime | "Moderate" | "Thin";
+  bands: TsleBandSnapshot[];
+  funding: {
+    headlineRate: number;
+    medianRate: number;
+    avgRate: number;
+    regime: TsleRegime | string;
+  };
+  venues: TsleFundingVenue[];
+  notes: string[];
+  asOf: string;                 // ISO timestamp
+}
+
+// ---------- helpers ----------
+
+const BPS_LEVELS = [10, 25, 50, 100, 200];
+
+function clamp(v: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, v));
+}
+
+function safeBand(agg: TsleDepthAggregate, bps: number): TsleBandSnapshot {
+  const key = String(bps);
+  const lvl = (agg?.levels && agg.levels[key]) || { bidUsd: 0, askUsd: 0, totalUsd: 0 };
+  return {
+    bps,
+    bidUsd: Number(lvl.bidUsd || 0),
+    askUsd: Number(lvl.askUsd || 0),
+    totalUsd: Number(lvl.totalUsd || 0),
+  };
+}
+
+function computeDepthComponents(bands: TsleBandSnapshot[]) {
+  const totals = bands.map(b => b.totalUsd);
+  const totalDepth = totals.reduce((a, b) => a + b, 0);
+
+  // --- Magnitude (0–40) ---
+  // Soft log-ish scaling around institutional ranges
+  let magnitudeScore = 0;
+  if (totalDepth <= 0) {
+    magnitudeScore = 0;
+  } else if (totalDepth >= 100_000_000) {
+    magnitudeScore = 40;
+  } else if (totalDepth >= 50_000_000) {
+    magnitudeScore = 35;
+  } else if (totalDepth >= 20_000_000) {
+    magnitudeScore = 30;
+  } else if (totalDepth >= 10_000_000) {
+    magnitudeScore = 25;
+  } else if (totalDepth >= 5_000_000) {
+    magnitudeScore = 20;
+  } else if (totalDepth >= 1_000_000) {
+    magnitudeScore = 15;
+  } else if (totalDepth >= 250_000) {
+    magnitudeScore = 10;
+  } else if (totalDepth > 0) {
+    magnitudeScore = 5;
+  }
+
+  // --- Curve Shape (0–20) ---
+  // Reward monotonic-ish growth of depth as impact widens
+  let stepsOk = 0;
+  for (let i = 0; i < totals.length - 1; i++) {
+    if (totals[i + 1] + 1e-6 >= totals[i]) {
+      stepsOk += 1;
+    }
+  }
+  // 4 "good" steps -> full 20 points
+  const curveShapeScore = clamp((stepsOk / 4) * 20, 0, 20);
+
+  // --- Symmetry (0–20) ---
+  // Average bid/ask imbalance across bands
+  let imbalances: number[] = [];
+  for (const b of bands) {
+    const denom = b.totalUsd || 1;
+    const imbalance = Math.abs(b.bidUsd - b.askUsd) / denom;
+    imbalances.push(imbalance);
+  }
+  const avgImbalance = imbalances.length
+    ? imbalances.reduce((a, b) => a + b, 0) / imbalances.length
+    : 1;
+
+  let symmetryScore = 0;
+  if (avgImbalance <= 0.10) symmetryScore = 20;
+  else if (avgImbalance <= 0.20) symmetryScore = 16;
+  else if (avgImbalance <= 0.35) symmetryScore = 12;
+  else if (avgImbalance <= 0.50) symmetryScore = 7;
+  else symmetryScore = 3;
+
+  return { magnitudeScore, curveShapeScore, symmetryScore, totalDepth, avgImbalance };
+}
+
+function computeFundingScore(funding: TsleFundingSnapshot) {
+  const regime = (funding.regime || "Neutral") as TsleRegime | string;
+  let base = 0;
+
+  switch (regime) {
+    case "Ultra-Tight":
+      base = 25;
+      break;
+    case "Tight":
+      base = 20;
+      break;
+    case "Neutral":
+      base = 14;
+      break;
+    case "Stressed":
+      base = 6;
+      break;
+    case "Broken":
+      base = 0;
+      break;
+    default:
+      base = 10;
+  }
+
+  const okVenues = funding.venues?.filter(v => v.ok && typeof v.rate === "number") || [];
+  const rates = okVenues.map(v => v.rate as number);
+  const absHeadline = Math.abs(funding.headlineRate || 0);
+
+  let penalty = 0;
+
+  // Dispersion across venues
+  if (rates.length >= 2) {
+    const max = Math.max(...rates);
+    const min = Math.min(...rates);
+    const spread = Math.abs(max - min);
+
+    if (spread > 0.0020) penalty += 6;       // > 20 bps annualised window
+    else if (spread > 0.0010) penalty += 3;  // > 10 bps
+  }
+
+  // Elevated carry cost
+  if (absHeadline > 0.0010) penalty += 5;        // > 0.10% per 8h
+  else if (absHeadline > 0.0005) penalty += 2;   // > 0.05% per 8h
+
+  const fundingScore = clamp(base - penalty, 0, 25);
+  return { fundingScore, penalty, absHeadline };
+}
+
+function computeFrictionScore(
+  bands: TsleBandSnapshot[],
+  totalDepth: number,
+  avgImbalance: number
+) {
+  if (!bands.length || totalDepth <= 0) {
+    return { frictionScore: 0, penalty: 15 };
+  }
+
+  const b10 = bands.find(b => b.bps === 10) || bands[0];
+  const b200 = bands.find(b => b.bps === 200) || bands[bands.length - 1];
+
+  let penalty = 0;
+
+  // Very shallow top-of-book vs overall depth
+  const frontShare = b10.totalUsd / (totalDepth || 1);
+  if (frontShare < 0.05) penalty += 7;
+  else if (frontShare < 0.10) penalty += 4;
+
+  // Depth curve too "steep" – 200bps not meaningfully larger than 10bps
+  const slopeRatio = b200.totalUsd / (b10.totalUsd || 1);
+  if (slopeRatio < 2) penalty += 5;
+  else if (slopeRatio < 3) penalty += 3;
+
+  // Extra penalty for strong imbalance
+  if (avgImbalance > 0.40) penalty += 3;
+
+  const frictionScore = clamp(15 - penalty, 0, 15);
+  return { frictionScore, penalty };
+}
+
+function classifyQualityBand(score: number): TsleRegime | "Moderate" | "Thin" {
+  if (score >= 90) return "Ultra-Tight";
+  if (score >= 75) return "Tight";
+  if (score >= 55) return "Moderate";
+  if (score >= 35) return "Thin";
+  return "Broken";
+}
+
+// ---------- main entry point ----------
+
+export function computeTsleScore(input: TsleInputs): TsleScoreResult {
+  const { symbol, depth, funding } = input;
+
+  const agg = depth?.aggregate || { mid: null, levels: {} as Record<string, TsleDepthBand> };
+
+  const bands: TsleBandSnapshot[] = BPS_LEVELS.map(bps => safeBand(agg, bps));
+
+  const {
+    magnitudeScore,
+    curveShapeScore,
+    symmetryScore,
+    totalDepth,
+    avgImbalance,
+  } = computeDepthComponents(bands);
+
+  const { fundingScore, penalty: fundingPenalty, absHeadline } = computeFundingScore(funding);
+
+  const { frictionScore, penalty: frictionPenalty } = computeFrictionScore(
+    bands,
+    totalDepth,
+    avgImbalance
+  );
+
+  const depthScore = clamp(
+    0.25 * curveShapeScore + 0.25 * symmetryScore + 0.5 * magnitudeScore,
+    0,
+    60
+  );
+
+  const score = clamp(depthScore + fundingScore + frictionScore, 0, 100);
+  const qualityBand = classifyQualityBand(score);
+
+  const notes: string[] = [];
+
+  // --- narrative notes (for Daily Commentary + UI) ---
+
+  if (totalDepth < 2_000_000) {
+    notes.push("Overall depth is thin vs institutional norms (< $2m across 10–200bps).");
+  } else if (totalDepth > 20_000_000) {
+    notes.push("Deep aggregate liquidity across 10–200bps bands.");
+  }
+
+  if (avgImbalance > 0.45) {
+    notes.push("Order book notably imbalanced between bid and ask liquidity.");
+  }
+
+  if (fundingPenalty >= 6) {
+    notes.push("Funding dispersion and carry costs indicate stressed perp conditions.");
+  } else if (absHeadline > 0.0005 && fundingScore <= 14) {
+    notes.push("Elevated perp funding suggests directional positioning in the market.");
+  }
+
+  if (frictionScore <= 5) {
+    notes.push("Front-of-book depth is shallow relative to deeper books – execution slippage risk.");
+  }
+
+  if (!notes.length) {
+    notes.push("Liquidity conditions appear orderly with balanced depth and stable funding.");
+  }
+
+  return {
+    symbol,
+    score: Math.round(score),
+    depthScore: Math.round(depthScore),
+    fundingScore: Math.round(fundingScore),
+    frictionScore: Math.round(frictionScore),
+    qualityBand,
+    bands,
+    funding: {
+      headlineRate: funding.headlineRate,
+      medianRate: funding.medianRate,
+      avgRate: funding.avgRate,
+      regime: funding.regime,
+    },
+    venues: funding.venues || [],
+    notes,
+    asOf: new Date().toISOString(),
+  };
+}
+
+
+// ===============================
+// FILE: server/routes/tsle.ts
+// Replace existing TSLE route logic with this version,
+// but keep your router / framework shape if different.
+// Key idea: fetch depth + funding snapshots, then call computeTsleScore.
+// ===============================
+
+import type { Context } from "hono";           // or your server framework type
+import { computeTsleScore, TsleScoreResult } from "../lib/scoring/tsleScore";
+
+// Helper: fetch depth + funding from Cloudflare Worker.
+// If your project already has helpers for this, you can
+// simply reuse them and only keep the computeTsleScore part.
+
+const WORKER_BASE =
+  process.env.CF_LIQUIDITY_WORKER_BASE ||
+  "https://hidden-star-5c73.rob-mcdermott.workers.dev";
+
+async function fetchDepthFromWorker(symbol: string) {
+  const url = `${WORKER_BASE}/depth?symbol=${encodeURIComponent(symbol)}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`Depth fetch failed: ${res.status} ${res.statusText}`);
+  }
+  return res.json();
+}
+
+async function fetchFundingFromWorker(symbol: string) {
+  const url = `${WORKER_BASE}/funding?symbol=${encodeURIComponent(symbol)}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`Funding fetch failed: ${res.status} ${res.statusText}`);
+  }
+  return res.json();
+}
+
+// Example for Hono-style route. Adapt the handler body if your framework differs.
+export default async function tsleSnapshotHandler(c: Context) {
+  try {
+    const symbolParam = (c.req.query("symbol") || "BTC").toUpperCase();
+
+    const [depthSnapshot, fundingSnapshot] = await Promise.all([
+      fetchDepthFromWorker(symbolParam),
+      fetchFundingFromWorker(symbolParam),
+    ]);
+
+    const result: TsleScoreResult = computeTsleScore({
+      symbol: symbolParam,
+      depth: depthSnapshot,
+      funding: fundingSnapshot,
+    });
+
+    return c.json(result);
+  } catch (err: any) {
+    console.error("[TSLE] snapshot error", err);
+    return c.json(
+      {
+        error: "TSLE snapshot failed",
+        message: err?.message || String(err),
+      },
+      500
+    );
+  }
+}
+
+// NOTE:
+// - Make sure routes.ts mounts this handler under `/api/tsle/snapshot`.
+// - If you already have a router object here (e.g. `const router = new Hono()`),
+//   you can instead do:
+//
+//   router.get("/snapshot", async (c) => { ...same body... });
+//   export default router;
+//
+//   The important part is the computeTsleScore(...) call and JSON shape.
+
+
+// ===============================
+// OPTIONAL: FRONT-END NOTE (TslePanel.tsx)
+// ===============================
+//
+// Your existing TslePanel should now expect `/api/tsle/snapshot` to return:
+//
+// {
+//   symbol: "BTC",
+//   score: 88,
+//   depthScore: 54,
+//   fundingScore: 22,
+//   frictionScore: 12,
+//   qualityBand: "Tight",
+//   bands: [{ bps: 10, bidUsd, askUsd, totalUsd }, ...],
+//   funding: { headlineRate, medianRate, avgRate, regime },
+//   venues: [...],
+//   notes: ["...", "..."],
+//   asOf: "2025-12-09T12:34:56.000Z"
+// }
+//
+// If TslePanel already works with the earlier response,
+// it will continue to work as long as it uses `bands` and `notes`.
+// You can optionally enrich it to display:
+//
+// - `score` with 0–100 gauge
+// - breakdown chips for `depthScore`, `fundingScore`, `frictionScore`
+// - qualityBand badge using the same thresholds as above.
+//
+// No mandatory UI changes are required for the scoring engine itself.
+// ```
+---
+
+Once Replit AI has applied this patch, test:
+
+1. **Worker endpoints (already checked):**  
+   - `https://hidden-star-5c73.rob-mcdermott.workers.dev/depth?symbol=BTC`  
+   - `https://hidden-star-5c73.rob-mcdermott.workers.dev/funding?symbol=BTC`
+
+2. **App TSLE endpoint:**  
+   - In Replit preview: `/api/tsle/snapshot?symbol=BTC`  
+   You should see the new `score`, `depthScore`, `fundingScore`, `frictionScore`, `qualityBand`, and `notes`.
+
+3. Confirm TSLE panel still renders. Once that’s stable, we can do a **separate patch** to:
+   - Surface the 0–100 score visually,
+   - Hook the league table sort to `tsle.score`,
+   - And add RAG heatmap styling for stress conditions.
