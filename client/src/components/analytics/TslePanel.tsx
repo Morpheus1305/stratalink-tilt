@@ -1,5 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useLiquidityStore } from "@/state/useLiquidityStore";
+
+const REFRESH_INTERVAL_MS = 10_000; // Refresh every 10 seconds
 
 function DepthRow({
   bps,
@@ -30,11 +32,24 @@ export default function TslePanel({ symbol = "BTC" }: TslePanelProps) {
   const { tsleData, refreshTSLE } = useLiquidityStore();
   const tokenData = tsleData[symbol] ?? null;
 
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Initial fetch and periodic refresh for real-time data
   useEffect(() => {
-    if (!tokenData) {
+    // Fetch immediately
+    refreshTSLE();
+
+    // Set up interval for real-time updates
+    intervalRef.current = setInterval(() => {
       refreshTSLE();
-    }
-  }, [symbol, tokenData, refreshTSLE]);
+    }, REFRESH_INTERVAL_MS);
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, [symbol, refreshTSLE]);
 
   const levels = tokenData?.depth?.aggregate?.levels ?? {};
 
