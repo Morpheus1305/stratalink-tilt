@@ -13,18 +13,12 @@ function DepthRow({
   total: number;
 }) {
   return (
-    <tr className="py-2 text-sm text-[var(--c-text-primary)] border-b border-[var(--c-border)] last:border-none">
-      <td className="py-2 px-2 font-medium text-[var(--c-text-primary)]">{bps}bps</td>
-      <td className="py-2 px-2 font-semibold text-[var(--c-text-primary)] text-right">
-        ${bid.toLocaleString()}
-      </td>
-      <td className="py-2 px-2 font-semibold text-[var(--c-text-primary)] text-right">
-        ${ask.toLocaleString()}
-      </td>
-      <td className="py-2 px-2 font-semibold text-[var(--c-text-primary)] text-right">
-        ${total.toLocaleString()}
-      </td>
-    </tr>
+    <div className="grid grid-cols-4 gap-2 border-t border-slate-900/70 px-3 py-1.5 text-[11px] text-slate-200">
+      <span className="font-medium">{bps}bps</span>
+      <span className="text-right">${bid.toLocaleString()}</span>
+      <span className="text-right">${ask.toLocaleString()}</span>
+      <span className="text-right font-semibold">${total.toLocaleString()}</span>
+    </div>
   );
 }
 
@@ -49,26 +43,27 @@ export default function TslePanel({ symbol = "BTC" }: TslePanelProps) {
   );
 
   return (
-    <div className="bg-[var(--c-card)] rounded-xl p-5 shadow-sm border border-[var(--c-border)]">
-      <h3 className="text-[var(--c-text-primary)] text-lg font-semibold tracking-tight mb-3">
+    <section
+      className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 sm:px-5 sm:py-4 shadow-[0_0_0_1px_rgba(15,23,42,0.6)]"
+      data-testid={`panel-depth-bands-${symbol}`}
+    >
+      <div className="text-xs font-medium uppercase tracking-[0.14em] text-slate-400 mb-3">
         Depth by Liquidity Bands
-      </h3>
+      </div>
 
       {depthRows.length === 0 ? (
-        <p className="text-[var(--c-text-secondary)] text-sm">
+        <div className="text-[11px] text-slate-400">
           No depth bands available yet for this token.
-        </p>
+        </div>
       ) : (
-        <table className="w-full border-collapse">
-          <thead>
-            <tr className="text-[var(--c-text-secondary)] text-xs uppercase tracking-wide pb-2 border-b border-[var(--c-border)]">
-              <th className="py-2 px-2 text-left">Bps</th>
-              <th className="py-2 px-2 text-right">Bid USD</th>
-              <th className="py-2 px-2 text-right">Ask USD</th>
-              <th className="py-2 px-2 text-right">Total USD</th>
-            </tr>
-          </thead>
-          <tbody>
+        <div className="rounded-xl border border-slate-800/80 bg-slate-950/60">
+          <div className="grid grid-cols-4 gap-2 border-b border-slate-800 px-3 py-1.5 text-[11px] font-medium text-slate-400">
+            <span>BPS</span>
+            <span className="text-right">BID USD</span>
+            <span className="text-right">ASK USD</span>
+            <span className="text-right">TOTAL USD</span>
+          </div>
+          <div className="max-h-60 overflow-y-auto">
             {depthRows.map(([bps, obj]: any) => (
               <DepthRow
                 key={bps}
@@ -78,9 +73,9 @@ export default function TslePanel({ symbol = "BTC" }: TslePanelProps) {
                 total={obj.totalUsd ?? 0}
               />
             ))}
-          </tbody>
-        </table>
+          </div>
+        </div>
       )}
-    </div>
+    </section>
   );
 }

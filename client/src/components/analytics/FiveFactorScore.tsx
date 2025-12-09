@@ -1,14 +1,24 @@
-import React from "react";
+interface FactorItem {
+  name: string;
+  score: number;
+  colour: string;
+}
+
+interface FiveFactorScoreProps {
+  title?: string;
+  totalScore?: number;
+  rating?: string;
+  factors?: FactorItem[];
+}
 
 const FiveFactorScore = ({
   title = "Liquidity 5-Factor Score",
   totalScore = 0,
   rating = "",
   factors = [],
-}) => {
+}: FiveFactorScoreProps) => {
   return (
     <div className="p-6 rounded-xl border border-gray-700 bg-[#0C0F14] w-full">
-      {/* HEADER */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold text-white">{title}</h2>
 
@@ -22,7 +32,6 @@ const FiveFactorScore = ({
         </div>
       </div>
 
-      {/* FACTOR ROWS */}
       {factors.map((item) => (
         <div key={item.name} className="mb-4">
           <div className="flex justify-between mb-1">
@@ -39,7 +48,7 @@ const FiveFactorScore = ({
                 width: `${Math.max(0, Math.min(100, item.score))}%`,
                 backgroundColor: item.colour,
               }}
-            ></div>
+            />
           </div>
         </div>
       ))}
