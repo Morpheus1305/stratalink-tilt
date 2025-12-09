@@ -2,6 +2,8 @@ import { useEffect, useState, useMemo } from "react";
 import { TokenLiquiditySummary } from "@/types/liquidity";
 import { fetchTokenLiquiditySummary } from "@/lib/liquiditySummaryClient";
 import { useTsleDepth, formatUSD, getRegimeColor, getTsleScoreBadgeColor, stressBadgeColor, stressCellColor } from "@/utils/tsleDepth";
+import { useLiquidityStore } from "@/state/useLiquidityStore";
+import { Badge } from "@/components/ui/badge";
 import { Zap, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -50,6 +52,7 @@ const TokenLiquidityTable = ({ selectedToken, onSelectToken }: Props) => {
   const [sortField, setSortField] = useState<SortField>("tsleScore");
   const [sortDir, setSortDir] = useState<SortDirection>("desc");
 
+  const { tsleData, refreshTSLE } = useLiquidityStore();
   const { data: tsle, loading: tsleLoading } = useTsleDepth(selectedToken, { side: "buy", size: 100_000 });
 
   const tsleRegimeLabel = tsle
@@ -63,6 +66,7 @@ const TokenLiquidityTable = ({ selectedToken, onSelectToken }: Props) => {
       setRows(data);
       setLoading(false);
     });
+    refreshTSLE();
     return () => {
       mounted = false;
     };
@@ -247,22 +251,30 @@ const TokenLiquidityTable = ({ selectedToken, onSelectToken }: Props) => {
                     </div>
                   </td>
                   <td className="py-2 pr-3 text-right">
-                    {row.tsleScore != null ? (
-                      <div
-                        className={cn(
-                          "inline-flex items-center gap-1 rounded-full border px-2 py-[2px] text-[10px] font-medium",
-                          getTsleScoreBadgeColor(row.tsleScore)
-                        )}
-                        title={row.tsleRegime || ""}
-                      >
-                        <span>{row.tsleScore}</span>
-                        {row.tsleRegime && (
-                          <span className="uppercase tracking-[0.08em] text-[9px]">{row.tsleRegime}</span>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-[10px] text-slate-500">—</span>
-                    )}
+                    {(() => {
+                      const storeTsle = tsleData[row.symbol]?.tsle;
+                      const storeRegime = tsleData[row.symbol]?.regime;
+                      const displayScore = storeTsle ?? row.tsleScore;
+                      const displayRegime = storeRegime ?? row.tsleRegime;
+                      
+                      if (displayScore != null) {
+                        return (
+                          <Badge
+                            className={cn(
+                              "text-[10px] font-medium",
+                              displayRegime === "Ultra-Tight" && "bg-emerald-500/20 text-emerald-300 border-emerald-500/40",
+                              displayRegime === "Tight" && "bg-sky-500/20 text-sky-300 border-sky-500/40",
+                              displayRegime === "Constructive" && "bg-slate-500/20 text-slate-200 border-slate-500/40",
+                              displayRegime === "Patchy" && "bg-amber-500/20 text-amber-300 border-amber-500/40",
+                              displayRegime === "Broken" && "bg-red-500/20 text-red-300 border-red-500/40"
+                            )}
+                          >
+                            {displayScore} {displayRegime}
+                          </Badge>
+                        );
+                      }
+                      return <span className="text-[10px] text-slate-500">—</span>;
+                    })()}
                   </td>
                   <td className="py-2 pr-3 text-right text-foreground font-mono">
                     {row.factorScore}
