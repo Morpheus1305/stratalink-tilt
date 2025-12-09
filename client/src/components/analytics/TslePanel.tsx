@@ -15,9 +15,9 @@ function DepthRow({
   return (
     <div className="grid grid-cols-4 gap-2 border-t border-slate-900/70 px-3 py-1.5 text-[11px] text-slate-200">
       <span className="font-medium">{bps}bps</span>
-      <span className="text-right">${bid.toLocaleString()}</span>
-      <span className="text-right">${ask.toLocaleString()}</span>
-      <span className="text-right font-semibold">${total.toLocaleString()}</span>
+      <span className="text-right">${Math.round(bid).toLocaleString()}</span>
+      <span className="text-right">${Math.round(ask).toLocaleString()}</span>
+      <span className="text-right font-semibold">${Math.round(total).toLocaleString()}</span>
     </div>
   );
 }
