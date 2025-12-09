@@ -54,6 +54,88 @@ function getRatingColor(rating: string): string {
   }
 }
 
+function computeDepthQuality(depthData: any): number {
+  if (!depthData || !depthData.aggregate || !depthData.aggregate.levels) {
+    return 0;
+  }
+
+  const lv = depthData.aggregate.levels;
+
+  const d10 = lv["10"]?.totalUsd ?? 0;
+  const d25 = lv["25"]?.totalUsd ?? 0;
+
+  const max10 = 40_000_000;
+  const max25 = 80_000_000;
+
+  const score10 = Math.min((d10 / max10) * 100, 100);
+  const score25 = Math.min((d25 / max25) * 100, 100);
+
+  return Math.round((score10 * 0.4) + (score25 * 0.6));
+}
+
+function computeExecutionEfficiency(fundingData: any): number {
+  if (!fundingData) return 50;
+  const rate = Math.abs(fundingData.headlineRate ?? 0);
+  if (rate < 0.00002) return 90;
+  if (rate < 0.00005) return 75;
+  if (rate < 0.0001) return 55;
+  return 30;
+}
+
+function computeLiquidityStability(depthData: any): number {
+  if (!depthData?.venues) return 40;
+
+  const okVenues = depthData.venues.filter((v: any) => v.ok);
+  if (okVenues.length <= 1) return 25;
+
+  return 55;
+}
+
+function computeMarketFragmentation(depthData: any): number {
+  if (!depthData?.venues) return 40;
+
+  const okVenues = depthData.venues.filter((v: any) => v.ok);
+  if (okVenues.length === 0) return 20;
+
+  const spreads = okVenues.map((v: any) => {
+    const mid = v.mid ?? 0;
+    return mid > 0 ? Math.abs(mid - depthData.aggregate.mid) / mid : 0;
+  });
+
+  const avgSpread = spreads.reduce((a: number, b: number) => a + b, 0) / spreads.length;
+
+  if (avgSpread < 0.0003) return 85;
+  if (avgSpread < 0.0007) return 65;
+  return 40;
+}
+
+function computeRiskConcentration(depthData: any): number {
+  if (!depthData?.venues) return 50;
+
+  const ok = depthData.venues.filter((v: any) => v.ok && v.levels);
+  if (ok.length === 0) return 20;
+
+  const totals = ok.map((v: any) => v.levels?.["25"]?.totalUsd ?? 0);
+  const sum = totals.reduce((a: number, b: number) => a + b, 0);
+  if (sum === 0) return 30;
+
+  const topShare = Math.max(...totals) / sum;
+
+  if (topShare < 0.45) return 70;
+  if (topShare < 0.65) return 55;
+  return 30;
+}
+
+function computeFiveFactorScore(dq: number, ee: number, ls: number, mf: number, rc: number): number {
+  return Math.round(
+    dq * 0.35 +
+    ee * 0.20 +
+    ls * 0.15 +
+    mf * 0.15 +
+    rc * 0.15
+  );
+}
+
 interface FiveFactorCardProps {
   score: number;
   depthQuality: number;
@@ -133,24 +215,35 @@ export function FiveFactorCard({
   );
 }
 
-// Wrapper component for backward compatibility - uses store internally
 interface LiquidityFiveFactorPanelProps {
   symbol?: string;
+  depthData?: any;
+  fundingData?: any;
   side?: "buy" | "sell";
 }
 
-export function LiquidityFiveFactorPanel({ symbol = "BTC" }: LiquidityFiveFactorPanelProps) {
+export function LiquidityFiveFactorPanel({ symbol = "BTC", depthData, fundingData }: LiquidityFiveFactorPanelProps) {
   const { tsleData } = useLiquidityStore();
-  const data = tsleData[symbol];
+  const storeData = tsleData[symbol];
+
+  const depthQuality = depthData ? computeDepthQuality(depthData) : (storeData?.fiveFactor?.factors?.depthQuality ?? 0);
+  const executionEfficiency = fundingData ? computeExecutionEfficiency(fundingData) : (storeData?.fiveFactor?.factors?.executionEfficiency ?? 0);
+  const liquidityStability = depthData ? computeLiquidityStability(depthData) : (storeData?.fiveFactor?.factors?.liquidityStability ?? 0);
+  const marketFragmentation = depthData ? computeMarketFragmentation(depthData) : (storeData?.fiveFactor?.factors?.marketFragmentation ?? 0);
+  const riskConcentration = depthData ? computeRiskConcentration(depthData) : (storeData?.fiveFactor?.factors?.riskConcentration ?? 0);
+
+  const totalScore = (depthData || fundingData) 
+    ? computeFiveFactorScore(depthQuality, executionEfficiency, liquidityStability, marketFragmentation, riskConcentration)
+    : (storeData?.fiveFactor?.score ?? 0);
 
   return (
     <FiveFactorCard
-      score={data?.fiveFactor?.score ?? 0}
-      depthQuality={data?.fiveFactor?.factors?.depthQuality ?? 0}
-      executionEfficiency={data?.fiveFactor?.factors?.executionEfficiency ?? 0}
-      liquidityStability={data?.fiveFactor?.factors?.liquidityStability ?? 0}
-      marketFragmentation={data?.fiveFactor?.factors?.marketFragmentation ?? 0}
-      riskConcentration={data?.fiveFactor?.factors?.riskConcentration ?? 0}
+      score={totalScore}
+      depthQuality={depthQuality}
+      executionEfficiency={executionEfficiency}
+      liquidityStability={liquidityStability}
+      marketFragmentation={marketFragmentation}
+      riskConcentration={riskConcentration}
     />
   );
 }

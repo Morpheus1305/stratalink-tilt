@@ -1,0 +1,157 @@
+// PATCH START — LiquidityFiveFactorPanel.tsx
+
+//-----------------------------------------------------
+// 1. Add helper: compute Depth Quality from depth JSON
+//-----------------------------------------------------
+function computeDepthQuality(depthData: any): number {
+  if (!depthData || !depthData.aggregate || !depthData.aggregate.levels) {
+    return 0;
+  }
+
+  const lv = depthData.aggregate.levels;
+
+  // Use 10bps + 25bps depth as main liquidity gauges
+  const d10 = lv["10"]?.totalUsd ?? 0;
+  const d25 = lv["25"]?.totalUsd ?? 0;
+
+  // Normalize to a 0–100 score (STRATA v1 baseline)
+  const max10 = 40_000_000;  // typical top-tier depth
+  const max25 = 80_000_000;
+
+  const score10 = Math.min((d10 / max10) * 100, 100);
+  const score25 = Math.min((d25 / max25) * 100, 100);
+
+  return Math.round((score10 * 0.4) + (score25 * 0.6)); // weighted
+}
+
+
+//-----------------------------------------------------
+// 2. Execution Efficiency — keep your current logic
+//-----------------------------------------------------
+function computeExecutionEfficiency(fundingData: any): number {
+  if (!fundingData) return 50;
+  const rate = Math.abs(fundingData.headlineRate ?? 0);
+  if (rate < 0.00002) return 90;
+  if (rate < 0.00005) return 75;
+  if (rate < 0.0001) return 55;
+  return 30;
+}
+
+
+//-----------------------------------------------------
+// 3. Liquidity Stability — new simple volatility proxy
+//-----------------------------------------------------
+function computeLiquidityStability(depthData: any): number {
+  if (!depthData?.venues) return 40;
+
+  // If only one venue available → unstable
+  const okVenues = depthData.venues.filter((v: any) => v.ok);
+  if (okVenues.length <= 1) return 25;
+
+  return 55; // placeholder baseline
+}
+
+
+//-----------------------------------------------------
+// 4. Market Fragmentation — evaluate venue spread
+//-----------------------------------------------------
+function computeMarketFragmentation(depthData: any): number {
+  if (!depthData?.venues) return 40;
+
+  const okVenues = depthData.venues.filter((v: any) => v.ok);
+  if (okVenues.length === 0) return 20;
+
+  const spreads = okVenues.map(v => {
+    const mid = v.mid ?? 0;
+    return mid > 0 ? Math.abs(mid - depthData.aggregate.mid) / mid : 0;
+  });
+
+  const avgSpread = spreads.reduce((a, b) => a + b, 0) / spreads.length;
+
+  if (avgSpread < 0.0003) return 85;
+  if (avgSpread < 0.0007) return 65;
+  return 40;
+}
+
+
+//-----------------------------------------------------
+// 5. Risk Concentration — top venue depth share
+//-----------------------------------------------------
+function computeRiskConcentration(depthData: any): number {
+  if (!depthData?.venues) return 50;
+
+  const ok = depthData.venues.filter((v: any) => v.ok && v.levels);
+  if (ok.length === 0) return 20;
+
+  const totals = ok.map(v => v.levels?.["25"]?.totalUsd ?? 0);
+  const sum = totals.reduce((a, b) => a + b, 0);
+  if (sum === 0) return 30;
+
+  const topShare = Math.max(...totals) / sum;
+
+  // Higher concentration = worse score
+  if (topShare < 0.45) return 70;
+  if (topShare < 0.65) return 55;
+  return 30;
+}
+
+
+//-----------------------------------------------------
+// 6. Compute final weighted 5-Factor score
+//-----------------------------------------------------
+function computeFiveFactorScore(dq: number, ee: number, ls: number, mf: number, rc: number): number {
+  return Math.round(
+    dq * 0.35 +   // Depth drives most
+    ee * 0.20 +
+    ls * 0.15 +
+    mf * 0.15 +
+    rc * 0.15
+  );
+}
+
+
+//-----------------------------------------------------
+// 7. Integrate into Panel render logic
+//-----------------------------------------------------
+export default function LiquidityFiveFactorPanel({ symbol, depthData, fundingData }) {
+
+  const depthQuality = computeDepthQuality(depthData);
+  const executionEfficiency = computeExecutionEfficiency(fundingData);
+  const liquidityStability = computeLiquidityStability(depthData);
+  const marketFragmentation = computeMarketFragmentation(depthData);
+  const riskConcentration = computeRiskConcentration(depthData);
+
+  const totalScore = computeFiveFactorScore(
+    depthQuality,
+    executionEfficiency,
+    liquidityStability,
+    marketFragmentation,
+    riskConcentration
+  );
+
+  return (
+    <div className="panel">
+      <div className="panel-header">
+        <h3 className="text-lg font-medium">Liquidity 5-Factor Score</h3>
+        <span className="text-xl font-mono">{totalScore}/100</span>
+      </div>
+
+      {/* Depth Quality */}
+      <FactorBar label="Depth Quality" value={depthQuality} />
+
+      {/* Execution Efficiency */}
+      <FactorBar label="Execution Efficiency" value={executionEfficiency} />
+
+      {/* Liquidity Stability */}
+      <FactorBar label="Liquidity Stability" value={liquidityStability} />
+
+      {/* Market Fragmentation */}
+      <FactorBar label="Market Fragmentation" value={marketFragmentation} />
+
+      {/* Risk Concentration */}
+      <FactorBar label="Risk Concentration" value={riskConcentration} />
+    </div>
+  );
+}
+
+// PATCH END
