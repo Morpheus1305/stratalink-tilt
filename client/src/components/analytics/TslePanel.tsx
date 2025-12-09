@@ -70,7 +70,11 @@ const regimeExplanation = {
 // ==============================
 export default function TslePanel() {
   const focus = useLiquidityStore((s) => s.focusToken);
-  const snapshot = useLiquidityStore((s) => s.tokenSnapshots[focus ?? ""] ?? null);
+  // Safely access store shape without assuming tokenSnapshots exists
+  const store = useLiquidityStore((s: any) => s);
+  const snapshots = store.tokenSnapshots ?? store.snapshots ?? store.data ?? {};
+  const snapshot = snapshots?.[focus ?? ""] ?? null;
+
   const fundingSnapshot = snapshot?.funding ?? null;
   const levels = snapshot?.aggregate?.levels ?? {};
 
