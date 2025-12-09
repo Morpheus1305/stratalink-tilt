@@ -135,16 +135,48 @@ function mapExecutionIntel(symbol: string, data: any) {
   };
 }
 
+interface TsleSnapshotResponse {
+  symbol: string;
+  depthBands: { "10": number; "25": number; "50": number; "100": number; "200": number };
+  depthScore: number;
+  fundingScore: number;
+  tsleScore: number;
+  regime: string;
+  stressBucket: string;
+  notes: string;
+}
+
+async function fetchTsleData(symbol: string): Promise<{ tsleScore: number | null; tsleRegime: string | null; tsleStress: string | null }> {
+  try {
+    const res = await fetch(`/api/tsle/snapshot?symbol=${encodeURIComponent(symbol)}`);
+    if (!res.ok) return { tsleScore: null, tsleRegime: null, tsleStress: null };
+    const data = (await res.json()) as TsleSnapshotResponse;
+    return {
+      tsleScore: data.tsleScore ?? null,
+      tsleRegime: data.regime ?? null,
+      tsleStress: data.stressBucket ?? null,
+    };
+  } catch {
+    return { tsleScore: null, tsleRegime: null, tsleStress: null };
+  }
+}
+
 async function fetchForToken(symbol: string): Promise<TokenLiquiditySummary> {
   const fallback = syntheticSummary.find((r) => r.symbol === symbol);
   try {
-    const [fiveRes, execRes] = await Promise.all([
+    const [fiveRes, execRes, tsleData] = await Promise.all([
       fetch(`/api/liquidity/five-factor?symbol=${encodeURIComponent(symbol)}`),
       fetch(`/api/execution/intel?symbol=${encodeURIComponent(symbol)}`),
+      fetchTsleData(symbol),
     ]);
 
     if (!fiveRes.ok || !execRes.ok) {
-      if (fallback) return fallback;
+      if (fallback) return { 
+        ...fallback, 
+        tsleScore: tsleData.tsleScore,
+        tsleRegime: tsleData.tsleRegime as TokenLiquiditySummary["tsleRegime"],
+        tsleStress: tsleData.tsleStress as TokenLiquiditySummary["tsleStress"],
+      };
       throw new Error("One or more liquidity endpoints returned non-OK");
     }
 
@@ -164,6 +196,9 @@ async function fetchForToken(symbol: string): Promise<TokenLiquiditySummary> {
       depth10: exec.depth10,
       depth10Change24h: exec.depth10Change24h,
       riskFlag: exec.riskFlag,
+      tsleScore: tsleData.tsleScore,
+      tsleRegime: tsleData.tsleRegime as TokenLiquiditySummary["tsleRegime"],
+      tsleStress: tsleData.tsleStress as TokenLiquiditySummary["tsleStress"],
     };
 
     return row;
@@ -183,6 +218,9 @@ async function fetchForToken(symbol: string): Promise<TokenLiquiditySummary> {
       depth10: 0,
       depth10Change24h: 0,
       riskFlag: "amber",
+      tsleScore: null,
+      tsleRegime: null,
+      tsleStress: null,
     };
   }
 }

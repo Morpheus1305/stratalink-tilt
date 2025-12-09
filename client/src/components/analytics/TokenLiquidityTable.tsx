@@ -39,6 +39,17 @@ const riskClass = (flag: string) => {
   }
 };
 
+const tsleRegimeClass = (regime: string | null | undefined) => {
+  if (!regime) return "bg-slate-600/10 text-slate-200 border-slate-500/30";
+  const r = regime.toLowerCase();
+  if (r.includes("ultra")) return "bg-emerald-500/10 text-emerald-300 border-emerald-500/40";
+  if (r.includes("tight")) return "bg-lime-500/10 text-lime-300 border-lime-500/40";
+  if (r.includes("constructive")) return "bg-sky-500/10 text-sky-300 border-sky-500/40";
+  if (r.includes("patchy")) return "bg-amber-500/10 text-amber-300 border-amber-500/40";
+  if (r.includes("thin")) return "bg-orange-500/10 text-orange-300 border-orange-500/40";
+  return "bg-red-500/10 text-red-300 border-red-500/40";
+};
+
 const TokenLiquidityTable = ({ selectedToken, onSelectToken }: Props) => {
   const [rows, setRows] = useState<TokenLiquiditySummary[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -132,6 +143,7 @@ const TokenLiquidityTable = ({ selectedToken, onSelectToken }: Props) => {
           <thead className="border-b border-border text-muted-foreground">
             <tr className="text-[10px] uppercase tracking-[0.16em]">
               <th className="py-2 pr-3 text-left">Token</th>
+              <th className="py-2 pr-3 text-right">TSLE</th>
               <th className="py-2 pr-3 text-right">5-Factor</th>
               <th className="py-2 pr-3 text-right">&lt;25bps Size</th>
               <th className="py-2 pr-3 text-right">&lt;50bps Size</th>
@@ -170,6 +182,20 @@ const TokenLiquidityTable = ({ selectedToken, onSelectToken }: Props) => {
                         )}
                       </div>
                     </div>
+                  </td>
+                  <td className="py-2 pr-3 text-right">
+                    {row.tsleScore != null ? (
+                      <span
+                        className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${tsleRegimeClass(
+                          row.tsleRegime
+                        )}`}
+                        title={row.tsleRegime || ""}
+                      >
+                        {row.tsleScore}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </td>
                   <td className="py-2 pr-3 text-right text-foreground font-mono">
                     {row.factorScore}
