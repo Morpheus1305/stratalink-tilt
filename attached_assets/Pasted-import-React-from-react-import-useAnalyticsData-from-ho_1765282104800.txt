@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import React from "react";
+import { useAnalyticsData } from "@/hooks/useAnalyticsData"; // or whatever hook you are using
 import { cn } from "@/lib/utils";
 
 type DepthBands = {
@@ -44,118 +45,63 @@ function stressColor(stress: string): string {
   if (s === "watch") return "bg-sky-500/10 text-sky-300 border-sky-500/30";
   if (s === "caution") return "bg-amber-500/10 text-amber-300 border-amber-500/30";
   if (s === "stress") return "bg-orange-500/15 text-orange-300 border-orange-500/35";
-  return "bg-red-500/20 text-red-300 border-red-500/40";
+  return "bg-red-500/20 text-red-300 border-red-500/40"; // deleveraging
 }
 
-function regimeBarColor(regime: string): string {
-  const r = regime.toLowerCase();
-  if (r.includes("ultra")) return "bg-emerald-500";
-  if (r.includes("tight")) return "bg-lime-500";
-  if (r.includes("constructive")) return "bg-sky-500";
-  if (r.includes("patchy")) return "bg-amber-500";
-  if (r.includes("thin")) return "bg-orange-500";
-  return "bg-red-500";
-}
+export const TslePanel: React.FC = () => {
+  const { tsleSnapshot } = useAnalyticsData() as { tsleSnapshot: TsleSnapshot | null };
 
-const TslePanel: React.FC<{ symbol: string }> = ({ symbol }) => {
-  const [data, setData] = useState<TsleSnapshot | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  async function load() {
-    try {
-      const res = await fetch(`/api/tsle/snapshot?symbol=${symbol}`);
-      if (!res.ok) throw new Error("TSLE fetch failed");
-      const json = (await res.json()) as TsleSnapshot;
-      setData(json);
-      setError(null);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    load();
-    const id = setInterval(load, 60000);
-    return () => clearInterval(id);
-  }, [symbol]);
-
-  if (loading && !data) {
+  if (!tsleSnapshot) {
     return (
-      <div 
-        className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4 text-xs text-slate-400"
-        data-testid={`panel-tsle-${symbol}`}
-      >
+      <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4 text-xs text-slate-400">
         <div className="font-medium text-slate-200 mb-1">Trade Size Liquidity Engine</div>
-        <div>Loading TSLE snapshot...</div>
+        <div>Loading TSLE snapshot…</div>
       </div>
     );
   }
 
-  if (error && !data) {
-    return (
-      <div 
-        className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4 text-xs text-red-400"
-        data-testid={`panel-tsle-${symbol}`}
-      >
-        <div className="font-medium text-slate-200 mb-1">Trade Size Liquidity Engine</div>
-        <div>Error: {error}</div>
-      </div>
-    );
-  }
-
-  if (!data) return null;
-
-  const { depthBands, tsleScore, regime, stressBucket, notes, depthScore, fundingScore } = data;
+  const { symbol, depthBands, tsleScore, regime, stressBucket, notes } = tsleSnapshot;
   const maxBand = Math.max(...BANDS.map(b => depthBands[b.key] || 0), 1);
 
   return (
-    <div 
-      className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4 flex flex-col gap-3"
-      data-testid={`panel-tsle-${symbol}`}
-    >
+    <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4 flex flex-col gap-3">
+      {/* Header */}
       <div className="flex items-center justify-between gap-3">
         <div>
           <div className="text-[11px] font-medium tracking-[0.16em] uppercase text-slate-400">
             Trade Size Liquidity Engine
           </div>
           <div className="text-sm text-slate-200 mt-[2px]">
-            {symbol} liquidity bands by impact (10-200bps)
+            {symbol} liquidity bands by impact (10–200bps)
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <div 
-            className={cn("px-2 py-1 rounded-full border text-[10px] font-medium", regimeColor(regime))}
-            data-testid={`badge-tsle-regime-${symbol}`}
-          >
+          <div className={cn("px-2 py-1 rounded-full border text-[10px] font-medium", regimeColor(regime))}>
             TSLE · {regime} · {tsleScore}/100
           </div>
-          <div 
-            className={cn("px-2 py-1 rounded-full border text-[10px] font-medium", stressColor(stressBucket))}
-            data-testid={`badge-tsle-stress-${symbol}`}
-          >
+          <div className={cn("px-2 py-1 rounded-full border text-[10px] font-medium", stressColor(stressBucket))}>
             Stress · {stressBucket}
           </div>
         </div>
       </div>
 
+      {/* Score bar */}
       <div className="mt-1">
         <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
           <span>Liquidity Quality Score</span>
           <span>
-            Depth {depthScore}/90 · Funding {fundingScore}/22
+            Depth {tsleSnapshot.depthScore}/90 · Funding {tsleSnapshot.fundingScore}/22
           </span>
         </div>
         <div className="h-2 w-full rounded-full bg-slate-900 overflow-hidden">
           <div
-            className={cn("h-full rounded-full transition-all", regimeBarColor(regime))}
+            className={cn("h-full rounded-full transition-all", regimeColor(regime))}
             style={{ width: `${Math.min(100, tsleScore)}%` }}
           />
         </div>
       </div>
 
+      {/* Bands table */}
       <div className="mt-2 grid grid-cols-5 gap-2 text-[10px]">
         {BANDS.map(({ key, label }) => {
           const v = depthBands[key] || 0;
@@ -164,16 +110,11 @@ const TslePanel: React.FC<{ symbol: string }> = ({ symbol }) => {
             <div
               key={key}
               className="rounded-xl border border-slate-800 bg-slate-950/70 px-2 py-2 flex flex-col gap-1"
-              data-testid={`tsle-band-${key}`}
             >
               <div className="flex items-center justify-between">
                 <span className="text-[10px] text-slate-400">{label}</span>
-                <span className="text-[10px] text-slate-300 font-mono">
-                  {v >= 1_000_000_000 
-                    ? `${(v / 1_000_000_000).toFixed(1)}B` 
-                    : v >= 1_000_000 
-                    ? `${(v / 1_000_000).toFixed(1)}M` 
-                    : `${(v / 1_000).toFixed(0)}k`}
+                <span className="text-[10px] text-slate-300">
+                  {v >= 1_000_000 ? `${(v / 1_000_000).toFixed(1)}M` : `${(v / 1_000).toFixed(0)}k`}
                 </span>
               </div>
               <div className="h-1.5 w-full rounded-full bg-slate-900 overflow-hidden">
@@ -187,10 +128,8 @@ const TslePanel: React.FC<{ symbol: string }> = ({ symbol }) => {
         })}
       </div>
 
-      <div 
-        className="mt-1 rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-2 text-[10px] text-slate-300 leading-snug"
-        data-testid={`tsle-notes-${symbol}`}
-      >
+      {/* Notes */}
+      <div className="mt-1 rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-2 text-[10px] text-slate-300 leading-snug">
         {notes}
       </div>
     </div>

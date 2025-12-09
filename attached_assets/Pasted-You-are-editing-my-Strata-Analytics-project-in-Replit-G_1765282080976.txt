@@ -1,0 +1,190 @@
+You are editing my Strata / Analytics project in Replit.
+
+Goal: Upgrade the Trade Size Liquidity Engine (TSLE) to “v2” with:
+- refined TSLE scoring model (0–100)
+- clearer regime bands (Ultra-Tight → Broken)
+- visual improvements to the TSLE panel
+- league table integration so rows can be sorted by TSLE score
+- basic intraday stress / heatmap logic derived from TSLE + funding
+
+Please make the changes below in **one coherent pass**.
+
+---
+
+## 1. Refined TSLE Scoring Model (server/routes/tsle.ts)
+
+Open `server/routes/tsle.ts`.
+
+### 1.1 Add / replace helpers
+
+Near the top (after imports), add these helpers or replace older TSLE helpers if they exist:
+
+```ts
+// ---------------- TSLE v2 HELPERS ----------------
+
+type DepthBands = {
+  "10": number;
+  "25": number;
+  "50": number;
+  "100": number;
+  "200": number;
+};
+
+type FundingSnapshot = {
+  headlineRate: number;   // raw rate (e.g. 0.00005)
+  medianRate?: number;
+  avgRate?: number;
+  regime: string;         // "Ultra-Tight" | "Tight" | "Neutral" | "Stressed" etc.
+};
+
+type TsleSnapshot = {
+  symbol: string;
+  depthBands: DepthBands;
+  depthScore: number;
+  fundingScore: number;
+  tsleScore: number;
+  regime: string;
+  stressBucket: string;
+  notes: string;
+};
+
+// Normalize worker depth JSON into bands
+export function normalizeDepthBands(workerDepth: any): DepthBands {
+  const zero: DepthBands = { "10": 0, "25": 0, "50": 0, "100": 0, "200": 0 };
+  if (!workerDepth || !workerDepth.levels) return zero;
+
+  const out: DepthBands = { ...zero };
+  for (const key of Object.keys(out) as (keyof DepthBands)[]) {
+    const lv = workerDepth.levels[key];
+    // prefer totalUsd; fall back to usd or notional if present
+    const val =
+      lv?.totalUsd ??
+      lv?.usd ??
+      lv?.notional ??
+      0;
+    out[key] = typeof val === "number" ? val : Number(val ?? 0);
+  }
+  return out;
+}
+
+// v2 depth score: emphasise 25bps depth + shape of curve
+export function scoreDepthBands(bands: DepthBands): number {
+  const d10 = bands["10"];
+  const d25 = bands["25"];
+  const d50 = bands["50"];
+  const d100 = bands["100"];
+  const d200 = bands["200"];
+
+  // Base score from 25bps depth (USD)
+  let base = 0;
+  if (d25 >= 50_000_000) base = 80;
+  else if (d25 >= 25_000_000) base = 72;
+  else if (d25 >= 10_000_000) base = 63;
+  else if (d25 >= 5_000_000) base = 52;
+  else if (d25 >= 1_000_000) base = 38;
+  else if (d25 >= 250_000) base = 26;
+  else base = 12;
+
+  // Shape bonuses / penalties
+  const tightRatio = d25 > 0 ? d10 / d25 : 0;
+  const tailRatio = d25 > 0 ? d100 / d25 : 0;
+
+  // Good: plenty of size near mid
+  if (tightRatio >= 0.6) base += 4;
+  else if (tightRatio < 0.3) base -= 4;
+
+  // Good: curve builds out with size at the tail
+  if (tailRatio >= 1.5) base += 4;
+  else if (tailRatio < 1.0) base -= 4;
+
+  // Slight reward for 200bps capacity (true block size)
+  if (d200 >= 20_000_000) base += 4;
+  else if (d200 < 1_000_000) base -= 2;
+
+  return Math.max(0, Math.min(90, Math.round(base)));
+}
+
+// Funding score: penalise extreme positive/negative funding
+export function scoreFunding(f: FundingSnapshot): number {
+  if (!f) return 0;
+  const rate = f.headlineRate ?? 0;
+  const absBps = Math.abs(rate * 10_000); // rate → bps
+
+  let score = 0;
+  if (absBps <= 2) score = 20;          // ±2 bps: ideal carry
+  else if (absBps <= 5) score = 16;     // calm
+  else if (absBps <= 10) score = 12;    // watch
+  else if (absBps <= 25) score = 6;     // stressed carry
+  else score = 2;                       // very stressed / dislocated
+
+  // small bonus / penalty from funding "regime"
+  const regime = (f.regime || "").toLowerCase();
+  if (regime.includes("ultra")) score += 2;
+  else if (regime.includes("tight")) score += 1;
+  else if (regime.includes("stressed")) score -= 4;
+
+  return Math.max(0, Math.min(22, Math.round(score)));
+}
+
+// Map combined score → regime label
+export function classifyTsleRegime(tsleScore: number): string {
+  if (tsleScore >= 85) return "Ultra-Tight";
+  if (tsleScore >= 70) return "Tight";
+  if (tsleScore >= 55) return "Constructive";
+  if (tsleScore >= 40) return "Patchy";
+  if (tsleScore >= 25) return "Thin";
+  return "Broken";
+}
+
+// Intraday stress bucket for heatmaps / alerts
+export function classifyStressBucket(
+  tsleScore: number,
+  funding: FundingSnapshot,
+  depthScore: number,
+  prevTsleScore?: number | null
+): string {
+  const rate = funding?.headlineRate ?? 0;
+  const absBps = Math.abs(rate * 10_000);
+  const delta = prevTsleScore != null ? tsleScore - prevTsleScore : 0;
+
+  // Deleveraging / crisis
+  if (tsleScore < 25 || absBps > 30 || depthScore < 25) {
+    return "Deleveraging";
+  }
+  // High stress
+  if (tsleScore < 40 || absBps > 15 || delta <= -15) {
+    return "Stress";
+  }
+  // Caution
+  if (tsleScore < 55 || absBps > 8 || delta <= -8) {
+    return "Caution";
+  }
+  // Watch
+  if (tsleScore < 70 || absBps > 4 || delta <= -4) {
+    return "Watch";
+  }
+  // Calm / rotation
+  return "Calm";
+}
+
+export function buildTsleNotes(regime: string, stress: string): string {
+  const r = regime.toLowerCase();
+  const s = stress.toLowerCase();
+
+  if (r.includes("ultra") && s === "calm") {
+    return "Orderbook is ultra-tight with deep size; execute aggressively with minimal market impact.";
+  }
+  if (r === "tight" && (s === "calm" || s === "watch")) {
+    return "Tight liquidity with good depth across bands; standard VWAP / TWAP execution is appropriate.";
+  }
+  if (r === "constructive") {
+    return "Constructive conditions: reasonable depth but monitor funding and intraday shifts, especially for larger clips.";
+  }
+  if (r === "patchy" || s === "caution") {
+    return "Patchy liquidity: avoid large single-clip trades; slice orders and use passive / time-weighted execution.";
+  }
+  if (r === "thin" || s === "stress") {
+    return "Thin market: expect slippage at 25–50bps; prioritise venues with the best depth and consider internalisation.";
+  }
+  return "Impaired conditions: liquidity is fragile or stressed; minimise risk-on flow and tighten risk limits.";
+}
