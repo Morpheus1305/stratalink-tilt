@@ -1,13 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { TokenLiquiditySummary } from "@/types/liquidity";
 import { fetchTokenLiquiditySummary } from "@/lib/liquiditySummaryClient";
 import { useTsleDepth, formatUSD, getRegimeColor } from "@/utils/tsleDepth";
-import { Zap } from "lucide-react";
+import { Zap, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface Props {
   selectedToken: string;
   onSelectToken: (symbol: string) => void;
 }
+
+type SortField = "tsleScore" | "factorScore" | "max25bps" | "depth10" | "depth10Change24h";
+type SortDirection = "asc" | "desc";
 
 const regimeClass = (regime: string) => {
   switch (regime) {
@@ -39,22 +43,22 @@ const riskClass = (flag: string) => {
   }
 };
 
-const tsleRegimeClass = (regime: string | null | undefined) => {
-  if (!regime) return "bg-slate-600/10 text-slate-200 border-slate-500/30";
-  const r = regime.toLowerCase();
-  if (r.includes("ultra")) return "bg-emerald-500/10 text-emerald-300 border-emerald-500/40";
-  if (r.includes("tight")) return "bg-lime-500/10 text-lime-300 border-lime-500/40";
-  if (r.includes("constructive")) return "bg-sky-500/10 text-sky-300 border-sky-500/40";
-  if (r.includes("patchy")) return "bg-amber-500/10 text-amber-300 border-amber-500/40";
-  if (r.includes("thin")) return "bg-orange-500/10 text-orange-300 border-orange-500/40";
-  return "bg-red-500/10 text-red-300 border-red-500/40";
+const getTsleBadgeClass = (score: number | null | undefined): string => {
+  if (score == null) return "bg-slate-600/10 text-slate-200 border-slate-500/30";
+  if (score >= 85) return "bg-emerald-500/20 border-emerald-500/40 text-emerald-200";
+  if (score >= 70) return "bg-lime-500/20 border-lime-500/40 text-lime-200";
+  if (score >= 55) return "bg-sky-500/15 border-sky-500/35 text-sky-200";
+  if (score >= 40) return "bg-amber-500/15 border-amber-500/35 text-amber-200";
+  if (score >= 25) return "bg-orange-500/15 border-orange-500/40 text-orange-200";
+  return "bg-red-500/20 border-red-500/40 text-red-200";
 };
 
 const TokenLiquidityTable = ({ selectedToken, onSelectToken }: Props) => {
   const [rows, setRows] = useState<TokenLiquiditySummary[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [sortField, setSortField] = useState<SortField>("tsleScore");
+  const [sortDir, setSortDir] = useState<SortDirection>("desc");
 
-  // TSLE live data for selected token
   const { data: tsle, loading: tsleLoading } = useTsleDepth(selectedToken, { side: "buy", size: 100_000 });
 
   const tsleRegimeLabel = tsle
@@ -65,14 +69,39 @@ const TokenLiquidityTable = ({ selectedToken, onSelectToken }: Props) => {
     let mounted = true;
     fetchTokenLiquiditySummary().then((data) => {
       if (!mounted) return;
-      const sorted = [...data].sort((a, b) => b.factorScore - a.factorScore);
-      setRows(sorted);
+      setRows(data);
       setLoading(false);
     });
     return () => {
       mounted = false;
     };
   }, []);
+
+  const sortedRows = useMemo(() => {
+    const sorted = [...rows].sort((a, b) => {
+      let aVal = a[sortField] ?? -Infinity;
+      let bVal = b[sortField] ?? -Infinity;
+      if (sortDir === "desc") return bVal > aVal ? 1 : bVal < aVal ? -1 : 0;
+      return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+    });
+    return sorted;
+  }, [rows, sortField, sortDir]);
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDir(sortDir === "desc" ? "asc" : "desc");
+    } else {
+      setSortField(field);
+      setSortDir("desc");
+    }
+  };
+
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortField !== field) return <ArrowUpDown className="w-3 h-3 opacity-40" />;
+    return sortDir === "desc" 
+      ? <ArrowDown className="w-3 h-3 text-[#F5C211]" /> 
+      : <ArrowUp className="w-3 h-3 text-[#F5C211]" />;
+  };
 
   if (loading) {
     return (
@@ -95,19 +124,20 @@ const TokenLiquidityTable = ({ selectedToken, onSelectToken }: Props) => {
             Token Liquidity League Table
           </h2>
           <p className="text-xs text-muted-foreground mt-1">
-            Ranked by 5-Factor Score & max tradeable size at &lt;25bps impact. Click a row to focus a token.
+            Ranked by TSLE Score & max tradeable size. Click headers to sort. Click a row to focus a token.
           </p>
         </div>
         <div className="text-xs text-muted-foreground">
-          Exec Regime:{" "}
+          TSLE Regime:{" "}
           <span className="text-emerald-300">Ultra-Tight</span>,{" "}
-          <span className="text-sky-300">Tight</span>,{" "}
-          <span className="text-amber-300">Stressed</span>,{" "}
-          <span className="text-red-300">Block-Only</span>.
+          <span className="text-lime-300">Tight</span>,{" "}
+          <span className="text-sky-300">Constructive</span>,{" "}
+          <span className="text-amber-300">Patchy</span>,{" "}
+          <span className="text-orange-300">Thin</span>,{" "}
+          <span className="text-red-300">Broken</span>.
         </div>
       </div>
 
-      {/* TSLE Live Status for Selected Token */}
       <div className="mb-3 p-2 rounded-lg bg-muted/30 border border-border flex items-center gap-3 flex-wrap">
         <div className="flex items-center gap-2">
           <Zap className="w-3 h-3 text-[#F5C211]" />
@@ -143,35 +173,77 @@ const TokenLiquidityTable = ({ selectedToken, onSelectToken }: Props) => {
           <thead className="border-b border-border text-muted-foreground">
             <tr className="text-[10px] uppercase tracking-[0.16em]">
               <th className="py-2 pr-3 text-left">Token</th>
-              <th className="py-2 pr-3 text-right">TSLE</th>
-              <th className="py-2 pr-3 text-right">5-Factor</th>
-              <th className="py-2 pr-3 text-right">&lt;25bps Size</th>
+              <th 
+                className="py-2 pr-3 text-right cursor-pointer hover:text-foreground transition-colors"
+                onClick={() => handleSort("tsleScore")}
+                data-testid="sort-tsle"
+              >
+                <span className="inline-flex items-center gap-1">
+                  TSLE <SortIcon field="tsleScore" />
+                </span>
+              </th>
+              <th 
+                className="py-2 pr-3 text-right cursor-pointer hover:text-foreground transition-colors"
+                onClick={() => handleSort("factorScore")}
+                data-testid="sort-factor"
+              >
+                <span className="inline-flex items-center gap-1">
+                  5-Factor <SortIcon field="factorScore" />
+                </span>
+              </th>
+              <th 
+                className="py-2 pr-3 text-right cursor-pointer hover:text-foreground transition-colors"
+                onClick={() => handleSort("max25bps")}
+                data-testid="sort-max25"
+              >
+                <span className="inline-flex items-center gap-1">
+                  &lt;25bps Size <SortIcon field="max25bps" />
+                </span>
+              </th>
               <th className="py-2 pr-3 text-right">&lt;50bps Size</th>
               <th className="py-2 pr-3 text-left">Best Venue</th>
-              <th className="py-2 pr-3 text-right">10bps Depth</th>
-              <th className="py-2 pr-3 text-right">24h Δ Depth</th>
+              <th 
+                className="py-2 pr-3 text-right cursor-pointer hover:text-foreground transition-colors"
+                onClick={() => handleSort("depth10")}
+                data-testid="sort-depth10"
+              >
+                <span className="inline-flex items-center gap-1">
+                  10bps Depth <SortIcon field="depth10" />
+                </span>
+              </th>
+              <th 
+                className="py-2 pr-3 text-right cursor-pointer hover:text-foreground transition-colors"
+                onClick={() => handleSort("depth10Change24h")}
+                data-testid="sort-depth-change"
+              >
+                <span className="inline-flex items-center gap-1">
+                  24h Δ <SortIcon field="depth10Change24h" />
+                </span>
+              </th>
               <th className="py-2 pr-3 text-left">Exec Regime</th>
               <th className="py-2 pl-3 text-left">Risk</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, idx) => {
+            {sortedRows.map((row) => {
               const isActive = row.symbol === selectedToken;
               return (
                 <tr
                   key={row.symbol}
                   data-testid={`row-token-${row.symbol}`}
-                  className={`cursor-pointer border-b border-border/60 last:border-b-0 hover:bg-muted/40 transition-colors ${
-                    isActive ? "bg-muted/60" : ""
-                  }`}
+                  className={cn(
+                    "cursor-pointer border-b border-border/60 last:border-b-0 hover:bg-muted/40 transition-colors",
+                    isActive && "bg-muted/60"
+                  )}
                   onClick={() => onSelectToken(row.symbol)}
                 >
                   <td className="py-2 pr-3 text-left">
                     <div className="flex items-center gap-2">
                       <span
-                        className={`h-2 w-2 rounded-full ${
+                        className={cn(
+                          "h-2 w-2 rounded-full",
                           isActive ? "bg-emerald-400" : "bg-slate-500"
-                        }`}
+                        )}
                       />
                       <div className="flex flex-col">
                         <span className="text-foreground font-medium font-mono">{row.symbol}</span>
@@ -185,16 +257,20 @@ const TokenLiquidityTable = ({ selectedToken, onSelectToken }: Props) => {
                   </td>
                   <td className="py-2 pr-3 text-right">
                     {row.tsleScore != null ? (
-                      <span
-                        className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${tsleRegimeClass(
-                          row.tsleRegime
-                        )}`}
+                      <div
+                        className={cn(
+                          "inline-flex items-center gap-1 rounded-full border px-2 py-[2px] text-[10px] font-medium",
+                          getTsleBadgeClass(row.tsleScore)
+                        )}
                         title={row.tsleRegime || ""}
                       >
-                        {row.tsleScore}
-                      </span>
+                        <span>{row.tsleScore}</span>
+                        {row.tsleRegime && (
+                          <span className="uppercase tracking-[0.08em] text-[9px]">{row.tsleRegime}</span>
+                        )}
+                      </div>
                     ) : (
-                      <span className="text-muted-foreground">—</span>
+                      <span className="text-[10px] text-slate-500">—</span>
                     )}
                   </td>
                   <td className="py-2 pr-3 text-right text-foreground font-mono">
@@ -213,27 +289,30 @@ const TokenLiquidityTable = ({ selectedToken, onSelectToken }: Props) => {
                     ${row.depth10.toLocaleString()}
                   </td>
                   <td
-                    className={`py-2 pr-3 text-right font-mono ${
+                    className={cn(
+                      "py-2 pr-3 text-right font-mono",
                       row.depth10Change24h >= 0 ? "text-emerald-400" : "text-red-400"
-                    }`}
+                    )}
                   >
                     {row.depth10Change24h >= 0 ? "▲" : "▼"}
                     {Math.abs(row.depth10Change24h).toFixed(1)}%
                   </td>
                   <td className="py-2 pr-3 text-left">
                     <span
-                      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${regimeClass(
-                        row.execRegime
-                      )}`}
+                      className={cn(
+                        "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium",
+                        regimeClass(row.execRegime)
+                      )}
                     >
                       {row.execRegime}
                     </span>
                   </td>
                   <td className="py-2 pl-3 text-left">
                     <span
-                      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${riskClass(
-                        row.riskFlag
-                      )}`}
+                      className={cn(
+                        "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium",
+                        riskClass(row.riskFlag)
+                      )}
                     >
                       {row.riskFlag === "green"
                         ? "Low"
