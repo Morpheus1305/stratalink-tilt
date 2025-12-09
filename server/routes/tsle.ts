@@ -52,24 +52,44 @@ type TsleBand =
   | "Thin"
   | "Broken";
 
-function classifyQualityBand(
-  cap10: number,
-  cap25: number,
-  cap50: number,
-  funding: WorkerFundingResponse["regime"]
-): TsleBand {
-  if (cap25 === 0 && cap10 === 0) return "Broken";
+function computeDepthScore(d25: number): number {
+  if (d25 > 50_000_000) return 100;
+  if (d25 > 20_000_000) return 80;
+  if (d25 > 10_000_000) return 60;
+  if (d25 > 5_000_000) return 40;
+  if (d25 > 1_000_000) return 20;
+  return 5;
+}
 
-  if (cap25 >= 50_000_000 && (funding === "Ultra-Tight" || funding === "Tight"))
-    return "Ultra-Tight";
-
-  if (cap25 >= 20_000_000) return "Tight";
-
-  if (cap25 >= 5_000_000) return "Moderate";
-
-  if (cap10 > 0) return "Thin";
-
+function computeRegime(depthScore: number): TsleBand {
+  if (depthScore >= 80) return "Ultra-Tight";
+  if (depthScore >= 60) return "Tight";
+  if (depthScore >= 40) return "Moderate";
+  if (depthScore >= 20) return "Thin";
   return "Broken";
+}
+
+function computeExecutionNotes(regime: TsleBand): string[] {
+  const notes: string[] = [];
+  
+  if (regime === "Ultra-Tight") {
+    notes.push("Books support institutional block execution.");
+    notes.push("Minimal slippage expected for clips up to $10M.");
+  } else if (regime === "Tight") {
+    notes.push("Healthy books; slicing recommended for larger clips.");
+    notes.push("TWAP over 15-30 min suggested for $5M+ orders.");
+  } else if (regime === "Moderate") {
+    notes.push("Serviceable liquidity; TWAP recommended.");
+    notes.push("Consider splitting across multiple venues.");
+  } else if (regime === "Thin") {
+    notes.push("Execution risk elevated; monitor refills closely.");
+    notes.push("Limit order preferred; avoid market sweeps.");
+  } else {
+    notes.push("Impaired conditions; avoid large flow.");
+    notes.push("Wait for liquidity recovery or use OTC desk.");
+  }
+  
+  return notes;
 }
 
 function fmtUsd(n: number): string {
@@ -139,58 +159,48 @@ router.get("/snapshot", async (req: Request, res: Response) => {
     const fundingJson = (await fundingRes.json()) as WorkerFundingResponse;
 
     // Normalize depth using the new worker format
-    const normalizedDepth = normalizeDepth(depthJson);
+    const depth = normalizeDepth(depthJson);
+    const d10 = depth["10"];
+    const d25 = depth["25"];
+    const d50 = depth["50"];
+    const d100 = depth["100"];
+    const d200 = depth["200"];
 
-    const levels: DepthLevelKey[] = ["10", "25", "50", "100", "200"];
+    // Compute depth score and regime
+    const depthScore = computeDepthScore(d25);
+    const regime = computeRegime(depthScore);
 
-    const bandData = levels.map((bps) => {
-      const cap = normalizedDepth[bps] ?? 0;
-      return { bps: Number(bps), capacityUsd: cap };
-    });
-
-    const byBps = Object.fromEntries(
-      bandData.map((b) => [b.bps, b.capacityUsd])
-    ) as Record<number, number>;
-
-    const quality = classifyQualityBand(
-      byBps[10],
-      byBps[25],
-      byBps[50],
-      fundingJson.regime
-    );
-
-    const notes: string[] = [];
-    notes.push(
-      `Max notional within 25bps ≈ ${fmtUsd(byBps[25])}; within 50bps ≈ ${fmtUsd(
-        byBps[50]
-      )}.`
+    // Build execution notes
+    const notes = computeExecutionNotes(regime);
+    notes.unshift(
+      `Max notional within 25bps ≈ ${fmtUsd(d25)}; within 50bps ≈ ${fmtUsd(d50)}.`
     );
     notes.push(
-      `Funding regime: ${fundingJson.regime} (headline rate: ${
-        (fundingJson.headlineRate * 100).toFixed(4)
-      }%).`
+      `Funding regime: ${fundingJson.regime} (headline rate: ${(fundingJson.headlineRate * 100).toFixed(4)}%).`
     );
 
-    if (quality === "Ultra-Tight")
-      notes.push("Books support institutional block execution.");
-    else if (quality === "Tight")
-      notes.push("Healthy books; slicing recommended for larger clips.");
-    else if (quality === "Moderate")
-      notes.push("Serviceable liquidity; TWAP recommended.");
-    else if (quality === "Thin")
-      notes.push("Execution risk elevated; monitor refills closely.");
-    else notes.push("Impaired conditions; avoid large flow.");
+    // Build bands array for UI
+    const bands = [
+      { bps: 10, capacityUsd: d10 },
+      { bps: 25, capacityUsd: d25 },
+      { bps: 50, capacityUsd: d50 },
+      { bps: 100, capacityUsd: d100 },
+      { bps: 200, capacityUsd: d200 },
+    ];
 
     res.json({
       symbol,
       asOf: new Date().toISOString(),
-      bands: bandData,
-      total10bps: byBps[10] ?? 0,
-      total25bps: byBps[25] ?? 0,
-      total50bps: byBps[50] ?? 0,
-      total100bps: byBps[100] ?? 0,
-      total200bps: byBps[200] ?? 0,
-      qualityBand: quality,
+      depthBands: depth,
+      bands,
+      total10bps: d10,
+      total25bps: d25,
+      total50bps: d50,
+      total100bps: d100,
+      total200bps: d200,
+      depthScore,
+      regime,
+      qualityBand: regime,
       fundingRegime: fundingJson.regime,
       headlineFundingRate: fundingJson.headlineRate,
       venues: fundingJson.venues,
