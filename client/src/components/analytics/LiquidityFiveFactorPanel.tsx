@@ -12,7 +12,7 @@ interface LiquidityFiveFactorPanelProps {
   factors?: FactorsData | null;
 }
 
-export default function LiquidityFiveFactorPanel({ factors }: LiquidityFiveFactorPanelProps) {
+function LiquidityFiveFactorPanel({ factors }: LiquidityFiveFactorPanelProps) {
   if (!factors) {
     return (
       <div className="text-gray-400 text-sm">
@@ -101,3 +101,5 @@ export default function LiquidityFiveFactorPanel({ factors }: LiquidityFiveFacto
     </div>
   );
 }
+
+export { LiquidityFiveFactorPanel as default };
