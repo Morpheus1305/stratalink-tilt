@@ -264,6 +264,7 @@ function placeholderResponse(symbol: string) {
   return {
     symbol,
     score: ph.score,
+    tsleScore: ph.score,
     regime: band,
     source: "placeholder",
     components,
@@ -329,6 +330,7 @@ router.get("/snapshot", async (req: Request, res: Response) => {
   return res.json({
     symbol,
     score: tsleScore,
+    tsleScore: tsleScore,
     regime: band,
     source: "worker",
     components,

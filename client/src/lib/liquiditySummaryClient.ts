@@ -1,5 +1,18 @@
 import { TokenLiquiditySummary } from "@/types/liquidity";
 
+const STATIC_TSLE_SCORES: Record<string, { score: number; regime: "Ultra-Tight" | "Tight" | "Constructive" | "Patchy" | "Thin" | "Broken" }> = {
+  BTC: { score: 95, regime: "Ultra-Tight" },
+  ETH: { score: 88, regime: "Tight" },
+  SOL: { score: 82, regime: "Tight" },
+  LINK: { score: 80, regime: "Tight" },
+  NEAR: { score: 76, regime: "Constructive" },
+  AVAX: { score: 74, regime: "Constructive" },
+  DOT: { score: 72, regime: "Constructive" },
+  ADA: { score: 68, regime: "Patchy" },
+  XRP: { score: 64, regime: "Patchy" },
+  DOGE: { score: 58, regime: "Thin" },
+};
+
 const syntheticSummary: TokenLiquiditySummary[] = [
   {
     symbol: "BTC",
@@ -13,6 +26,8 @@ const syntheticSummary: TokenLiquiditySummary[] = [
     depth10: 5_800_000,
     depth10Change24h: 1.8,
     riskFlag: "green",
+    tsleScore: STATIC_TSLE_SCORES.BTC.score,
+    tsleRegime: STATIC_TSLE_SCORES.BTC.regime,
   },
   {
     symbol: "ETH",
@@ -26,6 +41,8 @@ const syntheticSummary: TokenLiquiditySummary[] = [
     depth10: 3_200_000,
     depth10Change24h: -0.9,
     riskFlag: "green",
+    tsleScore: STATIC_TSLE_SCORES.ETH.score,
+    tsleRegime: STATIC_TSLE_SCORES.ETH.regime,
   },
   {
     symbol: "SOL",
@@ -39,6 +56,8 @@ const syntheticSummary: TokenLiquiditySummary[] = [
     depth10: 1_100_000,
     depth10Change24h: -4.5,
     riskFlag: "amber",
+    tsleScore: STATIC_TSLE_SCORES.SOL.score,
+    tsleRegime: STATIC_TSLE_SCORES.SOL.regime,
   },
   {
     symbol: "AVAX",
@@ -51,6 +70,8 @@ const syntheticSummary: TokenLiquiditySummary[] = [
     depth10: 780_000,
     depth10Change24h: 2.3,
     riskFlag: "amber",
+    tsleScore: STATIC_TSLE_SCORES.AVAX.score,
+    tsleRegime: STATIC_TSLE_SCORES.AVAX.regime,
   },
   {
     symbol: "LINK",
@@ -63,6 +84,8 @@ const syntheticSummary: TokenLiquiditySummary[] = [
     depth10: 910_000,
     depth10Change24h: 0.7,
     riskFlag: "green",
+    tsleScore: STATIC_TSLE_SCORES.LINK.score,
+    tsleRegime: STATIC_TSLE_SCORES.LINK.regime,
   },
   {
     symbol: "DOT",
@@ -75,6 +98,8 @@ const syntheticSummary: TokenLiquiditySummary[] = [
     depth10: 520_000,
     depth10Change24h: -3.1,
     riskFlag: "amber",
+    tsleScore: STATIC_TSLE_SCORES.DOT.score,
+    tsleRegime: STATIC_TSLE_SCORES.DOT.regime,
   },
   {
     symbol: "NEAR",
@@ -87,6 +112,8 @@ const syntheticSummary: TokenLiquiditySummary[] = [
     depth10: 610_000,
     depth10Change24h: 4.2,
     riskFlag: "green",
+    tsleScore: STATIC_TSLE_SCORES.NEAR.score,
+    tsleRegime: STATIC_TSLE_SCORES.NEAR.regime,
   },
   {
     symbol: "ADA",
@@ -99,6 +126,8 @@ const syntheticSummary: TokenLiquiditySummary[] = [
     depth10: 360_000,
     depth10Change24h: -6.8,
     riskFlag: "amber",
+    tsleScore: STATIC_TSLE_SCORES.ADA.score,
+    tsleRegime: STATIC_TSLE_SCORES.ADA.regime,
   },
   {
     symbol: "XRP",
@@ -111,6 +140,8 @@ const syntheticSummary: TokenLiquiditySummary[] = [
     depth10: 310_000,
     depth10Change24h: -9.1,
     riskFlag: "red",
+    tsleScore: STATIC_TSLE_SCORES.XRP.score,
+    tsleRegime: STATIC_TSLE_SCORES.XRP.regime,
   },
 ];
 
