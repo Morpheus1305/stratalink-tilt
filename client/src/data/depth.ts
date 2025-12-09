@@ -21,7 +21,31 @@ export async function getDepthForToken(token: string): Promise<DepthData> {
     if (!res.ok) {
       return createFallbackDepth(token);
     }
-    return await res.json();
+    const data = await res.json();
+    
+    // Transform API response to expected format
+    // API returns: bands["10bps"].bidUSD -> We need: aggregate.levels["10"].bidUsd
+    const levels: Record<string, DepthLevel> = {};
+    if (data.bands) {
+      for (const [key, band] of Object.entries(data.bands)) {
+        const numericKey = key.replace("bps", "");
+        const b = band as any;
+        levels[numericKey] = {
+          bidUsd: b.bidUSD ?? 0,
+          askUsd: b.askUSD ?? 0,
+          totalUsd: b.totalUSD ?? 0,
+        };
+      }
+    }
+    
+    return {
+      symbol: data.symbol,
+      venues: [data.source ?? "unknown"],
+      aggregate: {
+        mid: data.mid ?? 0,
+        levels,
+      },
+    };
   } catch {
     return createFallbackDepth(token);
   }

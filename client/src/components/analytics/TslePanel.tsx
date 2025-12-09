@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useLiquidityStore } from "@/state/useLiquidityStore";
 
 // ==============================
@@ -34,11 +35,17 @@ interface TslePanelProps {
 }
 
 export default function TslePanel({ symbol = "BTC" }: TslePanelProps) {
-  const store = useLiquidityStore((s: any) => s);
-  const tsleData = store.tsleData ?? {};
+  const { tsleData, refreshTSLE } = useLiquidityStore();
   const tokenData = tsleData[symbol] ?? null;
 
-  const levels = tokenData?.depth?.levels ?? {};
+  // Refresh data on mount if not available
+  useEffect(() => {
+    if (!tokenData) {
+      refreshTSLE();
+    }
+  }, [symbol, tokenData, refreshTSLE]);
+
+  const levels = tokenData?.depth?.aggregate?.levels ?? {};
 
   const depthRows = Object.entries(levels ?? {}).filter(
     ([, obj]: any) => obj && (obj.bidUsd || obj.askUsd || obj.totalUsd)
