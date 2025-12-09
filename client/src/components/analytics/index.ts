@@ -17,3 +17,4 @@ export { default as LiveSparklinesPanel } from "./LiveSparklinesPanel";
 export { default as PerpetualFundingSnapshot } from "./PerpetualFundingSnapshot";
 export { default as TslePanel } from "./TslePanel";
 export { default as LiquidityFiveFactorPanel } from "./LiquidityFiveFactorPanel";
+export { default as FiveFactorScore } from "./FiveFactorScore";
