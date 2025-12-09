@@ -1,0 +1,132 @@
+*** Begin Patch
+
+*** Add File: client/src/hooks/useTsleScore.ts
++import { useEffect, useState } from "react";
++
++export interface TsleData {
++  symbol: string;
++  score: number;
++  regime: string;
++  source: string;
++}
++
++export function useTsleScore(symbol: string) {
++  const [data, setData] = useState<TsleData | null>(null);
++  const [loading, setLoading] = useState<boolean>(true);
++
++  useEffect(() => {
++    if (!symbol) return;
++    let mounted = true;
++
++    async function load() {
++      setLoading(true);
++      try {
++        const res = await fetch(`/api/tsle/snapshot?symbol=${symbol}`);
++        const json = await res.json();
++        if (mounted) setData(json);
++      } catch (err) {
++        console.warn("[TSLE] failed to fetch", err);
++        if (mounted) setData(null);
++      } finally {
++        setLoading(false);
++      }
++    }
++
++    load();
++    const timer = setInterval(load, 60_000); // auto-refresh
++    return () => {
++      mounted = false;
++      clearInterval(timer);
++    };
++  }, [symbol]);
++
++  return { data, loading };
++}
++
+*** End File
+
+
+
+
+*** Update File: client/src/components/analytics/TokenLiquidityTable.tsx
+@@
+-import React from "react";
++import React from "react";
++import { useTsleScore } from "../../hooks/useTsleScore";
++
++function regimeColor(regime: string) {
++  switch (regime) {
++    case "Ultra-Tight": return "bg-emerald-500/20 text-emerald-300";
++    case "Tight": return "bg-green-500/20 text-green-300";
++    case "Constructive": return "bg-blue-500/20 text-blue-300";
++    case "Patchy": return "bg-amber-500/20 text-amber-300";
++    case "Thin": return "bg-orange-500/20 text-orange-300";
++    case "Broken": return "bg-red-500/20 text-red-300";
++    default: return "bg-gray-500/20 text-gray-300";
++  }
++}
++
++function TsleCell({ symbol }: { symbol: string }) {
++  const { data } = useTsleScore(symbol);
++  if (!data) return <span className="text-gray-500">–</span>;
++
++  return (
++    <div className="flex flex-col">
++      <span className="font-semibold">{data.score}</span>
++      <span className={`text-xs px-2 py-0.5 mt-1 rounded ${regimeColor(data.regime)}`}>
++        {data.regime}
++      </span>
++    </div>
++  );
++}
++
+@@  Inside table row rendering
+-  <td className="px-4 py-3 text-sm text-gray-200">–</td>
++  <td className="px-4 py-3 text-sm text-gray-200">
++    <TsleCell symbol={row.symbol} />
++  </td>
+
+*** End Patch
+
+
+
+
+*** Update File: client/src/pages/analytics/AnalyticsPage.tsx
+@@
+-import React, { useState } from "react";
++import React, { useState } from "react";
++import { useTsleScore } from "../../hooks/useTsleScore";
++
+@@ Locate the TSLE header section at top of the page and replace it:
+- <div className="text-gray-400 text-sm">TSLE LIVE</div>
+- <div className="text-white text-lg font-bold">BTC</div>
+- <div className="text-gray-300 text-sm">Ultra Tight • 95/100</div>
++const { data: btcTsle } = useTsleScore("BTC");
++
++<div className="flex flex-col">
++  <div className="text-gray-400 text-sm">TSLE LIVE • BTC</div>
++  <div className="text-white text-xl font-bold">
++    {btcTsle ? `${btcTsle.regime} • ${btcTsle.score}/100` : "Loading…"}
++  </div>
++  <div className="text-gray-400 text-xs">
++    {btcTsle?.source === "worker" ? "Live (Cloudflare)" : "Placeholder"}
++  </div>
++</div>
+
+*** End Patch
+
+
+
+
+*** Update File: client/src/components/analytics/index.ts
+@@
+-export { default as TslePanel } from "./TslePanel";
++export { default as TslePanel } from "./TslePanel";
++// no changes but ensures future imports stay correct
+
+*** End Patch
+
+
+
+
+*** End Patch

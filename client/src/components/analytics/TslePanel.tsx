@@ -70,10 +70,13 @@ const buildExecutionNote = (regime: string | null | undefined) => {
 // ---------------------------------------------
 // Component
 // ---------------------------------------------
-export default function TslePanel() {
+interface TslePanelProps {
+  symbol?: string;
+}
+
+export default function TslePanel({ symbol = "BTC" }: TslePanelProps) {
   const [snapshot, setSnapshot] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [symbol] = useState("BTC"); // can be wired to global token focus later
 
   const load = async () => {
     try {
