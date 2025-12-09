@@ -1,0 +1,83 @@
+You are updating styling only. Please modify the LiquidityFiveFactorPanel.tsx 
+and TslePanel.tsx components to match the global dashboard card design.
+
+Apply the following changes:
+
+--------------------------------------------------------------
+GLOBAL STYLE RULES TO APPLY TO BOTH CARDS
+--------------------------------------------------------------
+1. Card container:
+   - Use the same card wrapper class as other analytics cards:
+       className="bg-[var(--c-card)] rounded-xl p-5 shadow-sm border border-[var(--c-border)]"
+   - Ensure top spacing matches others (mt-4 if needed).
+
+2. Title styling:
+   - Replace any custom <h2>/<div> with:
+       className="text-[var(--c-text-primary)] text-lg font-semibold tracking-tight mb-3"
+   - Subtitle / score label should use:
+       className="text-[var(--c-text-secondary)] text-sm font-medium"
+
+3. Font standardization:
+   - All labels: text-sm
+   - All numeric values: text-sm font-semibold text-[var(--c-text-primary)]
+   - Remove any inline color styles not using theme vars.
+
+4. Row spacing:
+   - Each metric row should be a flex container:
+       className="flex justify-between items-center py-1"
+   - Progress bars must use:
+       className="h-2 rounded-full bg-[var(--c-surface2)]"
+     and the fill:
+       className="h-full rounded-full bg-[var(--c-accent)]"
+
+5. Colors:
+   - Depth Quality bar = var(--c-blue)
+   - Execution Efficiency = var(--c-green)
+   - Liquidity Stability = var(--c-yellow)
+   - Market Fragmentation = var(--c-red)
+   - Risk Concentration = var(--c-purple)
+   - Remove hard-coded hex values.
+
+--------------------------------------------------------------
+APPLY TO LiquidityFiveFactorPanel.tsx
+--------------------------------------------------------------
+
+Update:
+- Container wrapper
+- Title font
+- Metric rows
+- Progress bar classes
+- Right-aligned numerical values
+- Rating badge: use same badge component style as league table badges.
+
+Ensure the entire panel visually matches the dark card style of:
+TokenLiquiditySnapshot, DailyMarketCommentary, ExecutionIntelPanel.
+
+--------------------------------------------------------------
+APPLY TO TslePanel.tsx (“Depth by Liquidity Bands” card)
+--------------------------------------------------------------
+
+Update:
+- Card container to match above style.
+- Table header:
+    className="text-[var(--c-text-secondary)] text-xs uppercase tracking-wide pb-2 border-b border-[var(--c-border)]"
+- Table rows:
+    className="py-2 text-sm text-[var(--c-text-primary)] border-b border-[var(--c-border)] last:border-none"
+- Bps column:
+    className="font-medium text-[var(--c-text-primary)]"
+- Numeric columns:
+    className="font-semibold text-[var(--c-text-primary)] text-right"
+- Remove any inline bold tags.
+- Ensure consistent padding: px-2 py-1.
+
+--------------------------------------------------------------
+DO NOT CHANGE LOGIC — STYLE ONLY.
+--------------------------------------------------------------
+
+After applying, ensure:
+- Both cards visually match the rest of the dashboard.
+- Font sizes, spacing, borders, and shadows are consistent.
+- No raw hex colors remain.
+- Only CSS variables and tailwind classes aligned to the theme are used.
+
+Please produce the updated code for BOTH files.

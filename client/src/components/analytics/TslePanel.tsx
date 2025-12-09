@@ -1,9 +1,6 @@
 import { useEffect } from "react";
 import { useLiquidityStore } from "@/state/useLiquidityStore";
 
-// ==============================
-// Depth Row Component
-// ==============================
 function DepthRow({
   bps,
   bid,
@@ -16,20 +13,21 @@ function DepthRow({
   total: number;
 }) {
   return (
-    <tr className="border-b border-gray-700/60 text-sm">
-      <td className="py-1 px-2 text-gray-300">{bps}bps</td>
-      <td className="py-1 px-2 text-blue-300">${bid.toLocaleString()}</td>
-      <td className="py-1 px-2 text-amber-300">${ask.toLocaleString()}</td>
-      <td className="py-1 px-2 text-white font-medium">
+    <tr className="py-2 text-sm text-[var(--c-text-primary)] border-b border-[var(--c-border)] last:border-none">
+      <td className="py-2 px-2 font-medium text-[var(--c-text-primary)]">{bps}bps</td>
+      <td className="py-2 px-2 font-semibold text-[var(--c-text-primary)] text-right">
+        ${bid.toLocaleString()}
+      </td>
+      <td className="py-2 px-2 font-semibold text-[var(--c-text-primary)] text-right">
+        ${ask.toLocaleString()}
+      </td>
+      <td className="py-2 px-2 font-semibold text-[var(--c-text-primary)] text-right">
         ${total.toLocaleString()}
       </td>
     </tr>
   );
 }
 
-// ==============================
-// Main Component
-// ==============================
 interface TslePanelProps {
   symbol?: string;
 }
@@ -38,7 +36,6 @@ export default function TslePanel({ symbol = "BTC" }: TslePanelProps) {
   const { tsleData, refreshTSLE } = useLiquidityStore();
   const tokenData = tsleData[symbol] ?? null;
 
-  // Refresh data on mount if not available
   useEffect(() => {
     if (!tokenData) {
       refreshTSLE();
@@ -52,21 +49,23 @@ export default function TslePanel({ symbol = "BTC" }: TslePanelProps) {
   );
 
   return (
-    <div className="bg-black/30 rounded-xl p-5 border border-gray-800/60">
-      <h3 className="text-lg font-medium mb-3">Depth by Liquidity Bands</h3>
+    <div className="bg-[var(--c-card)] rounded-xl p-5 shadow-sm border border-[var(--c-border)]">
+      <h3 className="text-[var(--c-text-primary)] text-lg font-semibold tracking-tight mb-3">
+        Depth by Liquidity Bands
+      </h3>
 
       {depthRows.length === 0 ? (
-        <p className="text-gray-500 text-sm">
+        <p className="text-[var(--c-text-secondary)] text-sm">
           No depth bands available yet for this token.
         </p>
       ) : (
         <table className="w-full border-collapse">
           <thead>
-            <tr className="text-left text-gray-400 text-sm border-b border-gray-700/50">
-              <th className="py-1 px-2">Bps</th>
-              <th className="py-1 px-2">Bid USD</th>
-              <th className="py-1 px-2">Ask USD</th>
-              <th className="py-1 px-2">Total USD</th>
+            <tr className="text-[var(--c-text-secondary)] text-xs uppercase tracking-wide pb-2 border-b border-[var(--c-border)]">
+              <th className="py-2 px-2 text-left">Bps</th>
+              <th className="py-2 px-2 text-right">Bid USD</th>
+              <th className="py-2 px-2 text-right">Ask USD</th>
+              <th className="py-2 px-2 text-right">Total USD</th>
             </tr>
           </thead>
           <tbody>
