@@ -1,18 +1,6 @@
-interface FactorsData {
-  depthQuality?: number;
-  executionEfficiency?: number;
-  liquidityStability?: number;
-  marketFragmentation?: number;
-  riskConcentration?: number;
-  score?: number;
-  grade?: string;
-}
+import React from "react";
 
-interface LiquidityFiveFactorPanelProps {
-  factors?: FactorsData | null;
-}
-
-export default function LiquidityFiveFactorPanel({ factors }: LiquidityFiveFactorPanelProps) {
+export default function LiquidityFiveFactorPanel({ factors }) {
   if (!factors) {
     return (
       <div className="text-gray-400 text-sm">
