@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 
 //
 // TSLE SCORING MODEL 2.0 PANEL
@@ -82,16 +82,13 @@ export default function TslePanel() {
   // Data Extraction
   // ---------------------------------------------
   const {
-    qualityBand,
+    regime,
     score,
     depthScore,
     fundingScore,
     frictionScore,
     bands = [],
   } = snapshot;
-
-  // Use qualityBand as the regime
-  const regime = qualityBand || "Moderate";
 
   // Depth rows (fixes legacy crash)
   const depthRows = bands.map((b: any) => ({
@@ -125,9 +122,9 @@ export default function TslePanel() {
         </div>
 
         <div className="text-xs flex gap-4 opacity-70">
-          <span>Depth: {depthScore}/60</span>
-          <span>Funding: {fundingScore}/25</span>
-          <span>Friction: {frictionScore}/15</span>
+          <span>Depth: {depthScore}/100</span>
+          <span>Funding: {fundingScore}/100</span>
+          <span>Friction: {frictionScore}/100</span>
         </div>
       </div>
 
@@ -145,7 +142,7 @@ export default function TslePanel() {
             </tr>
           </thead>
           <tbody>
-            {depthRows.map((row: any, idx: number) => (
+            {depthRows.map((row, idx) => (
               <tr key={idx} className="border-t border-white/5">
                 <td className="px-2 py-1">{row.bps}bps</td>
                 <td className="px-2 py-1 text-right">{row.bid}</td>
