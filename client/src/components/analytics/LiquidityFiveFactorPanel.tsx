@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useLiquidityFactors, type LiquidityFactorsData } from "@/hooks/useLiquidityFactors";
+import { useLiquidityStore } from "@/state/useLiquidityStore";
 import { Activity, Layers, Shield, Grid3x3, Target } from "lucide-react";
 
 interface FactorBarProps {
@@ -60,9 +60,19 @@ interface LiquidityFiveFactorPanelProps {
 }
 
 export function LiquidityFiveFactorPanel({ symbol = "BTC", side = "buy" }: LiquidityFiveFactorPanelProps) {
-  const { data, isLoading, error } = useLiquidityFactors(symbol, side);
+  const { tsleData } = useLiquidityStore();
+  const data = tsleData[symbol];
 
-  if (isLoading) {
+  const getRating = (score: number): string => {
+    if (score >= 90) return "AAA";
+    if (score >= 80) return "AA";
+    if (score >= 70) return "A";
+    if (score >= 60) return "BBB";
+    if (score >= 50) return "BB";
+    return "B";
+  };
+
+  if (!data || !data.fiveFactor) {
     return (
       <Card className="border-border/50">
         <CardHeader className="pb-2">
@@ -80,23 +90,9 @@ export function LiquidityFiveFactorPanel({ symbol = "BTC", side = "buy" }: Liqui
     );
   }
 
-  if (error || !data) {
-    return (
-      <Card className="border-border/50">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base font-medium flex items-center gap-2">
-            <Activity className="h-4 w-4 text-primary" />
-            Liquidity 5-Factor Score
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-48 flex items-center justify-center text-muted-foreground">
-            Failed to load factors
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+  const score = data.fiveFactor.score;
+  const factors = data.fiveFactor.factors;
+  const rating = getRating(score);
 
   return (
     <Card className="border-border/50" data-testid="panel-liquidity-five-factor">
@@ -104,14 +100,14 @@ export function LiquidityFiveFactorPanel({ symbol = "BTC", side = "buy" }: Liqui
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <CardTitle className="text-base font-medium flex items-center gap-2">
             <Activity className="h-4 w-4 text-primary" />
-            Liquidity 5-Factor Score — {data.symbol}
+            Liquidity 5-Factor Score — {symbol}
           </CardTitle>
           <div className="flex items-center gap-2">
             <span className="font-mono text-xl font-bold text-foreground" data-testid="text-composite-score">
-              {data.composite}/100
+              {score}/100
             </span>
-            <Badge className={`${getRatingColor(data.rating)} font-mono`} data-testid="badge-rating">
-              {data.rating}
+            <Badge className={`${getRatingColor(rating)} font-mono`} data-testid="badge-rating">
+              {rating}
             </Badge>
           </div>
         </div>
@@ -120,54 +116,54 @@ export function LiquidityFiveFactorPanel({ symbol = "BTC", side = "buy" }: Liqui
         <div className="space-y-3">
           <FactorBar
             label="Depth Quality"
-            value={data.factors.depthQuality}
+            value={Math.round(factors.depthQuality)}
             icon={<Layers className="h-3.5 w-3.5" />}
           />
           <FactorBar
             label="Execution Efficiency"
-            value={data.factors.execEfficiency}
+            value={Math.round(factors.executionEfficiency)}
             icon={<Target className="h-3.5 w-3.5" />}
           />
           <FactorBar
             label="Liquidity Stability"
-            value={data.factors.stability}
+            value={Math.round(factors.liquidityStability)}
             icon={<Shield className="h-3.5 w-3.5" />}
           />
           <FactorBar
             label="Market Fragmentation"
-            value={data.factors.fragmentation}
+            value={Math.round(factors.marketFragmentation)}
             icon={<Grid3x3 className="h-3.5 w-3.5" />}
           />
           <FactorBar
             label="Risk Concentration"
-            value={data.factors.riskConcentration}
+            value={Math.round(factors.riskConcentration)}
             icon={<Activity className="h-3.5 w-3.5" />}
           />
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-3 border-t border-border/50">
           <div>
-            <div className="text-xs text-muted-foreground">Max &lt;10bps</div>
-            <div className="font-mono text-sm text-foreground" data-testid="text-max-10bps">
-              {formatUsd(data.meta.max10bps)}
+            <div className="text-xs text-muted-foreground">TSLE Score</div>
+            <div className="font-mono text-sm text-foreground" data-testid="text-tsle-score">
+              {data.tsle}/100
             </div>
           </div>
           <div>
-            <div className="text-xs text-muted-foreground">Max &lt;25bps</div>
-            <div className="font-mono text-sm text-foreground" data-testid="text-max-25bps">
-              {formatUsd(data.meta.max25bps)}
+            <div className="text-xs text-muted-foreground">Regime</div>
+            <div className="font-mono text-sm text-foreground" data-testid="text-regime">
+              {data.regime}
             </div>
           </div>
           <div>
-            <div className="text-xs text-muted-foreground">Venues</div>
-            <div className="font-mono text-sm text-foreground" data-testid="text-venue-count">
-              {data.meta.venueCount}
+            <div className="text-xs text-muted-foreground">Depth Score</div>
+            <div className="font-mono text-sm text-foreground" data-testid="text-depth-score">
+              {Math.round(data.depthScore)}
             </div>
           </div>
           <div>
-            <div className="text-xs text-muted-foreground">Top Venue Share</div>
-            <div className="font-mono text-sm text-foreground" data-testid="text-top-share">
-              {data.meta.topShare}%
+            <div className="text-xs text-muted-foreground">Funding Score</div>
+            <div className="font-mono text-sm text-foreground" data-testid="text-funding-score">
+              {Math.round(data.fundingScore)}
             </div>
           </div>
         </div>
