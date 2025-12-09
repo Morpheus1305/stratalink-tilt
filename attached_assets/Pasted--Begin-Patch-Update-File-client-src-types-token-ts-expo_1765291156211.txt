@@ -1,0 +1,138 @@
+*** Begin Patch
+
+*** Update File: client/src/types/token.ts
+@@
+ export interface TokenSummary {
+   symbol: string;
+   name: string;
+   factorScore: number;
+   depth10bps: number;
+   depth25bps: number;
+   depth50bps: number;
+   bestVenue: string;
+   execRegime: string;
+   riskScore: string;
+
++  // NEW — TSLE scoring
++  tsleScore?: number;
++  tsleRegime?: string;
+ }
+
+*** End File
+
+
+
+*** Update File: client/src/hooks/useTokenLeagueTable.ts
+@@
+ async function fetchTsle(symbol: string) {
+   try {
+     const res = await fetch(`/api/tsle/snapshot?symbol=${symbol}`);
+     if (!res.ok) return null;
+     const json = await res.json();
+     return {
+       score: json.score ?? null,
+       regime: json.regime ?? null
+     };
+   } catch (_) {
+     return null;
+   }
+ }
+@@
+ for (const token of baseList) {
+   const tsle = await fetchTsle(token.symbol);
+
+   rows.push({
+     ...token,
+     tsleScore: tsle?.score ?? null,
+     tsleRegime: tsle?.regime ?? "Unknown",
+   });
+ }
+
+ return rows;
+}
+
+*** End File
+
+
+
+*** Update File: client/src/components/analytics/TokenLiquidityTable.tsx
+@@
+ const headers = [
+   { key: "symbol", label: "TOKEN" },
++  { key: "tsleScore", label: "TSLE" },   // NEW COLUMN
+   { key: "factorScore", label: "5-FACTOR" },
+   { key: "depth25bps", label: "<25BPS SIZE" },
+   { key: "depth50bps", label: "<50BPS SIZE" },
+   { key: "bestVenue", label: "BEST VENUE" },
+   { key: "depth10bps", label: "10BPS DEPTH" },
+ ];
+
+@@  // inside <thead>
+ {headers.map(h => (
+   <th
+     key={h.key}
+     className="cursor-pointer px-3 text-left text-xs font-semibold text-gray-400"
+     onClick={() => handleSort(h.key)}
+   >
+     {h.label}
+   </th>
+ ))}
+
+*** End File
+
+
+
+
+*** Update File: client/src/components/analytics/TokenLiquidityRow.tsx
+@@
++// NEW — TSLE Colour Logic
++function tsleColor(score?: number) {
++  if (score == null) return "text-gray-500";
++  if (score >= 90) return "text-emerald-400";       // Ultra-Tight
++  if (score >= 75) return "text-green-300";         // Tight
++  if (score >= 55) return "text-yellow-300";        // Constructive
++  if (score >= 35) return "text-orange-300";        // Patchy
++  if (score >= 15) return "text-red-400";           // Thin
++  return "text-red-600";                            // Broken
++}
+
+@@  // Row rendering — insert TSLE cell
+ <td className="px-3 py-2 text-sm">
+   {row.tsleScore != null ? (
+     <span className={`font-semibold ${tsleColor(row.tsleScore)}`}>
+       {row.tsleScore}
+     </span>
+   ) : (
+     <span className="text-gray-600">—</span>
+   )}
+ </td>
+
+*** End File
+
+
+
+
+*** Update File: client/src/components/analytics/TokenLiquidityTable.tsx
+@@  function sortRows(rows)
+   switch (sortKey) {
+
++    case "tsleScore":
++      sorted = [...rows].sort((a, b) =>
++        sortDirection === "asc"
++          ? (a.tsleScore ?? -1) - (b.tsleScore ?? -1)
++          : (b.tsleScore ?? -1) - (a.tsleScore ?? -1)
++      );
++      break;
+
+     case "factorScore":
+       sorted = [...rows].sort((a, b) =>
+         sortDirection === "asc"
+           ? a.factorScore - b.factorScore
+           : b.factorScore - a.factorScore
+       );
+       break;
+
+*** End File
+
+
+*** End Patch
