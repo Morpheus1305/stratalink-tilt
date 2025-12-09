@@ -1,0 +1,121 @@
+Apply the following patch to fix incorrect imports of LiquidityFiveFactorPanel and normalise TSLE component imports. Update all files inside client/src/components/analytics and any page-level files that consume TSLE or Liquidity 5-Factor components.
+
+--- PATCH START ---
+
+1. Ensure LiquidityFiveFactorPanel.tsx exports a named component:
+
+// LiquidityFiveFactorPanel.tsx
+export const LiquidityFiveFactorPanel = () => {
+  ...
+};
+
+export default LiquidityFiveFactorPanel;
+
+
+2. Fix all incorrect imports across the codebase:
+
+Search for:
+import LiquidityFiveFactorPanel from "...";
+or:
+import { LiquidityFiveFactorPanelPanel } from "...";
+or:
+import { LiquidityFiveFactor } from "...";
+
+Replace with the correct form:
+
+import { LiquidityFiveFactorPanel } from "@/components/analytics/LiquidityFiveFactorPanel";
+
+
+3. Fix TSLE Panel imports everywhere:
+
+Search for:
+import TslePanel from "...TslePanel";
+import { TslePanel } from "...TslePanel";
+
+Replace with the correct form:
+
+import TslePanel from "@/components/analytics/TslePanel";
+
+
+4. Fix import of TokenLiquidityCards:
+
+Replace any variant:
+
+import TokenLiquidityCards from "...";
+import { TokenLiquidityCards } from "...";
+import TokenLiquidity from "...";
+
+With:
+
+import TokenLiquidityCards from "@/components/analytics/TokenLiquidityCards";
+
+
+5. Fix import of TokenLiquiditySnapshot:
+
+Replace:
+
+import TokenLiquiditySnapshot from "...";
+import { TokenLiquiditySnapshot } from "...";
+
+With:
+
+import TokenLiquiditySnapshot from "@/components/analytics/TokenLiquiditySnapshot";
+
+
+6. Fix import of PerpetualFundingSnapshot:
+
+Replace:
+
+import PerpetualFundingSnapshot from "...";
+import { PerpetualFundingSnapshot } from "...";
+
+With:
+
+import PerpetualFundingSnapshot from "@/components/analytics/PerpetualFundingSnapshot";
+
+
+7. Fix import of MultiVenueDepthPanel:
+
+Replace:
+
+import MultiVenueDepthPanel from "...";
+import { MultiVenueDepthPanel } from "...";
+
+With:
+
+import MultiVenueDepthPanel from "@/components/analytics/MultiVenueDepthPanel";
+
+
+8. Fix import of ExecutionCostCalculator:
+
+Replace:
+
+import ExecutionCostCalculator from "...";
+import { ExecutionCostCalculator } from "...";
+
+With:
+
+import ExecutionCostCalculator from "@/components/analytics/ExecutionCostCalculator";
+
+
+9. Fix import of RegimePill:
+
+Replace:
+
+import RegimePill from "...";
+import { RegimePill } from "...";
+
+With:
+
+import RegimePill from "@/components/analytics/RegimePill";
+
+
+10. After updating all imports, ensure there are no duplicate or unused imports:
+
+Run:
+npm run lint --fix
+(or allow Replit to auto-fix)
+
+--- PATCH END ---
+
+This standardises all imports, fixes naming consistency, and removes the Vite runtime error caused by a missing binding.

@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Activity, Layers, Shield, Grid3x3, Target } from "lucide-react";
+import { useLiquidityStore } from "@/state/useLiquidityStore";
 
 interface FactorBarProps {
   label: string;
@@ -131,3 +132,27 @@ export function FiveFactorCard({
     </Card>
   );
 }
+
+// Wrapper component for backward compatibility - uses store internally
+interface LiquidityFiveFactorPanelProps {
+  symbol?: string;
+  side?: "buy" | "sell";
+}
+
+export function LiquidityFiveFactorPanel({ symbol = "BTC" }: LiquidityFiveFactorPanelProps) {
+  const { tsleData } = useLiquidityStore();
+  const data = tsleData[symbol];
+
+  return (
+    <FiveFactorCard
+      score={data?.fiveFactor?.score ?? 0}
+      depthQuality={data?.fiveFactor?.factors?.depthQuality ?? 0}
+      executionEfficiency={data?.fiveFactor?.factors?.executionEfficiency ?? 0}
+      liquidityStability={data?.fiveFactor?.factors?.liquidityStability ?? 0}
+      marketFragmentation={data?.fiveFactor?.factors?.marketFragmentation ?? 0}
+      riskConcentration={data?.fiveFactor?.factors?.riskConcentration ?? 0}
+    />
+  );
+}
+
+export default LiquidityFiveFactorPanel;
