@@ -68,97 +68,87 @@ const regimeExplanation = {
 // ==============================
 // Main Component
 // ==============================
-export default function TslePanel() {
-  const focus = useLiquidityStore((s) => s.focusToken);
-  // Safely access store shape without assuming tokenSnapshots exists
+interface TslePanelProps {
+  symbol?: string;
+}
+
+export default function TslePanel({ symbol = "BTC" }: TslePanelProps) {
+  // Safely access store shape
   const store = useLiquidityStore((s: any) => s);
-  const snapshots = store.tokenSnapshots ?? store.snapshots ?? store.data ?? {};
-  const snapshot = snapshots?.[focus ?? ""] ?? null;
+  const tsleData = store.tsleData ?? {};
+  const tokenData = tsleData[symbol] ?? null;
 
-  const fundingSnapshot = snapshot?.funding ?? null;
-  const levels = snapshot?.aggregate?.levels ?? {};
+  const fundingSnapshot = tokenData?.funding ?? null;
+  const levels = tokenData?.depth?.levels ?? {};
 
-  // ================
-  // Extract depth numbers
-  // ================
-  const d10 = levels?.["10"]?.totalUsd ?? 0;
-  const d25 = levels?.["25"]?.totalUsd ?? 0;
+  // ===============================
+  // 5-FACTOR SCORE CALCULATION — FINAL VERSION
+  // ===============================
 
-  // ================
-  // DEPTH QUALITY SCORE
-  // ================
-  const depthScore = useMemo(() => {
-    const s10 = Math.min((d10 / 40_000_000) * 100, 100);
-    const s25 = Math.min((d25 / 80_000_000) * 100, 100);
-    return Math.round(s10 * 0.4 + s25 * 0.6);
-  }, [d10, d25]);
+  const depth = tokenData?.depth?.levels ?? {};
+  const funding = fundingSnapshot?.headlineRate ?? fundingSnapshot?.rate ?? null;
+  const regimeFromSnapshot = tokenData?.regime ?? null;
+  const fragmentation = tokenData?.fragmentation ?? null;
+  const concentration = tokenData?.execIntegrity != null ? 100 - tokenData.execIntegrity : null;
 
-  // ================
-  // EXECUTION EFFICIENCY
-  // ================
-  const executionScore = useMemo(() => {
-    const fr = Math.abs(fundingSnapshot?.headlineRate ?? 0);
-    if (fr < 0.00002) return 90;
-    if (fr < 0.00005) return 75;
-    if (fr < 0.0001) return 55;
-    return 30;
-  }, [fundingSnapshot]);
+  // ---------- DEPTH QUALITY (0–100)
+  const d25 = depth["25"]?.totalUsd ?? 0;
+  const d50 = depth["50"]?.totalUsd ?? 0;
+  const d100 = depth["100"]?.totalUsd ?? 0;
 
-  // ================
-  // MARKET FRAGMENTATION
-  // ================
-  const fragmentationScore = useMemo(() => {
-    const aggMid = snapshot?.aggregate?.mid ?? null;
-    const venues =
-      snapshot?.venues?.filter((v) => v.ok && typeof v.mid === "number") ?? [];
+  const depthScore = (() => {
+    const score =
+      (Math.min(d25 / 5_000_000, 1) * 0.5 +
+       Math.min(d50 / 10_000_000, 1) * 0.3 +
+       Math.min(d100 / 20_000_000, 1) * 0.2) * 100;
+    return Math.round(score);
+  })();
 
-    if (!aggMid || venues.length <= 1) return 40;
-
-    const diffs = venues.map((v) => Math.abs(v.mid - aggMid) / aggMid);
-    const avg = diffs.reduce((a, b) => a + b, 0) / diffs.length;
-
-    if (avg < 0.0003) return 85;
-    if (avg < 0.0007) return 65;
+  // ---------- EXECUTION EFFICIENCY (0–100)
+  const executionScore = (() => {
+    if (funding === null) return 0;
+    const fr = Math.abs(funding);
+    if (fr < 0.0001) return 95;
+    if (fr < 0.0002) return 85;
+    if (fr < 0.0005) return 70;
+    if (fr < 0.0010) return 60;
     return 40;
-  }, [snapshot]);
+  })();
 
-  // ================
-  // RISK CONCENTRATION
-  // ================
-  const concentrationScore = useMemo(() => {
-    const venues =
-      snapshot?.venues?.filter((v) => v.ok && v.levels?.["25"]) ?? [];
+  // ---------- LIQUIDITY STABILITY (0–100)
+  const liquidityStabilityScore = (() => {
+    if (!regimeFromSnapshot) return 45;
+    switch (regimeFromSnapshot.toLowerCase()) {
+      case "ultra-tight": return 95;
+      case "tight": return 85;
+      case "constructive": return 70;
+      case "patchy": return 55;
+      case "thin": return 35;
+      case "broken": return 15;
+      default: return 45;
+    }
+  })();
 
-    const totals = venues.map((v) => v.levels["25"].totalUsd ?? 0);
-    const total = totals.reduce((a, b) => a + b, 0);
+  // ---------- MARKET FRAGMENTATION (0–100)
+  const fragmentationScore = (() => {
+    if (fragmentation == null) return 50;
+    return Math.max(0, 100 - fragmentation);
+  })();
 
-    if (total === 0) return 30;
+  // ---------- RISK CONCENTRATION (0–100)
+  const riskScore = (() => {
+    if (concentration == null) return 50;
+    return Math.max(0, 100 - concentration);
+  })();
 
-    const topShare = Math.max(...totals) / total;
-
-    if (topShare < 0.45) return 70;
-    if (topShare < 0.65) return 55;
-    return 30;
-  }, [snapshot]);
-
-  // ================
-  // CONSOLIDATED 5-FACTOR SCORE
-  // ================
-  const fiveFactorScore = useMemo(() => {
-    const stabilityPlaceholder = 55; // until stability metric added
-    return Math.round(
-      depthScore * 0.35 +
-        executionScore * 0.2 +
-        stabilityPlaceholder * 0.15 +
-        fragmentationScore * 0.15 +
-        concentrationScore * 0.15
-    );
-  }, [
-    depthScore,
-    executionScore,
-    fragmentationScore,
-    concentrationScore,
-  ]);
+  // ---------- FINAL COMPOSITE SCORE
+  const fiveFactorScore = Math.round(
+    depthScore * 0.30 +
+    executionScore * 0.20 +
+    liquidityStabilityScore * 0.20 +
+    fragmentationScore * 0.15 +
+    riskScore * 0.15
+  );
 
   // ================
   // CLASSIFY REGIME
@@ -195,9 +185,9 @@ export default function TslePanel() {
 
           <Factor label="Depth Quality" value={depthScore} />
           <Factor label="Execution Efficiency" value={executionScore} />
-          <Factor label="Liquidity Stability" value={55} />
+          <Factor label="Liquidity Stability" value={liquidityStabilityScore} />
           <Factor label="Market Fragmentation" value={fragmentationScore} />
-          <Factor label="Risk Concentration" value={concentrationScore} />
+          <Factor label="Risk Concentration" value={riskScore} />
 
           <div className="text-gray-400 text-sm mt-2">
             Overall Score:{" "}

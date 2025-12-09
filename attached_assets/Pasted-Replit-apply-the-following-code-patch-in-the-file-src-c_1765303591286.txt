@@ -1,0 +1,83 @@
+Replit, apply the following code patch in the file:
+src/components/TslePanel.tsx
+
+1. Locate the entire existing Liquidity 5-Factor Score calculation block. 
+It begins at the line where:
+    const depthScore =
+and ends at the line where:
+    const fiveFactorScore =
+
+2. Delete all code inside that range (inclusive).
+
+3. Replace it with the following updated 5-Factor scoring engine:
+
+// ===============================
+// 5-FACTOR SCORE CALCULATION — FINAL VERSION
+// ===============================
+
+const depth = snapshot?.aggregate?.levels ?? {};
+const funding = fundingSnapshot?.rate ?? null;
+const regime = snapshot?.regime ?? null;
+const fragmentation = snapshot?.fragmentation ?? null;
+const concentration = snapshot?.concentration ?? null;
+
+// ---------- DEPTH QUALITY (0–100)
+const d25 = depth["25"]?.totalUsd ?? 0;
+const d50 = depth["50"]?.totalUsd ?? 0;
+const d100 = depth["100"]?.totalUsd ?? 0;
+
+const depthScore = (() => {
+  const score =
+    (Math.min(d25 / 5_000_000, 1) * 0.5 +
+     Math.min(d50 / 10_000_000, 1) * 0.3 +
+     Math.min(d100 / 20_000_000, 1) * 0.2) * 100;
+  return Math.round(score);
+})();
+
+// ---------- EXECUTION EFFICIENCY (0–100)
+const executionScore = (() => {
+  if (funding === null) return 0;
+  const fr = Math.abs(funding);
+  if (fr < 0.0001) return 95;
+  if (fr < 0.0002) return 85;
+  if (fr < 0.0005) return 70;
+  if (fr < 0.0010) return 60;
+  return 40;
+})();
+
+// ---------- LIQUIDITY STABILITY (0–100)
+const liquidityStabilityScore = (() => {
+  if (!regime) return 45;
+  switch (regime.toLowerCase()) {
+    case "ultra-tight": return 95;
+    case "tight": return 85;
+    case "constructive": return 70;
+    case "patchy": return 55;
+    case "thin": return 35;
+    case "broken": return 15;
+    default: return 45;
+  }
+})();
+
+// ---------- MARKET FRAGMENTATION (0–100)
+const fragmentationScore = (() => {
+  if (fragmentation == null) return 50;
+  return Math.max(0, 100 - fragmentation);
+})();
+
+// ---------- RISK CONCENTRATION (0–100)
+const riskScore = (() => {
+  if (concentration == null) return 50;
+  return Math.max(0, 100 - concentration);
+})();
+
+// ---------- FINAL COMPOSITE SCORE
+const fiveFactorScore = Math.round(
+  depthScore * 0.30 +
+  executionScore * 0.20 +
+  liquidityStabilityScore * 0.20 +
+  fragmentationScore * 0.15 +
+  riskScore * 0.15
+);
+
+Please apply this patch exactly and confirm success.
