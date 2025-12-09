@@ -1,0 +1,164 @@
+import express, { Request, Response } from "express";
+
+const router = express.Router();
+
+const WORKER_BASE =
+  process.env.LIQUIDITY_WORKER_BASE ||
+  "https://hidden-star-5c73.rob-mcdermott.workers.dev";
+
+// Depth levels
+type DepthLevelKey = "10" | "25" | "50" | "100" | "200";
+
+interface DepthResponse {
+  symbol: string;
+  source: string;
+  levels: Record<
+    DepthLevelKey,
+    {
+      mid: number | null;
+      aggregate: {
+        bidUsd: number;
+        askUsd: number;
+        totalUsd: number;
+      };
+    }
+  >;
+}
+
+interface FundingResponse {
+  symbol: string;
+  source: string;
+  venues: {
+    venue: string;
+    ok: boolean;
+    rate: number | null;
+    apr: number | null;
+    error: string | null;
+  }[];
+  headlineRate: number;
+  medianRate: number;
+  avgRate: number;
+  regime: "Ultra-Tight" | "Tight" | "Neutral" | "Stressed";
+}
+
+type TsleBand =
+  | "Ultra-Tight"
+  | "Tight"
+  | "Moderate"
+  | "Thin"
+  | "Broken";
+
+function classifyQualityBand(
+  cap10: number,
+  cap25: number,
+  cap50: number,
+  funding: FundingResponse["regime"]
+): TsleBand {
+  if (cap25 === 0 && cap10 === 0) return "Broken";
+
+  if (cap25 >= 50_000_000 && (funding === "Ultra-Tight" || funding === "Tight"))
+    return "Ultra-Tight";
+
+  if (cap25 >= 20_000_000) return "Tight";
+
+  if (cap25 >= 5_000_000) return "Moderate";
+
+  if (cap10 > 0) return "Thin";
+
+  return "Broken";
+}
+
+function fmtUsd(n: number): string {
+  if (!isFinite(n) || n <= 0) return "$0";
+  if (n >= 1_000_000_000) return `$${(n / 1_000_000_000).toFixed(1)}B`;
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `$${(n / 1_000).toFixed(1)}K`;
+  return `$${n.toFixed(0)}`;
+}
+
+router.get("/snapshot", async (req: Request, res: Response) => {
+  const symbol = (req.query.symbol as string) || "BTC";
+
+  try {
+    // ---- 1) Fetch aggregated DEPTH ----
+    const depthRes = await fetch(
+      `${WORKER_BASE}/depth?symbol=${encodeURIComponent(symbol)}`
+    );
+    if (!depthRes.ok) {
+      throw new Error(`Depth worker error ${depthRes.status}`);
+    }
+    const depthJson = (await depthRes.json()) as DepthResponse;
+
+    // ---- 2) Fetch aggregated FUNDING ----
+    const fundingRes = await fetch(
+      `${WORKER_BASE}/funding?symbol=${encodeURIComponent(symbol)}`
+    );
+    if (!fundingRes.ok) {
+      throw new Error(`Funding worker error ${fundingRes.status}`);
+    }
+    const fundingJson = (await fundingRes.json()) as FundingResponse;
+
+    const levels: DepthLevelKey[] = ["10", "25", "50", "100", "200"];
+
+    const bandData = levels.map((bps) => {
+      const cap = depthJson.levels[bps]?.aggregate?.totalUsd ?? 0;
+      return { bps: Number(bps), capacityUsd: cap };
+    });
+
+    const byBps = Object.fromEntries(
+      bandData.map((b) => [b.bps, b.capacityUsd])
+    ) as Record<number, number>;
+
+    const quality = classifyQualityBand(
+      byBps[10],
+      byBps[25],
+      byBps[50],
+      fundingJson.regime
+    );
+
+    const notes: string[] = [];
+    notes.push(
+      `Max notional within 25bps ≈ ${fmtUsd(byBps[25])}; within 50bps ≈ ${fmtUsd(
+        byBps[50]
+      )}.`
+    );
+    notes.push(
+      `Funding regime: ${fundingJson.regime} (headline rate: ${
+        fundingJson.headlineRate * 100
+      }%).`
+    );
+
+    if (quality === "Ultra-Tight")
+      notes.push("Books support institutional block execution.");
+    else if (quality === "Tight")
+      notes.push("Healthy books; slicing recommended for larger clips.");
+    else if (quality === "Moderate")
+      notes.push("Serviceable liquidity; TWAP recommended.");
+    else if (quality === "Thin")
+      notes.push("Execution risk elevated; monitor refills closely.");
+    else notes.push("Impaired conditions; avoid large flow.");
+
+    res.json({
+      symbol,
+      asOf: new Date().toISOString(),
+      bands: bandData,
+      total10bps: byBps[10] ?? 0,
+      total25bps: byBps[25] ?? 0,
+      total50bps: byBps[50] ?? 0,
+      total100bps: byBps[100] ?? 0,
+      total200bps: byBps[200] ?? 0,
+      qualityBand: quality,
+      fundingRegime: fundingJson.regime,
+      headlineFundingRate: fundingJson.headlineRate,
+      venues: fundingJson.venues,
+      notes,
+    });
+  } catch (err: any) {
+    res.status(500).json({
+      error: "TSLE_SNAPSHOT_ERROR",
+      message: err.message ?? "Unknown error",
+    });
+  }
+});
+
+export default router;

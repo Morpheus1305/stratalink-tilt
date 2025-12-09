@@ -19,6 +19,7 @@ import {
   StablecoinFlowPanel,
   LiveSparklinesPanel,
   PerpetualFundingSnapshot,
+  TslePanel,
 } from "@/components/analytics";
 import DepthPanel from "@/components/DepthPanel";
 import MicrostructureStats from "@/components/MicrostructureStats";
@@ -314,6 +315,12 @@ export default function AnalyticsPage() {
         <TokenLiquidityCards depth={depthData?.depth} />
       </div>
 
+      {/* TSLE + Perpetual Funding (Token-Aware) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 mb-5">
+        <TslePanel symbol={selectedToken} />
+        <PerpetualFundingSnapshot symbol={selectedToken} />
+      </div>
+
       {/* Depth + Funding (Token-Aware) */}
       <div
         style={{
@@ -324,10 +331,7 @@ export default function AnalyticsPage() {
         }}
       >
         <DepthPanel depth={depthData?.depth} />
-        <div className="space-y-4">
-          <PerpetualFundingSnapshot symbol={selectedToken} />
-          <FundingPanel funding={fundingData?.funding} />
-        </div>
+        <FundingPanel funding={fundingData?.funding} />
       </div>
 
       {/* Lower analytics: Whale imbalance + fragmentation + velocity */}

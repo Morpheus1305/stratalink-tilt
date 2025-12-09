@@ -15,3 +15,4 @@ export { default as Sparkline } from "./Sparkline";
 export { default as SparklinePanel } from "./SparklinePanel";
 export { default as LiveSparklinesPanel } from "./LiveSparklinesPanel";
 export { default as PerpetualFundingSnapshot } from "./PerpetualFundingSnapshot";
+export { default as TslePanel } from "./TslePanel";

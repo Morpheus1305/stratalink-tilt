@@ -1,0 +1,326 @@
+// Multi-venue perpetual funding proxy for Stratalink
+// Endpoint:  /funding?symbol=BTC
+// Deploy at: hidden-star-5c73.rob-mcdermott.workers.dev
+// Then add a custom domain: api.stratalink.dev → this Worker
+
+addEventListener("fetch", (event) => {
+  event.respondWith(handleRequest(event.request));
+});
+
+async function handleRequest(request) {
+  if (request.method === "OPTIONS") {
+    return handleOptions();
+  }
+
+  const url = new URL(request.url);
+  const pathname = url.pathname.replace(/\/+$/, ""); // trim trailing slash
+
+  if (pathname === "" || pathname === "/") {
+    return jsonResponse(
+      {
+        ok: true,
+        message:
+          "Stratalink funding proxy is live. Use /funding?symbol=BTC (or ETH, SOL, XRP, etc.)",
+      },
+      200
+    );
+  }
+
+  if (pathname === "/funding") {
+    const symbolParam = (url.searchParams.get("symbol") || "BTC").toUpperCase();
+    return handleFunding(symbolParam);
+  }
+
+  return jsonResponse({ ok: false, error: "Not found" }, 404);
+}
+
+// ---------- Core funding handler ----------
+
+async function handleFunding(baseSymbol) {
+  const { binanceSymbol, bybitSymbol, okxInstId } = mapSymbol(baseSymbol);
+
+  const timeoutMs = 3500;
+
+  const [binanceRes, bybitRes, okxRes] = await Promise.allSettled([
+    fetchBinanceFunding(binanceSymbol, timeoutMs),
+    fetchBybitFunding(bybitSymbol, timeoutMs),
+    fetchOkxFunding(okxInstId, timeoutMs),
+  ]);
+
+  const venues = [];
+
+  function pushVenue(name, result) {
+    if (result.status === "fulfilled") {
+      venues.push({
+        venue: name,
+        ok: result.value.ok,
+        rate: result.value.rate,
+        apr: result.value.apr,
+        raw: result.value.raw ?? null,
+        error: result.value.error ?? null,
+      });
+    } else {
+      venues.push({
+        venue: name,
+        ok: false,
+        rate: null,
+        apr: null,
+        raw: null,
+        error: result.reason ? String(result.reason) : "Unknown error",
+      });
+    }
+  }
+
+  pushVenue("Binance", binanceRes);
+  pushVenue("Bybit", bybitRes);
+  pushVenue("OKX", okxRes);
+
+  // Compute aggregate metrics from all venues that responded with a rate
+  const validRates = venues
+    .filter((v) => v.ok && typeof v.rate === "number" && isFinite(v.rate))
+    .map((v) => v.rate);
+
+  let medianRate = null;
+  let avgRate = null;
+  let headlineRate = null;
+  let regime = "Unknown";
+
+  if (validRates.length > 0) {
+    validRates.sort((a, b) => a - b);
+    const mid = Math.floor(validRates.length / 2);
+    medianRate =
+      validRates.length % 2 === 0
+        ? (validRates[mid - 1] + validRates[mid]) / 2
+        : validRates[mid];
+
+    avgRate =
+      validRates.reduce((sum, r) => sum + r, 0) / validRates.length;
+
+    // Use median as the "headline" rate
+    headlineRate = medianRate;
+    regime = classifyRegime(Math.abs(headlineRate));
+  }
+
+  const payload = {
+    symbol: baseSymbol,
+    source: "proxy",
+    venues,
+    medianRate,
+    avgRate,
+    headlineRate,
+    regime,
+  };
+
+  return jsonResponse(payload, 200);
+}
+
+// ---------- Exchange fetch helpers ----------
+
+// Binance: premiumIndex endpoint for perpetuals
+async function fetchBinanceFunding(symbol, timeoutMs) {
+  const url = `https://fapi.binance.com/fapi/v1/premiumIndex?symbol=${encodeURIComponent(
+    symbol
+  )}`;
+
+  try {
+    const res = await fetchWithTimeout(url, { method: "GET" }, timeoutMs);
+    if (!res.ok) {
+      return {
+        ok: false,
+        rate: null,
+        apr: null,
+        raw: null,
+        error: `HTTP ${res.status}`,
+      };
+    }
+    const data = await res.json();
+    const rate = parseFloat(data.lastFundingRate ?? data.markPrice ?? 0);
+    if (!isFinite(rate)) {
+      return {
+        ok: false,
+        rate: null,
+        apr: null,
+        raw: data,
+        error: "Invalid funding rate",
+      };
+    }
+    const apr = rateToApr(rate);
+    return { ok: true, rate, apr, raw: data };
+  } catch (err) {
+    return {
+      ok: false,
+      rate: null,
+      apr: null,
+      raw: null,
+      error: String(err),
+    };
+  }
+}
+
+// Bybit: unified v5 tickers (linear perps)
+async function fetchBybitFunding(symbol, timeoutMs) {
+  const url = `https://api.bybit.com/v5/market/tickers?category=linear&symbol=${encodeURIComponent(
+    symbol
+  )}`;
+
+  try {
+    const res = await fetchWithTimeout(url, { method: "GET" }, timeoutMs);
+    if (!res.ok) {
+      return {
+        ok: false,
+        rate: null,
+        apr: null,
+        raw: null,
+        error: `HTTP ${res.status}`,
+      };
+    }
+    const data = await res.json();
+    const ticker = data?.result?.list?.[0];
+    const rate = ticker ? parseFloat(ticker.fundingRate ?? 0) : NaN;
+    if (!isFinite(rate)) {
+      return {
+        ok: false,
+        rate: null,
+        apr: null,
+        raw: data,
+        error: "Invalid funding rate",
+      };
+    }
+    const apr = rateToApr(rate);
+    return { ok: true, rate, apr, raw: data };
+  } catch (err) {
+    return {
+      ok: false,
+      rate: null,
+      apr: null,
+      raw: null,
+      error: String(err),
+    };
+  }
+}
+
+// OKX: public funding rate endpoint
+async function fetchOkxFunding(instId, timeoutMs) {
+  const url = `https://www.okx.com/api/v5/public/funding-rate?instId=${encodeURIComponent(
+    instId
+  )}`;
+
+  try {
+    const res = await fetchWithTimeout(url, { method: "GET" }, timeoutMs);
+    if (!res.ok) {
+      return {
+        ok: false,
+        rate: null,
+        apr: null,
+        raw: null,
+        error: `HTTP ${res.status}`,
+      };
+    }
+    const data = await res.json();
+    const item = data?.data?.[0];
+    const rate = item ? parseFloat(item.fundingRate ?? 0) : NaN;
+    if (!isFinite(rate)) {
+      return {
+        ok: false,
+        rate: null,
+        apr: null,
+        raw: data,
+        error: "Invalid funding rate",
+      };
+    }
+    const apr = rateToApr(rate);
+    return { ok: true, rate, apr, raw: data };
+  } catch (err) {
+    return {
+      ok: false,
+      rate: null,
+      apr: null,
+      raw: null,
+      error: String(err),
+    };
+  }
+}
+
+// ---------- Utilities ----------
+
+// Map STRATA symbols to venue-specific instruments
+function mapSymbol(base) {
+  const s = base.toUpperCase();
+
+  // You can extend this map as needed
+  const baseToPerp = {
+    BTC: "BTCUSDT",
+    ETH: "ETHUSDT",
+    SOL: "SOLUSDT",
+    XRP: "XRPUSDT",
+    LINK: "LINKUSDT",
+    AVAX: "AVAXUSDT",
+    NEAR: "NEARUSDT",
+    DOT: "DOTUSDT",
+    ADA: "ADAUSDT",
+  };
+
+  const bybitSymbol = baseToPerp[s] || `${s}USDT`;
+  const binanceSymbol = baseToPerp[s] || `${s}USDT`;
+  const okxInstId = `${s}-USDT-SWAP`; // OKX perpetual naming
+
+  return { binanceSymbol, bybitSymbol, okxInstId };
+}
+
+// Convert single-period funding rate to simple APR (%)
+// Assumes funding every 8h → 3 periods/day
+function rateToApr(rate) {
+  const periodsPerDay = 3;
+  const daysPerYear = 365;
+  return rate * periodsPerDay * daysPerYear * 100;
+}
+
+// Regime classifier used by the UI
+function classifyRegime(absRate) {
+  // absRate is |funding rate| per period
+  if (absRate <= 0.00005) return "Ultra-Tight"; // <= 5 bps per 8h
+  if (absRate <= 0.00025) return "Tight";       // <= 25 bps
+  if (absRate <= 0.001) return "Neutral";      // <= 100 bps
+  return "Stressed";
+}
+
+// Generic fetch with timeout
+async function fetchWithTimeout(resource, options, ms) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), ms);
+  try {
+    const res = await fetch(resource, {
+      ...options,
+      signal: controller.signal,
+    });
+    return res;
+  } finally {
+    clearTimeout(id);
+  }
+}
+
+// JSON + CORS response helper
+function jsonResponse(obj, status = 200) {
+  return new Response(JSON.stringify(obj, null, 2), {
+    status,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "access-control-allow-origin": "*",
+      "access-control-allow-methods": "GET,OPTIONS",
+      "access-control-allow-headers": "Content-Type",
+    },
+  });
+}
+
+// Preflight CORS
+function handleOptions() {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      "access-control-allow-origin": "*",
+      "access-control-allow-methods": "GET,OPTIONS",
+      "access-control-allow-headers": "Content-Type",
+      "access-control-max-age": "86400",
+    },
+  });
+}
