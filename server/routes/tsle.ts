@@ -80,6 +80,42 @@ function fmtUsd(n: number): string {
   return `$${n.toFixed(0)}`;
 }
 
+//
+// --- DEPTH NORMALIZATION (NEW WORKER FORMAT) ---
+//
+// Worker returns: { aggregate: { levels: { "10": { totalUsd }, ... } } }
+//
+
+function normalizeDepth(workerDepth: any): Record<string, number> {
+  // Handle missing or malformed response
+  if (!workerDepth) {
+    return { "10": 0, "25": 0, "50": 0, "100": 0, "200": 0 };
+  }
+
+  // New format: aggregate.levels.XX.totalUsd
+  const aggLevels = workerDepth.aggregate?.levels;
+  if (aggLevels) {
+    const out: Record<string, number> = {};
+    for (const key of ["10", "25", "50", "100", "200"]) {
+      out[key] = aggLevels[key]?.totalUsd ?? 0;
+    }
+    return out;
+  }
+
+  // Fallback: levels.XX.totalUsd or levels.XX.aggregate.totalUsd
+  const levels = workerDepth.levels;
+  if (levels && typeof levels === "object" && !Array.isArray(levels)) {
+    const out: Record<string, number> = {};
+    for (const key of ["10", "25", "50", "100", "200"]) {
+      const lv = levels[key];
+      out[key] = lv?.totalUsd ?? lv?.aggregate?.totalUsd ?? 0;
+    }
+    return out;
+  }
+
+  return { "10": 0, "25": 0, "50": 0, "100": 0, "200": 0 };
+}
+
 router.get("/snapshot", async (req: Request, res: Response) => {
   const symbol = (req.query.symbol as string) || "BTC";
 
@@ -91,7 +127,7 @@ router.get("/snapshot", async (req: Request, res: Response) => {
     if (!depthRes.ok) {
       throw new Error(`Depth worker error ${depthRes.status}`);
     }
-    const depthJson = (await depthRes.json()) as WorkerDepthResponse;
+    const depthJson = await depthRes.json();
 
     // ---- 2) Fetch aggregated FUNDING ----
     const fundingRes = await fetch(
@@ -102,10 +138,13 @@ router.get("/snapshot", async (req: Request, res: Response) => {
     }
     const fundingJson = (await fundingRes.json()) as WorkerFundingResponse;
 
+    // Normalize depth using the new worker format
+    const normalizedDepth = normalizeDepth(depthJson);
+
     const levels: DepthLevelKey[] = ["10", "25", "50", "100", "200"];
 
     const bandData = levels.map((bps) => {
-      const cap = depthJson.levels[bps]?.aggregate?.totalUsd ?? 0;
+      const cap = normalizedDepth[bps] ?? 0;
       return { bps: Number(bps), capacityUsd: cap };
     });
 
