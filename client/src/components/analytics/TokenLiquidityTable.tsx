@@ -250,26 +250,13 @@ const TokenLiquidityTable = ({ selectedToken, onSelectToken }: Props) => {
                       </div>
                     </div>
                   </td>
-                  <td className="py-2 pr-3 text-right">
+                  <td className="py-2 pr-3 text-right tsle-cell">
                     {(() => {
-                      const storeTsle = tsleData[row.symbol]?.tsle;
-                      const storeRegime = tsleData[row.symbol]?.regime;
-                      const displayScore = storeTsle ?? row.tsleScore;
-                      const displayRegime = storeRegime ?? row.tsleRegime;
-                      
-                      if (displayScore != null) {
+                      const tokenData = tsleData[row.symbol];
+                      if (tokenData) {
                         return (
-                          <Badge
-                            className={cn(
-                              "text-[10px] font-medium",
-                              displayRegime === "Ultra-Tight" && "bg-emerald-500/20 text-emerald-300 border-emerald-500/40",
-                              displayRegime === "Tight" && "bg-sky-500/20 text-sky-300 border-sky-500/40",
-                              displayRegime === "Constructive" && "bg-slate-500/20 text-slate-200 border-slate-500/40",
-                              displayRegime === "Patchy" && "bg-amber-500/20 text-amber-300 border-amber-500/40",
-                              displayRegime === "Broken" && "bg-red-500/20 text-red-300 border-red-500/40"
-                            )}
-                          >
-                            {displayScore} {displayRegime}
+                          <Badge className={`regime-badge regime-${tokenData.regime.toLowerCase().replace(" ", "-")}`}>
+                            {tokenData.tsle} {tokenData.regime}
                           </Badge>
                         );
                       }
