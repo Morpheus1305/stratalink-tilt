@@ -136,12 +136,13 @@ export default function ExecutionIntelPanel({ symbol, side }: ExecutionIntelPane
 
       <div className="space-y-2">
         <div className="text-[10px] text-gray-500 uppercase tracking-wider">Max Tradeable Size (Aggregated)</div>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-5 gap-2">
           {[
             { label: "<10bps", value: tsle?.totals?.depth10bps ?? intel.maxSizeSignals.bps10 },
             { label: "<25bps", value: tsle?.maxSizeAt25bps ?? intel.maxSizeSignals.bps25 },
             { label: "<50bps", value: tsle?.maxSizeAt50bps ?? intel.maxSizeSignals.bps50 },
             { label: "<100bps", value: tsle?.maxSizeAt100bps ?? intel.maxSizeSignals.bps100 },
+            { label: "<200bps", value: tsle?.totals?.depth200bps ?? (intel.maxSizeSignals.bps100 * 2.5) },
           ].map(({ label, value }) => (
             <div key={label} className="bg-[#0a0e1a] rounded-lg p-2 text-center">
               <div className="text-[9px] text-gray-500">{label}</div>
