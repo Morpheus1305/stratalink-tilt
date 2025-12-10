@@ -1,5 +1,7 @@
 // client/src/utils/tsleDepth.ts
 
+import { useEffect, useState, useCallback, useRef } from "react";
+
 export type TsleSide = "buy" | "sell";
 
 export interface TsleDepthResponse {
@@ -50,12 +52,7 @@ export async function fetchTsleDepth(
   return (await res.json()) as TsleDepthResponse;
 }
 
-/**
- * Optional small hook – you can use this inside ExecutionCostCalculatorPanel,
- * ExecutionIntelPanel, league table, etc.
- */
-
-import { useEffect, useState } from "react";
+const REFRESH_INTERVAL_MS = 10_000; // 10 seconds for real-time updates
 
 export function useTsleDepth(
   symbol: string,
@@ -64,32 +61,46 @@ export function useTsleDepth(
   const [data, setData] = useState<TsleDepthResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
 
-    async function run() {
-      if (!symbol) return;
+  const fetchData = useCallback(async (isInitial: boolean = false) => {
+    if (!symbol) return;
+
+    if (isInitial) {
       setLoading(true);
       setError(null);
-      try {
-        const resp = await fetchTsleDepth(symbol, options);
-        if (!cancelled) setData(resp);
-      } catch (err: any) {
-        if (!cancelled) setError(err?.message || "TSLE depth error");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
     }
 
-    run();
+    try {
+      const resp = await fetchTsleDepth(symbol, optionsRef.current);
+      setData(resp);
+      setLastUpdated(Date.now());
+    } catch (err: any) {
+      setError(err?.message || "TSLE depth error");
+    } finally {
+      setLoading(false);
+    }
+  }, [symbol]);
+
+  useEffect(() => {
+    fetchData(true);
+
+    intervalRef.current = setInterval(() => {
+      fetchData(false);
+    }, REFRESH_INTERVAL_MS);
 
     return () => {
-      cancelled = true;
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
     };
-  }, [symbol, options.side, options.size]);
+  }, [fetchData, options.side, options.size]);
 
-  return { data, loading, error };
+  return { data, loading, error, lastUpdated, refetch: () => fetchData(false) };
 }
 
 export function formatUSD(value: number): string {
