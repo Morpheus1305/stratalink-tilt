@@ -4,6 +4,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DashboardHeader } from "@/components/dashboard-header";
+import { PlatformTabs } from "@/components/platform-tabs";
 
 import {
   TokenSelector,
@@ -198,26 +200,31 @@ export default function AnalyticsPage() {
   const fundingSeriesForToken = fundingSeries[selectedToken] || [];
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#050814",
-        color: "#e1e6ef",
-        padding: 24,
-        fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif",
-      }}
-    >
-      {/* Header */}
-      <header style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 12, letterSpacing: 3, color: "#8ea3c7" }}>
-          STRATA • ANALYTICS
-        </div>
-        <h1 style={{ margin: "4px 0 0", fontSize: 26 }}>
-          Daily Crypto Market Structure Attribution
-        </h1>
-      </header>
+    <div className="min-h-screen bg-background flex flex-col">
+      <DashboardHeader />
+      <PlatformTabs />
 
-      {/* Token Selector + Regime Pill */}
+      {/* Page Content */}
+      <div
+        style={{
+          background: "#050814",
+          color: "#e1e6ef",
+          padding: 24,
+          fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif",
+          flex: 1,
+        }}
+      >
+        {/* Page Title */}
+        <header style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 12, letterSpacing: 3, color: "#8ea3c7" }}>
+            STRATA • ANALYTICS
+          </div>
+          <h1 style={{ margin: "4px 0 0", fontSize: 26 }}>
+            Daily Crypto Market Structure Attribution
+          </h1>
+        </header>
+
+        {/* Token Selector + Regime Pill */}
       <div
         style={{
           marginBottom: 20,
@@ -391,10 +398,11 @@ export default function AnalyticsPage() {
         <ExecutionIntelPanel symbol={selectedToken} side="sell" />
       </section>
 
-      {/* Footer */}
-      <footer style={{ marginTop: 24, fontSize: 11, color: "#6d7da2" }}>
-        STRATA • Liquidity Truth Layer — Internal institutional prototype.
-      </footer>
+        {/* Footer */}
+        <footer style={{ marginTop: 24, fontSize: 11, color: "#6d7da2" }}>
+          STRATA • Liquidity Truth Layer — Internal institutional prototype.
+        </footer>
+      </div>
     </div>
   );
 }
