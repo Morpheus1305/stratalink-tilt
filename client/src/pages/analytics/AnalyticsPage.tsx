@@ -356,7 +356,7 @@ export default function AnalyticsPage() {
         <LiquidityVelocityPanel depth={depthData?.depth} />
       </div>
 
-      {/* Planned panels: vol cone, CEX/DEX gauge, stablecoin flows */}
+      {/* Volatility, CEX/DEX Spread, Stablecoin Flows */}
       <div
         style={{
           display: "grid",
@@ -365,8 +365,8 @@ export default function AnalyticsPage() {
           marginBottom: 20,
         }}
       >
-        <VolatilityConePanel />
-        <CexDexGauge />
+        <VolatilityConePanel symbol={selectedToken} />
+        <CexDexGauge symbol={selectedToken} />
         <StablecoinFlowPanel />
       </div>
 
