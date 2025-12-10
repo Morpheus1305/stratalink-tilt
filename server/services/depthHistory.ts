@@ -1,7 +1,16 @@
+import { getStoredHistory, HistoricalDepthPoint, getHistoryStats } from "./depthHistoryStore";
+import { getDepthCache } from "../../analytics/engines/depthEngine";
+
 type DepthHistoryPoint = {
   ts: number;
   depth50bps: number;
   spreadBps: number;
+  depth10bps?: number;
+  depth25bps?: number;
+  depth100bps?: number;
+  depth200bps?: number;
+  mid?: number;
+  source?: string;
 };
 
 const WINDOW_DURATION: Record<string, number> = {
@@ -37,25 +46,18 @@ const TOKEN_SPREAD_BASE: Record<string, number> = {
   MATIC: 6.0,
 };
 
-export async function getOrderbookDepthHistory(
+function generateSyntheticHistory(
   token: string,
-  window: string
-): Promise<DepthHistoryPoint[]> {
-  const duration = WINDOW_DURATION[window] || WINDOW_DURATION["24h"];
-  const now = Date.now();
-
-  const numPoints = window === "1h" ? 30 : window === "24h" ? 48 : window === "7d" ? 84 : 60;
-  const interval = duration / numPoints;
-
-  const baseDepth = TOKEN_DEPTH_BASE[token] || 1_000_000;
-  const baseSpread = TOKEN_SPREAD_BASE[token] || 4.0;
-
+  startTs: number,
+  endTs: number,
+  intervalMs: number,
+  baseDepth: number,
+  baseSpread: number
+): DepthHistoryPoint[] {
   const points: DepthHistoryPoint[] = [];
   let depth = baseDepth;
-
-  for (let i = numPoints; i >= 0; i--) {
-    const ts = now - i * interval;
-
+  
+  for (let ts = startTs; ts <= endTs; ts += intervalMs) {
     const depthShock = (Math.random() - 0.5) * 0.08;
     depth = depth * (1 + depthShock);
     depth = Math.max(depth, baseDepth * 0.5);
@@ -68,8 +70,96 @@ export async function getOrderbookDepthHistory(
       ts: Math.floor(ts),
       depth50bps: Math.round(depth),
       spreadBps: Number(spreadBps.toFixed(2)),
+      source: "synthetic",
     });
   }
-
+  
   return points;
+}
+
+export async function getOrderbookDepthHistory(
+  token: string,
+  window: string
+): Promise<DepthHistoryPoint[]> {
+  const duration = WINDOW_DURATION[window] || WINDOW_DURATION["24h"];
+  const now = Date.now();
+  
+  const numPoints = window === "1h" ? 30 : window === "24h" ? 48 : window === "7d" ? 84 : 60;
+  const interval = duration / numPoints;
+  
+  const baseDepth = TOKEN_DEPTH_BASE[token] || 1_000_000;
+  const baseSpread = TOKEN_SPREAD_BASE[token] || 4.0;
+  
+  const realHistory = getStoredHistory(token, duration);
+  
+  if (realHistory.length >= 1) {
+    const points: DepthHistoryPoint[] = realHistory.map((h) => ({
+      ts: h.ts,
+      depth50bps: h.depth50bps,
+      spreadBps: h.spreadBps,
+      depth10bps: h.depth10bps,
+      depth25bps: h.depth25bps,
+      depth100bps: h.depth100bps,
+      depth200bps: h.depth200bps,
+      mid: h.mid,
+      source: h.source,
+    }));
+    
+    if (realHistory.length < numPoints) {
+      const oldestRealTs = realHistory[0].ts;
+      const syntheticStartTs = now - duration;
+      const syntheticEndTs = oldestRealTs - interval;
+      
+      if (syntheticEndTs > syntheticStartTs) {
+        const syntheticPoints = generateSyntheticHistory(
+          token,
+          syntheticStartTs,
+          syntheticEndTs,
+          interval,
+          realHistory[0].depth50bps || baseDepth,
+          realHistory[0].spreadBps || baseSpread
+        );
+        
+        return [...syntheticPoints, ...points];
+      }
+    }
+    
+    return points;
+  }
+  
+  const depthCache = getDepthCache();
+  const currentDepth = depthCache[token];
+  
+  let currentBaseDepth = baseDepth;
+  let currentBaseSpread = baseSpread;
+  
+  if (currentDepth) {
+    currentBaseDepth = currentDepth.bands["50bps"]?.totalUSD || baseDepth;
+    currentBaseSpread = currentDepth.spreadBps || baseSpread;
+  }
+  
+  const syntheticStartTs = now - duration;
+  return generateSyntheticHistory(
+    token,
+    syntheticStartTs,
+    now,
+    interval,
+    currentBaseDepth,
+    currentBaseSpread
+  );
+}
+
+export function getTimeseriesMetadata(token: string): {
+  hasRealData: boolean;
+  realDataPoints: number;
+  coverage: string;
+  oldestDataTs: number | null;
+} {
+  const stats = getHistoryStats(token);
+  return {
+    hasRealData: stats.pointCount > 0,
+    realDataPoints: stats.pointCount,
+    coverage: stats.coverage,
+    oldestDataTs: stats.oldestTs,
+  };
 }

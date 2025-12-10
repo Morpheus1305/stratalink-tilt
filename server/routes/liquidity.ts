@@ -1,8 +1,9 @@
 import express from "express";
-import { getOrderbookDepthHistory } from "../services/depthHistory";
+import { getOrderbookDepthHistory, getTimeseriesMetadata } from "../services/depthHistory";
 import { computeStabilityStats } from "../services/liquidityStats";
 import { computeVenueLiquiditySnapshot } from "../services/venueLiquidity";
 import { computeLiquidityFactors } from "../services/liquidityFactors";
+import { getDepthCache } from "../../analytics/engines/depthEngine";
 import type { SupportedToken } from "../services/cexOrderbooks";
 
 const router = express.Router();
@@ -18,15 +19,36 @@ router.get("/timeseries", async (req, res) => {
       ts: h.ts,
       depthUsd50bps: h.depth50bps,
       spreadBps: h.spreadBps,
+      depth10bps: h.depth10bps,
+      depth25bps: h.depth25bps,
+      depth100bps: h.depth100bps,
+      depth200bps: h.depth200bps,
+      source: h.source,
     }));
 
     const stability = computeStabilityStats(snapshots);
+    const metadata = getTimeseriesMetadata(token);
+    
+    const depthCache = getDepthCache();
+    const currentDepth = depthCache[token];
+    const currentSnapshot = currentDepth ? {
+      depth50bps: currentDepth.bands["50bps"]?.totalUSD || 0,
+      depth10bps: currentDepth.bands["10bps"]?.totalUSD || 0,
+      depth25bps: currentDepth.bands["25bps"]?.totalUSD || 0,
+      depth100bps: currentDepth.bands["100bps"]?.totalUSD || 0,
+      spreadBps: currentDepth.spreadBps,
+      mid: currentDepth.mid,
+      source: currentDepth.source,
+      ts: currentDepth.ts,
+    } : null;
 
     return res.json({
       token,
       window,
       snapshots,
       stability,
+      metadata,
+      currentSnapshot,
     });
   } catch (err) {
     console.error("timeseries error", err);

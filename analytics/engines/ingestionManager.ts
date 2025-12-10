@@ -2,6 +2,7 @@ import { ingestDepth, getDepthCache, getLastIngestTime as getDepthIngestTime } f
 import { ingestFunding, getFundingCache, getLastFundingIngestTime } from "./fundingEngine";
 import { ingestLiquidations, getLiquidationCache, getLastLiquidationIngestTime } from "./liquidationEngine";
 import { computeStress, getStressCommentary, StressResult } from "./stressEngine";
+import { recordDepthSnapshot } from "../../server/services/depthHistoryStore";
 
 let isIngesting = false;
 let lastFullIngest = 0;
@@ -26,6 +27,8 @@ export async function runFullIngest(): Promise<void> {
       ingestLiquidations(),
     ]);
 
+    recordDepthSnapshot();
+    
     lastFullIngest = Date.now();
     const elapsed = Date.now() - start;
     console.log(`[IngestionManager] Full ingest completed in ${elapsed}ms`);
