@@ -3,6 +3,7 @@ import { TokenLiquiditySummary } from "@/types/liquidity";
 import { fetchTokenLiquiditySummary } from "@/lib/liquiditySummaryClient";
 import { useTsleDepth, formatUSD, getRegimeColor, getTsleScoreBadgeColor, stressBadgeColor, stressCellColor } from "@/utils/tsleDepth";
 import { useLiquidityStore } from "@/state/useLiquidityStore";
+import useLiquidityFactorsBatch from "@/hooks/useLiquidityFactorsBatch";
 import { Badge } from "@/components/ui/badge";
 import { Zap, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -94,6 +95,8 @@ const riskClass = (flag: string) => {
 };
 
 
+const TRACKED_TOKENS = ["BTC", "ETH", "SOL", "LINK", "NEAR", "AVAX", "DOT", "ADA", "XRP"];
+
 const TokenLiquidityTable = ({ selectedToken, onSelectToken }: Props) => {
   const [rows, setRows] = useState<TokenLiquiditySummary[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -102,6 +105,9 @@ const TokenLiquidityTable = ({ selectedToken, onSelectToken }: Props) => {
 
   const { tsleData, refreshTSLE } = useLiquidityStore();
   const { data: tsle, loading: tsleLoading } = useTsleDepth(selectedToken, { side: "buy", size: 100_000 });
+  
+  // Fetch real-time 5-Factor scores for all tracked tokens
+  const { data: batchFactors } = useLiquidityFactorsBatch(TRACKED_TOKENS);
 
   const tsleRegimeLabel = tsle
     ? `${tsle.regime} · ${tsle.score}/100`
@@ -122,13 +128,23 @@ const TokenLiquidityTable = ({ selectedToken, onSelectToken }: Props) => {
 
   const sortedRows = useMemo(() => {
     const sorted = [...rows].sort((a, b) => {
-      let aVal = a[sortField] ?? -Infinity;
-      let bVal = b[sortField] ?? -Infinity;
+      let aVal: number;
+      let bVal: number;
+      
+      // Use real-time 5-Factor scores when sorting by factorScore
+      if (sortField === "factorScore") {
+        aVal = batchFactors?.[a.symbol]?.composite ?? a.factorScore ?? -Infinity;
+        bVal = batchFactors?.[b.symbol]?.composite ?? b.factorScore ?? -Infinity;
+      } else {
+        aVal = a[sortField] ?? -Infinity;
+        bVal = b[sortField] ?? -Infinity;
+      }
+      
       if (sortDir === "desc") return bVal > aVal ? 1 : bVal < aVal ? -1 : 0;
       return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
     });
     return sorted;
-  }, [rows, sortField, sortDir]);
+  }, [rows, sortField, sortDir, batchFactors]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -332,7 +348,7 @@ const TokenLiquidityTable = ({ selectedToken, onSelectToken }: Props) => {
                     })()}
                   </td>
                   <td className="py-2 pr-3 text-right text-foreground font-mono">
-                    {row.factorScore}
+                    {batchFactors?.[row.symbol]?.composite ?? row.factorScore}
                   </td>
                   <td className="py-2 pr-3 text-right text-foreground font-mono">
                     ${row.max25bps.toLocaleString()}
