@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { TokenLiquiditySummary } from "@/types/liquidity";
 import { fetchTokenLiquiditySummary } from "@/lib/liquiditySummaryClient";
 import { useTsleDepth, formatUSD, getRegimeColor, getTsleScoreBadgeColor, stressBadgeColor, stressCellColor } from "@/utils/tsleDepth";
@@ -15,23 +15,11 @@ type TsleRegime =
   | "Thin"
   | "Broken";
 
-type TsleSeed = {
+type TsleBatchItem = {
+  symbol: string;
   score: number;
   regime: TsleRegime;
-};
-
-// TEMP: Seed TSLE scores so the league table looks correct until
-// full per-token TSLE 2.0 wiring is complete.
-const TSLE_SEED_SCORES: Record<string, TsleSeed> = {
-  BTC: { score: 95, regime: "Ultra-Tight" },
-  ETH: { score: 88, regime: "Tight" },
-  SOL: { score: 82, regime: "Tight" },
-  LINK: { score: 80, regime: "Tight" },
-  NEAR: { score: 76, regime: "Constructive" },
-  AVAX: { score: 74, regime: "Constructive" },
-  DOT: { score: 72, regime: "Constructive" },
-  ADA: { score: 68, regime: "Patchy" },
-  XRP: { score: 64, regime: "Patchy" },
+  source: string;
 };
 
 function getTsleBadgeClass(regime: TsleRegime): string {
@@ -102,12 +90,12 @@ const TokenLiquidityTable = ({ selectedToken, onSelectToken, batchFactors }: Pro
   const [loading, setLoading] = useState<boolean>(true);
   const [sortField, setSortField] = useState<SortField>("tsleScore");
   const [sortDir, setSortDir] = useState<SortDirection>("desc");
+  const [tsleBatch, setTsleBatch] = useState<Record<string, TsleBatchItem>>({});
+  const tsleBatchRef = useRef<Record<string, TsleBatchItem>>({});
 
   const { tsleData, refreshTSLE } = useLiquidityStore();
   const { data: tsle, loading: tsleLoading } = useTsleDepth(selectedToken, { side: "buy", size: 100_000 });
   
-  // Use batchFactors from parent to ensure sync with LiquidityFiveFactorPanel
-
   const tsleRegimeLabel = tsle
     ? `${tsle.regime} · ${tsle.score}/100`
     : "Collecting liquidity data...";
@@ -120,8 +108,28 @@ const TokenLiquidityTable = ({ selectedToken, onSelectToken, batchFactors }: Pro
       setLoading(false);
     });
     refreshTSLE();
+    
+    const fetchTsleBatch = async () => {
+      try {
+        const res = await fetch(`/api/tsle/batch?symbols=${TRACKED_TOKENS.join(",")}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (mounted) {
+            tsleBatchRef.current = data;
+            setTsleBatch(data);
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to fetch TSLE batch:", err);
+      }
+    };
+    
+    fetchTsleBatch();
+    const intervalId = setInterval(fetchTsleBatch, 30_000);
+    
     return () => {
       mounted = false;
+      clearInterval(intervalId);
     };
   }, []);
 
@@ -130,10 +138,12 @@ const TokenLiquidityTable = ({ selectedToken, onSelectToken, batchFactors }: Pro
       let aVal: number;
       let bVal: number;
       
-      // Use real-time 5-Factor scores when sorting by factorScore
       if (sortField === "factorScore") {
         aVal = batchFactors?.[a.symbol]?.composite ?? a.factorScore ?? -Infinity;
         bVal = batchFactors?.[b.symbol]?.composite ?? b.factorScore ?? -Infinity;
+      } else if (sortField === "tsleScore") {
+        aVal = tsleBatch[a.symbol]?.score ?? a.tsleScore ?? -Infinity;
+        bVal = tsleBatch[b.symbol]?.score ?? b.tsleScore ?? -Infinity;
       } else {
         aVal = a[sortField] ?? -Infinity;
         bVal = b[sortField] ?? -Infinity;
@@ -143,7 +153,7 @@ const TokenLiquidityTable = ({ selectedToken, onSelectToken, batchFactors }: Pro
       return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
     });
     return sorted;
-  }, [rows, sortField, sortDir, batchFactors]);
+  }, [rows, sortField, sortDir, batchFactors, tsleBatch]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -315,18 +325,16 @@ const TokenLiquidityTable = ({ selectedToken, onSelectToken, batchFactors }: Pro
                   </td>
                   <td className="py-2 pr-3 text-right tsle-cell">
                     {(() => {
-                      const seed = TSLE_SEED_SCORES[row.symbol];
+                      const batchItem = tsleBatch[row.symbol];
                       const tokenData = tsleData[row.symbol];
                       
-                      // Prefer seeded score/regime for now so table looks correct.
-                      // Fallback to any live values if present.
                       const score: number =
-                        seed?.score ??
+                        batchItem?.score ??
                         tokenData?.tsle ??
                         0;
 
                       const regime: TsleRegime =
-                        seed?.regime ??
+                        (batchItem?.regime as TsleRegime) ??
                         (tokenData?.regime as TsleRegime) ??
                         "Patchy";
 

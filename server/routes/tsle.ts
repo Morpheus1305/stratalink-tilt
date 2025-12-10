@@ -405,16 +405,82 @@ router.get("/depth", async (req: Request, res: Response) => {
   });
 });
 
+async function computeTsleForSymbol(symbol: string) {
+  if (!SUPPORTED_SYMBOLS.includes(symbol)) {
+    const ph = PLACEHOLDER_TSLE[symbol] ?? { score: 62, regime: "Constructive" };
+    return {
+      symbol,
+      score: ph.score,
+      regime: bandFromTsle(ph.score),
+      source: "placeholder",
+    };
+  }
+
+  const [depth, funding] = await Promise.all([
+    fetchJson<DepthSnapshot>(`${WORKER_BASE}/depth?symbol=${symbol}`),
+    fetchJson<FundingSnapshot>(`${WORKER_BASE}/funding?symbol=${symbol}`),
+  ]);
+
+  const depthResult = depthScoreFromSnapshot(depth);
+  const fundingResult = fundingScoreFromSnapshot(funding);
+  const factorScore = factorScorePlaceholder(symbol);
+  const stressScore = stressScorePlaceholder(symbol);
+
+  const tsleScore = depthResult.score + fundingResult.score + factorScore + stressScore;
+
+  const noRealDepth = depthResult.score === 0;
+  const noRealFunding = !funding || (fundingResult.score === 18 && fundingResult.regime === "Unknown");
+
+  if (noRealDepth && noRealFunding) {
+    const ph = PLACEHOLDER_TSLE[symbol] ?? { score: 62, regime: "Constructive" };
+    return {
+      symbol,
+      score: ph.score,
+      regime: bandFromTsle(ph.score),
+      source: "placeholder",
+    };
+  }
+
+  return {
+    symbol,
+    score: tsleScore,
+    regime: bandFromTsle(tsleScore),
+    source: "worker",
+    depth25Usd: depthResult.d25,
+    depth50Usd: depthResult.d50,
+  };
+}
+
+router.get("/batch", async (req: Request, res: Response) => {
+  const symbolsQuery = (req.query.symbols as string) || "";
+  const symbols = symbolsQuery
+    .split(",")
+    .map((s) => s.trim().toUpperCase())
+    .filter(Boolean);
+
+  if (!symbols.length) {
+    return res.status(400).json({ error: "symbols query param required" });
+  }
+
+  const results: Record<string, any> = {};
+
+  await Promise.all(
+    symbols.map(async (symbol) => {
+      results[symbol] = await computeTsleForSymbol(symbol);
+    })
+  );
+
+  return res.json(results);
+});
+
 router.get("/snapshot", async (req: Request, res: Response) => {
   const rawSymbol = (req.query.symbol as string) || "BTC";
   const symbol = rawSymbol.toUpperCase();
 
   if (!SUPPORTED_SYMBOLS.includes(symbol)) {
-    // For now we just return a neutral placeholder for unsupported symbols
     return res.json(placeholderResponse(symbol));
   }
 
-  // Ask the Worker for this symbol's depth and funding
   const [depth, funding] = await Promise.all([
     fetchJson<DepthSnapshot>(`${WORKER_BASE}/depth?symbol=${symbol}`),
     fetchJson<FundingSnapshot>(`${WORKER_BASE}/funding?symbol=${symbol}`),
@@ -423,8 +489,8 @@ router.get("/snapshot", async (req: Request, res: Response) => {
   const depthResult = depthScoreFromSnapshot(depth);
   const fundingResult = fundingScoreFromSnapshot(funding);
 
-  const factorScore = factorScorePlaceholder(symbol); // 0–15
-  const stressScore = stressScorePlaceholder(symbol); // 0–15
+  const factorScore = factorScorePlaceholder(symbol);
+  const stressScore = stressScorePlaceholder(symbol);
 
   const tsleScore =
     depthResult.score +
@@ -432,11 +498,10 @@ router.get("/snapshot", async (req: Request, res: Response) => {
     factorScore +
     stressScore;
 
-  // If both depth & funding failed / empty → fall back to curated placeholder
   const noRealDepth = depthResult.score === 0;
   const noRealFunding =
     !funding ||
-    (fundingResult.score === 18 && fundingResult.regime === "Unknown"); // our neutral default
+    (fundingResult.score === 18 && fundingResult.regime === "Unknown");
 
   if (noRealDepth && noRealFunding) {
     return res.json(placeholderResponse(symbol));
