@@ -3,7 +3,6 @@ import { TokenLiquiditySummary } from "@/types/liquidity";
 import { fetchTokenLiquiditySummary } from "@/lib/liquiditySummaryClient";
 import { useTsleDepth, formatUSD, getRegimeColor, getTsleScoreBadgeColor, stressBadgeColor, stressCellColor } from "@/utils/tsleDepth";
 import { useLiquidityStore } from "@/state/useLiquidityStore";
-import useLiquidityFactorsBatch from "@/hooks/useLiquidityFactorsBatch";
 import { Badge } from "@/components/ui/badge";
 import { Zap, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -59,6 +58,7 @@ function getTsleBadgeClass(regime: TsleRegime): string {
 interface Props {
   selectedToken: string;
   onSelectToken: (symbol: string) => void;
+  batchFactors?: Record<string, any> | null;
 }
 
 type SortField = "tsleScore" | "factorScore" | "max25bps" | "depth10" | "depth10Change24h";
@@ -97,7 +97,7 @@ const riskClass = (flag: string) => {
 
 const TRACKED_TOKENS = ["BTC", "ETH", "SOL", "LINK", "NEAR", "AVAX", "DOT", "ADA", "XRP"];
 
-const TokenLiquidityTable = ({ selectedToken, onSelectToken }: Props) => {
+const TokenLiquidityTable = ({ selectedToken, onSelectToken, batchFactors }: Props) => {
   const [rows, setRows] = useState<TokenLiquiditySummary[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [sortField, setSortField] = useState<SortField>("tsleScore");
@@ -106,8 +106,7 @@ const TokenLiquidityTable = ({ selectedToken, onSelectToken }: Props) => {
   const { tsleData, refreshTSLE } = useLiquidityStore();
   const { data: tsle, loading: tsleLoading } = useTsleDepth(selectedToken, { side: "buy", size: 100_000 });
   
-  // Fetch real-time 5-Factor scores for all tracked tokens
-  const { data: batchFactors } = useLiquidityFactorsBatch(TRACKED_TOKENS);
+  // Use batchFactors from parent to ensure sync with LiquidityFiveFactorPanel
 
   const tsleRegimeLabel = tsle
     ? `${tsle.regime} · ${tsle.score}/100`

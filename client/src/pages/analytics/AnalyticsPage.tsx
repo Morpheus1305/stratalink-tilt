@@ -31,7 +31,7 @@ import ExecutionIntelPanel from "@/components/analytics/ExecutionIntelPanel";
 import DailyMarketCommentaryPanel from "@/components/analytics/DailyMarketCommentaryPanel";
 import LiquidityFiveFactorPanel from "@/components/analytics/LiquidityFiveFactorPanel";
 import { YesterdayVsTodayPanel } from "@/components/analytics/YesterdayVsTodayPanel";
-import { useLiquidityFactors } from "@/hooks/useLiquidityFactors";
+import useLiquidityFactorsBatch from "@/hooks/useLiquidityFactorsBatch";
 import TokenLiquidityTable from "@/components/analytics/TokenLiquidityTable";
 
 type StressDriver = {
@@ -105,10 +105,14 @@ function pushSeries(map: SeriesMap, key: string, value: number): SeriesMap {
   return { ...map, [key]: nextArr };
 }
 
+const TRACKED_TOKENS = ["BTC", "ETH", "SOL", "LINK", "NEAR", "AVAX", "DOT", "ADA", "XRP"];
+
 export default function AnalyticsPage() {
   const [selectedToken, setSelectedToken] = useState("BTC");
   
-  const { data: liquidityFactors } = useLiquidityFactors(selectedToken);
+  // Fetch batch factors once - shared between LiquidityFiveFactorPanel and TokenLiquidityTable
+  const { data: batchFactors } = useLiquidityFactorsBatch(TRACKED_TOKENS);
+  const liquidityFactors = batchFactors?.[selectedToken] ?? null;
   
   const [priceSeries, setPriceSeries] = useState<SeriesMap>({});
   const [depthSeries, setDepthSeries] = useState<SeriesMap>({});
@@ -252,6 +256,7 @@ export default function AnalyticsPage() {
       <TokenLiquidityTable
         selectedToken={selectedToken}
         onSelectToken={setSelectedToken}
+        batchFactors={batchFactors}
       />
 
       {/* Daily Market Commentary + 5-Factor Score */}
