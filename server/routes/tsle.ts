@@ -281,6 +281,115 @@ function placeholderResponse(symbol: string) {
 //  GET /api/tsle/snapshot?symbol=BTC
 // --------------------------------------------------------------------
 
+// --------------------------------------------------------------------
+//  GET /api/tsle/depth?symbol=BTC&side=buy&size=100000
+//  Client-compatible endpoint for execution cost calculator
+// --------------------------------------------------------------------
+
+router.get("/depth", async (req: Request, res: Response) => {
+  const rawSymbol = (req.query.symbol as string) || "BTC";
+  const symbol = rawSymbol.toUpperCase();
+  const side = ((req.query.side as string) || "buy").toLowerCase() as "buy" | "sell";
+  const size = Number(req.query.size) || 100_000;
+
+  if (!SUPPORTED_SYMBOLS.includes(symbol)) {
+    // Return placeholder for unsupported symbols
+    const ph = PLACEHOLDER_TSLE[symbol] ?? { score: 62, regime: "Constructive" };
+    return res.json({
+      ok: true,
+      symbol,
+      side,
+      requestedSize: size,
+      estImpactBps: 5 + Math.random() * 5,
+      regime: ph.regime,
+      score: ph.score,
+      maxSizeAt25bps: 500_000,
+      maxSizeAt50bps: 1_500_000,
+      maxSizeAt100bps: 5_000_000,
+      totals: {
+        depth10bps: 200_000,
+        depth25bps: 500_000,
+        depth50bps: 1_500_000,
+        depth100bps: 5_000_000,
+        depth200bps: 15_000_000,
+      },
+      venues: [],
+      source: "placeholder",
+    });
+  }
+
+  // Fetch depth from worker
+  const depth = await fetchJson<DepthSnapshot>(`${WORKER_BASE}/depth?symbol=${symbol}`);
+  
+  // Calculate depth at various levels
+  const d10 = getDepthLevelUsd(depth, 10);
+  const d25 = getDepthLevelUsd(depth, 25);
+  const d50 = getDepthLevelUsd(depth, 50);
+  const d100 = getDepthLevelUsd(depth, 100);
+  const d200 = getDepthLevelUsd(depth, 200);
+  
+  // Calculate estimated impact based on size vs available depth
+  let estImpactBps = 1;
+  if (size > 0) {
+    if (d10 > 0 && size <= d10) {
+      estImpactBps = 1 + (size / d10) * 9;
+    } else if (d25 > 0 && size <= d25) {
+      estImpactBps = 10 + ((size - d10) / (d25 - d10 || 1)) * 15;
+    } else if (d50 > 0 && size <= d50) {
+      estImpactBps = 25 + ((size - d25) / (d50 - d25 || 1)) * 25;
+    } else if (d100 > 0 && size <= d100) {
+      estImpactBps = 50 + ((size - d50) / (d100 - d50 || 1)) * 50;
+    } else {
+      estImpactBps = 100 + Math.min(50, (size - d100) / 100_000);
+    }
+  }
+  
+  // Calculate TSLE score and regime
+  const depthResult = depthScoreFromSnapshot(depth);
+  const funding = await fetchJson<FundingSnapshot>(`${WORKER_BASE}/funding?symbol=${symbol}`);
+  const fundingResult = fundingScoreFromSnapshot(funding);
+  const factorScore = factorScorePlaceholder(symbol);
+  const stressScore = stressScorePlaceholder(symbol);
+  
+  const tsleScore = depthResult.score + fundingResult.score + factorScore + stressScore;
+  const regime = bandFromTsle(tsleScore);
+  
+  // Calculate max sizes at various bps thresholds
+  const maxSizeAt25bps = d25 > 0 ? d25 * 0.8 : 500_000;
+  const maxSizeAt50bps = d50 > 0 ? d50 * 0.8 : 1_500_000;
+  const maxSizeAt100bps = d100 > 0 ? d100 * 0.8 : 5_000_000;
+
+  // Generate venue breakdown (simplified)
+  const venues = [
+    { venue: "Coinbase", share25bps: 45, share50bps: 42, share100bps: 40 },
+    { venue: "Binance", share25bps: 35, share50bps: 38, share100bps: 40 },
+    { venue: "Kraken", share25bps: 20, share50bps: 20, share100bps: 20 },
+  ];
+
+  return res.json({
+    ok: true,
+    symbol,
+    side,
+    requestedSize: size,
+    estImpactBps: Math.round(estImpactBps * 10) / 10,
+    regime,
+    score: tsleScore,
+    maxSizeAt25bps: Math.round(maxSizeAt25bps),
+    maxSizeAt50bps: Math.round(maxSizeAt50bps),
+    maxSizeAt100bps: Math.round(maxSizeAt100bps),
+    totals: {
+      depth10bps: Math.round(d10),
+      depth25bps: Math.round(d25),
+      depth50bps: Math.round(d50),
+      depth100bps: Math.round(d100),
+      depth200bps: Math.round(d200),
+    },
+    venues,
+    source: depth ? "worker" : "fallback",
+    asOf: new Date().toISOString(),
+  });
+});
+
 router.get("/snapshot", async (req: Request, res: Response) => {
   const rawSymbol = (req.query.symbol as string) || "BTC";
   const symbol = rawSymbol.toUpperCase();
