@@ -12,10 +12,19 @@ interface LiquidityFiveFactorPanelProps {
   factors?: FactorsData | null;
 }
 
+function FactorRow({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="flex justify-between items-center py-1.5 border-b border-slate-800/50 last:border-b-0">
+      <span className="text-[12px] text-gray-400">{label}</span>
+      <span className="text-[12px] font-mono font-medium text-gray-200">{value}</span>
+    </div>
+  );
+}
+
 function LiquidityFiveFactorPanel({ factors }: LiquidityFiveFactorPanelProps) {
   if (!factors) {
     return (
-      <div className="text-[var(--c-text-secondary)] text-sm">
+      <div className="text-gray-400 text-[11px]">
         No liquidity factors available.
       </div>
     );
@@ -31,60 +40,32 @@ function LiquidityFiveFactorPanel({ factors }: LiquidityFiveFactorPanelProps) {
     grade = "N/A",
   } = factors;
 
-  const bar = (value: number, colorVar: string) => (
-    <div className="w-full h-2 rounded-full bg-[var(--c-surface2)]">
-      <div
-        className="h-full rounded-full"
-        style={{ width: `${value}%`, backgroundColor: `var(${colorVar})` }}
-      />
-    </div>
-  );
-
   return (
-    <div className="bg-[var(--c-card)] rounded-xl p-5 shadow-sm border border-[var(--c-border)]">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-[var(--c-text-primary)] text-lg font-semibold tracking-tight">
+    <div
+      className="p-4 rounded-xl bg-[#050714] border border-[#1a2337] text-gray-200"
+      data-testid="panel-liquidity-five-factor"
+    >
+      <div className="flex justify-between items-center mb-3">
+        <h3 className="text-sm font-semibold text-white">
           Liquidity 5-Factor Score
-        </h2>
+        </h3>
         <div className="flex items-center gap-2">
-          <span className="text-[var(--c-text-primary)] text-xl font-semibold">
+          <span className="text-lg font-mono font-semibold text-white">
             {score}/100
           </span>
-          <span className="px-2 py-1 text-xs font-semibold rounded bg-[var(--c-accent)] text-[var(--c-bg)]">
+          <span className="px-2 py-0.5 text-[11px] font-mono font-semibold rounded bg-[#111827] border border-[#1f2937] text-cyan-400">
             {grade}
           </span>
         </div>
       </div>
 
-      <div className="flex justify-between items-center py-1">
-        <span className="text-sm text-[var(--c-text-secondary)]">Depth Quality</span>
-        <span className="text-sm font-semibold text-[var(--c-text-primary)]">{depthQuality}</span>
+      <div className="space-y-0">
+        <FactorRow label="Depth Quality" value={depthQuality} />
+        <FactorRow label="Execution Efficiency" value={executionEfficiency} />
+        <FactorRow label="Liquidity Stability" value={liquidityStability} />
+        <FactorRow label="Market Fragmentation" value={marketFragmentation} />
+        <FactorRow label="Risk Concentration" value={riskConcentration} />
       </div>
-      {bar(depthQuality, "--c-blue")}
-
-      <div className="flex justify-between items-center py-1 mt-3">
-        <span className="text-sm text-[var(--c-text-secondary)]">Execution Efficiency</span>
-        <span className="text-sm font-semibold text-[var(--c-text-primary)]">{executionEfficiency}</span>
-      </div>
-      {bar(executionEfficiency, "--c-green")}
-
-      <div className="flex justify-between items-center py-1 mt-3">
-        <span className="text-sm text-[var(--c-text-secondary)]">Liquidity Stability</span>
-        <span className="text-sm font-semibold text-[var(--c-text-primary)]">{liquidityStability}</span>
-      </div>
-      {bar(liquidityStability, "--c-yellow")}
-
-      <div className="flex justify-between items-center py-1 mt-3">
-        <span className="text-sm text-[var(--c-text-secondary)]">Market Fragmentation</span>
-        <span className="text-sm font-semibold text-[var(--c-text-primary)]">{marketFragmentation}</span>
-      </div>
-      {bar(marketFragmentation, "--c-red")}
-
-      <div className="flex justify-between items-center py-1 mt-3">
-        <span className="text-sm text-[var(--c-text-secondary)]">Risk Concentration</span>
-        <span className="text-sm font-semibold text-[var(--c-text-primary)]">{riskConcentration}</span>
-      </div>
-      {bar(riskConcentration, "--c-purple")}
     </div>
   );
 }
