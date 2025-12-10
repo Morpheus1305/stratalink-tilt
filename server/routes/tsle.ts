@@ -40,6 +40,9 @@ interface DepthSnapshot {
   levels: number[];
   aggregate?: {
     mid?: number;
+    levels?: {
+      [key: string]: DepthLevel;
+    };
     [key: string]: any;
   };
 }
@@ -85,9 +88,21 @@ async function fetchJson<T>(url: string): Promise<T | null> {
   }
 }
 
-function getDepthLevelUsd(depth: DepthSnapshot | null, bps: number): number {
+function getDepthLevelUsd(depth: DepthSnapshot | null, bps: number, side?: "buy" | "sell"): number {
   if (!depth || !depth.aggregate) return 0;
   const key = String(bps);
+  
+  // Worker returns data in aggregate.levels[bps]
+  const levelsObj = depth.aggregate.levels;
+  if (levelsObj && levelsObj[key]) {
+    const level = levelsObj[key];
+    // Return side-specific depth if requested
+    if (side === "buy") return level.askUsd ?? level.totalUsd ?? 0;
+    if (side === "sell") return level.bidUsd ?? level.totalUsd ?? 0;
+    return level.totalUsd ?? 0;
+  }
+  
+  // Fallback to old structure
   const level = depth.aggregate[key] as DepthLevel | undefined;
   return level?.totalUsd ?? 0;
 }
@@ -321,12 +336,12 @@ router.get("/depth", async (req: Request, res: Response) => {
   // Fetch depth from worker
   const depth = await fetchJson<DepthSnapshot>(`${WORKER_BASE}/depth?symbol=${symbol}`);
   
-  // Calculate depth at various levels
-  const d10 = getDepthLevelUsd(depth, 10);
-  const d25 = getDepthLevelUsd(depth, 25);
-  const d50 = getDepthLevelUsd(depth, 50);
-  const d100 = getDepthLevelUsd(depth, 100);
-  const d200 = getDepthLevelUsd(depth, 200);
+  // Calculate depth at various levels (side-specific: buy uses asks, sell uses bids)
+  const d10 = getDepthLevelUsd(depth, 10, side);
+  const d25 = getDepthLevelUsd(depth, 25, side);
+  const d50 = getDepthLevelUsd(depth, 50, side);
+  const d100 = getDepthLevelUsd(depth, 100, side);
+  const d200 = getDepthLevelUsd(depth, 200, side);
   
   // Calculate estimated impact based on size vs available depth
   let estImpactBps = 1;
