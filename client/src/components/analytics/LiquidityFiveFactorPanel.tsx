@@ -12,11 +12,19 @@ interface LiquidityFiveFactorPanelProps {
   factors?: FactorsData | null;
 }
 
-function FactorRow({ label, value }: { label: string; value: number }) {
+function FactorRow({ label, value, color }: { label: string; value: number; color: string }) {
   return (
-    <div className="flex justify-between items-center py-1.5 border-b border-slate-800/50 last:border-b-0">
-      <span className="text-[12px] text-gray-400">{label}</span>
-      <span className="text-[12px] font-mono font-medium text-gray-200">{value}</span>
+    <div className="py-2 border-b border-slate-800/50 last:border-b-0">
+      <div className="flex justify-between items-center mb-1">
+        <span className="text-[12px] text-gray-400">{label}</span>
+        <span className="text-[12px] font-mono font-medium text-gray-200">{value}</span>
+      </div>
+      <div className="w-full h-1.5 rounded-full bg-slate-800/60">
+        <div
+          className="h-full rounded-full transition-all duration-300"
+          style={{ width: `${Math.min(100, Math.max(0, value))}%`, backgroundColor: color }}
+        />
+      </div>
     </div>
   );
 }
@@ -60,11 +68,11 @@ function LiquidityFiveFactorPanel({ factors }: LiquidityFiveFactorPanelProps) {
       </div>
 
       <div className="space-y-0">
-        <FactorRow label="Depth Quality" value={depthQuality} />
-        <FactorRow label="Execution Efficiency" value={executionEfficiency} />
-        <FactorRow label="Liquidity Stability" value={liquidityStability} />
-        <FactorRow label="Market Fragmentation" value={marketFragmentation} />
-        <FactorRow label="Risk Concentration" value={riskConcentration} />
+        <FactorRow label="Depth Quality" value={depthQuality} color="#3b82f6" />
+        <FactorRow label="Execution Efficiency" value={executionEfficiency} color="#22c55e" />
+        <FactorRow label="Liquidity Stability" value={liquidityStability} color="#eab308" />
+        <FactorRow label="Market Fragmentation" value={marketFragmentation} color="#f97316" />
+        <FactorRow label="Risk Concentration" value={riskConcentration} color="#a855f7" />
       </div>
     </div>
   );
