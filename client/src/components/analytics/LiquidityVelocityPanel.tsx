@@ -67,6 +67,61 @@ function VelocityGauge({ value, max }: { value: number; max: number }) {
   );
 }
 
+function FlowStatistics({ history, delta }: { history: number[]; delta: number | null }) {
+  const avgFlow = history.length > 0 ? history.reduce((a, b) => a + b, 0) / history.length : 0;
+  const peakFlow = history.length > 0 ? Math.max(...history.map(Math.abs)) : 0;
+  const positiveCount = history.filter(h => h > 0).length;
+  const negativeCount = history.filter(h => h < 0).length;
+  const flowDirection = positiveCount > negativeCount ? "Inflow Dominant" : negativeCount > positiveCount ? "Outflow Dominant" : "Neutral";
+  const directionColor = positiveCount > negativeCount ? "text-emerald-400" : negativeCount > positiveCount ? "text-rose-400" : "text-neutral-400";
+  
+  // Stability score based on flow variance
+  const variance = history.length > 1 
+    ? history.reduce((sum, v) => sum + Math.pow(v - avgFlow, 2), 0) / history.length 
+    : 0;
+  const stability = Math.max(0, Math.min(100, 100 - Math.sqrt(variance) / 50000));
+  
+  return (
+    <div className="pt-3 border-t border-neutral-800/60 space-y-2">
+      {/* Stats Grid */}
+      <div className="grid grid-cols-3 gap-2">
+        <div className="bg-neutral-900/50 rounded-lg p-2 text-center">
+          <div className="text-[9px] text-neutral-500 uppercase">Avg Flow</div>
+          <div className={`text-xs font-mono font-semibold ${avgFlow >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+            {avgFlow >= 0 ? '+' : ''}{(avgFlow / 1_000_000).toFixed(2)}M
+          </div>
+        </div>
+        <div className="bg-neutral-900/50 rounded-lg p-2 text-center">
+          <div className="text-[9px] text-neutral-500 uppercase">Peak</div>
+          <div className="text-xs font-mono font-semibold text-cyan-400">
+            {(peakFlow / 1_000_000).toFixed(2)}M
+          </div>
+        </div>
+        <div className="bg-neutral-900/50 rounded-lg p-2 text-center">
+          <div className="text-[9px] text-neutral-500 uppercase">Stability</div>
+          <div className={`text-xs font-mono font-semibold ${stability >= 70 ? 'text-emerald-400' : stability >= 40 ? 'text-yellow-400' : 'text-rose-400'}`}>
+            {stability.toFixed(0)}%
+          </div>
+        </div>
+      </div>
+      
+      {/* Flow Direction Indicator */}
+      <div className="flex items-center gap-2 py-1.5 px-2.5 rounded-lg bg-gradient-to-r from-neutral-900/80 to-neutral-800/40 border border-neutral-700/30">
+        <div className="flex items-center gap-1">
+          <div className={`w-1.5 h-1.5 rounded-full ${positiveCount >= negativeCount ? 'bg-emerald-400' : 'bg-rose-400'}`} />
+          <span className="text-[10px] text-neutral-500">{positiveCount}↑</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className={`w-1.5 h-1.5 rounded-full ${negativeCount > positiveCount ? 'bg-rose-400' : 'bg-neutral-600'}`} />
+          <span className="text-[10px] text-neutral-500">{negativeCount}↓</span>
+        </div>
+        <span className="mx-1 text-neutral-700">|</span>
+        <span className={`text-[10px] font-medium ${directionColor}`}>{flowDirection}</span>
+      </div>
+    </div>
+  );
+}
+
 function SparkLine({ history }: { history: number[] }) {
   if (history.length < 2) return null;
   
@@ -190,7 +245,7 @@ export default function LiquidityVelocityPanel({ depth }: Props) {
         <SparkLine history={history} />
       </div>
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-3">
         <div
           data-testid="badge-velocity"
           className="flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all duration-500"
@@ -204,6 +259,9 @@ export default function LiquidityVelocityPanel({ depth }: Props) {
           {history.length} samples
         </span>
       </div>
+
+      {/* Enhanced Bottom Stats */}
+      <FlowStatistics history={history} delta={delta} />
     </Card>
   );
 }

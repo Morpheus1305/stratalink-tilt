@@ -127,12 +127,47 @@ export default function WhaleImbalancePanel({ liquidations }: Props) {
         ))}
       </div>
 
-      <div className="mt-3 flex items-center justify-between text-[10px] text-neutral-500">
+      <div className="mt-2 flex items-center justify-between text-[10px] text-neutral-500">
         <span className="flex items-center gap-1">
           <div className="w-2 h-2 rounded-sm bg-red-500" /> Longs
         </span>
         <span className="flex items-center gap-1">
           <div className="w-2 h-2 rounded-sm bg-emerald-500" /> Shorts
+        </span>
+      </div>
+
+      {/* Enhanced Bottom Stats */}
+      <div className="mt-3 pt-3 border-t border-neutral-800/60 grid grid-cols-3 gap-2">
+        <div className="bg-neutral-900/50 rounded-lg p-2 text-center">
+          <div className="text-[9px] text-neutral-500 uppercase">Net Flow</div>
+          <div className={`text-xs font-mono font-semibold ${netImbalance >= 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+            {netImbalance >= 0 ? '+' : ''}${(netImbalance / 1_000_000).toFixed(1)}M
+          </div>
+        </div>
+        <div className="bg-neutral-900/50 rounded-lg p-2 text-center">
+          <div className="text-[9px] text-neutral-500 uppercase">Total Vol</div>
+          <div className="text-xs font-mono font-semibold text-cyan-400">
+            ${((totalLongs + totalShorts) / 1_000_000).toFixed(1)}M
+          </div>
+        </div>
+        <div className="bg-neutral-900/50 rounded-lg p-2 text-center">
+          <div className="text-[9px] text-neutral-500 uppercase">Tokens</div>
+          <div className="text-xs font-mono font-semibold text-white">
+            {entries.length}
+          </div>
+        </div>
+      </div>
+      
+      {/* Pressure Indicator */}
+      <div className="mt-2 flex items-center gap-2 py-1.5 px-2.5 rounded-lg bg-gradient-to-r from-neutral-900/80 to-neutral-800/40 border border-neutral-700/30">
+        <div className={`w-2 h-2 rounded-full ${Math.abs(imbalancePct) > 15 ? 'bg-yellow-400 animate-pulse' : 'bg-emerald-400'}`} />
+        <span className="text-[10px] text-neutral-400">
+          {Math.abs(imbalancePct) > 25 
+            ? "High liquidation pressure — expect volatility"
+            : Math.abs(imbalancePct) > 10
+              ? "Moderate directional pressure building"
+              : "Neutral positioning — low cascade risk"
+          }
         </span>
       </div>
     </Card>
