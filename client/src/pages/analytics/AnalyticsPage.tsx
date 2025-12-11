@@ -269,7 +269,7 @@ export default function AnalyticsPage() {
       {/* Daily Market Commentary + 5-Factor Score */}
       <div className="grid grid-cols-12 gap-4 mb-5">
         <div className="col-span-12 lg:col-span-8">
-          <DailyMarketCommentaryPanel symbol={selectedToken} />
+          <DailyMarketCommentaryPanel symbol={selectedToken} batchFactors={batchFactors} />
         </div>
         <div className="col-span-12 lg:col-span-4">
           <LiquidityFiveFactorPanel factors={liquidityFactors ? {

@@ -1,9 +1,10 @@
 import { useDailyCommentary } from "@/hooks/useDailyCommentary";
-import { useLiquidityFactors, LiquidityFactorsData } from "@/hooks/useLiquidityFactors";
-import useLiquidityFactorsBatch, { BatchFactorsResult } from "@/hooks/useLiquidityFactorsBatch";
+import { LiquidityFactorsData } from "@/hooks/useLiquidityFactors";
+import { BatchFactorsResult } from "@/hooks/useLiquidityFactorsBatch";
 
 type Props = {
   symbol: string;
+  batchFactors?: BatchFactorsResult | null;
 };
 
 function formatUsdMillions(value: number | null | undefined): string {
@@ -82,15 +83,12 @@ function buildMultiTokenNote(batch: BatchFactorsResult | undefined): string | nu
   return note;
 }
 
-const HEADLINE_TOKENS = ["BTC", "ETH", "SOL"];
-
-export default function DailyMarketCommentaryPanel({ symbol }: Props) {
+export default function DailyMarketCommentaryPanel({ symbol, batchFactors }: Props) {
   const { loading, error, data } = useDailyCommentary(symbol, "buy");
-  const { data: factorData } = useLiquidityFactors(symbol, "buy");
-  const { data: batchFactors } = useLiquidityFactorsBatch(HEADLINE_TOKENS);
   
+  const factorData = batchFactors?.[symbol] ?? undefined;
   const factorCommentary = buildFactorCommentary(factorData);
-  const multiTokenNote = buildMultiTokenNote(batchFactors);
+  const multiTokenNote = buildMultiTokenNote(batchFactors ?? undefined);
 
   return (
     <div
