@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import Card from "./Card";
-import { Share2, Zap } from "lucide-react";
+import { Share2, Zap, Activity, TrendingUp, Shield, AlertTriangle } from "lucide-react";
 
 type DepthEntry = {
   source: string;
@@ -47,6 +47,108 @@ function ExchangeBar({ name, count, total, color, index }: { name: string; count
             background: `linear-gradient(90deg, ${color}CC, ${color}88)`
           }}
         />
+      </div>
+    </div>
+  );
+}
+
+function FragmentationAnalytics({ entries, total }: { entries: [string, number][]; total: number }) {
+  // Calculate HHI (Herfindahl-Hirschman Index) - measure of market concentration
+  // HHI = sum of squared market shares (as percentages)
+  // Lower = more fragmented (better), Higher = more concentrated
+  const hhi = entries.reduce((sum, [, count]) => {
+    const share = (count / total) * 100;
+    return sum + share * share;
+  }, 0);
+  
+  // Normalize HHI: 10000 = monopoly, lower = fragmented
+  const normalizedHhi = Math.min(hhi, 10000);
+  const fragScore = Math.round(100 - (normalizedHhi / 100)); // Invert: higher = more fragmented
+  
+  // Determine health status
+  const getHealthStatus = () => {
+    if (entries.length >= 4 && fragScore >= 60) return { label: "Healthy", color: "text-emerald-400", bg: "bg-emerald-400/10", icon: Shield };
+    if (entries.length >= 2 && fragScore >= 30) return { label: "Moderate", color: "text-yellow-400", bg: "bg-yellow-400/10", icon: Activity };
+    return { label: "Concentrated", color: "text-rose-400", bg: "bg-rose-400/10", icon: AlertTriangle };
+  };
+  
+  const health = getHealthStatus();
+  const HealthIcon = health.icon;
+  
+  // Calculate venue diversity score
+  const venueDiversity = Math.min(entries.length * 20, 100);
+  
+  // Execution risk based on concentration
+  const execRisk = entries.length === 1 ? "High" : entries.length === 2 ? "Moderate" : "Low";
+  const execRiskColor = execRisk === "High" ? "text-rose-400" : execRisk === "Moderate" ? "text-yellow-400" : "text-emerald-400";
+
+  return (
+    <div className="border-t border-neutral-800/60 pt-3 mt-3 space-y-3">
+      {/* HHI Concentration Gauge */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className={`p-1.5 rounded ${health.bg}`}>
+            <HealthIcon className={`w-3 h-3 ${health.color}`} />
+          </div>
+          <div>
+            <span className="text-[10px] uppercase tracking-wide text-neutral-500">Fragmentation Health</span>
+            <div className={`text-xs font-semibold ${health.color}`}>{health.label}</div>
+          </div>
+        </div>
+        <div className="text-right">
+          <span className="text-[10px] uppercase tracking-wide text-neutral-500">HHI Score</span>
+          <div className="text-xs font-mono text-neutral-200">{Math.round(normalizedHhi).toLocaleString()}</div>
+        </div>
+      </div>
+
+      {/* Fragmentation Score Bar */}
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[10px] text-neutral-500">Fragmentation Index</span>
+          <span className="text-[10px] font-mono text-cyan-400">{fragScore}/100</span>
+        </div>
+        <div className="h-1.5 bg-neutral-800/60 rounded-full overflow-hidden">
+          <div 
+            className="h-full rounded-full transition-all duration-1000 ease-out"
+            style={{ 
+              width: `${fragScore}%`,
+              background: fragScore >= 60 
+                ? 'linear-gradient(90deg, #10b981, #34d399)' 
+                : fragScore >= 30 
+                  ? 'linear-gradient(90deg, #f59e0b, #fbbf24)'
+                  : 'linear-gradient(90deg, #ef4444, #f87171)'
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Mini Metrics Grid */}
+      <div className="grid grid-cols-3 gap-2">
+        <div className="bg-neutral-900/50 rounded-lg p-2 text-center">
+          <div className="text-[10px] text-neutral-500 mb-0.5">Venues</div>
+          <div className="text-sm font-mono font-semibold text-white">{entries.length}</div>
+        </div>
+        <div className="bg-neutral-900/50 rounded-lg p-2 text-center">
+          <div className="text-[10px] text-neutral-500 mb-0.5">Diversity</div>
+          <div className="text-sm font-mono font-semibold text-cyan-400">{venueDiversity}%</div>
+        </div>
+        <div className="bg-neutral-900/50 rounded-lg p-2 text-center">
+          <div className="text-[10px] text-neutral-500 mb-0.5">Exec Risk</div>
+          <div className={`text-sm font-semibold ${execRiskColor}`}>{execRisk}</div>
+        </div>
+      </div>
+
+      {/* Liquidity Quality Indicator */}
+      <div className="flex items-center gap-2 py-2 px-3 rounded-lg bg-gradient-to-r from-neutral-900/80 to-neutral-800/40 border border-neutral-700/30">
+        <TrendingUp className="w-3.5 h-3.5 text-cyan-400" />
+        <span className="text-[11px] text-neutral-300">
+          {entries.length === 1 
+            ? "Single venue coverage — consider monitoring for counterparty risk"
+            : entries.length >= 4
+              ? "Well-distributed liquidity across venues — optimal execution conditions"
+              : `Moderate fragmentation across ${entries.length} venues — acceptable execution path`
+          }
+        </span>
       </div>
     </div>
   );
@@ -150,6 +252,9 @@ export default function ExchangeFragmentationPanel({ depth }: Props) {
           />
         ))}
       </div>
+
+      {/* Enhanced Bottom Section - Fragmentation Analytics */}
+      <FragmentationAnalytics entries={entries} total={total} />
     </Card>
   );
 }
