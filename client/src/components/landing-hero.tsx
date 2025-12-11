@@ -54,17 +54,14 @@ export function LandingHero() {
               PLATFORM
             </span>
           </Link>
-          <Link href="/docs" data-testid="link-docs">
-            <span className="text-sm hover-elevate active-elevate-2 px-3 py-1.5 rounded-md cursor-pointer">
-              DOCS
-            </span>
-          </Link>
           <span className="text-sm text-muted-foreground px-3 py-1.5 cursor-pointer">
             DEMO MODE
           </span>
-          <span className="text-sm hover-elevate active-elevate-2 px-3 py-1.5 rounded-md cursor-pointer">
-            ABOUT
-          </span>
+          <Link href="/docs" data-testid="link-about">
+            <span className="text-sm hover-elevate active-elevate-2 px-3 py-1.5 rounded-md cursor-pointer">
+              ABOUT
+            </span>
+          </Link>
           <span className="text-sm hover-elevate active-elevate-2 px-3 py-1.5 rounded-md cursor-pointer">
             HELP
           </span>
