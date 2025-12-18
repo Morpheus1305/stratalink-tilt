@@ -11,6 +11,7 @@ import intelRoutes from "./routes/intel";
 import fundingRoutes from "./routes/funding";
 import depthRoutes from "./routes/depth";
 import tsleRoutes from "./routes/tsle";
+import lisRoutes from "./routes/lis";
 import dailyCommentaryRouter from "./api/dailyCommentary";
 import { startIngestionLoop } from "../analytics/engines/ingestionManager";
 import { 
@@ -374,6 +375,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mount TSLE routes (Trade Size Liquidity Engine)
   app.use("/api/tsle", tsleRoutes);
+
+  // Mount LIS routes (Liquidity Ingress Service proxy)
+  app.use("/api/lis", lisRoutes);
 
   // Mount analytics routes
   app.use("/api/analytics", analyticsRoutes);
