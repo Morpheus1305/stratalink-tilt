@@ -20,6 +20,7 @@ import MMIntegrityPage from "@/pages/identity/MMIntegrityPage";
 import PoliPlusPage from "@/pages/identity/PoliPlusPage";
 import IdentityAlertsPage from "@/pages/identity/IdentityAlertsPage";
 import RegSurveillancePage from "@/pages/identity/RegSurveillancePage";
+import LisDebugPage from "@/pages/lis-debug";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { TokenProvider } from "@/contexts/TokenContext";
 import { MicrostructureFeedProvider } from "@/contexts/MicrostructureFeed";
@@ -117,6 +118,7 @@ function Router() {
           </RequireAuth>
         )}
       </Route>
+      <Route path="/lis-debug" component={LisDebugPage} />
       <Route component={NotFound} />
     </Switch>
   );
