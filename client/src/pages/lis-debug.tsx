@@ -176,10 +176,8 @@ export default function LiquidityTruthConsole() {
               </tr>
             </thead>
             <tbody>
-              {Object.entries(BAND_LABELS).map(([key, label]) => {
-                const band = data.bands?.[key];
-                if (!band) return null;
-
+              {Object.entries(data.bands ?? {}).map(([key, band]) => {
+                const label = BAND_LABELS[key] ?? key;
                 const bid = band.bid_notional ?? 0;
                 const ask = band.ask_notional ?? 0;
                 const total = bid + ask;
