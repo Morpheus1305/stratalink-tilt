@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { fetchLiquiditySnapshot } from "@/services/lis";
 
 type LisBand = {
@@ -21,7 +21,8 @@ type LisSnapshot = {
 };
 
 const TOKENS = ["BTC", "ETH", "SOL", "LINK", "AVAX"];
-const VENUES = ["binance", "coinbase", "okx", "kraken"];
+const VENUES = ["binance", "coinbase", "okx", "kraken"] as const;
+type Venue = typeof VENUES[number];
 
 function computeImbalance(
   bid?: number,
@@ -34,25 +35,25 @@ function computeImbalance(
 
 export default function LiquidityTruthConsole() {
   const [token, setToken] = useState("BTC");
-  const [venue, setVenue] = useState("binance");
+  const [venue, setVenue] = useState<Venue>("binance");
   const [data, setData] = useState<LisSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const isInitialLoad = useRef(true);
 
   useEffect(() => {
     let mounted = true;
 
     async function load() {
-      setLoading(true);
       setError(null);
 
       try {
         const snapshot = await fetchLiquiditySnapshot(token, venue);
-        if (mounted) setData(snapshot);
+        if (mounted) {
+          setData(snapshot);
+          isInitialLoad.current = false;
+        }
       } catch (err: any) {
         if (mounted) setError(err?.message ?? "Load failed");
-      } finally {
-        if (mounted) setLoading(false);
       }
     }
 
@@ -63,6 +64,10 @@ export default function LiquidityTruthConsole() {
       mounted = false;
       clearInterval(id);
     };
+  }, [token, venue]);
+
+  useEffect(() => {
+    isInitialLoad.current = true;
   }, [token, venue]);
 
   return (
@@ -86,25 +91,37 @@ export default function LiquidityTruthConsole() {
       {/* Controls */}
       <div style={{ display: "flex", gap: 16, marginBottom: 20 }}>
         <div>
-          <div style={{ fontSize: 12, marginBottom: 4 }}>Token</div>
-          <select value={token} onChange={(e) => setToken(e.target.value)} data-testid="select-token">
+          <div style={{ fontSize: 12, marginBottom: 4, color: "#94a3b8" }}>Token</div>
+          <select 
+            value={token} 
+            onChange={(e) => setToken(e.target.value)} 
+            data-testid="select-token"
+            style={selectStyle}
+          >
             {TOKENS.map((t) => (
-              <option key={t}>{t}</option>
+              <option key={t} value={t}>{t}</option>
             ))}
           </select>
         </div>
 
         <div>
-          <div style={{ fontSize: 12, marginBottom: 4 }}>Venue</div>
-          <select value={venue} onChange={(e) => setVenue(e.target.value)} data-testid="select-venue">
+          <div style={{ fontSize: 12, marginBottom: 4, color: "#94a3b8" }}>Venue</div>
+          <select 
+            value={venue} 
+            onChange={(e) => setVenue(e.target.value as Venue)} 
+            data-testid="select-venue"
+            style={selectStyle}
+          >
             {VENUES.map((v) => (
-              <option key={v}>{v.toUpperCase()}</option>
+              <option key={v} value={v}>{v.toUpperCase()}</option>
             ))}
           </select>
         </div>
       </div>
 
-      {loading && <div>Loading LIS snapshot...</div>}
+      {isInitialLoad.current && !data && !error && (
+        <div style={{ color: "#94a3b8" }}>Loading LIS snapshot...</div>
+      )}
       {error && <div style={{ color: "#ef4444" }}>{error}</div>}
 
       {data && (
@@ -191,3 +208,13 @@ export default function LiquidityTruthConsole() {
     </div>
   );
 }
+
+const selectStyle: React.CSSProperties = {
+  background: "#020617",
+  color: "#e5e7eb",
+  border: "1px solid #1e293b",
+  padding: "8px 12px",
+  borderRadius: 6,
+  fontSize: 14,
+  minWidth: 120,
+};
