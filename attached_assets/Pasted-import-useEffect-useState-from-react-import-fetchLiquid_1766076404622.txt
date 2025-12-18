@@ -102,7 +102,7 @@ export default function LiquidityTruthConsole() {
         Liquidity Truth Console
       </h1>
       <div style={{ color: "#8ea3c7", marginBottom: 20 }}>
-        LIS - Liquidity Ingestion Service - Ground Truth View
+        LIS – Liquidity Ingestion Service – Ground Truth View
       </div>
 
       {/* Controls */}
@@ -112,8 +112,6 @@ export default function LiquidityTruthConsole() {
           <select
             value={token}
             onChange={(e) => setToken(e.target.value)}
-            data-testid="select-token"
-            style={selectStyle}
           >
             {TOKENS.map((t) => (
               <option key={t} value={t}>
@@ -128,8 +126,6 @@ export default function LiquidityTruthConsole() {
           <select
             value={venue}
             onChange={(e) => setVenue(e.target.value as Venue)}
-            data-testid="select-venue"
-            style={selectStyle}
           >
             {VENUES.map((v) => (
               <option key={v} value={v}>
@@ -154,7 +150,7 @@ export default function LiquidityTruthConsole() {
             {data.venue.toUpperCase()} {data.symbol}
           </h2>
           <div style={{ marginBottom: 16 }}>
-            Mid: <strong>${data.mid_price.toFixed(2)}</strong> - Spread:{" "}
+            Mid: <strong>${data.mid_price.toFixed(2)}</strong> — Spread:{" "}
             <strong>{data.spread?.bps ?? 0} bps</strong>
           </div>
 
@@ -213,8 +209,7 @@ export default function LiquidityTruthConsole() {
           {/* Raw JSON */}
           <button
             onClick={() => setShowRaw((v) => !v)}
-            style={buttonStyle}
-            data-testid="button-toggle-raw"
+            style={{ marginBottom: 8 }}
           >
             {showRaw ? "Hide" : "Show"} Raw LIS JSON
           </button>
@@ -227,7 +222,6 @@ export default function LiquidityTruthConsole() {
                 fontSize: 12,
                 overflowX: "auto",
                 borderRadius: 6,
-                marginTop: 8,
               }}
             >
               {JSON.stringify(data, null, 2)}
@@ -238,24 +232,3 @@ export default function LiquidityTruthConsole() {
     </div>
   );
 }
-
-const selectStyle: React.CSSProperties = {
-  background: "#020617",
-  color: "#e5e9f0",
-  border: "1px solid #1e293b",
-  padding: "8px 12px",
-  borderRadius: 6,
-  fontSize: 14,
-  minWidth: 120,
-  marginTop: 4,
-};
-
-const buttonStyle: React.CSSProperties = {
-  background: "#1e293b",
-  color: "#e5e9f0",
-  border: "1px solid #334155",
-  padding: "8px 16px",
-  borderRadius: 6,
-  fontSize: 13,
-  cursor: "pointer",
-};
