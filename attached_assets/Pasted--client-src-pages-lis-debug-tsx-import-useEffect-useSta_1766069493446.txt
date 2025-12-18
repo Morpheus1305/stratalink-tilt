@@ -24,7 +24,7 @@ export default function LisDebugPage() {
   if (error) {
     return (
       <div style={{ padding: 24, color: "red", fontFamily: "monospace" }}>
-        Error fetching LIS data: {error}
+        ❌ Error fetching LIS data: {error}
       </div>
     );
   }
