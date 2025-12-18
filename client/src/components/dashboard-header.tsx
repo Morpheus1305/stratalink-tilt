@@ -1,11 +1,12 @@
 import { Button } from "@/components/ui/button";
-import { Bell, Settings, Activity, Home, Fingerprint } from "lucide-react";
+import { Bell, Settings, Activity, Home, Fingerprint, Database } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import stratalinkLogo from "@assets/logo_stratalink_1764604924054.png";
 
 export function DashboardHeader() {
   const [location] = useLocation();
   const isIdentityActive = location.startsWith('/identity');
+  const isLisActive = location === '/lis';
 
   return (
     <header className="sticky top-0 z-50 border-b border-border h-14 flex items-center px-4 bg-card">
@@ -76,6 +77,17 @@ export function DashboardHeader() {
           >
             <Fingerprint className="h-3.5 w-3.5 mr-1.5" />
             IDENTITY
+          </Button>
+        </Link>
+        <Link href="/lis">
+          <Button 
+            variant={isLisActive ? "secondary" : "ghost"}
+            size="sm" 
+            className="text-xs font-medium"
+            data-testid="button-nav-lis"
+          >
+            <Database className="h-3.5 w-3.5 mr-1.5" />
+            LIS
           </Button>
         </Link>
       </nav>

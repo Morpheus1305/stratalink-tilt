@@ -118,7 +118,7 @@ function Router() {
           </RequireAuth>
         )}
       </Route>
-      <Route path="/lis-debug" component={LisDebugPage} />
+      <Route path="/lis" component={LisDebugPage} />
       <Route component={NotFound} />
     </Switch>
   );
