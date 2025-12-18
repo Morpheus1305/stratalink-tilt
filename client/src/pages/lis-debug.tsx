@@ -6,11 +6,14 @@ import { fetchLiquiditySnapshot } from "@/services/lis";
    ========================= */
 
 const BAND_LABELS: Record<string, string> = {
-  pct_0_1: "10 bps",
-  pct_0_25: "25 bps",
-  pct_0_5: "50 bps",
-  pct_1: "100 bps",
-  pct_2: "200 bps",
+  "pct_0_1": "10 bps",
+  "pct_0.1": "10 bps",
+  "pct_0_25": "25 bps",
+  "pct_0.25": "25 bps",
+  "pct_0_5": "50 bps",
+  "pct_0.5": "50 bps",
+  "pct_1": "100 bps",
+  "pct_2": "200 bps",
 };
 
 const TOKENS = ["BTC", "ETH", "SOL", "LINK", "AVAX"];
