@@ -80,14 +80,14 @@ export default function LiquidityTruthConsole() {
         Liquidity Truth Console
       </h1>
       <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 16 }}>
-        LIS - Liquidity Ingestion Service - Ground Truth View
+        LIS – Liquidity Ingestion Service · Ground Truth View
       </div>
 
       {/* Controls */}
       <div style={{ display: "flex", gap: 16, marginBottom: 20 }}>
         <div>
           <div style={{ fontSize: 12, marginBottom: 4 }}>Token</div>
-          <select value={token} onChange={(e) => setToken(e.target.value)} data-testid="select-token">
+          <select value={token} onChange={(e) => setToken(e.target.value)}>
             {TOKENS.map((t) => (
               <option key={t}>{t}</option>
             ))}
@@ -96,7 +96,7 @@ export default function LiquidityTruthConsole() {
 
         <div>
           <div style={{ fontSize: 12, marginBottom: 4 }}>Venue</div>
-          <select value={venue} onChange={(e) => setVenue(e.target.value)} data-testid="select-venue">
+          <select value={venue} onChange={(e) => setVenue(e.target.value)}>
             {VENUES.map((v) => (
               <option key={v}>{v.toUpperCase()}</option>
             ))}
@@ -104,7 +104,7 @@ export default function LiquidityTruthConsole() {
         </div>
       </div>
 
-      {loading && <div>Loading LIS snapshot...</div>}
+      {loading && <div>Loading LIS snapshot…</div>}
       {error && <div style={{ color: "#ef4444" }}>{error}</div>}
 
       {data && (
@@ -113,7 +113,7 @@ export default function LiquidityTruthConsole() {
           <div style={{ marginBottom: 16 }}>
             <strong>{data.venue.toUpperCase()} {data.symbol}</strong>
             <div>
-              Mid: ${data.mid_price.toFixed(2)} - Spread:{" "}
+              Mid: ${data.mid_price.toFixed(2)} · Spread:{" "}
               {data.spread?.bps ?? 0} bps
             </div>
           </div>
