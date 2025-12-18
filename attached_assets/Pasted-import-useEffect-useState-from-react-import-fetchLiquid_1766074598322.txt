@@ -51,7 +51,7 @@ export default function LisTruthConsole() {
         Liquidity Truth Console
       </h1>
       <div style={{ fontSize: 12, color: "#8ea3c7", marginBottom: 16 }}>
-        LIS - Liquidity Ingestion Service - Ground Truth View
+        LIS • Liquidity Ingestion Service • Ground Truth View
       </div>
 
       {/* Controls */}
@@ -70,7 +70,6 @@ export default function LisTruthConsole() {
             value={token}
             onChange={(e) => setToken(e.target.value)}
             style={selectStyle}
-            data-testid="select-token"
           >
             {TOKENS.map((t) => (
               <option key={t} value={t}>
@@ -87,7 +86,6 @@ export default function LisTruthConsole() {
             value={venue}
             onChange={(e) => setVenue(e.target.value as Venue)}
             style={selectStyle}
-            data-testid="select-venue"
           >
             {VENUES.map((v) => (
               <option key={v} value={v}>
@@ -107,7 +105,7 @@ export default function LisTruthConsole() {
         <>
           <div style={{ marginBottom: 16 }}>
             <strong>{venue.toUpperCase()} {token}</strong><br />
-            Mid: ${data.mid_price?.toFixed(2)} - Spread: {data.spread?.bps?.toFixed(2)} bps
+            Mid: ${data.mid_price?.toFixed(2)} • Spread: {data.spread?.bps?.toFixed(2)} bps
           </div>
 
           {/* Bands Table */}
