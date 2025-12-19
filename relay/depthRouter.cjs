@@ -1,73 +1,64 @@
+// relay/depthRouter.cjs
+// Canonical depth routing layer for LIS
+
+const binance = require('./ingress/binanceDepth.cjs');
+const coinbase = require('./ingress/coinbaseDepth.cjs');
+
 /**
- * LIS Depth Router
- * ----------------
- * Canonical entry point for orderbook depth across venues.
- * Each venue adapter must expose: getDepth(symbol)
- *
- * This router decides:
- *  - which venues support depth
- *  - which adapter is called
- *  - how errors are surfaced upstream (TILT-safe)
+ * Venue capability registry
+ * This is what the UI and API trust
  */
-
-// Ingress adapters
-const { getDepth: getBinanceDepth } = require("./ingress/binanceDepth.cjs");
-const { getDepth: getCoinbaseDepth } = require("./ingress/coinbaseDepth.cjs");
-
-// Capability registry (used by UI + guards)
-const DEPTH_CAPABLE_VENUES = {
-  binance: true,
-  coinbase: true,
-  okx: false,     // placeholder
-  kraken: false   // placeholder
+const VENUE_CAPABILITIES = {
+  BINANCE: {
+    depth: false, // geo-blocked in Replit
+    reason: 'env_blocked'
+  },
+  COINBASE: {
+    depth: true
+  },
+  OKX: {
+    depth: false
+  },
+  KRAKEN: {
+    depth: false
+  }
 };
 
 /**
- * Get normalized depth snapshot for a venue + symbol
- *
- * @param {string} venue   e.g. "binance", "coinbase"
- * @param {string} symbol  e.g. "BTC", "ETH", "LTC"
+ * Return list of venues and capabilities
  */
-async function getDepth(venue, symbol) {
-  if (!venue || !symbol) {
-    throw new Error("Venue and symbol are required");
-  }
-
-  const v = venue.toLowerCase();
-
-  if (!DEPTH_CAPABLE_VENUES[v]) {
-    throw new Error(`Depth not available for ${symbol} on ${venue}`);
-  }
-
-  switch (v) {
-    case "binance":
-      return getBinanceDepth(symbol);
-
-    case "coinbase":
-      return getCoinbaseDepth(symbol);
-
-    default:
-      throw new Error(`Unsupported venue: ${venue}`);
-  }
+function getDepthCapableVenues() {
+  return VENUE_CAPABILITIES;
 }
 
 /**
- * Expose depth capability map (for UI dropdowns, etc.)
+ * Canonical depth fetcher
  */
-function getDepthCapableVenues() {
-  return DEPTH_CAPABLE_VENUES;
+async function getDepth(venue, symbol) {
+  const v = venue.toUpperCase();
+
+  if (!VENUE_CAPABILITIES[v]) {
+    throw new Error(`Unknown venue: ${venue}`);
+  }
+
+  if (!VENUE_CAPABILITIES[v].depth) {
+    throw new Error(`Depth not available for ${symbol} on ${venue.toLowerCase()}`);
+  }
+
+  switch (v) {
+    case 'COINBASE':
+      return coinbase.getDepth(symbol);
+
+    case 'BINANCE':
+      return binance.getDepth(symbol);
+
+    default:
+      throw new Error(`No adapter implemented for ${venue}`);
+  }
 }
 
 module.exports = {
   getDepth,
-  getDepthCapableVenues
+  getDepthCapableVenues,
+  VENUE_CAPABILITIES
 };
-
-if (require.main === module) {
-  const venue = process.argv[2] || 'binance';
-  const symbol = process.argv[3] || 'BTC';
-  console.log(`Fetching ${venue} depth for ${symbol}...`);
-  getDepth(venue, symbol)
-    .then(data => console.log(JSON.stringify(data, null, 2)))
-    .catch(err => console.error('Error:', err.message));
-}
