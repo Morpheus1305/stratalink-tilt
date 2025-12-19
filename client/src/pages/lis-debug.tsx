@@ -372,9 +372,9 @@ export default function LiquidityTruthConsole() {
 
         {/* Main Data */}
         {data && (
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+          <div className="grid grid-cols-12 gap-4">
             {/* Market Context (left) */}
-            <Card className="p-4 bg-card border-border">
+            <Card className="col-span-12 lg:col-span-3 p-4 bg-card border-border">
               <h3 className="text-xs font-medium text-neutral-400 uppercase tracking-wide mb-2">
                 Market Context
               </h3>
@@ -400,7 +400,7 @@ export default function LiquidityTruthConsole() {
 
             {/* PoLi Score Gauge (center) */}
             {poliData && (
-              <Card className="p-4 border-card-border" data-testid="card-lis-poli-score">
+              <Card className="col-span-12 lg:col-span-3 p-4 border-card-border flex flex-col items-center justify-center" data-testid="card-lis-poli-score">
                 <div className="flex items-center justify-between mb-2">
                   <div className="relative inline-block group">
                     <h3 className="text-xs font-semibold tracking-wide uppercase cursor-help">POLI SCORE</h3>
@@ -511,7 +511,7 @@ export default function LiquidityTruthConsole() {
             )}
 
             {/* Executable Depth - Primary Insight (right) */}
-            <Card className="p-4 bg-card border border-yellow-500/40 shadow-[0_0_0_1px_rgba(234,179,8,0.25)]">
+            <Card className="col-span-12 lg:col-span-6 p-5 bg-card border border-amber-500/40 shadow-[0_0_0_1px_rgba(234,179,8,0.25)]">
               <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
                 <div className="flex items-center gap-2">
                   <h3 className="text-xs font-semibold text-foreground uppercase tracking-wide">

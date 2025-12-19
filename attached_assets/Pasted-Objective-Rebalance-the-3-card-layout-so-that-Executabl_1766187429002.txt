@@ -1,0 +1,115 @@
+Objective
+Rebalance the 3-card layout so that:
+- Executable Depth (Card 3) always has the most horizontal space
+- Market Context (Card 1) is narrower
+- PoLi Score (Card 2) remains visually centered but compact
+- No data, logic, or component behavior is changed
+
+--------------------------------------------------
+CURRENT PROBLEM
+--------------------------------------------------
+All three cards are rendered with equal width, causing:
+- Executable Depth table to feel cramped
+- Columns to truncate or compress visually
+- Excess empty space in Market Context
+
+--------------------------------------------------
+SOLUTION
+--------------------------------------------------
+Use a 12-column grid and explicitly allocate column spans:
+
+- Market Context → 3 columns
+- PoLi Score → 3 columns
+- Executable Depth → 6 columns
+
+This guarantees Executable Depth always has 50% of the row.
+
+--------------------------------------------------
+IMPLEMENTATION
+--------------------------------------------------
+
+1) Locate the parent container wrapping the three cards.
+   It likely looks like:
+
+<div className="grid grid-cols-3 gap-6">
+
+2) Replace it with a 12-column grid:
+
+<div className="grid grid-cols-12 gap-6">
+
+--------------------------------------------------
+CARD-SPECIFIC CHANGES
+--------------------------------------------------
+
+Market Context Card (Card 1)
+Change wrapper to:
+
+className="
+  col-span-12
+  lg:col-span-3
+  bg-neutral-900
+  rounded-xl
+  p-4
+"
+
+Notes:
+- Reduced padding (p-4 instead of p-6)
+- Narrower column allocation
+- Still full-width on mobile
+
+--------------------------------------------------
+
+PoLi Score Card (Card 2)
+Change wrapper to:
+
+className="
+  col-span-12
+  lg:col-span-3
+  bg-neutral-900
+  rounded-xl
+  p-4
+  flex
+  flex-col
+  items-center
+  justify-center
+"
+
+Notes:
+- Compact, centered visual
+- Keeps circular gauge readable
+- Does not compete with depth table
+
+--------------------------------------------------
+
+Executable Depth Card (Card 3)
+Change wrapper to:
+
+className="
+  col-span-12
+  lg:col-span-6
+  bg-neutral-900
+  rounded-xl
+  p-5
+  border
+  border-amber-500/40
+"
+
+Optional enhancement:
+Add horizontal overflow safety (does not change data):
+
+overflow-x-auto
+
+--------------------------------------------------
+RESPONSIVE BEHAVIOR
+--------------------------------------------------
+- Mobile: cards stack vertically (unchanged)
+- Desktop: depth table always has room for all columns
+- Future-proof for adding more depth bands
+
+--------------------------------------------------
+EXPECTED RESULT
+--------------------------------------------------
+- Executable Depth becomes the visual anchor
+- Market Context feels like metadata (as intended)
+- PoLi Score reads as a diagnostic signal, not a table
+- No functionality touched
