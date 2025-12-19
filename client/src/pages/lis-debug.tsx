@@ -1,12 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Database, RefreshCw, Eye, EyeOff } from "lucide-react";
+import { Database, RefreshCw, Eye, EyeOff, ArrowUp, ArrowDown, TrendingUp } from "lucide-react";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { PlatformTabs } from "@/components/platform-tabs";
 import { cn } from "@/lib/utils";
+import { getPoLiRating } from "@/lib/poli-rating";
 
 const BAND_LABELS: Record<string, string> = {
   "pct_0_1": "10 bps",
@@ -86,6 +87,60 @@ function getExecutionQuality(bands: Record<string, LISBand> | undefined): { labe
   }
 }
 
+type PoLiScoreData = {
+  score: number;
+  riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  trend: 'up' | 'down';
+  change24h: number;
+  historicalAverage: number;
+};
+
+function computePoLiFromLIS(data: LISSnapshot | null, prevScore: number | null): PoLiScoreData {
+  if (!data || !data.bands) {
+    return { score: 0, riskLevel: 'critical', trend: 'down', change24h: 0, historicalAverage: 65 };
+  }
+  
+  let depth25 = 0, depth50 = 0;
+  let bid25 = 0, ask25 = 0, bid50 = 0, ask50 = 0;
+  
+  Object.entries(data.bands).forEach(([key, band]) => {
+    const label = BAND_LABELS[key] ?? key;
+    if (label === "25 bps") {
+      bid25 = band.bid_notional ?? 0;
+      ask25 = band.ask_notional ?? 0;
+      depth25 = bid25 + ask25;
+    } else if (label === "50 bps") {
+      bid50 = band.bid_notional ?? 0;
+      ask50 = band.ask_notional ?? 0;
+      depth50 = bid50 + ask50;
+    }
+  });
+  
+  const depthScore = Math.min(40, (depth25 + depth50) / 100000);
+  
+  const imbalance25 = Math.abs(calcImbalance(bid25, ask25));
+  const imbalance50 = Math.abs(calcImbalance(bid50, ask50));
+  const avgImbalance = (imbalance25 + imbalance50) / 2;
+  const balanceScore = Math.max(0, 35 - avgImbalance);
+  
+  const spreadBps = data.spread?.bps ?? 0;
+  const spreadScore = Math.max(0, 25 - spreadBps * 2);
+  
+  const rawScore = depthScore + balanceScore + spreadScore;
+  const score = Math.round(Math.min(100, Math.max(0, rawScore)));
+  
+  let riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  if (score >= 75) riskLevel = 'low';
+  else if (score >= 55) riskLevel = 'medium';
+  else if (score >= 35) riskLevel = 'high';
+  else riskLevel = 'critical';
+  
+  const change24h = prevScore !== null ? ((score - prevScore) / Math.max(prevScore, 1)) * 100 : 0;
+  const trend = change24h >= 0 ? 'up' : 'down';
+  
+  return { score, riskLevel, trend, change24h, historicalAverage: 65 };
+}
+
 export default function LiquidityTruthConsole() {
   const [token, setToken] = useState("BTC");
   const [venue, setVenue] = useState<Venue>("binance");
@@ -93,6 +148,16 @@ export default function LiquidityTruthConsole() {
   const [error, setError] = useState<string | null>(null);
   const [showRaw, setShowRaw] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const prevScoreRef = useRef<number | null>(null);
+  const [poliData, setPoliData] = useState<PoLiScoreData | null>(null);
+  
+  useEffect(() => {
+    if (data) {
+      const newPoli = computePoLiFromLIS(data, prevScoreRef.current);
+      setPoliData(newPoli);
+      prevScoreRef.current = newPoli.score;
+    }
+  }, [data]);
 
   useEffect(() => {
     let alive = true;
@@ -220,6 +285,100 @@ export default function LiquidityTruthConsole() {
         {/* Main Data */}
         {data && (
           <div className="grid grid-cols-12 gap-4">
+            {/* PoLi Score Gauge */}
+            {poliData && (
+              <Card className="col-span-12 lg:col-span-4 p-4 border-card-border" data-testid="card-lis-poli-score">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="relative inline-block group">
+                    <h3 className="text-sm font-semibold tracking-wide cursor-help">POLI SCORE</h3>
+                    <span className="absolute left-0 bottom-full mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none z-50">
+                      <span className="block bg-neutral-900 text-neutral-200 text-xs leading-snug px-3 py-2 rounded-md shadow-lg max-w-xs whitespace-normal">
+                        <span className="font-bold block mb-1">Proof of Liquidity (PoLi)</span>
+                        A real-time execution-quality score derived from executable orderbook depth, balance, and spread — independent of price.
+                      </span>
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1 text-xs">
+                    {poliData.trend === 'up' ? (
+                      <ArrowUp className="h-3 w-3 text-chart-3" />
+                    ) : (
+                      <ArrowDown className="h-3 w-3 text-destructive" />
+                    )}
+                    <span className={poliData.trend === 'up' ? 'text-chart-3' : 'text-destructive'}>
+                      {poliData.change24h > 0 ? '+' : ''}{poliData.change24h.toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-center mb-4">
+                  <div className="relative w-36 h-36">
+                    <svg className="w-full h-full transform -rotate-90">
+                      <circle
+                        cx="72"
+                        cy="72"
+                        r="64"
+                        fill="none"
+                        stroke="hsl(var(--border))"
+                        strokeWidth="6"
+                      />
+                      <circle
+                        cx="72"
+                        cy="72"
+                        r="64"
+                        fill="none"
+                        stroke={poliData.riskLevel === 'low' ? 'hsl(var(--chart-3))' : poliData.riskLevel === 'medium' ? 'hsl(var(--primary))' : 'hsl(var(--destructive))'}
+                        strokeWidth="6"
+                        strokeDasharray={`${(poliData.score / 100) * 402} ${402 - (poliData.score / 100) * 402}`}
+                        strokeLinecap="round"
+                        className="transition-all duration-500"
+                      />
+                    </svg>
+                    
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <div className="font-mono text-3xl font-bold" data-testid="text-lis-poli-value">
+                        {poliData.score}
+                      </div>
+                      <div className="text-xs text-muted-foreground">/100</div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        <span className="font-bold text-foreground">{getPoLiRating(poliData.score)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className={cn(
+                    "inline-flex items-center gap-2 px-2 py-1 rounded-md border text-xs",
+                    poliData.riskLevel === 'low' ? 'bg-chart-3/10 border-chart-3/20' :
+                    poliData.riskLevel === 'medium' ? 'bg-primary/10 border-primary/20' :
+                    'bg-destructive/10 border-destructive/20'
+                  )}>
+                    <TrendingUp className={cn(
+                      "h-3 w-3",
+                      poliData.riskLevel === 'low' ? 'text-chart-3' :
+                      poliData.riskLevel === 'medium' ? 'text-primary' :
+                      'text-destructive'
+                    )} />
+                    <span className={cn(
+                      "font-semibold uppercase",
+                      poliData.riskLevel === 'low' ? 'text-chart-3' :
+                      poliData.riskLevel === 'medium' ? 'text-primary' :
+                      'text-destructive'
+                    )}>
+                      {poliData.riskLevel} RISK
+                    </span>
+                  </div>
+
+                  <div className="pt-2 border-t border-border space-y-1 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">HISTORICAL AVG</span>
+                      <span className="font-mono font-semibold">{poliData.historicalAverage}</span>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            )}
+
             {/* Market Context (de-emphasized) */}
             <Card className="col-span-12 lg:col-span-4 bg-card border-border">
               <CardHeader className="pb-2">
