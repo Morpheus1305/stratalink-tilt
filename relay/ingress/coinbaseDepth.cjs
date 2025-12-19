@@ -10,110 +10,107 @@ const SYMBOL_MAP = {
   AVAX: 'AVAX-USD'
 };
 
-const DEPTH_BANDS = [0.001, 0.0025, 0.005, 0.01, 0.02];
+const DEPTH_BANDS = {
+  pct_0_001: 0.001,
+  pct_0_0025: 0.0025,
+  pct_0_005: 0.005,
+  pct_0_01: 0.01,
+  pct_0_02: 0.02
+};
 
-function httpGet(url) {
+function httpGet(path) {
   return new Promise((resolve, reject) => {
-    https.get(url, { headers: { 'User-Agent': 'LIS-Ingress/1.0' } }, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        try {
-          resolve(JSON.parse(data));
-        } catch (e) {
-          reject(new Error('Invalid JSON response'));
-        }
-      });
-    }).on('error', reject);
+    https.get(
+      { hostname: COINBASE_API, path, headers: { 'User-Agent': 'LIS/1.0' } },
+      res => {
+        let data = '';
+        res.on('data', d => (data += d));
+        res.on('end', () => {
+          try {
+            resolve(JSON.parse(data));
+          } catch {
+            reject(new Error('Invalid JSON'));
+          }
+        });
+      }
+    ).on('error', reject);
   });
 }
 
 async function fetchOrderbook(symbol) {
-  const productId = SYMBOL_MAP[symbol.toUpperCase()];
-  if (!productId) {
-    throw new Error(`Unknown symbol: ${symbol}`);
-  }
+  const product = SYMBOL_MAP[symbol.toUpperCase()];
+  if (!product) throw new Error(`Unsupported symbol: ${symbol}`);
 
-  const url = `https://${COINBASE_API}/products/${productId}/book?level=2`;
-  const data = await httpGet(url);
-
-  if (!data.bids || !data.asks) {
-    throw new Error('Invalid orderbook response');
-  }
+  const book = await httpGet(`/products/${product}/book?level=2`);
 
   return {
-    bids: data.bids.map(([price, size]) => [parseFloat(price), parseFloat(size)]),
-    asks: data.asks.map(([price, size]) => [parseFloat(price), parseFloat(size)])
+    bids: book.bids.map(([p, q]) => [Number(p), Number(q)]),
+    asks: book.asks.map(([p, q]) => [Number(p), Number(q)])
   };
 }
 
-function calculateBands(orderbook, midPrice) {
-  const bands = {};
-
-  for (const pct of DEPTH_BANDS) {
-    const bandKey = `pct_${pct}`;
-    const upperBound = midPrice * (1 + pct);
-    const lowerBound = midPrice * (1 - pct);
-
-    let bidNotional = 0;
-    let askNotional = 0;
-
-    for (const [price, size] of orderbook.bids) {
-      if (price >= lowerBound) {
-        bidNotional += price * size;
-      }
-    }
-
-    for (const [price, size] of orderbook.asks) {
-      if (price <= upperBound) {
-        askNotional += price * size;
-      }
-    }
-
-    bands[bandKey] = {
-      bid_notional: bidNotional,
-      ask_notional: askNotional,
-      total_notional: bidNotional + askNotional
-    };
+function aggregate(levels, predicate) {
+  let total = 0;
+  for (const [price, size] of levels) {
+    if (!predicate(price)) break;
+    total += price * size;
   }
-
-  return bands;
+  return total;
 }
 
 async function getDepth(symbol) {
-  const orderbook = await fetchOrderbook(symbol);
+  const { bids, asks } = await fetchOrderbook(symbol);
 
-  if (orderbook.bids.length === 0 || orderbook.asks.length === 0) {
+  if (!bids.length || !asks.length) {
     throw new Error('Empty orderbook');
   }
 
-  const bestBid = orderbook.bids[0][0];
-  const bestAsk = orderbook.asks[0][0];
-  const midPrice = (bestBid + bestAsk) / 2;
-  const spreadAbsolute = bestAsk - bestBid;
-  const spreadBps = (spreadAbsolute / midPrice) * 10000;
+  const bestBid = bids[0][0];
+  const bestAsk = asks[0][0];
+  const mid = (bestBid + bestAsk) / 2;
+  const spreadAbs = bestAsk - bestBid;
+  const spreadBps = (spreadAbs / mid) * 10_000;
 
-  const bands = calculateBands(orderbook, midPrice);
+  const bands = {};
+  let bidAll = 0;
+  let askAll = 0;
+
+  for (const [key, pct] of Object.entries(DEPTH_BANDS)) {
+    const bidLimit = mid * (1 - pct);
+    const askLimit = mid * (1 + pct);
+
+    const bid = aggregate(bids, p => p >= bidLimit);
+    const ask = aggregate(asks, p => p <= askLimit);
+
+    bidAll += bid;
+    askAll += ask;
+
+    bands[key] = {
+      bid_notional: Number(bid.toFixed(2)),
+      ask_notional: Number(ask.toFixed(2)),
+      total_notional: Number((bid + ask).toFixed(2))
+    };
+  }
+
+  const denom = bidAll + askAll;
 
   return {
     venue: 'coinbase',
     symbol: symbol.toUpperCase(),
+    quote: 'USD',
     timestamp: Date.now(),
-    mid_price: midPrice,
+    mid_price: Number(mid.toFixed(8)),
     spread: {
-      absolute: spreadAbsolute,
-      bps: spreadBps
+      absolute: Number(spreadAbs.toFixed(8)),
+      bps: Number(spreadBps.toFixed(4))
     },
-    bands
+    bands,
+    metrics: {
+      bid_ask_balance: denom ? bidAll / denom : 0,
+      depth_asymmetry: denom ? Math.abs(bidAll - askAll) / denom : 0,
+      source: 'lis-v1'
+    }
   };
 }
 
-module.exports = { getDepth, fetchOrderbook, SYMBOL_MAP };
-
-if (require.main === module) {
-  const symbol = process.argv[2] || 'BTC';
-  console.log(`Fetching Coinbase depth for ${symbol}...`);
-  getDepth(symbol)
-    .then(data => console.log(JSON.stringify(data, null, 2)))
-    .catch(err => console.error('Error:', err.message));
-}
+module.exports = { getDepth, SYMBOL_MAP };
