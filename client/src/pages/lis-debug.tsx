@@ -258,12 +258,28 @@ export default function LiquidityTruthConsole() {
                     {(() => {
                       const quality = getExecutionQuality(data.bands);
                       return (
-                        <span className={cn(
-                          "inline-flex items-center text-xs font-medium border rounded-full px-2 py-0.5 bg-transparent",
-                          quality.color,
-                          quality.borderColor
-                        )}>
-                          {quality.label}
+                        <span className="inline-flex items-center gap-1">
+                          <span className={cn(
+                            "inline-flex items-center text-xs font-medium border rounded-full px-2 py-0.5 bg-transparent",
+                            quality.color,
+                            quality.borderColor
+                          )}>
+                            {quality.label}
+                          </span>
+                          {quality.label === "FRAGILE" && (
+                            <span className="relative inline-block group">
+                              <span className="text-neutral-500 hover:text-neutral-300 cursor-help ml-1 text-xs">
+                                &#9432;
+                              </span>
+                              <span className="absolute right-0 bottom-full mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none z-50">
+                                <span className="block bg-neutral-900 text-neutral-200 text-xs leading-snug px-3 py-2 rounded-md shadow-lg max-w-xs whitespace-normal">
+                                  <span className="font-bold block mb-1">Why execution is fragile</span>
+                                  Depth within 25–50 bps is thin or imbalanced, meaning moderate-size orders are likely to cause price impact rather than execute at the reference price.
+                                  <span className="block mt-1 text-neutral-400">This market trades, but does not absorb size efficiently.</span>
+                                </span>
+                              </span>
+                            </span>
+                          )}
                         </span>
                       );
                     })()}
