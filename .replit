@@ -41,3 +41,6 @@ waitForPort = 5000
 
 [userenv.shared]
 VITE_LIS_BASE_URL = "https://relay.stratalink.ai"
+
+[agent]
+integrations = ["github:1.0.0"]
