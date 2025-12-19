@@ -88,10 +88,10 @@ export default function LiquidityTruthConsole() {
   useEffect(() => {
     let alive = true;
     setError(null);
+    setData(null);
 
     if (!VENUE_CAPABILITIES[venue.toLowerCase()]?.depth) {
       setError(`Depth not available on ${venue.toUpperCase()}`);
-      setData(null);
       return;
     }
 
@@ -101,7 +101,8 @@ export default function LiquidityTruthConsole() {
       );
 
       if (!res.ok) {
-        throw new Error(`Depth not available for ${token} on ${venue}`);
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || `Depth fetch failed`);
       }
 
       return res.json();
