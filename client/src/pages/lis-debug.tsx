@@ -75,18 +75,25 @@ export default function LiquidityTruthConsole() {
     let alive = true;
     setError(null);
 
-    fetchLiquiditySnapshot(token, venue)
-      .then((res) => {
-        if (!alive) return;
-        setData(res);
-      })
-      .catch((err) => {
-        if (!alive) return;
-        setError(err?.message ?? "Failed to load LIS data");
-      });
+    const fetchData = () => {
+      fetchLiquiditySnapshot(token, venue)
+        .then((res) => {
+          if (!alive) return;
+          setData(res);
+          setError(null);
+        })
+        .catch((err) => {
+          if (!alive) return;
+          setError(err?.message ?? "Failed to load LIS data");
+        });
+    };
+
+    fetchData();
+    const interval = setInterval(fetchData, 5000);
 
     return () => {
       alive = false;
+      clearInterval(interval);
     };
   }, [token, venue]);
 
