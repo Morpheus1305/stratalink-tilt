@@ -210,7 +210,7 @@ export default function LiquidityTruthConsole() {
                 </div>
                 <div className="flex items-center justify-between border-t border-border/50 pt-3 mt-2">
                   <span className="text-xs text-muted-foreground">Reference Price</span>
-                  <span className="font-mono text-sm text-muted-foreground">${data.mid_price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <span className="text-sm font-medium text-muted-foreground">${data.mid_price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">Spread</span>
