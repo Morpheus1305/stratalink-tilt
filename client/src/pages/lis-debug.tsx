@@ -22,6 +22,25 @@ const BAND_LABELS: Record<string, string> = {
 const TOKENS = ["BTC", "ETH", "SOL", "LINK", "AVAX"];
 const VENUES = ["binance", "coinbase", "okx", "kraken"] as const;
 
+const VENUE_CAPABILITIES: Record<string, { depth: boolean; funding: boolean }> = {
+  binance: {
+    depth: true,
+    funding: true
+  },
+  coinbase: {
+    depth: true,
+    funding: false
+  },
+  okx: {
+    depth: false,
+    funding: true
+  },
+  kraken: {
+    depth: false,
+    funding: false
+  }
+};
+
 type Venue = (typeof VENUES)[number];
 
 type LISBand = {
@@ -149,13 +168,22 @@ export default function LiquidityTruthConsole() {
               <div className="space-y-1">
                 <label className="text-xs text-muted-foreground uppercase tracking-wide">Venue</label>
                 <Select value={venue} onValueChange={(v) => setVenue(v as Venue)}>
-                  <SelectTrigger className="w-[140px] h-9 text-sm" data-testid="select-venue">
+                  <SelectTrigger className="w-[180px] h-9 text-sm" data-testid="select-venue">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {VENUES.map((v) => (
-                      <SelectItem key={v} value={v}>{v.toUpperCase()}</SelectItem>
-                    ))}
+                    {VENUES.map((v) => {
+                      const caps = VENUE_CAPABILITIES[v];
+                      const hasDepth = caps?.depth ?? false;
+                      return (
+                        <SelectItem key={v} value={v} disabled={!hasDepth}>
+                          <span className="flex items-center gap-2">
+                            {v.toUpperCase()}
+                            {!hasDepth && <span className="text-xs text-muted-foreground">(no depth)</span>}
+                          </span>
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>
