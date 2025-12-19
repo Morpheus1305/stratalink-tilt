@@ -1,4 +1,5 @@
 import { Router, Request, Response } from "express";
+import { createRequire } from "module";
 import { getAggregatedPrice, getMultiplePrices } from "./aggregator/aggregator";
 import { DEPTH_TOKENS } from "./aggregator/config/symbols";
 import { getDepthCache, getDepthSummary } from "./engines/depthEngine";
@@ -10,6 +11,9 @@ import {
   getSummaryReport,
   runFullIngest 
 } from "./engines/ingestionManager";
+
+const require = createRequire(import.meta.url);
+const { getDepth: getRouterDepth } = require("../relay/depthRouter.cjs");
 
 const router = Router();
 
@@ -39,26 +43,39 @@ router.get("/prices", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/depth", (req: Request, res: Response) => {
+router.get("/depth", async (req: Request, res: Response) => {
   try {
     const symbol = req.query.symbol as string;
-    const cache = getDepthCache();
-    
-    if (symbol) {
-      const tokenDepth = cache[symbol.toUpperCase()];
-      if (!tokenDepth) {
-        return res.status(404).json({ error: `No depth data for ${symbol}` });
-      }
-      return res.json({ symbol: symbol.toUpperCase(), ...tokenDepth });
+    const venue = ((req.query.venue as string) || 'binance').toLowerCase();
+
+    if (!symbol) {
+      const cache = getDepthCache();
+      return res.json({ 
+        depth: cache, 
+        summary: getDepthSummary(),
+        ts: Date.now() 
+      });
     }
+
+    const depthCapableVenues = ['binance', 'coinbase'];
     
-    res.json({ 
-      depth: cache, 
-      summary: getDepthSummary(),
-      ts: Date.now() 
-    });
+    if (depthCapableVenues.includes(venue)) {
+      try {
+        const depth = await getRouterDepth(venue, symbol.toUpperCase());
+        return res.json(depth);
+      } catch (routerErr: any) {
+        console.log(`[Analytics/Depth] Router failed for ${venue}/${symbol}: ${routerErr.message}, falling back to cache`);
+      }
+    }
+
+    const cache = getDepthCache();
+    const tokenDepth = cache[symbol.toUpperCase()];
+    if (!tokenDepth) {
+      return res.status(404).json({ error: `No depth data for ${symbol}` });
+    }
+    return res.json({ symbol: symbol.toUpperCase(), ...tokenDepth });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(400).json({ error: err.message });
   }
 });
 
