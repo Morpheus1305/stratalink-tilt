@@ -1,9 +1,13 @@
 import { useEffect, useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Database, RefreshCw, Eye, EyeOff } from "lucide-react";
+import { DashboardHeader } from "@/components/dashboard-header";
+import { PlatformTabs } from "@/components/platform-tabs";
 import { fetchLiquiditySnapshot } from "@/services/lis";
-
-/* =========================
-   Canonical LIS → STRATA map
-   ========================= */
+import { cn } from "@/lib/utils";
 
 const BAND_LABELS: Record<string, string> = {
   "pct_0_1": "10 bps",
@@ -20,10 +24,6 @@ const TOKENS = ["BTC", "ETH", "SOL", "LINK", "AVAX"];
 const VENUES = ["binance", "coinbase", "okx", "kraken"] as const;
 
 type Venue = (typeof VENUES)[number];
-
-/* =========================
-   Types
-   ========================= */
 
 type LISBand = {
   bid_notional?: number;
@@ -43,11 +43,10 @@ type LISSnapshot = {
   bands?: Record<string, LISBand>;
 };
 
-/* =========================
-   Helpers
-   ========================= */
-
 function formatUSD(v: number) {
+  if (v >= 1_000_000) {
+    return `$${(v / 1_000_000).toFixed(2)}M`;
+  }
   return `$${v.toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -60,16 +59,13 @@ function calcImbalance(bid: number, ask: number): number {
   return ((bid - ask) / total) * 100;
 }
 
-/* =========================
-   Component
-   ========================= */
-
 export default function LiquidityTruthConsole() {
   const [token, setToken] = useState("BTC");
   const [venue, setVenue] = useState<Venue>("binance");
   const [data, setData] = useState<LISSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showRaw, setShowRaw] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -81,6 +77,7 @@ export default function LiquidityTruthConsole() {
           if (!alive) return;
           setData(res);
           setError(null);
+          setLastUpdate(new Date());
         })
         .catch((err) => {
           if (!alive) return;
@@ -98,174 +95,194 @@ export default function LiquidityTruthConsole() {
   }, [token, venue]);
 
   return (
-    <div
-      style={{
-        padding: 24,
-        minHeight: "100vh",
-        background: "#050814",
-        color: "#e5e9f0",
-        fontFamily: "Inter, system-ui, sans-serif",
-      }}
-    >
-      {/* Header */}
-      <h1 style={{ fontSize: 24, marginBottom: 4 }}>
-        Liquidity Truth Console
-      </h1>
-      <div style={{ color: "#8ea3c7", marginBottom: 20 }}>
-        LIS - Liquidity Ingestion Service - Ground Truth View
-      </div>
+    <div className="min-h-screen bg-background">
+      <DashboardHeader />
+      <PlatformTabs />
 
-      {/* Controls */}
-      <div style={{ display: "flex", gap: 16, marginBottom: 24 }}>
-        <div>
-          <div style={{ fontSize: 12, color: "#8ea3c7" }}>Token</div>
-          <select
-            value={token}
-            onChange={(e) => setToken(e.target.value)}
-            data-testid="select-token"
-            style={selectStyle}
-          >
-            {TOKENS.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <div style={{ fontSize: 12, color: "#8ea3c7" }}>Venue</div>
-          <select
-            value={venue}
-            onChange={(e) => setVenue(e.target.value as Venue)}
-            data-testid="select-venue"
-            style={selectStyle}
-          >
-            {VENUES.map((v) => (
-              <option key={v} value={v}>
-                {v.toUpperCase()}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Errors */}
-      {error && (
-        <div style={{ color: "#ff6b6b", marginBottom: 16 }}>
-          Error fetching LIS data: {error}
-        </div>
-      )}
-
-      {/* Main */}
-      {data && (
-        <>
-          <h2 style={{ marginBottom: 8 }}>
-            {data.venue.toUpperCase()} {data.symbol}
-          </h2>
-          <div style={{ marginBottom: 16 }}>
-            Mid: <strong>${data.mid_price.toFixed(2)}</strong> - Spread:{" "}
-            <strong>{data.spread?.bps ?? 0} bps</strong>
+      <div className="p-4 space-y-4">
+        {/* Page Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Database className="h-5 w-5 text-primary" />
+            <div>
+              <h1 className="text-lg font-semibold text-foreground">Liquidity Truth Console</h1>
+              <p className="text-xs text-muted-foreground">LIS - Liquidity Ingestion Service - Ground Truth View</p>
+            </div>
           </div>
-
-          {/* Depth Table */}
-          <table
-            style={{
-              width: "100%",
-              borderCollapse: "collapse",
-              marginBottom: 24,
-              fontSize: 14,
-            }}
-          >
-            <thead>
-              <tr style={{ borderBottom: "1px solid #1f2937" }}>
-                <th align="left" style={{ padding: "8px 0" }}>Band</th>
-                <th align="right" style={{ padding: "8px 0" }}>Bid USD</th>
-                <th align="right" style={{ padding: "8px 0" }}>Ask USD</th>
-                <th align="right" style={{ padding: "8px 0" }}>Total USD</th>
-                <th align="right" style={{ padding: "8px 0" }}>Imbalance</th>
-              </tr>
-            </thead>
-            <tbody>
-              {Object.entries(data.bands ?? {}).map(([key, band]) => {
-                const label = BAND_LABELS[key] ?? key;
-                const bid = band.bid_notional ?? 0;
-                const ask = band.ask_notional ?? 0;
-                const total = bid + ask;
-                const imbalance = calcImbalance(bid, ask);
-
-                return (
-                  <tr key={key} style={{ borderBottom: "1px solid #0f172a" }}>
-                    <td style={{ padding: "6px 0" }}>{label}</td>
-                    <td align="right" style={{ padding: "6px 0" }}>{formatUSD(bid)}</td>
-                    <td align="right" style={{ padding: "6px 0" }}>{formatUSD(ask)}</td>
-                    <td align="right" style={{ padding: "6px 0" }}>{formatUSD(total)}</td>
-                    <td
-                      align="right"
-                      style={{
-                        padding: "6px 0",
-                        color:
-                          imbalance > 0
-                            ? "#22c55e"
-                            : imbalance < 0
-                            ? "#ef4444"
-                            : "#9ca3af",
-                      }}
-                    >
-                      {imbalance.toFixed(2)}%
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-
-          {/* Raw JSON */}
-          <button
-            onClick={() => setShowRaw((v) => !v)}
-            style={buttonStyle}
-            data-testid="button-toggle-raw"
-          >
-            {showRaw ? "Hide" : "Show"} Raw LIS JSON
-          </button>
-
-          {showRaw && (
-            <pre
-              style={{
-                background: "#020617",
-                padding: 16,
-                fontSize: 12,
-                overflowX: "auto",
-                borderRadius: 6,
-                marginTop: 8,
-              }}
-            >
-              {JSON.stringify(data, null, 2)}
-            </pre>
+          {lastUpdate && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <RefreshCw className="h-3 w-3 animate-spin" />
+              <span className="font-mono">Updated {lastUpdate.toLocaleTimeString()}</span>
+            </div>
           )}
-        </>
-      )}
+        </div>
+
+        {/* Controls */}
+        <Card className="bg-card border-border">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-4">
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground uppercase tracking-wide">Token</label>
+                <Select value={token} onValueChange={setToken}>
+                  <SelectTrigger className="w-[120px] h-9 text-sm" data-testid="select-token">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TOKENS.map((t) => (
+                      <SelectItem key={t} value={t}>{t}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground uppercase tracking-wide">Venue</label>
+                <Select value={venue} onValueChange={(v) => setVenue(v as Venue)}>
+                  <SelectTrigger className="w-[140px] h-9 text-sm" data-testid="select-venue">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {VENUES.map((v) => (
+                      <SelectItem key={v} value={v}>{v.toUpperCase()}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex-1" />
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowRaw((v) => !v)}
+                data-testid="button-toggle-raw"
+              >
+                {showRaw ? <EyeOff className="h-4 w-4 mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
+                {showRaw ? "Hide" : "Show"} Raw JSON
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Error Display */}
+        {error && (
+          <Card className="bg-destructive/10 border-destructive/30">
+            <CardContent className="p-4">
+              <p className="text-sm text-destructive">Error: {error}</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Main Data */}
+        {data && (
+          <div className="grid grid-cols-12 gap-4">
+            {/* Market Summary */}
+            <Card className="col-span-12 lg:col-span-4 bg-card border-border">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+                  Market Summary
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Venue</span>
+                  <Badge variant="outline" className="font-mono">{data.venue.toUpperCase()}</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Symbol</span>
+                  <span className="font-mono font-semibold text-primary">{data.symbol}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Mid Price</span>
+                  <span className="font-mono text-xl font-bold">${data.mid_price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Spread</span>
+                  <span className="font-mono text-accent">{(data.spread?.bps ?? 0).toFixed(4)} bps</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Depth Table */}
+            <Card className="col-span-12 lg:col-span-8 bg-card border-border">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+                  Orderbook Depth Bands
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="text-left py-2 px-2 text-xs text-muted-foreground uppercase tracking-wide font-medium">Band</th>
+                        <th className="text-right py-2 px-2 text-xs text-muted-foreground uppercase tracking-wide font-medium">Bid USD</th>
+                        <th className="text-right py-2 px-2 text-xs text-muted-foreground uppercase tracking-wide font-medium">Ask USD</th>
+                        <th className="text-right py-2 px-2 text-xs text-muted-foreground uppercase tracking-wide font-medium">Total USD</th>
+                        <th className="text-right py-2 px-2 text-xs text-muted-foreground uppercase tracking-wide font-medium">Imbalance</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Object.entries(data.bands ?? {}).map(([key, band]) => {
+                        const label = BAND_LABELS[key] ?? key;
+                        const bid = band.bid_notional ?? 0;
+                        const ask = band.ask_notional ?? 0;
+                        const total = bid + ask;
+                        const imbalance = calcImbalance(bid, ask);
+
+                        return (
+                          <tr key={key} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
+                            <td className="py-2 px-2 font-mono font-medium">{label}</td>
+                            <td className="py-2 px-2 text-right font-mono text-emerald-400">{formatUSD(bid)}</td>
+                            <td className="py-2 px-2 text-right font-mono text-red-400">{formatUSD(ask)}</td>
+                            <td className="py-2 px-2 text-right font-mono font-semibold">{formatUSD(total)}</td>
+                            <td className="py-2 px-2 text-right">
+                              <span
+                                className={cn(
+                                  "font-mono font-medium",
+                                  imbalance > 0 ? "text-emerald-400" : imbalance < 0 ? "text-red-400" : "text-muted-foreground"
+                                )}
+                              >
+                                {imbalance > 0 ? "+" : ""}{imbalance.toFixed(2)}%
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Raw JSON */}
+            {showRaw && (
+              <Card className="col-span-12 bg-card border-border">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+                    Raw LIS Response
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <pre className="bg-muted/30 p-4 rounded-lg text-xs font-mono overflow-x-auto max-h-96 overflow-y-auto">
+                    {JSON.stringify(data, null, 2)}
+                  </pre>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+
+        {/* Loading State */}
+        {!data && !error && (
+          <Card className="bg-card border-border">
+            <CardContent className="p-8 flex items-center justify-center">
+              <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+              <span className="ml-3 text-muted-foreground">Loading LIS data...</span>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }
-
-const selectStyle: React.CSSProperties = {
-  background: "#020617",
-  color: "#e5e9f0",
-  border: "1px solid #1e293b",
-  padding: "8px 12px",
-  borderRadius: 6,
-  fontSize: 14,
-  minWidth: 120,
-  marginTop: 4,
-};
-
-const buttonStyle: React.CSSProperties = {
-  background: "#1e293b",
-  color: "#e5e9f0",
-  border: "1px solid #334155",
-  padding: "8px 16px",
-  borderRadius: 6,
-  fontSize: 13,
-  cursor: "pointer",
-};
