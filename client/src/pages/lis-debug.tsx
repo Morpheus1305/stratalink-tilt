@@ -285,7 +285,32 @@ export default function LiquidityTruthConsole() {
         {/* Main Data */}
         {data && (
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-            {/* PoLi Score Gauge */}
+            {/* Market Context (left) */}
+            <Card className="p-4 bg-card border-border">
+              <h3 className="text-xs font-medium text-neutral-400 uppercase tracking-wide mb-2">
+                Market Context
+              </h3>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-neutral-400 uppercase tracking-wide">Venue</span>
+                  <Badge variant="outline" className="font-mono text-xs">{data.venue.toUpperCase()}</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-neutral-400 uppercase tracking-wide">Symbol</span>
+                  <span className="font-mono text-sm font-medium text-foreground">{data.symbol}</span>
+                </div>
+                <div className="flex items-center justify-between border-t border-border/50 pt-2 mt-1">
+                  <span className="text-xs text-neutral-400 uppercase tracking-wide">Ref Price</span>
+                  <span className="text-sm font-medium text-muted-foreground">${data.mid_price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-neutral-400 uppercase tracking-wide">Spread</span>
+                  <span className="text-xs font-medium text-muted-foreground">{(data.spread?.bps ?? 0).toFixed(4)} bps</span>
+                </div>
+              </div>
+            </Card>
+
+            {/* PoLi Score Gauge (center) */}
             {poliData && (
               <Card className="p-4 border-card-border" data-testid="card-lis-poli-score">
                 <div className="flex items-center justify-between mb-2">
@@ -379,32 +404,7 @@ export default function LiquidityTruthConsole() {
               </Card>
             )}
 
-            {/* Market Context (de-emphasized) */}
-            <Card className="p-4 bg-card border-border">
-              <h3 className="text-xs font-medium text-neutral-400 uppercase tracking-wide mb-2">
-                Market Context
-              </h3>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-neutral-400 uppercase tracking-wide">Venue</span>
-                  <Badge variant="outline" className="font-mono text-xs">{data.venue.toUpperCase()}</Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-neutral-400 uppercase tracking-wide">Symbol</span>
-                  <span className="font-mono text-sm font-medium text-foreground">{data.symbol}</span>
-                </div>
-                <div className="flex items-center justify-between border-t border-border/50 pt-2 mt-1">
-                  <span className="text-xs text-neutral-400 uppercase tracking-wide">Ref Price</span>
-                  <span className="text-sm font-medium text-muted-foreground">${data.mid_price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-neutral-400 uppercase tracking-wide">Spread</span>
-                  <span className="text-xs font-medium text-muted-foreground">{(data.spread?.bps ?? 0).toFixed(4)} bps</span>
-                </div>
-              </div>
-            </Card>
-
-            {/* Executable Depth - Primary Insight */}
+            {/* Executable Depth - Primary Insight (right) */}
             <Card className="p-4 bg-card border border-yellow-500/40 shadow-[0_0_0_1px_rgba(234,179,8,0.25)]">
               <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
                 <div className="flex items-center gap-2">
