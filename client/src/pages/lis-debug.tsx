@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Database, RefreshCw, Eye, EyeOff, ArrowUp, ArrowDown, TrendingUp } from "lucide-react";
+import { Database, RefreshCw, Eye, EyeOff, ArrowUp, ArrowDown, TrendingUp, AlertTriangle } from "lucide-react";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { PlatformTabs } from "@/components/platform-tabs";
 import { cn } from "@/lib/utils";
@@ -141,6 +141,71 @@ function computePoLiFromLIS(data: LISSnapshot | null, prevScore: number | null):
   return { score, riskLevel, trend, change24h, historicalAverage: 65 };
 }
 
+function getPoLiSubLabel(data: LISSnapshot | null, rating: string): string {
+  if (!data || !data.bands) return "";
+  
+  let depth25 = 0, depth50 = 0;
+  let bid25 = 0, ask25 = 0, bid50 = 0, ask50 = 0;
+  
+  Object.entries(data.bands).forEach(([key, band]) => {
+    const label = BAND_LABELS[key] ?? key;
+    if (label === "25 bps") {
+      bid25 = band.bid_notional ?? 0;
+      ask25 = band.ask_notional ?? 0;
+      depth25 = bid25 + ask25;
+    } else if (label === "50 bps") {
+      bid50 = band.bid_notional ?? 0;
+      ask50 = band.ask_notional ?? 0;
+      depth50 = bid50 + ask50;
+    }
+  });
+  
+  const avgImbalance = (Math.abs(calcImbalance(bid25, ask25)) + Math.abs(calcImbalance(bid50, ask50))) / 2;
+  const totalDepth = depth25 + depth50;
+  const depthThreshold = 500000;
+  
+  if (totalDepth >= depthThreshold && avgImbalance <= 10) {
+    return `${rating} liquidity supported by strong two-sided depth at 25–50 bps`;
+  } else if (totalDepth >= depthThreshold && avgImbalance > 10) {
+    return `${rating} liquidity despite shallow 25–50 bps imbalance`;
+  } else if (totalDepth < depthThreshold && avgImbalance <= 15) {
+    return `${rating} liquidity driven by thin 25–50 bps execution bands`;
+  } else {
+    return `${rating} liquidity with fragile 25–50 bps depth structure`;
+  }
+}
+
+type FragilityState = {
+  isFragile: boolean;
+  prevScore: number | null;
+  prevPrice: number | null;
+  prevSpread: number | null;
+};
+
+function detectLiquidityFragility(
+  currentScore: number,
+  currentPrice: number,
+  currentSpread: number,
+  prevState: FragilityState
+): { isFragile: boolean; message: string } {
+  if (prevState.prevScore === null || prevState.prevPrice === null || prevState.prevSpread === null) {
+    return { isFragile: false, message: "" };
+  }
+  
+  const scoreDrop = prevState.prevScore - currentScore;
+  const priceChange = Math.abs((currentPrice - prevState.prevPrice) / prevState.prevPrice) * 100;
+  const spreadChange = Math.abs((currentSpread - prevState.prevSpread) / Math.max(prevState.prevSpread, 0.001)) * 100;
+  
+  if (scoreDrop >= 5 && priceChange < 0.10 && spreadChange < 5) {
+    return { 
+      isFragile: true, 
+      message: "Liquidity weakening beneath stable price" 
+    };
+  }
+  
+  return { isFragile: false, message: "" };
+}
+
 export default function LiquidityTruthConsole() {
   const [token, setToken] = useState("BTC");
   const [venue, setVenue] = useState<Venue>("binance");
@@ -150,11 +215,34 @@ export default function LiquidityTruthConsole() {
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const prevScoreRef = useRef<number | null>(null);
   const [poliData, setPoliData] = useState<PoLiScoreData | null>(null);
+  const [fragilityState, setFragilityState] = useState<FragilityState>({
+    isFragile: false,
+    prevScore: null,
+    prevPrice: null,
+    prevSpread: null,
+  });
+  const [fragilityWarning, setFragilityWarning] = useState<{ isFragile: boolean; message: string }>({ isFragile: false, message: "" });
   
   useEffect(() => {
     if (data) {
       const newPoli = computePoLiFromLIS(data, prevScoreRef.current);
       setPoliData(newPoli);
+      
+      const fragility = detectLiquidityFragility(
+        newPoli.score,
+        data.mid_price,
+        data.spread?.bps ?? 0,
+        fragilityState
+      );
+      setFragilityWarning(fragility);
+      
+      setFragilityState({
+        isFragile: fragility.isFragile,
+        prevScore: newPoli.score,
+        prevPrice: data.mid_price,
+        prevSpread: data.spread?.bps ?? 0,
+      });
+      
       prevScoreRef.current = newPoli.score;
     }
   }, [data]);
@@ -323,15 +411,28 @@ export default function LiquidityTruthConsole() {
                       </span>
                     </span>
                   </div>
-                  <div className="flex items-center gap-1 text-xs">
-                    {poliData.trend === 'up' ? (
-                      <ArrowUp className="h-3 w-3 text-chart-3" />
-                    ) : (
-                      <ArrowDown className="h-3 w-3 text-destructive" />
+                  <div className="flex flex-col items-end gap-0.5">
+                    <div className="flex items-center gap-1 text-xs">
+                      {poliData.trend === 'up' ? (
+                        <ArrowUp className="h-3 w-3 text-chart-3" />
+                      ) : (
+                        <ArrowDown className="h-3 w-3 text-destructive" />
+                      )}
+                      <span className={poliData.trend === 'up' ? 'text-chart-3' : 'text-destructive'}>
+                        {poliData.change24h > 0 ? '+' : ''}{poliData.change24h.toFixed(1)}%
+                      </span>
+                    </div>
+                    {fragilityWarning.isFragile && (
+                      <div className="relative group mt-1 text-[11px] text-amber-400 flex items-center justify-center gap-1">
+                        <AlertTriangle className="h-3 w-3" />
+                        <span>{fragilityWarning.message}</span>
+                        <span className="absolute right-0 bottom-full mb-2 w-64 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+                          <span className="block bg-neutral-900 text-neutral-200 text-xs px-3 py-1 rounded-md shadow-lg whitespace-normal">
+                            Orderbook depth is deteriorating inside the executable 25–50 bps range despite minimal price movement.
+                          </span>
+                        </span>
+                      </div>
                     )}
-                    <span className={poliData.trend === 'up' ? 'text-chart-3' : 'text-destructive'}>
-                      {poliData.change24h > 0 ? '+' : ''}{poliData.change24h.toFixed(1)}%
-                    </span>
                   </div>
                 </div>
 
@@ -370,6 +471,11 @@ export default function LiquidityTruthConsole() {
                     </div>
                   </div>
                 </div>
+
+                {/* PoLi Sub-Label */}
+                <p className="mt-2 text-xs text-neutral-400 text-center max-w-[220px] mx-auto">
+                  {getPoLiSubLabel(data, getPoLiRating(poliData.score))}
+                </p>
 
                 <div className="space-y-1 mt-2">
                   <div className={cn(

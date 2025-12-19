@@ -1,0 +1,110 @@
+Objective
+Add interpretability to the PoLi Score by:
+1) Explaining *why* the current PoLi rating exists (sub-label)
+2) Flagging *fragility* when liquidity deteriorates while price appears stable
+
+This reinforces the message:
+“Price stability does not imply liquidity stability.”
+
+--------------------------------------------------
+PART 1 — PoLi Sub-Label (Contextual Explanation)
+--------------------------------------------------
+
+Where:
+Inside the PoLi Score card, directly below the rating label (e.g. AAA / BB).
+
+What to add:
+A one-line, dynamic sub-label derived from executable depth bands.
+
+Logic (frontend-only):
+- Use 25–50 bps bands as the institutional execution window.
+- If both 25 bps and 50 bps total depth exceed a defined threshold
+  AND imbalance is within ±10%:
+    → classify liquidity as “robust”
+- If depth is present but imbalance is widening:
+    → classify as “imbalanced”
+- If depth collapses inside 25–50 bps:
+    → classify as “fragile”
+
+Example copy (render one line only):
+
+AAA liquidity despite shallow 25–50 bps imbalance  
+BB liquidity driven by thin 25–50 bps execution bands  
+AA liquidity supported by strong two-sided depth at 25–50 bps  
+
+Styling (Tailwind):
+Add below the PoLi score number:
+
+className="
+  mt-2
+  text-xs
+  text-neutral-400
+  text-center
+  max-w-[220px]
+  mx-auto
+"
+
+--------------------------------------------------
+PART 2 — Liquidity Fragility Trigger
+--------------------------------------------------
+
+Goal:
+Surface a warning when PoLi degrades even though price and spread appear stable.
+
+Definition:
+Liquidity fragility = PoLi ↓ while price ≈ flat
+
+Trigger conditions:
+- PoLi score drops by ≥ 5 points vs previous snapshot
+- Reference price change < ±0.10%
+- Spread change < ±5%
+
+When triggered:
+Display a subtle warning indicator inside the PoLi card.
+
+UI placement:
+Top-right corner of the PoLi card, below the % change indicator.
+
+Copy (short, institutional tone):
+⚠ Liquidity weakening beneath stable price
+
+Optional hover tooltip:
+“Orderbook depth is deteriorating inside the executable 25–50 bps range despite minimal price movement.”
+
+Styling (Tailwind):
+
+Warning container:
+className="
+  mt-1
+  text-[11px]
+  text-amber-400
+  flex
+  items-center
+  justify-center
+  gap-1
+"
+
+Icon:
+Use a small alert / triangle icon at 12px size.
+
+--------------------------------------------------
+PART 3 — Guardrails
+--------------------------------------------------
+
+Do NOT:
+- Add popups
+- Add modals
+- Change PoLi scoring logic
+- Introduce new API calls
+
+This is a pure interpretation + signalling layer.
+
+--------------------------------------------------
+Expected Outcome
+--------------------------------------------------
+
+The PoLi card now answers two questions instantly:
+1) *Why is the score high or low?*
+2) *Is liquidity quietly breaking even if price looks fine?*
+
+This directly supports the Liquidity Truth narrative.
