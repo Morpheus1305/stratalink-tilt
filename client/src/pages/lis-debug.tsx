@@ -129,11 +129,9 @@ export default function LiquidityTruthConsole() {
         </div>
 
         {/* Positioning Statement */}
-        <div className="border-l-2 border-primary/50 pl-4 py-2">
-          <p className="text-sm font-medium text-muted-foreground italic">
-            "Price tells you where the market traded — liquidity quality tells you whether you <span className="text-foreground">could</span> trade."
-          </p>
-        </div>
+        <p className="mt-2 text-sm italic text-muted-foreground max-w-4xl">
+          "Price tells you where the market traded — liquidity quality tells you whether you could trade."
+        </p>
 
         {/* Controls */}
         <Card className="bg-card border-border">
