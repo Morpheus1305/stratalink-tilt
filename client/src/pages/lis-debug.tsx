@@ -167,15 +167,16 @@ export default function LiquidityTruthConsole() {
               width: "100%",
               borderCollapse: "collapse",
               marginBottom: 24,
+              fontSize: 14,
             }}
           >
             <thead>
               <tr style={{ borderBottom: "1px solid #1f2937" }}>
-                <th align="left">Band</th>
-                <th align="right">Bid USD</th>
-                <th align="right">Ask USD</th>
-                <th align="right">Total USD</th>
-                <th align="right">Imbalance</th>
+                <th align="left" style={{ padding: "8px 0" }}>Band</th>
+                <th align="right" style={{ padding: "8px 0" }}>Bid USD</th>
+                <th align="right" style={{ padding: "8px 0" }}>Ask USD</th>
+                <th align="right" style={{ padding: "8px 0" }}>Total USD</th>
+                <th align="right" style={{ padding: "8px 0" }}>Imbalance</th>
               </tr>
             </thead>
             <tbody>
@@ -188,13 +189,14 @@ export default function LiquidityTruthConsole() {
 
                 return (
                   <tr key={key} style={{ borderBottom: "1px solid #0f172a" }}>
-                    <td>{label}</td>
-                    <td align="right">{formatUSD(bid)}</td>
-                    <td align="right">{formatUSD(ask)}</td>
-                    <td align="right">{formatUSD(total)}</td>
+                    <td style={{ padding: "6px 0" }}>{label}</td>
+                    <td align="right" style={{ padding: "6px 0" }}>{formatUSD(bid)}</td>
+                    <td align="right" style={{ padding: "6px 0" }}>{formatUSD(ask)}</td>
+                    <td align="right" style={{ padding: "6px 0" }}>{formatUSD(total)}</td>
                     <td
                       align="right"
                       style={{
+                        padding: "6px 0",
                         color:
                           imbalance > 0
                             ? "#22c55e"
