@@ -250,10 +250,13 @@ export default function LiquidityTruthConsole() {
 
             {/* Depth Table */}
             <Card className="col-span-12 lg:col-span-8 bg-card border-border">
-              <CardHeader className="pb-2">
+              <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
                   Orderbook Depth Bands
                 </CardTitle>
+                <h3 className="text-lg font-semibold font-mono text-foreground">
+                  {venue.toUpperCase()} {token}
+                </h3>
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
@@ -295,6 +298,15 @@ export default function LiquidityTruthConsole() {
                         );
                       })}
                     </tbody>
+                    <tfoot>
+                      <tr>
+                        <td colSpan={5} className="pt-3 px-2">
+                          <small className="text-xs text-muted-foreground">
+                            Source: LIS · Venue: {venue.toUpperCase()}
+                          </small>
+                        </td>
+                      </tr>
+                    </tfoot>
                   </table>
                 </div>
               </CardContent>
