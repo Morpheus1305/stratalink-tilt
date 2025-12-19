@@ -7,7 +7,7 @@ const { getDepth: getRouterDepth } = require("../../relay/depthRouter.cjs");
 const router = Router();
 
 const DEPTH_CAPABLE_VENUES = {
-  binance: true,
+  binance: false,
   coinbase: true,
   okx: false,
   kraken: false

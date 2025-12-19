@@ -24,7 +24,7 @@ const VENUES = ["binance", "coinbase", "okx", "kraken"] as const;
 
 const VENUE_CAPABILITIES: Record<string, { depth: boolean; funding: boolean }> = {
   binance: {
-    depth: true,
+    depth: false,
     funding: true
   },
   coinbase: {
@@ -79,7 +79,7 @@ function calcImbalance(bid: number, ask: number): number {
 
 export default function LiquidityTruthConsole() {
   const [token, setToken] = useState("BTC");
-  const [venue, setVenue] = useState<Venue>("binance");
+  const [venue, setVenue] = useState<Venue>("coinbase");
   const [data, setData] = useState<LISSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showRaw, setShowRaw] = useState(false);
