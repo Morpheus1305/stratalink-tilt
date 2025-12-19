@@ -1,39 +1,46 @@
 import { Router } from "express";
-import { createRequire } from "module";
-
-const require = createRequire(import.meta.url);
-const { getDepth, getDepthCapableVenues, VENUE_CAPABILITIES } = require("../../relay/depthRouter.cjs");
 
 const router = Router();
 
-router.get("/depth", async (req, res) => {
-  try {
-    const { venue, symbol } = req.query;
-    if (!venue || !symbol) {
-      return res.status(400).json({ error: "venue and symbol required" });
-    }
-    const data = await getDepth(venue as string, symbol as string);
-    res.json(data);
-  } catch (err: any) {
-    res.status(400).json({ error: err.message });
-  }
-});
-
-router.get("/venues", (_req, res) => {
-  res.json(VENUE_CAPABILITIES);
-});
-
 router.get("/:venue/depth", async (req, res) => {
+  const { venue } = req.params;
+  const { symbol } = req.query;
+
+  if (!symbol || typeof symbol !== "string") {
+    return res.status(400).json({ error: "symbol query parameter required" });
+  }
+
+  const validVenues = ["binance", "coinbase", "okx", "kraken"];
+  if (!validVenues.includes(venue)) {
+    return res.status(400).json({ error: `Invalid venue. Must be one of: ${validVenues.join(", ")}` });
+  }
+
   try {
-    const { venue } = req.params;
-    const { symbol } = req.query;
-    if (!symbol) {
-      return res.status(400).json({ error: "symbol required" });
+    const relayKey = process.env.VITE_LIS_RELAY_KEY || process.env.LIS_RELAY_KEY;
+    if (!relayKey) {
+      return res.status(500).json({ error: "LIS_RELAY_KEY not configured" });
     }
-    const data = await getDepth(venue, symbol as string);
+
+    const response = await fetch(
+      `https://relay.stratalink.ai/${venue}/depth?symbol=${symbol}`,
+      {
+        headers: {
+          "x-relay-key": relayKey,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      return res.status(response.status).json({ 
+        error: `LIS relay returned ${response.status}` 
+      });
+    }
+
+    const data = await response.json();
     res.json(data);
-  } catch (err: any) {
-    res.status(400).json({ error: err.message });
+  } catch (err) {
+    console.error("[LIS Proxy] Error:", err);
+    res.status(500).json({ error: "LIS proxy failed" });
   }
 });
 

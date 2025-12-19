@@ -22,25 +22,6 @@ const BAND_LABELS: Record<string, string> = {
 const TOKENS = ["BTC", "ETH", "SOL", "LINK", "AVAX"];
 const VENUES = ["binance", "coinbase", "okx", "kraken"] as const;
 
-const VENUE_CAPABILITIES: Record<string, { depth: boolean; funding: boolean }> = {
-  binance: {
-    depth: false,
-    funding: true
-  },
-  coinbase: {
-    depth: true,
-    funding: false
-  },
-  okx: {
-    depth: false,
-    funding: true
-  },
-  kraken: {
-    depth: false,
-    funding: false
-  }
-};
-
 type Venue = (typeof VENUES)[number];
 
 type LISBand = {
@@ -79,7 +60,7 @@ function calcImbalance(bid: number, ask: number): number {
 
 export default function LiquidityTruthConsole() {
   const [token, setToken] = useState("BTC");
-  const [venue, setVenue] = useState<Venue>("coinbase");
+  const [venue, setVenue] = useState<Venue>("binance");
   const [data, setData] = useState<LISSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showRaw, setShowRaw] = useState(false);
@@ -88,12 +69,6 @@ export default function LiquidityTruthConsole() {
   useEffect(() => {
     let alive = true;
     setError(null);
-    setData(null);
-
-    if (!VENUE_CAPABILITIES[venue.toLowerCase()]?.depth) {
-      setError(`Depth not available on ${venue.toUpperCase()}`);
-      return;
-    }
 
     const fetchDepth = async () => {
       const res = await fetch(
@@ -101,8 +76,7 @@ export default function LiquidityTruthConsole() {
       );
 
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || `Depth fetch failed`);
+        throw new Error(`Depth not available for ${token} on ${venue}`);
       }
 
       return res.json();
@@ -175,22 +149,13 @@ export default function LiquidityTruthConsole() {
               <div className="space-y-1">
                 <label className="text-xs text-muted-foreground uppercase tracking-wide">Venue</label>
                 <Select value={venue} onValueChange={(v) => setVenue(v as Venue)}>
-                  <SelectTrigger className="w-[180px] h-9 text-sm" data-testid="select-venue">
+                  <SelectTrigger className="w-[140px] h-9 text-sm" data-testid="select-venue">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {VENUES.map((v) => {
-                      const caps = VENUE_CAPABILITIES[v];
-                      const hasDepth = caps?.depth ?? false;
-                      return (
-                        <SelectItem key={v} value={v} disabled={!hasDepth}>
-                          <span className="flex items-center gap-2">
-                            {v.toUpperCase()}
-                            {!hasDepth && <span className="text-xs text-muted-foreground">(no depth)</span>}
-                          </span>
-                        </SelectItem>
-                      );
-                    })}
+                    {VENUES.map((v) => (
+                      <SelectItem key={v} value={v}>{v.toUpperCase()}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -251,13 +216,10 @@ export default function LiquidityTruthConsole() {
 
             {/* Depth Table */}
             <Card className="col-span-12 lg:col-span-8 bg-card border-border">
-              <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2">
+              <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
                   Orderbook Depth Bands
                 </CardTitle>
-                <h3 className="text-lg font-semibold font-mono text-foreground">
-                  {data.venue.toUpperCase()} {data.symbol}
-                </h3>
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
@@ -299,15 +261,6 @@ export default function LiquidityTruthConsole() {
                         );
                       })}
                     </tbody>
-                    <tfoot>
-                      <tr>
-                        <td colSpan={5} className="pt-3 px-2">
-                          <small className="text-xs text-muted-foreground">
-                            Source: LIS · Venue: {data.venue.toUpperCase()}
-                          </small>
-                        </td>
-                      </tr>
-                    </tfoot>
                   </table>
                 </div>
               </CardContent>
