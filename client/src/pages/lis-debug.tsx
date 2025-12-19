@@ -58,6 +58,34 @@ function calcImbalance(bid: number, ask: number): number {
   return ((bid - ask) / total) * 100;
 }
 
+function getExecutionQuality(bands: Record<string, LISBand> | undefined): { label: string; color: string; borderColor: string } {
+  if (!bands) return { label: "N/A", color: "text-muted-foreground", borderColor: "border-muted-foreground/40" };
+  
+  let totalImbalance = 0;
+  let count = 0;
+  
+  Object.entries(bands).forEach(([key, band]) => {
+    const label = BAND_LABELS[key] ?? key;
+    if (label === "25 bps" || label === "50 bps") {
+      const bid = band.bid_notional ?? 0;
+      const ask = band.ask_notional ?? 0;
+      const imb = Math.abs(calcImbalance(bid, ask));
+      totalImbalance += imb;
+      count++;
+    }
+  });
+  
+  const avgImbalance = count > 0 ? totalImbalance / count : 0;
+  
+  if (avgImbalance < 10) {
+    return { label: "STRONG", color: "text-emerald-400", borderColor: "border-emerald-400/40" };
+  } else if (avgImbalance <= 25) {
+    return { label: "FAIR", color: "text-yellow-400", borderColor: "border-yellow-400/40" };
+  } else {
+    return { label: "FRAGILE", color: "text-red-400", borderColor: "border-red-400/40" };
+  }
+}
+
 export default function LiquidityTruthConsole() {
   const [token, setToken] = useState("BTC");
   const [venue, setVenue] = useState<Venue>("binance");
@@ -222,10 +250,24 @@ export default function LiquidityTruthConsole() {
             {/* Executable Depth - Primary Insight */}
             <Card className="col-span-12 lg:col-span-8 bg-card border border-yellow-500/40 shadow-[0_0_0_1px_rgba(234,179,8,0.25)]">
               <CardHeader className="pb-2">
-                <div className="flex items-center justify-between gap-2">
-                  <CardTitle className="text-sm font-semibold text-foreground uppercase tracking-wide">
-                    Executable Depth
-                  </CardTitle>
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-3">
+                    <CardTitle className="text-sm font-semibold text-foreground uppercase tracking-wide">
+                      Executable Depth
+                    </CardTitle>
+                    {(() => {
+                      const quality = getExecutionQuality(data.bands);
+                      return (
+                        <span className={cn(
+                          "inline-flex items-center text-xs font-medium border rounded-full px-2 py-0.5 bg-transparent",
+                          quality.color,
+                          quality.borderColor
+                        )}>
+                          {quality.label}
+                        </span>
+                      );
+                    })()}
+                  </div>
                   <span className="text-xs text-muted-foreground">Executable size before price impact becomes material</span>
                 </div>
               </CardHeader>
@@ -265,7 +307,16 @@ export default function LiquidityTruthConsole() {
                               isStructuralBand ? "opacity-60" : ""
                             )}>
                               {label}
-                              {isKeyBand && <span className="ml-2 text-xs text-primary/70">KEY</span>}
+                              {isKeyBand && (
+                                <span className="relative inline-block ml-2 group">
+                                  <span className="text-xs text-primary/70 cursor-help">KEY</span>
+                                  <span className="absolute left-0 bottom-full mb-2 w-64 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+                                    <span className="block bg-neutral-900 text-neutral-200 text-xs px-3 py-1 rounded-md shadow-lg whitespace-normal">
+                                      25–50 bps captures the depth most large orders can access before price impact becomes dominant.
+                                    </span>
+                                  </span>
+                                </span>
+                              )}
                             </td>
                             <td className={cn(
                               "py-3 px-2 text-right font-mono text-emerald-400",
