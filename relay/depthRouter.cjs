@@ -11,8 +11,8 @@
  */
 
 // Ingress adapters
-const { getDepth: getBinanceDepth } = require("../ingress/binanceDepth");
-const { getDepth: getCoinbaseDepth } = require("../ingress/coinbaseDepth");
+const { getDepth: getBinanceDepth } = require("./ingress/binanceDepth.cjs");
+const { getDepth: getCoinbaseDepth } = require("./ingress/coinbaseDepth.cjs");
 
 // Capability registry (used by UI + guards)
 const DEPTH_CAPABLE_VENUES = {
@@ -62,3 +62,12 @@ module.exports = {
   getDepth,
   getDepthCapableVenues
 };
+
+if (require.main === module) {
+  const venue = process.argv[2] || 'binance';
+  const symbol = process.argv[3] || 'BTC';
+  console.log(`Fetching ${venue} depth for ${symbol}...`);
+  getDepth(venue, symbol)
+    .then(data => console.log(JSON.stringify(data, null, 2)))
+    .catch(err => console.error('Error:', err.message));
+}
