@@ -284,13 +284,13 @@ export default function LiquidityTruthConsole() {
 
         {/* Main Data */}
         {data && (
-          <div className="grid grid-cols-12 gap-4">
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
             {/* PoLi Score Gauge */}
             {poliData && (
-              <Card className="col-span-12 lg:col-span-4 p-4 border-card-border" data-testid="card-lis-poli-score">
-                <div className="flex items-center justify-between mb-3">
+              <Card className="p-4 border-card-border" data-testid="card-lis-poli-score">
+                <div className="flex items-center justify-between mb-2">
                   <div className="relative inline-block group">
-                    <h3 className="text-sm font-semibold tracking-wide cursor-help">POLI SCORE</h3>
+                    <h3 className="text-xs font-semibold tracking-wide uppercase cursor-help">POLI SCORE</h3>
                     <span className="absolute left-0 bottom-full mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none z-50">
                       <span className="block bg-neutral-900 text-neutral-200 text-xs leading-snug px-3 py-2 rounded-md shadow-lg max-w-xs whitespace-normal">
                         <span className="font-bold block mb-1">Proof of Liquidity (PoLi)</span>
@@ -310,7 +310,7 @@ export default function LiquidityTruthConsole() {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-center mb-4">
+                <div className="flex items-center justify-center mb-2">
                   <div className="relative w-36 h-36">
                     <svg className="w-full h-full transform -rotate-90">
                       <circle
@@ -346,9 +346,9 @@ export default function LiquidityTruthConsole() {
                   </div>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-1 mt-2">
                   <div className={cn(
-                    "inline-flex items-center gap-2 px-2 py-1 rounded-md border text-xs",
+                    "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-xs",
                     poliData.riskLevel === 'low' ? 'bg-chart-3/10 border-chart-3/20' :
                     poliData.riskLevel === 'medium' ? 'bg-primary/10 border-primary/20' :
                     'bg-destructive/10 border-destructive/20'
@@ -360,7 +360,7 @@ export default function LiquidityTruthConsole() {
                       'text-destructive'
                     )} />
                     <span className={cn(
-                      "font-semibold uppercase",
+                      "font-semibold uppercase text-xs",
                       poliData.riskLevel === 'low' ? 'text-chart-3' :
                       poliData.riskLevel === 'medium' ? 'text-primary' :
                       'text-destructive'
@@ -369,10 +369,10 @@ export default function LiquidityTruthConsole() {
                     </span>
                   </div>
 
-                  <div className="pt-2 border-t border-border space-y-1 text-xs">
+                  <div className="pt-1 border-t border-border space-y-0.5 text-xs">
                     <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">HISTORICAL AVG</span>
-                      <span className="font-mono font-semibold">{poliData.historicalAverage}</span>
+                      <span className="text-muted-foreground uppercase tracking-wide">Hist Avg</span>
+                      <span className="font-mono font-medium">{poliData.historicalAverage}</span>
                     </div>
                   </div>
                 </div>
@@ -380,40 +380,37 @@ export default function LiquidityTruthConsole() {
             )}
 
             {/* Market Context (de-emphasized) */}
-            <Card className="col-span-12 lg:col-span-4 bg-card border-border">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  Market Context
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
+            <Card className="p-4 bg-card border-border">
+              <h3 className="text-xs font-medium text-neutral-400 uppercase tracking-wide mb-2">
+                Market Context
+              </h3>
+              <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Venue</span>
+                  <span className="text-xs text-neutral-400 uppercase tracking-wide">Venue</span>
                   <Badge variant="outline" className="font-mono text-xs">{data.venue.toUpperCase()}</Badge>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Symbol</span>
-                  <span className="font-mono text-sm text-foreground">{data.symbol}</span>
+                  <span className="text-xs text-neutral-400 uppercase tracking-wide">Symbol</span>
+                  <span className="font-mono text-sm font-medium text-foreground">{data.symbol}</span>
                 </div>
-                <div className="flex items-center justify-between border-t border-border/50 pt-3 mt-2">
-                  <span className="text-xs text-muted-foreground">Reference Price</span>
+                <div className="flex items-center justify-between border-t border-border/50 pt-2 mt-1">
+                  <span className="text-xs text-neutral-400 uppercase tracking-wide">Ref Price</span>
                   <span className="text-sm font-medium text-muted-foreground">${data.mid_price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Spread</span>
-                  <span className="text-xs text-muted-foreground">{(data.spread?.bps ?? 0).toFixed(4)} bps</span>
+                  <span className="text-xs text-neutral-400 uppercase tracking-wide">Spread</span>
+                  <span className="text-xs font-medium text-muted-foreground">{(data.spread?.bps ?? 0).toFixed(4)} bps</span>
                 </div>
-              </CardContent>
+              </div>
             </Card>
 
             {/* Executable Depth - Primary Insight */}
-            <Card className="col-span-12 lg:col-span-8 bg-card border border-yellow-500/40 shadow-[0_0_0_1px_rgba(234,179,8,0.25)]">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <div className="flex items-center gap-3">
-                    <CardTitle className="text-sm font-semibold text-foreground uppercase tracking-wide">
-                      Executable Depth
-                    </CardTitle>
+            <Card className="p-4 bg-card border border-yellow-500/40 shadow-[0_0_0_1px_rgba(234,179,8,0.25)]">
+              <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xs font-semibold text-foreground uppercase tracking-wide">
+                    Executable Depth
+                  </h3>
                     {(() => {
                       const quality = getExecutionQuality(data.bands);
                       return (
@@ -442,12 +439,10 @@ export default function LiquidityTruthConsole() {
                         </span>
                       );
                     })()}
-                  </div>
-                  <span className="text-xs text-muted-foreground">Executable size before price impact becomes material</span>
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
+                <span className="text-xs text-neutral-400">Executable size before price impact</span>
+              </div>
+              <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-border">
@@ -477,8 +472,8 @@ export default function LiquidityTruthConsole() {
                             )}
                           >
                             <td className={cn(
-                              "py-3 px-2 font-mono font-medium",
-                              isKeyBand ? "text-primary text-base" : "",
+                              "py-2 px-2 font-mono text-xs uppercase tracking-wide",
+                              isKeyBand ? "text-primary text-sm font-semibold" : "font-medium",
                               isStructuralBand ? "opacity-60" : ""
                             )}>
                               {label}
@@ -494,21 +489,21 @@ export default function LiquidityTruthConsole() {
                               )}
                             </td>
                             <td className={cn(
-                              "py-3 px-2 text-right font-mono text-emerald-400",
-                              isKeyBand ? "text-base font-semibold" : ""
+                              "py-2 px-2 text-right font-mono text-sm text-emerald-400",
+                              isKeyBand ? "font-semibold" : ""
                             )}>{formatUSD(bid)}</td>
                             <td className={cn(
-                              "py-3 px-2 text-right font-mono text-red-400",
-                              isKeyBand ? "text-base font-semibold" : ""
+                              "py-2 px-2 text-right font-mono text-sm text-red-400",
+                              isKeyBand ? "font-semibold" : ""
                             )}>{formatUSD(ask)}</td>
                             <td className={cn(
-                              "py-3 px-2 text-right font-mono font-bold",
-                              isKeyBand ? "text-base text-foreground" : "font-semibold"
+                              "py-2 px-2 text-right font-mono text-sm font-bold",
+                              isKeyBand ? "text-foreground" : "font-semibold"
                             )}>{formatUSD(total)}</td>
-                            <td className="py-3 px-2 text-right">
+                            <td className="py-2 px-2 text-right text-sm">
                               <span
                                 className={cn(
-                                  "font-mono font-medium",
+                                  "font-mono font-medium text-sm",
                                   imbalance > 0 ? "text-emerald-400" : imbalance < 0 ? "text-red-400" : "text-muted-foreground"
                                 )}
                               >
@@ -520,8 +515,7 @@ export default function LiquidityTruthConsole() {
                       })}
                     </tbody>
                   </table>
-                </div>
-              </CardContent>
+              </div>
             </Card>
 
             {/* Raw JSON */}
