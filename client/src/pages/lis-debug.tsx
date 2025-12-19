@@ -220,7 +220,7 @@ export default function LiquidityTruthConsole() {
             </Card>
 
             {/* Executable Depth - Primary Insight */}
-            <Card className="col-span-12 lg:col-span-8 bg-card border-border border-l-2 border-l-primary">
+            <Card className="col-span-12 lg:col-span-8 bg-card border border-yellow-500/40 shadow-[0_0_0_1px_rgba(234,179,8,0.25)]">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between gap-2">
                   <CardTitle className="text-sm font-semibold text-foreground uppercase tracking-wide">
