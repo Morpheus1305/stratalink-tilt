@@ -255,7 +255,7 @@ export default function LiquidityTruthConsole() {
                   Orderbook Depth Bands
                 </CardTitle>
                 <h3 className="text-lg font-semibold font-mono text-foreground">
-                  {venue.toUpperCase()} {token}
+                  {data.venue.toUpperCase()} {data.symbol}
                 </h3>
               </CardHeader>
               <CardContent>
@@ -302,7 +302,7 @@ export default function LiquidityTruthConsole() {
                       <tr>
                         <td colSpan={5} className="pt-3 px-2">
                           <small className="text-xs text-muted-foreground">
-                            Source: LIS · Venue: {venue.toUpperCase()}
+                            Source: LIS · Venue: {data.venue.toUpperCase()}
                           </small>
                         </td>
                       </tr>
