@@ -226,7 +226,7 @@ export default function LiquidityTruthConsole() {
                   <CardTitle className="text-sm font-semibold text-foreground uppercase tracking-wide">
                     Executable Depth
                   </CardTitle>
-                  <span className="text-xs text-muted-foreground">How much can you trade without moving the market?</span>
+                  <span className="text-xs text-muted-foreground">Executable size before price impact becomes material</span>
                 </div>
               </CardHeader>
               <CardContent>
@@ -249,6 +249,7 @@ export default function LiquidityTruthConsole() {
                         const total = bid + ask;
                         const imbalance = calcImbalance(bid, ask);
                         const isKeyBand = label === "25 bps" || label === "50 bps";
+                        const isStructuralBand = label === "100 bps" || label === "200 bps";
 
                         return (
                           <tr 
@@ -260,7 +261,8 @@ export default function LiquidityTruthConsole() {
                           >
                             <td className={cn(
                               "py-3 px-2 font-mono font-medium",
-                              isKeyBand ? "text-primary text-base" : ""
+                              isKeyBand ? "text-primary text-base" : "",
+                              isStructuralBand ? "opacity-60" : ""
                             )}>
                               {label}
                               {isKeyBand && <span className="ml-2 text-xs text-primary/70">KEY</span>}
