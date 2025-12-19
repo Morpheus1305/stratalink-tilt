@@ -214,7 +214,7 @@ export default function LiquidityTruthConsole() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">Spread</span>
-                  <span className="font-mono text-xs text-muted-foreground">{(data.spread?.bps ?? 0).toFixed(4)} bps</span>
+                  <span className="text-xs text-muted-foreground">{(data.spread?.bps ?? 0).toFixed(4)} bps</span>
                 </div>
               </CardContent>
             </Card>
