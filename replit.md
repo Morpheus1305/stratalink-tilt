@@ -1,5 +1,16 @@
 # StrataLink Labs - Institutional Liquidity Terminal
 
+## Version Milestone: LIS + TILT v1 (Frozen)
+**Commit**: `51d93c20` | **Date**: December 19, 2025
+
+This milestone marks the completion of LIS (Liquidity Ingestion Service) integration with the TILT platform:
+- LIS backend proxy with secure relay key authentication
+- Liquidity Truth Console (`/lis`) with token/venue selectors
+- 5-second auto-refresh with live timestamp indicator
+- Full TILT platform styling (Cards, Tailwind, Bloomberg aesthetic)
+- Multi-venue support: Binance, Coinbase, OKX, Kraken
+- Depth bands: 10bps, 25bps, 50bps, 100bps, 200bps from external relay
+
 ## Overview
 StrataLink Labs' Institutional Liquidity Terminal is a Web3 liquidity risk intelligence dashboard, inspired by the Bloomberg Terminal. Its core purpose is to deliver real-time digital asset analytics to regulators, exchanges, protocols, and institutional risk managers. The project aims to provide a production-ready MVP with an institutional-grade UI, leveraging both live and mock data for comprehensive analysis. Key capabilities include real-time market metrics, historical trend analysis, portfolio risk assessment, real-time alerts, and a detailed token scorecard. The project also integrates a Liquidity Ingestion Service (LIS) and a Terminal Information & Liquidity Terminal (TILT) for multi-venue liquidity data.
 
