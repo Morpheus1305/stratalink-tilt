@@ -1,0 +1,81 @@
+## Objective
+Update the Liquidity Truth Console page so it clearly answers the question:
+
+**“Why price tells you almost nothing about how tradable an asset really is.”**
+
+This is a **UI/UX positioning change only**.  
+Do NOT change any data fetching, routing, or LIS logic.
+
+---
+
+## 1. Add a positioning line at the top of the Liquidity Truth Console
+
+At the top of the main Liquidity Truth Console page (above the main metrics/cards), add the following one-sentence positioning line:
+
+> **“Price tells you where the market traded — liquidity quality tells you whether you *could* trade.”**
+
+### Styling guidance
+- Render this as a short headline or callout
+- Slightly muted but prominent (e.g. medium font weight, subtle emphasis)
+- It should clearly frame how the user interprets the data below
+
+---
+
+## 2. De-emphasize price as a primary signal
+
+Wherever the current mid price / price display appears in the Liquidity Truth Console:
+
+- Reduce its visual dominance:
+  - Smaller font size
+  - Muted or secondary color
+- Treat price as **context**, not the main insight
+
+Example intent (do not hardcode text):
+- Price should read like a reference value, not the headline metric
+
+---
+
+## 3. Elevate liquidity depth bands as the primary insight
+
+Without changing any data or calculations:
+
+- Visually emphasize depth bands, especially:
+  - **25 bps**
+  - **50 bps**
+- These should feel like the *answer* to “how tradable is this asset?”
+
+Guidance:
+- Depth notional values should be easier to scan than price
+- Consider grouping them under a label such as:
+  - “Liquidity Quality”
+  - or “Executable Depth”
+
+---
+
+## 4. Do NOT change any of the following
+
+- Do NOT modify API calls
+- Do NOT modify LIS, adapters, or routing
+- Do NOT add new metrics
+- Do NOT remove existing metrics
+- Do NOT change venue or symbol logic
+
+This is a **pure presentation and framing update**.
+
+---
+
+## Success criteria
+
+After the change:
+- A user should immediately understand that **tradability ≠ price**
+- The page should naturally answer:
+  > “How much can I trade without moving the market?”
+- Price is still visible, but no longer the focal point
+- Liquidity depth visually leads the interpretation
+
+---
+
+## Context
+
+This console is meant to communicate **liquidity truth**, not price speculation.  
+The goal is to make liquidity quality the primary lens through which all assets are viewed.

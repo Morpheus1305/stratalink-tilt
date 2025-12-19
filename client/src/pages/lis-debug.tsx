@@ -128,6 +128,13 @@ export default function LiquidityTruthConsole() {
           )}
         </div>
 
+        {/* Positioning Statement */}
+        <div className="border-l-2 border-primary/50 pl-4 py-2">
+          <p className="text-sm font-medium text-muted-foreground italic">
+            "Price tells you where the market traded — liquidity quality tells you whether you <span className="text-foreground">could</span> trade."
+          </p>
+        </div>
+
         {/* Controls */}
         <Card className="bg-card border-border">
           <CardContent className="p-4">
@@ -187,39 +194,42 @@ export default function LiquidityTruthConsole() {
         {/* Main Data */}
         {data && (
           <div className="grid grid-cols-12 gap-4">
-            {/* Market Summary */}
+            {/* Market Context (de-emphasized) */}
             <Card className="col-span-12 lg:col-span-4 bg-card border-border">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-                  Market Summary
+                <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Market Context
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Venue</span>
-                  <Badge variant="outline" className="font-mono">{data.venue.toUpperCase()}</Badge>
+                  <span className="text-xs text-muted-foreground">Venue</span>
+                  <Badge variant="outline" className="font-mono text-xs">{data.venue.toUpperCase()}</Badge>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Symbol</span>
-                  <span className="font-mono font-semibold text-primary">{data.symbol}</span>
+                  <span className="text-xs text-muted-foreground">Symbol</span>
+                  <span className="font-mono text-sm text-foreground">{data.symbol}</span>
+                </div>
+                <div className="flex items-center justify-between border-t border-border/50 pt-3 mt-2">
+                  <span className="text-xs text-muted-foreground">Reference Price</span>
+                  <span className="font-mono text-sm text-muted-foreground">${data.mid_price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Mid Price</span>
-                  <span className="font-mono text-xl font-bold">${data.mid_price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Spread</span>
-                  <span className="font-mono text-accent">{(data.spread?.bps ?? 0).toFixed(4)} bps</span>
+                  <span className="text-xs text-muted-foreground">Spread</span>
+                  <span className="font-mono text-xs text-muted-foreground">{(data.spread?.bps ?? 0).toFixed(4)} bps</span>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Depth Table */}
-            <Card className="col-span-12 lg:col-span-8 bg-card border-border">
+            {/* Executable Depth - Primary Insight */}
+            <Card className="col-span-12 lg:col-span-8 bg-card border-border border-l-2 border-l-primary">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-                  Orderbook Depth Bands
-                </CardTitle>
+                <div className="flex items-center justify-between gap-2">
+                  <CardTitle className="text-sm font-semibold text-foreground uppercase tracking-wide">
+                    Executable Depth
+                  </CardTitle>
+                  <span className="text-xs text-muted-foreground">How much can you trade without moving the market?</span>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
@@ -229,7 +239,7 @@ export default function LiquidityTruthConsole() {
                         <th className="text-left py-2 px-2 text-xs text-muted-foreground uppercase tracking-wide font-medium">Band</th>
                         <th className="text-right py-2 px-2 text-xs text-muted-foreground uppercase tracking-wide font-medium">Bid USD</th>
                         <th className="text-right py-2 px-2 text-xs text-muted-foreground uppercase tracking-wide font-medium">Ask USD</th>
-                        <th className="text-right py-2 px-2 text-xs text-muted-foreground uppercase tracking-wide font-medium">Total USD</th>
+                        <th className="text-right py-2 px-2 text-xs text-muted-foreground uppercase tracking-wide font-medium">Total Depth</th>
                         <th className="text-right py-2 px-2 text-xs text-muted-foreground uppercase tracking-wide font-medium">Imbalance</th>
                       </tr>
                     </thead>
@@ -240,14 +250,36 @@ export default function LiquidityTruthConsole() {
                         const ask = band.ask_notional ?? 0;
                         const total = bid + ask;
                         const imbalance = calcImbalance(bid, ask);
+                        const isKeyBand = label === "25 bps" || label === "50 bps";
 
                         return (
-                          <tr key={key} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
-                            <td className="py-2 px-2 font-mono font-medium">{label}</td>
-                            <td className="py-2 px-2 text-right font-mono text-emerald-400">{formatUSD(bid)}</td>
-                            <td className="py-2 px-2 text-right font-mono text-red-400">{formatUSD(ask)}</td>
-                            <td className="py-2 px-2 text-right font-mono font-semibold">{formatUSD(total)}</td>
-                            <td className="py-2 px-2 text-right">
+                          <tr 
+                            key={key} 
+                            className={cn(
+                              "border-b border-border/50 transition-colors",
+                              isKeyBand ? "bg-primary/5 hover:bg-primary/10" : "hover:bg-muted/30"
+                            )}
+                          >
+                            <td className={cn(
+                              "py-3 px-2 font-mono font-medium",
+                              isKeyBand ? "text-primary text-base" : ""
+                            )}>
+                              {label}
+                              {isKeyBand && <span className="ml-2 text-xs text-primary/70">KEY</span>}
+                            </td>
+                            <td className={cn(
+                              "py-3 px-2 text-right font-mono text-emerald-400",
+                              isKeyBand ? "text-base font-semibold" : ""
+                            )}>{formatUSD(bid)}</td>
+                            <td className={cn(
+                              "py-3 px-2 text-right font-mono text-red-400",
+                              isKeyBand ? "text-base font-semibold" : ""
+                            )}>{formatUSD(ask)}</td>
+                            <td className={cn(
+                              "py-3 px-2 text-right font-mono font-bold",
+                              isKeyBand ? "text-base text-foreground" : "font-semibold"
+                            )}>{formatUSD(total)}</td>
+                            <td className="py-3 px-2 text-right">
                               <span
                                 className={cn(
                                   "font-mono font-medium",
