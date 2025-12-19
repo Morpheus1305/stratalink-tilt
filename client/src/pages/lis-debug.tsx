@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { Database, RefreshCw, Eye, EyeOff } from "lucide-react";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { PlatformTabs } from "@/components/platform-tabs";
-import { fetchLiquiditySnapshot } from "@/services/lis";
 import { cn } from "@/lib/utils";
 
 const BAND_LABELS: Record<string, string> = {
@@ -71,8 +70,20 @@ export default function LiquidityTruthConsole() {
     let alive = true;
     setError(null);
 
+    const fetchDepth = async () => {
+      const res = await fetch(
+        `/api/lis/${venue.toLowerCase()}/depth?symbol=${token}`
+      );
+
+      if (!res.ok) {
+        throw new Error(`Depth not available for ${token} on ${venue}`);
+      }
+
+      return res.json();
+    };
+
     const fetchData = () => {
-      fetchLiquiditySnapshot(token, venue)
+      fetchDepth()
         .then((res) => {
           if (!alive) return;
           setData(res);
