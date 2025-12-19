@@ -89,6 +89,12 @@ export default function LiquidityTruthConsole() {
     let alive = true;
     setError(null);
 
+    if (!VENUE_CAPABILITIES[venue.toLowerCase()]?.depth) {
+      setError(`Depth not available on ${venue.toUpperCase()}`);
+      setData(null);
+      return;
+    }
+
     const fetchDepth = async () => {
       const res = await fetch(
         `/api/lis/${venue.toLowerCase()}/depth?symbol=${token}`
