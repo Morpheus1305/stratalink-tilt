@@ -46,7 +46,7 @@ router.get("/prices", async (req: Request, res: Response) => {
 router.get("/depth", async (req: Request, res: Response) => {
   try {
     const symbol = req.query.symbol as string;
-    const venue = ((req.query.venue as string) || 'binance').toLowerCase();
+    const venue = ((req.query.venue as string) || 'coinbase').toLowerCase();
 
     if (!symbol) {
       const cache = getDepthCache();
@@ -57,15 +57,11 @@ router.get("/depth", async (req: Request, res: Response) => {
       });
     }
 
-    const depthCapableVenues = ['binance', 'coinbase'];
-    
-    if (depthCapableVenues.includes(venue)) {
-      try {
-        const depth = await getRouterDepth(venue, symbol.toUpperCase());
-        return res.json(depth);
-      } catch (routerErr: any) {
-        console.log(`[Analytics/Depth] Router failed for ${venue}/${symbol}: ${routerErr.message}, falling back to cache`);
-      }
+    try {
+      const depth = await getRouterDepth(venue, symbol.toUpperCase());
+      return res.json(depth);
+    } catch (routerErr: any) {
+      console.log(`[Analytics/Depth] Router failed for ${venue}/${symbol}: ${routerErr.message}, falling back to cache`);
     }
 
     const cache = getDepthCache();
