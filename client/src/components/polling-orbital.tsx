@@ -6,12 +6,11 @@ interface PollingOrbitalProps {
 }
 
 export default function PollingOrbital({ pollTick, size = 32 }: PollingOrbitalProps) {
-  const [rotation, setRotation] = useState(0);
   const [isActive, setIsActive] = useState(false);
 
+  // Pulse glow on each successful poll
   useEffect(() => {
     if (pollTick > 0) {
-      setRotation((prev) => prev + 120);
       setIsActive(true);
       const timer = setTimeout(() => setIsActive(false), 700);
       return () => clearTimeout(timer);
@@ -68,13 +67,13 @@ export default function PollingOrbital({ pollTick, size = 32 }: PollingOrbitalPr
         />
       </svg>
 
-      {/* Rotating orbital dots */}
+      {/* Rotating orbital dots - continuous rotation */}
       <svg
         width={size}
         height={size}
         viewBox={`0 0 ${size} ${size}`}
-        className="absolute inset-0 transition-transform duration-700 ease-out"
-        style={{ transform: `rotate(${rotation}deg)` }}
+        className="absolute inset-0 animate-spin"
+        style={{ animationDuration: '8s' }}
       >
         {/* Three orbital dots at 0°, 120°, 240° */}
         {[0, 120, 240].map((angle) => {
