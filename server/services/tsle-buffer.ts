@@ -194,9 +194,228 @@ class TSLEBuffer {
   public getBufferKeys(): string[] {
     return Array.from(this.buffers.keys());
   }
+
+  // Trend Detection Methods
+
+  public getTrend(venue: string, symbol: string, windowSize: number = 12): TSLETrend {
+    const key = this.getKey(venue, symbol);
+    const buffer = this.buffers.get(key) || [];
+
+    if (buffer.length < 3) {
+      return {
+        direction: "insufficient_data",
+        poliChange: 0,
+        poliVelocity: 0,
+        depthChange: 0,
+        depthVelocity: 0,
+        imbalanceShift: 0,
+        momentum: "neutral",
+        confidence: 0,
+      };
+    }
+
+    // Use last N points or all if less than windowSize
+    const window = buffer.slice(-Math.min(windowSize, buffer.length));
+    
+    // De-duplicate timestamps (keep last occurrence)
+    const uniqueWindow: TSLEPoint[] = [];
+    const seenTs = new Set<number>();
+    for (let i = window.length - 1; i >= 0; i--) {
+      if (!seenTs.has(window[i].ts)) {
+        seenTs.add(window[i].ts);
+        uniqueWindow.unshift(window[i]);
+      }
+    }
+
+    if (uniqueWindow.length < 2) {
+      return {
+        direction: "insufficient_data",
+        poliChange: 0,
+        poliVelocity: 0,
+        depthChange: 0,
+        depthVelocity: 0,
+        imbalanceShift: 0,
+        momentum: "neutral",
+        confidence: 0,
+      };
+    }
+
+    const latest = uniqueWindow[uniqueWindow.length - 1];
+    const oldest = uniqueWindow[0];
+
+    // Time span in minutes - guard against zero/very small spans
+    const timeSpanMs = latest.ts - oldest.ts;
+    const timeSpanMin = Math.max(timeSpanMs / 60000, 0.0833); // minimum 5 seconds
+
+    // PoLi changes
+    const poliChange = latest.poli - oldest.poli;
+    const poliVelocity = poliChange / timeSpanMin;
+
+    // Depth changes (use average of depth25+depth50)
+    const latestDepth = (latest.depth25 + latest.depth50) / 2;
+    const oldestDepth = (oldest.depth25 + oldest.depth50) / 2;
+    const depthChange = oldestDepth > 0 ? ((latestDepth - oldestDepth) / oldestDepth) * 100 : 0;
+    const depthVelocity = depthChange / timeSpanMin;
+
+    // Imbalance shift
+    const imbalanceShift = latest.imbalance2550 - oldest.imbalance2550;
+
+    // Determine trend direction
+    let direction: TSLETrend["direction"];
+    if (Math.abs(poliChange) < 2) {
+      direction = "stable";
+    } else if (poliChange > 0) {
+      direction = "rising";
+    } else {
+      direction = "falling";
+    }
+
+    // Momentum: compare recent half to older half (need at least 4 points for meaningful comparison)
+    let momentum: TSLETrend["momentum"] = "neutral";
+    if (uniqueWindow.length >= 4) {
+      const midPoint = Math.floor(uniqueWindow.length / 2);
+      const recentHalf = uniqueWindow.slice(midPoint);
+      const olderHalf = uniqueWindow.slice(0, midPoint);
+      
+      const recentAvgPoli = recentHalf.reduce((s, p) => s + p.poli, 0) / recentHalf.length;
+      const olderAvgPoli = olderHalf.reduce((s, p) => s + p.poli, 0) / olderHalf.length;
+
+      const momentumDelta = recentAvgPoli - olderAvgPoli;
+      if (momentumDelta > 3) momentum = "accelerating";
+      else if (momentumDelta < -3) momentum = "decelerating";
+    }
+
+    // Confidence based on sample size, time span, and consistency
+    const poliStdDev = this.stdDev(uniqueWindow.map(p => p.poli));
+    const consistency = poliStdDev < 5 ? 1 : poliStdDev < 10 ? 0.7 : 0.4;
+    const sampleConfidence = Math.min(1, uniqueWindow.length / 12);
+    // Also factor in time span (more time = more confidence)
+    const timeConfidence = Math.min(1, timeSpanMin / 5); // 5 minutes for full confidence
+    const confidence = Math.round(consistency * sampleConfidence * timeConfidence * 100) / 100;
+
+    return {
+      direction,
+      poliChange: Math.round(poliChange * 10) / 10,
+      poliVelocity: Math.round(poliVelocity * 100) / 100,
+      depthChange: Math.round(depthChange * 10) / 10,
+      depthVelocity: Math.round(depthVelocity * 100) / 100,
+      imbalanceShift: Math.round(imbalanceShift * 1000) / 1000,
+      momentum,
+      confidence,
+    };
+  }
+
+  public getSignals(venue: string, symbol: string): TSLESignal[] {
+    const key = this.getKey(venue, symbol);
+    const buffer = this.buffers.get(key) || [];
+    const signals: TSLESignal[] = [];
+
+    // Need at least 2 points for comparison
+    if (buffer.length < 2) return signals;
+
+    const latest = buffer[buffer.length - 1];
+    const prev = buffer[buffer.length - 2];
+    
+    // Guard against undefined prev (shouldn't happen with length check, but be safe)
+    if (!prev || !latest) return signals;
+
+    const trend = this.getTrend(venue, symbol, 12);
+
+    // Signal 1: Sudden PoLi drop (≥5 points in one tick)
+    const poliDrop = prev.poli - latest.poli;
+    if (poliDrop >= 5) {
+      signals.push({
+        type: "poli_drop",
+        severity: poliDrop >= 10 ? "high" : "medium",
+        message: `PoLi dropped ${poliDrop.toFixed(0)} points`,
+        value: latest.poli,
+        threshold: 5,
+      });
+    }
+
+    // Signal 2: Depth erosion (>10% drop) - guard against zero/NaN
+    const latestDepth = latest.depth25 + latest.depth50;
+    const prevDepth = prev.depth25 + prev.depth50;
+    if (prevDepth > 0 && latestDepth >= 0) {
+      const depthDelta = prevDepth - latestDepth;
+      const dropPct = (depthDelta / prevDepth) * 100;
+      if (dropPct > 10 && !isNaN(dropPct)) {
+        signals.push({
+          type: "depth_erosion",
+          severity: dropPct > 20 ? "high" : "medium",
+          message: `Depth eroded ${dropPct.toFixed(1)}% in last tick`,
+          value: latestDepth,
+          threshold: prevDepth * 0.9,
+        });
+      }
+    }
+
+    // Signal 3: Imbalance swing (>0.2 shift)
+    const imbalanceShift = Math.abs(latest.imbalance2550 - prev.imbalance2550);
+    if (imbalanceShift > 0.2) {
+      const direction = latest.imbalance2550 > prev.imbalance2550 ? "bid-heavy" : "ask-heavy";
+      signals.push({
+        type: "imbalance_swing",
+        severity: "medium",
+        message: `Order flow shifted ${direction}`,
+        value: latest.imbalance2550,
+        threshold: 0.2,
+      });
+    }
+
+    // Signal 4: Trend reversal detection (only if trend calculation is valid)
+    if (trend.confidence > 0.3 && trend.direction === "falling" && trend.momentum === "decelerating") {
+      signals.push({
+        type: "trend_warning",
+        severity: "high",
+        message: "Liquidity deteriorating with negative momentum",
+        value: trend.poliVelocity,
+        threshold: 0,
+      });
+    }
+
+    // Signal 5: Recovery signal (only if trend calculation is valid)
+    if (trend.confidence > 0.3 && trend.direction === "rising" && trend.momentum === "accelerating" && latest.poli > 70) {
+      signals.push({
+        type: "recovery",
+        severity: "low",
+        message: "Liquidity recovering with positive momentum",
+        value: trend.poliVelocity,
+        threshold: 0,
+      });
+    }
+
+    return signals;
+  }
+
+  private stdDev(values: number[]): number {
+    if (values.length === 0) return 0;
+    const mean = values.reduce((a, b) => a + b, 0) / values.length;
+    const squareDiffs = values.map(v => Math.pow(v - mean, 2));
+    return Math.sqrt(squareDiffs.reduce((a, b) => a + b, 0) / values.length);
+  }
+}
+
+interface TSLETrend {
+  direction: "rising" | "falling" | "stable" | "insufficient_data";
+  poliChange: number;      // absolute change over window
+  poliVelocity: number;    // points per minute
+  depthChange: number;     // percentage change
+  depthVelocity: number;   // percent per minute
+  imbalanceShift: number;  // change in imbalance
+  momentum: "accelerating" | "decelerating" | "neutral";
+  confidence: number;      // 0-1 confidence score
+}
+
+interface TSLESignal {
+  type: "poli_drop" | "depth_erosion" | "imbalance_swing" | "trend_warning" | "recovery";
+  severity: "low" | "medium" | "high";
+  message: string;
+  value: number;
+  threshold: number;
 }
 
 // Singleton instance
 export const tsleBuffer = new TSLEBuffer();
 
-export type { TSLEPoint, LISSnapshot };
+export type { TSLEPoint, LISSnapshot, TSLETrend, TSLESignal };

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { tsleBuffer, type LISSnapshot } from "../services/tsle-buffer";
+import { tsleBuffer, type LISSnapshot, type TSLETrend, type TSLESignal } from "../services/tsle-buffer";
 
 const router = Router();
 
@@ -111,6 +111,73 @@ router.get("/tsle/buffers", (req, res) => {
   res.json({
     buffers: bufferStats,
     totalBuffers: keys.length,
+    asOf: new Date().toISOString(),
+  });
+});
+
+// GET /api/lis/tsle/trend?venue=binance&symbol=BTC&window=12
+router.get("/tsle/trend", (req, res) => {
+  const venue = (req.query.venue as string) || "binance";
+  const symbol = (req.query.symbol as string) || "BTC";
+  const window = req.query.window ? parseInt(req.query.window as string, 10) : 12;
+
+  const trend = tsleBuffer.getTrend(venue, symbol, window);
+  const latest = tsleBuffer.getLatest(venue, symbol);
+  const stats = tsleBuffer.getStats(venue, symbol);
+
+  res.json({
+    venue,
+    symbol,
+    window,
+    trend,
+    latest,
+    stats,
+    asOf: new Date().toISOString(),
+  });
+});
+
+// GET /api/lis/tsle/signals?venue=binance&symbol=BTC
+router.get("/tsle/signals", (req, res) => {
+  const venue = (req.query.venue as string) || "binance";
+  const symbol = (req.query.symbol as string) || "BTC";
+
+  const signals = tsleBuffer.getSignals(venue, symbol);
+  const trend = tsleBuffer.getTrend(venue, symbol, 12);
+  const latest = tsleBuffer.getLatest(venue, symbol);
+
+  res.json({
+    venue,
+    symbol,
+    signals,
+    signalCount: signals.length,
+    hasHighSeverity: signals.some(s => s.severity === "high"),
+    trend,
+    latest,
+    asOf: new Date().toISOString(),
+  });
+});
+
+// GET /api/lis/tsle/dashboard?venue=binance&symbol=BTC
+// Combined endpoint for frontend: history + trend + signals
+router.get("/tsle/dashboard", (req, res) => {
+  const venue = (req.query.venue as string) || "binance";
+  const symbol = (req.query.symbol as string) || "BTC";
+  const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 60;
+
+  const history = tsleBuffer.getHistory(venue, symbol, limit);
+  const trend = tsleBuffer.getTrend(venue, symbol, 12);
+  const signals = tsleBuffer.getSignals(venue, symbol);
+  const stats = tsleBuffer.getStats(venue, symbol);
+  const latest = tsleBuffer.getLatest(venue, symbol);
+
+  res.json({
+    venue,
+    symbol,
+    history,
+    trend,
+    signals,
+    stats,
+    latest,
     asOf: new Date().toISOString(),
   });
 });
