@@ -1,5 +1,17 @@
 # StrataLink Labs - Institutional Liquidity Terminal
 
+## Version Milestone: LIS-TILT v1.01
+**Commit**: `0d88e037` | **Date**: December 20, 2025
+
+Updates from v1.0:
+- **12-column grid layout**: Market Context (25%) | PoLi Score (25%) | Executable Depth (50%)
+- **PoLi Sub-Label**: Dynamic one-line explanation based on 25-50 bps depth analysis
+- **Liquidity Fragility Trigger**: Warning when PoLi drops ≥5 points while price/spread remain stable
+- **PoLi Orbital Indicator**: Branded polling indicator with continuous rotation and pulse glow on data refresh
+- **Async polling refactor**: Cleaner async/await pattern for LIS data fetching
+
+---
+
 ## Version Milestone: LIS + TILT v1 (Frozen)
 **Commit**: `51d93c20` | **Date**: December 19, 2025
 
