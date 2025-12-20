@@ -1,0 +1,94 @@
+- Default: **Now**
+- Use subtle styling (not prominent tabs)
+- This is a *context selector*, not a chart tool
+
+---
+
+## 3. TSLE Chart Behavior by Horizon
+
+### Horizon: NOW
+- Use existing TSLE time-series
+- High-frequency points
+- Show regime state (e.g. Stable / Fragile / Strengthening)
+
+### Horizon: SESSION
+- Aggregate PoLi values over session window
+- Downsample to fewer points
+- Smooth transitions
+- Show directional liquidity drift
+
+### Horizon: BASELINE
+- Replace chart with:
+  - Baseline PoLi value
+  - Current PoLi vs baseline delta
+- Optional minimal sparkline (very low emphasis)
+
+Example UI text:
+> “Current liquidity is **+6 points above baseline** — unusually strong.”
+
+---
+
+## 4. TSLE Metrics Row (Below Chart)
+
+Ensure the following update dynamically per horizon:
+
+- **AVG PoLi**
+- **Velocity** (rate of PoLi change)
+- **Depth Δ (%)**
+- **Confidence (%)**
+
+Velocity should naturally approach zero in Baseline mode.
+
+---
+
+## 5. Regime & Fragility Messaging (Critical)
+
+Add regime labeling above or beside the TSLE graph:
+
+Examples:
+- “Stable — Liquidity holding above 25–50 bps”
+- “Fragile — PoLi declining while price stable”
+- “Strengthening — Two-sided depth improving”
+
+### Fragility Trigger Rule (UI-only logic):
+Display a warning state when:
+- PoLi decreases materially
+- AND price remains stable
+- AND depth imbalance worsens
+
+Tooltip copy:
+> “Liquidity is deteriorating beneath a stable price — execution risk rising.”
+
+---
+
+## 6. Styling Constraints (Tailwind / CSS)
+
+- Keep TSLE visually distinct from price charts
+- No axes labeled with price or currency
+- Use muted gridlines and soft gradients
+- Liquidity color scale only (green → amber → red)
+
+Segmented control styling:
+- Selected: subtle glow / border
+- Unselected: muted, low contrast
+- No animations that imply trading or price action
+
+---
+
+## 7. Out of Scope (Explicitly Excluded)
+- No perps
+- No cross-venue aggregation
+- No historical price overlays
+- No alerts or notifications
+- No changes to LIS ingestion or scoring math
+
+---
+
+## Deliverable
+A TSLE module that:
+- Explains liquidity *over time* via **Liquidity Horizons**
+- Reinforces PoLi as the canonical signal
+- Makes fragility visible before price moves
+- Feels institutional, not retail
+
+Proceed with UI + presentation logic only.
