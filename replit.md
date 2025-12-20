@@ -1,5 +1,18 @@
 # StrataLink Labs - Institutional Liquidity Terminal
 
+## Version Milestone: TSLE Phase 2 v1.1 - Liquidity Horizons
+**Commit**: `6b542bcb` | **Date**: December 20, 2025
+
+Updates from v1.01:
+- **Liquidity Horizons**: Replaced traditional timeframes with context-aware horizons (Now/Session/Baseline)
+- **Regime Labeling**: Dynamic regime detection (Stable, Strengthening, Fragile, Critical) with descriptions
+- **Fragility Detection**: Triggers when PoLi drops while price stable and depth eroding
+- **Baseline Comparison**: Shows current PoLi vs rolling average with delta messaging
+- **Session Downsampling**: Smooth curves from aggregated data points for intraday drift
+- **Core Principle**: TSLE measures execution quality, stability, and fragility — not price movement
+
+---
+
 ## Version Milestone: LIS-TILT v1.01
 **Commit**: `0d88e037` | **Date**: December 20, 2025
 
