@@ -7,10 +7,14 @@ interface PollingOrbitalProps {
 
 export default function PollingOrbital({ pollTick, size = 32 }: PollingOrbitalProps) {
   const [rotation, setRotation] = useState(0);
+  const [isActive, setIsActive] = useState(false);
 
   useEffect(() => {
     if (pollTick > 0) {
       setRotation((prev) => prev + 120);
+      setIsActive(true);
+      const timer = setTimeout(() => setIsActive(false), 700);
+      return () => clearTimeout(timer);
     }
   }, [pollTick]);
 
@@ -21,8 +25,12 @@ export default function PollingOrbital({ pollTick, size = 32 }: PollingOrbitalPr
 
   return (
     <div 
-      className="relative" 
-      style={{ width: size, height: size }}
+      className="relative transition-[filter] duration-300" 
+      style={{ 
+        width: size, 
+        height: size,
+        filter: isActive ? 'drop-shadow(0 0 6px rgba(234,179,8,0.6))' : 'none'
+      }}
       title="PoLi polling indicator"
     >
       <svg 
