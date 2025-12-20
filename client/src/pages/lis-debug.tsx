@@ -3,9 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Database, RefreshCw, Eye, EyeOff, ArrowUp, ArrowDown, TrendingUp, AlertTriangle } from "lucide-react";
+import { Database, Eye, EyeOff, ArrowUp, ArrowDown, TrendingUp, AlertTriangle, RefreshCw } from "lucide-react";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { PlatformTabs } from "@/components/platform-tabs";
+import PollingOrbital from "@/components/polling-orbital";
 import { cn } from "@/lib/utils";
 import { getPoLiRating } from "@/lib/poli-rating";
 
@@ -222,6 +223,7 @@ export default function LiquidityTruthConsole() {
     prevSpread: null,
   });
   const [fragilityWarning, setFragilityWarning] = useState<{ isFragile: boolean; message: string }>({ isFragile: false, message: "" });
+  const [pollTick, setPollTick] = useState(0);
   
   useEffect(() => {
     if (data) {
@@ -270,6 +272,7 @@ export default function LiquidityTruthConsole() {
           setData(res);
           setError(null);
           setLastUpdate(new Date());
+          setPollTick((t) => t + 1);
         })
         .catch((err) => {
           if (!alive) return;
@@ -303,7 +306,7 @@ export default function LiquidityTruthConsole() {
           </div>
           {lastUpdate && (
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <RefreshCw className="h-3 w-3 animate-spin" />
+              <PollingOrbital pollTick={pollTick} size={24} />
               <span className="font-mono">Updated {lastUpdate.toLocaleTimeString()}</span>
             </div>
           )}
@@ -646,7 +649,7 @@ export default function LiquidityTruthConsole() {
         {!data && !error && (
           <Card className="bg-card border-border">
             <CardContent className="p-8 flex items-center justify-center">
-              <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+              <PollingOrbital pollTick={pollTick} size={32} />
               <span className="ml-3 text-muted-foreground">Loading LIS data...</span>
             </CardContent>
           </Card>
