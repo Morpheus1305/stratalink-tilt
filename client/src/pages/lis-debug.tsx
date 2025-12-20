@@ -253,35 +253,31 @@ export default function LiquidityTruthConsole() {
     let alive = true;
     setError(null);
 
-    const fetchDepth = async () => {
-      const res = await fetch(
-        `/api/lis/${venue.toLowerCase()}/depth?symbol=${token}`
-      );
+    const poll = async () => {
+      try {
+        const res = await fetch(
+          `/api/lis/${venue.toLowerCase()}/depth?symbol=${token}`
+        );
 
-      if (!res.ok) {
-        throw new Error(`Depth not available for ${token} on ${venue}`);
+        if (!res.ok) {
+          throw new Error(`Depth not available for ${token} on ${venue}`);
+        }
+
+        const data = await res.json();
+        if (!alive) return;
+        
+        setData(data);
+        setError(null);
+        setLastUpdate(new Date());
+        setPollTick((t) => t + 1);
+      } catch (err: any) {
+        if (!alive) return;
+        setError(err?.message ?? "Failed to load LIS data");
       }
-
-      return res.json();
     };
 
-    const fetchData = () => {
-      fetchDepth()
-        .then((res) => {
-          if (!alive) return;
-          setData(res);
-          setError(null);
-          setLastUpdate(new Date());
-          setPollTick((t) => t + 1);
-        })
-        .catch((err) => {
-          if (!alive) return;
-          setError(err?.message ?? "Failed to load LIS data");
-        });
-    };
-
-    fetchData();
-    const interval = setInterval(fetchData, 5000);
+    poll();
+    const interval = setInterval(poll, 5000);
 
     return () => {
       alive = false;
