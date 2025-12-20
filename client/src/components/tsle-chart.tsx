@@ -279,6 +279,11 @@ export default function TSLEChart({ venue, symbol, pollTick }: TSLEChartProps) {
 
   return (
     <Card className="col-span-12 p-4 bg-card border-border" data-testid="card-tsle-chart">
+      {/* TSLE Definition (Static, Canonical) */}
+      <p className="text-xs text-muted-foreground mb-2">
+        TSLE (Time-Series Liquidity Engine) tracks execution quality and liquidity regime over time using PoLi, depth symmetry, and fragility signals — not price.
+      </p>
+
       {/* Header with Horizon Selector */}
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <div className="flex items-center gap-3">

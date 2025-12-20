@@ -2,6 +2,29 @@
 // In-memory ring buffer for rolling liquidity history
 // Venue: Binance only | Market: Spot only | No persistence
 
+// ============================================================================
+// TSLE INVARIANT — DO NOT VIOLATE
+// ============================================================================
+// TSLE is liquidity-native by definition.
+// It tracks execution quality and liquidity regime over time.
+//
+// ALLOWED INPUTS:
+//   - PoLi score (derived from depth/balance/spread)
+//   - Depth bands (10bps, 25bps, 50bps, 100bps, 200bps)
+//   - Bid/ask imbalance ratios
+//   - Regime flags (stable, fragile, strengthening, critical)
+//   - Fragility signals (depth erosion, PoLi drops)
+//
+// FORBIDDEN INPUTS:
+//   - Price (spot, mid, mark, index)
+//   - Returns or price changes
+//   - Volatility metrics
+//   - OHLC / candlestick data
+//   - Any price-derived indicator
+//
+// Price may NEVER be a direct or indirect TSLE input.
+// ============================================================================
+
 interface TSLEPoint {
   ts: number;           // epoch ms
   depth25: number;      // total executable depth @ 25 bps (USD)
