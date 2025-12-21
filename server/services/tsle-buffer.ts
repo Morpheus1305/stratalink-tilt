@@ -51,7 +51,9 @@ interface LISSnapshot {
   bands?: Record<string, LISBand>;
 }
 
-const BUFFER_SIZE = 300;
+// TSLE Memory: Rolling buffer per (venue, symbol)
+// Retention: last N = 10 snapshots (no persistence)
+const BUFFER_SIZE = 10;
 
 class TSLEBuffer {
   private buffers: Map<string, TSLEPoint[]> = new Map();
@@ -441,21 +443,60 @@ interface TSLESignal {
 // ============================================================================
 // TSLE STATE ENGINE — Deterministic Liquidity State Machine
 // ============================================================================
-// Consumes normalized depth snapshots and emits replayable state transitions.
-// State is venue-local (Binance only) and liquidity-native (no price inputs).
+// 
+// TSLE INVARIANT
+// TSLE is liquidity-native by definition.
+// Price may never be a direct or indirect TSLE input.
+//
+// ALLOWED INPUTS (per poll):
+//   - depth25 (total executable depth @ 25 bps)
+//   - depth50 (total executable depth @ 50 bps)
+//   - imbalance2550 (avg imbalance across 25–50 bps)
+//   - poli (existing PoLi score)
+//   - spread (for confirmation only)
+//
+// FORBIDDEN INPUTS:
+//   - price, returns, volatility, OHLC, candles
+//
+// ============================================================================
 
 export enum TSLE_STATE {
-  STABLE = "STABLE",           // Healthy liquidity: PoLi ≥70, low imbalance, steady depth
-  THINNING = "THINNING",       // Early warning: PoLi 50-70 or depth erosion detected
-  FRAGILE = "FRAGILE",         // At-risk: PoLi 30-50 or significant imbalance/erosion
-  DISLOCATED = "DISLOCATED",   // Critical: PoLi <30 or severe liquidity breakdown
+  STABLE = "STABLE",           // depth25/50 stable or improving, imbalance low, poli flat/rising
+  THINNING = "THINNING",       // depth declining ≥3 polls, poli slope negative
+  FRAGILE = "FRAGILE",         // depth materially reduced, imbalance worsening, poli dropping
+  DISLOCATED = "DISLOCATED",   // depth collapse OR fragile + sharp spread expansion
 }
+
+// State severity ordering (lower = healthier)
+const STATE_SEVERITY: Record<TSLE_STATE, number> = {
+  [TSLE_STATE.STABLE]: 0,
+  [TSLE_STATE.THINNING]: 1,
+  [TSLE_STATE.FRAGILE]: 2,
+  [TSLE_STATE.DISLOCATED]: 3,
+};
+
+// No-flicker confirmation requirements
+const CONFIRMATION_FORWARD: Record<string, number> = {
+  "STABLE→THINNING": 3,
+  "THINNING→FRAGILE": 2,
+  "FRAGILE→DISLOCATED": 1,
+};
+
+const CONFIRMATION_REVERSE: Record<string, number> = {
+  "DISLOCATED→FRAGILE": 3,
+  "FRAGILE→THINNING": 3,
+  "THINNING→STABLE": 4,
+  "DISLOCATED→THINNING": 4,
+  "DISLOCATED→STABLE": 5,
+  "FRAGILE→STABLE": 4,
+};
 
 interface TSLEStateTransition {
   from: TSLE_STATE | null;
   to: TSLE_STATE;
   ts: number;
   reason: string;
+  confidence: number;
   inputs: {
     poli: number;
     depth25: number;
@@ -472,6 +513,15 @@ interface TSLEStateSnapshot {
   durationMs: number;
   transitionCount: number;
   lastTransition: TSLEStateTransition | null;
+  pendingState: TSLE_STATE | null;
+  confirmationProgress: number;
+  confirmationRequired: number;
+}
+
+interface TSLEOutput {
+  tsle_state: TSLE_STATE;
+  reason: string;
+  confidence: number;
 }
 
 class TSLEStateEngine {
@@ -479,131 +529,266 @@ class TSLEStateEngine {
   private stateTimestamps: Map<string, number> = new Map();
   private transitions: Map<string, TSLEStateTransition[]> = new Map();
   private transitionCounts: Map<string, number> = new Map();
+  
+  // No-flicker tracking: pending state and confirmation count
+  private pendingStates: Map<string, TSLE_STATE> = new Map();
+  private confirmationCounts: Map<string, number> = new Map();
 
   private getKey(venue: string, symbol: string): string {
     return `${venue.toLowerCase()}:${symbol.toUpperCase()}`;
   }
 
-  public computeState(
-    poli: number,
-    depth25: number,
-    depth50: number,
-    imbalance: number,
-    prevPoint: TSLEPoint | null
-  ): { state: TSLE_STATE; reason: string } {
-    const absImbalance = Math.abs(imbalance);
-    const totalDepth = depth25 + depth50;
-
-    // Compute deltas if we have previous point
-    let poliDelta = 0;
-    let depthDeltaPct = 0;
-    if (prevPoint) {
-      poliDelta = poli - prevPoint.poli;
-      const prevDepth = prevPoint.depth25 + prevPoint.depth50;
-      depthDeltaPct = prevDepth > 0 ? ((totalDepth - prevDepth) / prevDepth) * 100 : 0;
+  private analyzeBuffer(buffer: TSLEPoint[]): {
+    depthTrend: "declining" | "stable" | "improving";
+    consecutiveDeclines: number;
+    poliSlope: number;
+    avgImbalance: number;
+    imbalanceTrend: "worsening" | "stable" | "improving";
+    poliDrop: number;
+  } {
+    if (buffer.length < 2) {
+      return {
+        depthTrend: "stable",
+        consecutiveDeclines: 0,
+        poliSlope: 0,
+        avgImbalance: 0,
+        imbalanceTrend: "stable",
+        poliDrop: 0,
+      };
     }
 
-    // DISLOCATED: Critical liquidity breakdown
-    if (poli < 30) {
-      return { state: TSLE_STATE.DISLOCATED, reason: `PoLi critically low (${poli})` };
-    }
-    if (absImbalance > 0.6 && poli < 50) {
-      return { state: TSLE_STATE.DISLOCATED, reason: `Severe imbalance (${(absImbalance * 100).toFixed(0)}%) with weak PoLi` };
-    }
-    if (depthDeltaPct < -30 && poli < 50) {
-      return { state: TSLE_STATE.DISLOCATED, reason: `Depth collapsed ${Math.abs(depthDeltaPct).toFixed(0)}% with weak PoLi` };
-    }
-
-    // FRAGILE: At-risk liquidity
-    if (poli >= 30 && poli < 50) {
-      return { state: TSLE_STATE.FRAGILE, reason: `PoLi in fragile range (${poli})` };
-    }
-    if (absImbalance > 0.4) {
-      return { state: TSLE_STATE.FRAGILE, reason: `High imbalance (${(absImbalance * 100).toFixed(0)}%)` };
-    }
-    if (depthDeltaPct < -20) {
-      return { state: TSLE_STATE.FRAGILE, reason: `Significant depth erosion (${Math.abs(depthDeltaPct).toFixed(0)}%)` };
-    }
-    if (poliDelta < -10) {
-      return { state: TSLE_STATE.FRAGILE, reason: `Rapid PoLi decline (${poliDelta.toFixed(0)} pts)` };
+    // Count consecutive depth declines from most recent
+    let consecutiveDeclines = 0;
+    for (let i = buffer.length - 1; i > 0; i--) {
+      const curr = buffer[i].depth25 + buffer[i].depth50;
+      const prev = buffer[i - 1].depth25 + buffer[i - 1].depth50;
+      if (curr < prev * 0.98) { // 2% threshold
+        consecutiveDeclines++;
+      } else {
+        break;
+      }
     }
 
-    // THINNING: Early warning
-    if (poli >= 50 && poli < 70) {
-      return { state: TSLE_STATE.THINNING, reason: `PoLi in thinning range (${poli})` };
-    }
-    if (absImbalance > 0.25) {
-      return { state: TSLE_STATE.THINNING, reason: `Moderate imbalance (${(absImbalance * 100).toFixed(0)}%)` };
-    }
-    if (depthDeltaPct < -10) {
-      return { state: TSLE_STATE.THINNING, reason: `Mild depth erosion (${Math.abs(depthDeltaPct).toFixed(0)}%)` };
-    }
-    if (poliDelta < -5) {
-      return { state: TSLE_STATE.THINNING, reason: `PoLi softening (${poliDelta.toFixed(0)} pts)` };
+    // Depth trend over full buffer
+    const firstDepth = buffer[0].depth25 + buffer[0].depth50;
+    const lastDepth = buffer[buffer.length - 1].depth25 + buffer[buffer.length - 1].depth50;
+    const depthChange = firstDepth > 0 ? (lastDepth - firstDepth) / firstDepth : 0;
+    const depthTrend = depthChange < -0.05 ? "declining" : depthChange > 0.05 ? "improving" : "stable";
+
+    // PoLi slope (points per poll)
+    const poliFirst = buffer[0].poli;
+    const poliLast = buffer[buffer.length - 1].poli;
+    const poliSlope = (poliLast - poliFirst) / (buffer.length - 1);
+
+    // PoLi drop over last Y polls (use min of 5 or buffer length)
+    const lookback = Math.min(5, buffer.length);
+    const poliDrop = buffer[buffer.length - lookback].poli - poliLast;
+
+    // Imbalance analysis
+    const imbalances = buffer.map(p => Math.abs(p.imbalance2550));
+    const avgImbalance = imbalances.reduce((a, b) => a + b, 0) / imbalances.length;
+    const firstHalfImb = imbalances.slice(0, Math.floor(imbalances.length / 2));
+    const secondHalfImb = imbalances.slice(Math.floor(imbalances.length / 2));
+    const firstAvg = firstHalfImb.reduce((a, b) => a + b, 0) / (firstHalfImb.length || 1);
+    const secondAvg = secondHalfImb.reduce((a, b) => a + b, 0) / (secondHalfImb.length || 1);
+    const imbalanceTrend = secondAvg > firstAvg * 1.1 ? "worsening" : secondAvg < firstAvg * 0.9 ? "improving" : "stable";
+
+    return {
+      depthTrend,
+      consecutiveDeclines,
+      poliSlope,
+      avgImbalance,
+      imbalanceTrend,
+      poliDrop,
+    };
+  }
+
+  public computeRawState(
+    buffer: TSLEPoint[],
+    spreadBps?: number
+  ): { state: TSLE_STATE; reason: string; confidence: number } {
+    if (buffer.length === 0) {
+      return { state: TSLE_STATE.STABLE, reason: "No data yet", confidence: 0 };
     }
 
-    // STABLE: Healthy liquidity
-    return { state: TSLE_STATE.STABLE, reason: `Healthy liquidity (PoLi ${poli}, imbalance ${(absImbalance * 100).toFixed(0)}%)` };
+    const latest = buffer[buffer.length - 1];
+    const analysis = this.analyzeBuffer(buffer);
+    const { depthTrend, consecutiveDeclines, poliSlope, avgImbalance, imbalanceTrend, poliDrop } = analysis;
+
+    // DISLOCATED: depth collapse OR FRAGILE + spread expansion
+    if (depthTrend === "declining" && consecutiveDeclines >= 5 && latest.poli < 50) {
+      return { 
+        state: TSLE_STATE.DISLOCATED, 
+        reason: `Depth collapse (${consecutiveDeclines} consecutive declines, PoLi ${latest.poli})`,
+        confidence: 90 + Math.min(10, consecutiveDeclines),
+      };
+    }
+    if (latest.poli < 30) {
+      return { 
+        state: TSLE_STATE.DISLOCATED, 
+        reason: `PoLi critically low (${latest.poli})`,
+        confidence: 95,
+      };
+    }
+    if (spreadBps && spreadBps > 20 && latest.poli < 50 && imbalanceTrend === "worsening") {
+      return { 
+        state: TSLE_STATE.DISLOCATED, 
+        reason: `Spread blowout (${spreadBps.toFixed(1)}bps) with fragile liquidity`,
+        confidence: 85,
+      };
+    }
+
+    // FRAGILE: depth materially reduced + imbalance worsening + poli dropping
+    const fragileConditions = [
+      depthTrend === "declining",
+      imbalanceTrend === "worsening",
+      poliDrop >= 5,
+    ].filter(Boolean).length;
+
+    if (fragileConditions >= 2 && latest.poli < 60) {
+      return { 
+        state: TSLE_STATE.FRAGILE, 
+        reason: `Fragile: ${depthTrend} depth, ${imbalanceTrend} imbalance, PoLi dropped ${poliDrop.toFixed(0)}pts`,
+        confidence: 60 + fragileConditions * 10,
+      };
+    }
+    if (avgImbalance > 0.35 && latest.poli < 65) {
+      return { 
+        state: TSLE_STATE.FRAGILE, 
+        reason: `High avg imbalance (${(avgImbalance * 100).toFixed(0)}%) with weak PoLi`,
+        confidence: 70,
+      };
+    }
+
+    // THINNING: depth declining ≥3 consecutive polls, poli slope negative
+    if (consecutiveDeclines >= 3 && poliSlope < 0) {
+      return { 
+        state: TSLE_STATE.THINNING, 
+        reason: `Depth declining (${consecutiveDeclines} polls), PoLi slope ${poliSlope.toFixed(1)}/poll`,
+        confidence: 50 + Math.min(30, consecutiveDeclines * 5),
+      };
+    }
+    if (latest.poli >= 50 && latest.poli < 70 && poliSlope <= 0) {
+      return { 
+        state: TSLE_STATE.THINNING, 
+        reason: `PoLi in thinning range (${latest.poli})`,
+        confidence: 60,
+      };
+    }
+    if (avgImbalance > 0.20) {
+      return { 
+        state: TSLE_STATE.THINNING, 
+        reason: `Elevated imbalance (${(avgImbalance * 100).toFixed(0)}%)`,
+        confidence: 55,
+      };
+    }
+
+    // STABLE: depth stable/improving, imbalance low, poli flat/rising
+    const stableConfidence = Math.min(100, 
+      70 + 
+      (depthTrend === "improving" ? 10 : 0) + 
+      (poliSlope > 0 ? 10 : 0) + 
+      (avgImbalance < 0.10 ? 10 : 0)
+    );
+    return { 
+      state: TSLE_STATE.STABLE, 
+      reason: `Healthy: ${depthTrend} depth, PoLi ${latest.poli}, imbalance ${(avgImbalance * 100).toFixed(0)}%`,
+      confidence: stableConfidence,
+    };
   }
 
   public transition(
     venue: string,
     symbol: string,
-    point: TSLEPoint,
-    prevPoint: TSLEPoint | null
-  ): TSLEStateTransition | null {
+    buffer: TSLEPoint[],
+    spreadBps?: number
+  ): TSLEOutput {
     if (venue.toLowerCase() !== "binance") {
-      return null;
+      return { tsle_state: TSLE_STATE.STABLE, reason: "Non-Binance venue", confidence: 0 };
     }
 
     const key = this.getKey(venue, symbol);
-    const currentState = this.states.get(key) || null;
-    const { state: newState, reason } = this.computeState(
-      point.poli,
-      point.depth25,
-      point.depth50,
-      point.imbalance2550,
-      prevPoint
-    );
+    const currentState = this.states.get(key) || TSLE_STATE.STABLE;
+    const { state: rawState, reason, confidence } = this.computeRawState(buffer, spreadBps);
 
-    // Build transition record
-    const transition: TSLEStateTransition = {
-      from: currentState,
-      to: newState,
-      ts: point.ts,
-      reason,
-      inputs: {
-        poli: point.poli,
-        depth25: point.depth25,
-        depth50: point.depth50,
-        imbalance: point.imbalance2550,
-        poliDelta: prevPoint ? point.poli - prevPoint.poli : undefined,
-        depthDeltaPct: prevPoint ? 
-          ((point.depth25 + point.depth50 - prevPoint.depth25 - prevPoint.depth50) / 
-           (prevPoint.depth25 + prevPoint.depth50 || 1)) * 100 : undefined,
-      },
-    };
-
-    // Only log actual state changes
-    const stateChanged = currentState !== newState;
-    if (stateChanged) {
-      this.states.set(key, newState);
-      this.stateTimestamps.set(key, point.ts);
-      
-      // Track transition history (keep last 50)
-      let history = this.transitions.get(key) || [];
-      history.push(transition);
-      if (history.length > 50) history = history.slice(-50);
-      this.transitions.set(key, history);
-      
-      // Increment transition count
-      this.transitionCounts.set(key, (this.transitionCounts.get(key) || 0) + 1);
-
-      console.log(`[TSLE State] ${key}: ${currentState || "INIT"} → ${newState} | ${reason}`);
-      return transition;
+    // If raw state matches current, reset pending
+    if (rawState === currentState) {
+      this.pendingStates.delete(key);
+      this.confirmationCounts.delete(key);
+      return { tsle_state: currentState, reason, confidence };
     }
 
-    return null; // No state change
+    // Determine confirmation requirement
+    const transitionKey = `${currentState}→${rawState}`;
+    const isForward = STATE_SEVERITY[rawState] > STATE_SEVERITY[currentState];
+    const confirmationRequired = isForward 
+      ? (CONFIRMATION_FORWARD[transitionKey] || 2)
+      : (CONFIRMATION_REVERSE[transitionKey] || 3);
+
+    // Check if this is the same pending state
+    const pendingState = this.pendingStates.get(key);
+    if (pendingState === rawState) {
+      // Increment confirmation count
+      const count = (this.confirmationCounts.get(key) || 0) + 1;
+      this.confirmationCounts.set(key, count);
+
+      if (count >= confirmationRequired) {
+        // Transition confirmed!
+        const point = buffer[buffer.length - 1];
+        const prevPoint = buffer.length > 1 ? buffer[buffer.length - 2] : null;
+        
+        const transition: TSLEStateTransition = {
+          from: currentState,
+          to: rawState,
+          ts: point.ts,
+          reason,
+          confidence,
+          inputs: {
+            poli: point.poli,
+            depth25: point.depth25,
+            depth50: point.depth50,
+            imbalance: point.imbalance2550,
+            poliDelta: prevPoint ? point.poli - prevPoint.poli : undefined,
+            depthDeltaPct: prevPoint 
+              ? ((point.depth25 + point.depth50 - prevPoint.depth25 - prevPoint.depth50) / 
+                 (prevPoint.depth25 + prevPoint.depth50 || 1)) * 100 
+              : undefined,
+          },
+        };
+
+        // Commit state change
+        this.states.set(key, rawState);
+        this.stateTimestamps.set(key, point.ts);
+        
+        let history = this.transitions.get(key) || [];
+        history.push(transition);
+        if (history.length > 50) history = history.slice(-50);
+        this.transitions.set(key, history);
+        
+        this.transitionCounts.set(key, (this.transitionCounts.get(key) || 0) + 1);
+        this.pendingStates.delete(key);
+        this.confirmationCounts.delete(key);
+
+        console.log(`[TSLE State] ${key}: ${currentState} → ${rawState} | ${reason} (confirmed after ${count} polls)`);
+        return { tsle_state: rawState, reason, confidence };
+      }
+
+      // Still pending
+      return { 
+        tsle_state: currentState, 
+        reason: `Pending ${rawState}: ${count}/${confirmationRequired} confirmations`,
+        confidence: confidence * (count / confirmationRequired),
+      };
+    }
+
+    // New pending state
+    this.pendingStates.set(key, rawState);
+    this.confirmationCounts.set(key, 1);
+    return { 
+      tsle_state: currentState, 
+      reason: `Pending ${rawState}: 1/${confirmationRequired} confirmations`,
+      confidence: confidence * (1 / confirmationRequired),
+    };
   }
 
   public getState(venue: string, symbol: string): TSLEStateSnapshot {
@@ -612,6 +797,14 @@ class TSLEStateEngine {
     const since = this.stateTimestamps.get(key) || Date.now();
     const history = this.transitions.get(key) || [];
     const count = this.transitionCounts.get(key) || 0;
+    const pendingState = this.pendingStates.get(key) || null;
+    const confirmationProgress = this.confirmationCounts.get(key) || 0;
+    
+    const transitionKey = pendingState ? `${state}→${pendingState}` : "";
+    const isForward = pendingState ? STATE_SEVERITY[pendingState] > STATE_SEVERITY[state] : false;
+    const confirmationRequired = pendingState 
+      ? (isForward ? (CONFIRMATION_FORWARD[transitionKey] || 2) : (CONFIRMATION_REVERSE[transitionKey] || 3))
+      : 0;
 
     return {
       state,
@@ -619,6 +812,9 @@ class TSLEStateEngine {
       durationMs: Date.now() - since,
       transitionCount: count,
       lastTransition: history.length > 0 ? history[history.length - 1] : null,
+      pendingState,
+      confirmationProgress,
+      confirmationRequired,
     };
   }
 

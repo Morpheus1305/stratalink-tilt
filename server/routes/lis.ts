@@ -48,13 +48,15 @@ router.get("/:venue/depth", async (req, res) => {
     
     // Record to TSLE buffer and trigger state transition (Binance only)
     if (venue.toLowerCase() === "binance") {
-      const prevPoint = tsleBuffer.getLatest(venue, symbol as string);
-      const point = tsleBuffer.record(data);
+      tsleBuffer.record(data);
       
-      // Trigger state machine transition
-      if (point) {
-        tsleStateEngine.transition(venue, symbol as string, point, prevPoint);
-      }
+      // Get full buffer for state analysis and trigger transition
+      const buffer = tsleBuffer.getHistory(venue, symbol as string);
+      const spreadBps = data.spread?.bps;
+      const output = tsleStateEngine.transition(venue, symbol as string, buffer, spreadBps);
+      
+      // Attach TSLE output to response for debugging
+      (data as any).tsle = output;
     }
     
     res.json(data);
@@ -171,18 +173,21 @@ router.get("/tsle/signals", (req, res) => {
 });
 
 // GET /api/lis/tsle/dashboard?venue=binance&symbol=BTC
-// Combined endpoint for frontend: history + trend + signals + state
+// Combined endpoint for frontend: history + trend + signals + state + TSLE output
 router.get("/tsle/dashboard", (req, res) => {
   const venue = (req.query.venue as string) || "binance";
   const symbol = (req.query.symbol as string) || "BTC";
-  const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 60;
+  const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 10;
 
   const history = tsleBuffer.getHistory(venue, symbol, limit);
-  const trend = tsleBuffer.getTrend(venue, symbol, 12);
+  const trend = tsleBuffer.getTrend(venue, symbol, 10);
   const signals = tsleBuffer.getSignals(venue, symbol);
   const stats = tsleBuffer.getStats(venue, symbol);
   const latest = tsleBuffer.getLatest(venue, symbol);
   const stateSnapshot = tsleStateEngine.getState(venue, symbol);
+  
+  // Compute current TSLE output (per-poll emission)
+  const tsleOutput = tsleStateEngine.transition(venue, symbol, history);
 
   res.json({
     venue,
@@ -193,6 +198,7 @@ router.get("/tsle/dashboard", (req, res) => {
     stats,
     latest,
     state: stateSnapshot,
+    tsle_output: tsleOutput,
     asOf: new Date().toISOString(),
   });
 });
