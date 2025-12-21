@@ -1,5 +1,12 @@
 import { Router } from "express";
-import { tsleBuffer, type LISSnapshot, type TSLETrend, type TSLESignal } from "../services/tsle-buffer";
+import { 
+  tsleBuffer, 
+  tsleStateEngine, 
+  TSLE_STATE,
+  type LISSnapshot, 
+  type TSLETrend, 
+  type TSLESignal 
+} from "../services/tsle-buffer";
 
 const router = Router();
 
@@ -39,9 +46,15 @@ router.get("/:venue/depth", async (req, res) => {
 
     const data = await response.json() as LISSnapshot;
     
-    // Record to TSLE buffer (Binance only for v1.1)
+    // Record to TSLE buffer and trigger state transition (Binance only)
     if (venue.toLowerCase() === "binance") {
-      tsleBuffer.record(data);
+      const prevPoint = tsleBuffer.getLatest(venue, symbol as string);
+      const point = tsleBuffer.record(data);
+      
+      // Trigger state machine transition
+      if (point) {
+        tsleStateEngine.transition(venue, symbol as string, point, prevPoint);
+      }
     }
     
     res.json(data);
@@ -158,7 +171,7 @@ router.get("/tsle/signals", (req, res) => {
 });
 
 // GET /api/lis/tsle/dashboard?venue=binance&symbol=BTC
-// Combined endpoint for frontend: history + trend + signals
+// Combined endpoint for frontend: history + trend + signals + state
 router.get("/tsle/dashboard", (req, res) => {
   const venue = (req.query.venue as string) || "binance";
   const symbol = (req.query.symbol as string) || "BTC";
@@ -169,6 +182,7 @@ router.get("/tsle/dashboard", (req, res) => {
   const signals = tsleBuffer.getSignals(venue, symbol);
   const stats = tsleBuffer.getStats(venue, symbol);
   const latest = tsleBuffer.getLatest(venue, symbol);
+  const stateSnapshot = tsleStateEngine.getState(venue, symbol);
 
   res.json({
     venue,
@@ -178,6 +192,58 @@ router.get("/tsle/dashboard", (req, res) => {
     signals,
     stats,
     latest,
+    state: stateSnapshot,
+    asOf: new Date().toISOString(),
+  });
+});
+
+// GET /api/lis/tsle/state?venue=binance&symbol=BTC
+// Current TSLE state with transition history
+router.get("/tsle/state", (req, res) => {
+  const venue = (req.query.venue as string) || "binance";
+  const symbol = (req.query.symbol as string) || "BTC";
+  const historyLimit = req.query.history ? parseInt(req.query.history as string, 10) : 10;
+
+  const stateSnapshot = tsleStateEngine.getState(venue, symbol);
+  const transitionHistory = tsleStateEngine.getTransitionHistory(venue, symbol, historyLimit);
+  const latest = tsleBuffer.getLatest(venue, symbol);
+
+  res.json({
+    venue,
+    symbol,
+    ...stateSnapshot,
+    transitionHistory,
+    latest,
+    stateDefinitions: {
+      [TSLE_STATE.STABLE]: "Healthy liquidity: PoLi ≥70, low imbalance, steady depth",
+      [TSLE_STATE.THINNING]: "Early warning: PoLi 50-70 or depth erosion detected",
+      [TSLE_STATE.FRAGILE]: "At-risk: PoLi 30-50 or significant imbalance/erosion",
+      [TSLE_STATE.DISLOCATED]: "Critical: PoLi <30 or severe liquidity breakdown",
+    },
+    asOf: new Date().toISOString(),
+  });
+});
+
+// GET /api/lis/tsle/states - list all tracked states across venues/symbols
+router.get("/tsle/states", (req, res) => {
+  const allStates = tsleStateEngine.getAllStates();
+  const stateEntries = Array.from(allStates.entries()).map(([key, state]) => {
+    const [venue, symbol] = key.split(":");
+    const snapshot = tsleStateEngine.getState(venue, symbol);
+    return {
+      key,
+      venue,
+      symbol,
+      state,
+      since: snapshot.since,
+      durationMs: snapshot.durationMs,
+      transitionCount: snapshot.transitionCount,
+    };
+  });
+
+  res.json({
+    states: stateEntries,
+    totalTracked: stateEntries.length,
     asOf: new Date().toISOString(),
   });
 });

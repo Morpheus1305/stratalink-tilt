@@ -438,7 +438,203 @@ interface TSLESignal {
   threshold: number;
 }
 
-// Singleton instance
-export const tsleBuffer = new TSLEBuffer();
+// ============================================================================
+// TSLE STATE ENGINE — Deterministic Liquidity State Machine
+// ============================================================================
+// Consumes normalized depth snapshots and emits replayable state transitions.
+// State is venue-local (Binance only) and liquidity-native (no price inputs).
 
-export type { TSLEPoint, LISSnapshot, TSLETrend, TSLESignal };
+export enum TSLE_STATE {
+  STABLE = "STABLE",           // Healthy liquidity: PoLi ≥70, low imbalance, steady depth
+  THINNING = "THINNING",       // Early warning: PoLi 50-70 or depth erosion detected
+  FRAGILE = "FRAGILE",         // At-risk: PoLi 30-50 or significant imbalance/erosion
+  DISLOCATED = "DISLOCATED",   // Critical: PoLi <30 or severe liquidity breakdown
+}
+
+interface TSLEStateTransition {
+  from: TSLE_STATE | null;
+  to: TSLE_STATE;
+  ts: number;
+  reason: string;
+  inputs: {
+    poli: number;
+    depth25: number;
+    depth50: number;
+    imbalance: number;
+    poliDelta?: number;
+    depthDeltaPct?: number;
+  };
+}
+
+interface TSLEStateSnapshot {
+  state: TSLE_STATE;
+  since: number;
+  durationMs: number;
+  transitionCount: number;
+  lastTransition: TSLEStateTransition | null;
+}
+
+class TSLEStateEngine {
+  private states: Map<string, TSLE_STATE> = new Map();
+  private stateTimestamps: Map<string, number> = new Map();
+  private transitions: Map<string, TSLEStateTransition[]> = new Map();
+  private transitionCounts: Map<string, number> = new Map();
+
+  private getKey(venue: string, symbol: string): string {
+    return `${venue.toLowerCase()}:${symbol.toUpperCase()}`;
+  }
+
+  public computeState(
+    poli: number,
+    depth25: number,
+    depth50: number,
+    imbalance: number,
+    prevPoint: TSLEPoint | null
+  ): { state: TSLE_STATE; reason: string } {
+    const absImbalance = Math.abs(imbalance);
+    const totalDepth = depth25 + depth50;
+
+    // Compute deltas if we have previous point
+    let poliDelta = 0;
+    let depthDeltaPct = 0;
+    if (prevPoint) {
+      poliDelta = poli - prevPoint.poli;
+      const prevDepth = prevPoint.depth25 + prevPoint.depth50;
+      depthDeltaPct = prevDepth > 0 ? ((totalDepth - prevDepth) / prevDepth) * 100 : 0;
+    }
+
+    // DISLOCATED: Critical liquidity breakdown
+    if (poli < 30) {
+      return { state: TSLE_STATE.DISLOCATED, reason: `PoLi critically low (${poli})` };
+    }
+    if (absImbalance > 0.6 && poli < 50) {
+      return { state: TSLE_STATE.DISLOCATED, reason: `Severe imbalance (${(absImbalance * 100).toFixed(0)}%) with weak PoLi` };
+    }
+    if (depthDeltaPct < -30 && poli < 50) {
+      return { state: TSLE_STATE.DISLOCATED, reason: `Depth collapsed ${Math.abs(depthDeltaPct).toFixed(0)}% with weak PoLi` };
+    }
+
+    // FRAGILE: At-risk liquidity
+    if (poli >= 30 && poli < 50) {
+      return { state: TSLE_STATE.FRAGILE, reason: `PoLi in fragile range (${poli})` };
+    }
+    if (absImbalance > 0.4) {
+      return { state: TSLE_STATE.FRAGILE, reason: `High imbalance (${(absImbalance * 100).toFixed(0)}%)` };
+    }
+    if (depthDeltaPct < -20) {
+      return { state: TSLE_STATE.FRAGILE, reason: `Significant depth erosion (${Math.abs(depthDeltaPct).toFixed(0)}%)` };
+    }
+    if (poliDelta < -10) {
+      return { state: TSLE_STATE.FRAGILE, reason: `Rapid PoLi decline (${poliDelta.toFixed(0)} pts)` };
+    }
+
+    // THINNING: Early warning
+    if (poli >= 50 && poli < 70) {
+      return { state: TSLE_STATE.THINNING, reason: `PoLi in thinning range (${poli})` };
+    }
+    if (absImbalance > 0.25) {
+      return { state: TSLE_STATE.THINNING, reason: `Moderate imbalance (${(absImbalance * 100).toFixed(0)}%)` };
+    }
+    if (depthDeltaPct < -10) {
+      return { state: TSLE_STATE.THINNING, reason: `Mild depth erosion (${Math.abs(depthDeltaPct).toFixed(0)}%)` };
+    }
+    if (poliDelta < -5) {
+      return { state: TSLE_STATE.THINNING, reason: `PoLi softening (${poliDelta.toFixed(0)} pts)` };
+    }
+
+    // STABLE: Healthy liquidity
+    return { state: TSLE_STATE.STABLE, reason: `Healthy liquidity (PoLi ${poli}, imbalance ${(absImbalance * 100).toFixed(0)}%)` };
+  }
+
+  public transition(
+    venue: string,
+    symbol: string,
+    point: TSLEPoint,
+    prevPoint: TSLEPoint | null
+  ): TSLEStateTransition | null {
+    if (venue.toLowerCase() !== "binance") {
+      return null;
+    }
+
+    const key = this.getKey(venue, symbol);
+    const currentState = this.states.get(key) || null;
+    const { state: newState, reason } = this.computeState(
+      point.poli,
+      point.depth25,
+      point.depth50,
+      point.imbalance2550,
+      prevPoint
+    );
+
+    // Build transition record
+    const transition: TSLEStateTransition = {
+      from: currentState,
+      to: newState,
+      ts: point.ts,
+      reason,
+      inputs: {
+        poli: point.poli,
+        depth25: point.depth25,
+        depth50: point.depth50,
+        imbalance: point.imbalance2550,
+        poliDelta: prevPoint ? point.poli - prevPoint.poli : undefined,
+        depthDeltaPct: prevPoint ? 
+          ((point.depth25 + point.depth50 - prevPoint.depth25 - prevPoint.depth50) / 
+           (prevPoint.depth25 + prevPoint.depth50 || 1)) * 100 : undefined,
+      },
+    };
+
+    // Only log actual state changes
+    const stateChanged = currentState !== newState;
+    if (stateChanged) {
+      this.states.set(key, newState);
+      this.stateTimestamps.set(key, point.ts);
+      
+      // Track transition history (keep last 50)
+      let history = this.transitions.get(key) || [];
+      history.push(transition);
+      if (history.length > 50) history = history.slice(-50);
+      this.transitions.set(key, history);
+      
+      // Increment transition count
+      this.transitionCounts.set(key, (this.transitionCounts.get(key) || 0) + 1);
+
+      console.log(`[TSLE State] ${key}: ${currentState || "INIT"} → ${newState} | ${reason}`);
+      return transition;
+    }
+
+    return null; // No state change
+  }
+
+  public getState(venue: string, symbol: string): TSLEStateSnapshot {
+    const key = this.getKey(venue, symbol);
+    const state = this.states.get(key) || TSLE_STATE.STABLE;
+    const since = this.stateTimestamps.get(key) || Date.now();
+    const history = this.transitions.get(key) || [];
+    const count = this.transitionCounts.get(key) || 0;
+
+    return {
+      state,
+      since,
+      durationMs: Date.now() - since,
+      transitionCount: count,
+      lastTransition: history.length > 0 ? history[history.length - 1] : null,
+    };
+  }
+
+  public getTransitionHistory(venue: string, symbol: string, limit?: number): TSLEStateTransition[] {
+    const key = this.getKey(venue, symbol);
+    const history = this.transitions.get(key) || [];
+    return limit ? history.slice(-limit) : [...history];
+  }
+
+  public getAllStates(): Map<string, TSLE_STATE> {
+    return new Map(this.states);
+  }
+}
+
+// Singleton instances
+export const tsleBuffer = new TSLEBuffer();
+export const tsleStateEngine = new TSLEStateEngine();
+
+export type { TSLEPoint, LISSnapshot, TSLETrend, TSLESignal, TSLEStateTransition, TSLEStateSnapshot };
