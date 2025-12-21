@@ -1,15 +1,23 @@
 // client/src/services/lis.ts
 // ============================================================================
-// LIS Frontend Service (Canonical)
+// LIS Frontend Service (Canonical, with legacy compatibility)
 // -----------------------------------------------------------------------------
-// Source of truth for liquidity data in the UI.
-// Uses canonical LIS → TSLE endpoints.
+// Canonical liquidity source for the UI.
+// TSLE v1.1 remains untouched.
 //
-// Binance  → /lis
-// Coinbase → /lis/coinbase
+// Canonical endpoints:
+//   Binance  → /lis
+//   Coinbase → /lis/coinbase
+//
+// Legacy compatibility:
+//   fetchLiquiditySnapshot() → mapped to canonical LIS
 // ============================================================================
 
 export type Venue = "binance" | "coinbase";
+
+/* =======================
+   LIS + TSLE TYPES
+   ======================= */
 
 export interface LISBand {
   bid_notional: number;
@@ -51,9 +59,10 @@ export interface LISResponse {
   stability: StabilityStats;
 }
 
-/**
- * Resolve the correct LIS endpoint for a venue.
- */
+/* =======================
+   ENDPOINT RESOLUTION
+   ======================= */
+
 function resolveEndpoint(venue: Venue): string {
   switch (venue) {
     case "binance":
@@ -65,11 +74,10 @@ function resolveEndpoint(venue: Venue): string {
   }
 }
 
-/**
- * Fetch canonical LIS + TSLE data.
- *
- * This is the ONLY liquidity data source the UI should use.
- */
+/* =======================
+   CANONICAL FETCH
+   ======================= */
+
 export async function fetchLIS(
   venue: Venue
 ): Promise<LISResponse> {
@@ -90,4 +98,23 @@ export async function fetchLIS(
   }
 
   return res.json();
+}
+
+/* =======================
+   LEGACY COMPATIBILITY
+   ======================= */
+
+/**
+ * Legacy API used by existing UI components.
+ * Internally mapped to canonical LIS.
+ *
+ * DO NOT USE IN NEW CODE.
+ */
+export async function fetchLiquiditySnapshot(
+  symbol: string,
+  venue: Venue
+): Promise<LISResponse> {
+  // Symbol is currently implicit in LIS (BTC default),
+  // kept here for interface compatibility.
+  return fetchLIS(venue);
 }
