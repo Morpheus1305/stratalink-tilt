@@ -1,3 +1,4 @@
+// STATUS: FROZEN — TSLE v1.1 canonical ingestion contract
 // ============================================================================
 // LIS — Liquidity Ingestion Schema (Canonical Contract)
 // Location: server/types/lis.ts

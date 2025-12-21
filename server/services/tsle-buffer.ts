@@ -1,3 +1,35 @@
+/**
+ * TSLE v1.1 — FROZEN
+ * Status: Production Baseline
+ * Date: 2025-12-21
+ *
+ * DO NOT MODIFY without version bump.
+ */
+ /**
+ * ============================================================================
+ * TSLE v1.1 — FROZEN
+ * ----------------------------------------------------------------------------
+ * Status: PRODUCTION BASELINE
+ * Date: 2025-12-21
+ *
+ * This file implements the canonical Time-Series Liquidity Engine (TSLE v1.1).
+ *
+ * Inputs:
+ *   - LISSnapshotV1_1 ONLY
+ *
+ * Guarantees:
+ *   - Liquidity-native (no price, no returns, no volatility)
+ *   - Deterministic scoring (PoLi)
+ *   - Stateful rolling buffer
+ *
+ * DO NOT MODIFY:
+ *   - PoLi scoring logic
+ *   - Depth band interpretation
+ *   - Imbalance calculation
+ *
+ * Any changes require a NEW VERSION (v1.2+).
+ * ============================================================================
+ */
 // TSLE — Time-Series Liquidity Engine
 // In-memory ring buffer for rolling liquidity history
 // Venue: Binance only | Market: Spot only | No persistence
