@@ -1,0 +1,364 @@
+// client/src/pages/lis-debug.tsx
+// ============================================================================
+// Liquidity Truth Console (LIS Debug Page)
+// -----------------------------------------------------------------------------
+// Canonical data source:
+//   - Binance  → /lis
+//   - Coinbase → /lis/coinbase
+//
+// TSLE v1.1 remains untouched.
+// This page must NEVER carry over stale venue data after selection changes.
+// ============================================================================
+
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import type { Venue, LISResponse } from "../services/lis";
+import { fetchLiquiditySnapshot } from "../services/lis";
+
+type Token = "BTC";
+
+function normalizeVenue(v: string): Venue {
+  const x = (v || "").toLowerCase().trim();
+  if (x === "binance") return "binance";
+  if (x === "coinbase") return "coinbase";
+  // Default safe fallback
+  return "binance";
+}
+
+function formatUsd(n: number | undefined | null) {
+  if (n === undefined || n === null || Number.isNaN(n)) return "—";
+  const abs = Math.abs(n);
+  if (abs >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
+  if (abs >= 1e6) return `$${(n / 1e6).toFixed(2)}M`;
+  if (abs >= 1e3) return `$${(n / 1e3).toFixed(2)}K`;
+  return `$${n.toFixed(0)}`;
+}
+
+function formatPct(n: number | undefined | null, dp = 2) {
+  if (n === undefined || n === null || Number.isNaN(n)) return "—";
+  return `${n.toFixed(dp)}%`;
+}
+
+function getBand(data: LISResponse | null, key: string) {
+  return data?.lis?.bands?.[key];
+}
+
+export default function LisDebugPage() {
+  // UI selections
+  const [token, setToken] = useState<Token>("BTC");
+
+  // IMPORTANT: UI sometimes uses uppercase (COINBASE). We store canonical lowercase.
+  const [venue, setVenue] = useState<Venue>("binance");
+
+  // Data state
+  const [data, setData] = useState<LISResponse | null>(null);
+  const [rawJsonOpen, setRawJsonOpen] = useState(false);
+
+  // UX state
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [lastUpdatedTs, setLastUpdatedTs] = useState<number | null>(null);
+
+  // Polling control
+  const pollRef = useRef<number | null>(null);
+
+  const titleVenue = useMemo(() => venue.toUpperCase(), [venue]);
+
+  async function loadOnce(nextToken: Token, nextVenue: Venue) {
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Canonical LIS fetch (via compatibility wrapper)
+      const res = await fetchLiquiditySnapshot(nextToken, nextVenue);
+
+      // Validate: must match the selected venue
+      if (!res?.lis?.venue || normalizeVenue(res.lis.venue) !== nextVenue) {
+        throw new Error(
+          `Venue mismatch: requested=${nextVenue}, received=${res?.lis?.venue ?? "unknown"}`
+        );
+      }
+
+      // Validate: LIS must have bands (depth)
+      const bands = res?.lis?.bands;
+      if (!bands || Object.keys(bands).length === 0) {
+        throw new Error(`No LIS bands returned for ${nextToken} on ${nextVenue}`);
+      }
+
+      setData(res);
+      setLastUpdatedTs(Date.now());
+    } catch (e: any) {
+      // CRITICAL: on error, clear stale data so we don't show Binance carry-over
+      setData(null);
+      setLastUpdatedTs(null);
+      setError(e?.message || `Failed to load LIS for ${nextToken} on ${nextVenue}`);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function stopPolling() {
+    if (pollRef.current) {
+      window.clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  }
+
+  function startPolling(nextToken: Token, nextVenue: Venue) {
+    stopPolling();
+
+    // Load immediately
+    void loadOnce(nextToken, nextVenue);
+
+    // Then poll every 5s
+    pollRef.current = window.setInterval(() => {
+      void loadOnce(nextToken, nextVenue);
+    }, 5000);
+  }
+
+  // Initial + whenever token/venue changes
+  useEffect(() => {
+    // Clear stale UI immediately on selection change
+    setData(null);
+    setError(null);
+    setLastUpdatedTs(null);
+
+    startPolling(token, venue);
+
+    return () => {
+      stopPolling();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, venue]);
+
+  // Derived display values (safe)
+  const lis = data?.lis;
+  const tsle = data?.tsle;
+
+  const band10 = getBand(data, "pct_0.1");
+  const band25 = getBand(data, "pct_0.25");
+  const band50 = getBand(data, "pct_0.5");
+  const band100 = getBand(data, "pct_1");
+  const band200 = getBand(data, "pct_2");
+
+  // Imbalance column shown as % (bid-ask)/(bid+ask)
+  function imbalancePct(band: any) {
+    if (!band) return null;
+    const bid = Number(band.bid_notional ?? 0);
+    const ask = Number(band.ask_notional ?? 0);
+    const tot = bid + ask;
+    if (!tot) return 0;
+    return ((bid - ask) / tot) * 100;
+  }
+
+  // Simple badge for executable depth based on TSLE PoLi (UI-only)
+  const depthBadge = useMemo(() => {
+    const p = tsle?.poli;
+    if (p === undefined || p === null) return { label: "—", tone: "bg-zinc-700" };
+    if (p >= 90) return { label: "STRONG", tone: "bg-emerald-600/20 text-emerald-300 border-emerald-600/40" };
+    if (p >= 75) return { label: "FAIR", tone: "bg-amber-600/20 text-amber-300 border-amber-600/40" };
+    return { label: "WEAK", tone: "bg-red-600/20 text-red-300 border-red-600/40" };
+  }, [tsle?.poli]);
+
+  return (
+    <div className="min-h-screen bg-black text-zinc-100">
+      <div className="mx-auto max-w-6xl px-6 py-8">
+        <div className="mb-6 flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold">Liquidity Truth Console</h1>
+            <div className="text-sm text-zinc-400">
+              LIS - Liquidity Ingestion Service - Ground Truth View
+            </div>
+            <div className="mt-2 italic text-zinc-400">
+              “Price tells you where the market traded — liquidity quality tells you whether you could trade.”
+            </div>
+          </div>
+
+          <div className="text-right text-sm text-zinc-400">
+            {lastUpdatedTs ? (
+              <div>Updated {new Date(lastUpdatedTs).toLocaleTimeString()}</div>
+            ) : (
+              <div>Updated —</div>
+            )}
+          </div>
+        </div>
+
+        {/* Controls */}
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-5">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-3">
+              <div className="text-xs text-zinc-400">TOKEN</div>
+              <select
+                className="rounded-xl border border-zinc-800 bg-black px-3 py-2 text-sm"
+                value={token}
+                onChange={(e) => setToken(e.target.value as Token)}
+              >
+                <option value="BTC">BTC</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="text-xs text-zinc-400">VENUE</div>
+              <select
+                className="rounded-xl border border-zinc-800 bg-black px-3 py-2 text-sm"
+                value={venue}
+                onChange={(e) => setVenue(normalizeVenue(e.target.value))}
+              >
+                <option value="binance">BINANCE</option>
+                <option value="coinbase">COINBASE</option>
+              </select>
+            </div>
+
+            <div className="ml-auto flex items-center gap-3">
+              <button
+                className="rounded-xl border border-zinc-800 bg-black px-4 py-2 text-sm hover:bg-zinc-900"
+                onClick={() => setRawJsonOpen((v) => !v)}
+                disabled={!data}
+                title={!data ? "Load data first" : "Toggle raw JSON"}
+              >
+                Show Raw JSON
+              </button>
+            </div>
+          </div>
+
+          {/* Status strip */}
+          <div className="mt-4">
+            {loading && (
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 px-4 py-3 text-sm text-zinc-300">
+                Loading {token} on {titleVenue}…
+              </div>
+            )}
+
+            {!loading && error && (
+              <div className="rounded-xl border border-red-900/60 bg-red-950/30 px-4 py-3 text-sm text-red-300">
+                Error: {error}
+              </div>
+            )}
+          </div>
+
+          {/* Raw JSON */}
+          {rawJsonOpen && data && (
+            <div className="mt-4 rounded-xl border border-zinc-800 bg-black p-4">
+              <pre className="max-h-96 overflow-auto text-xs text-zinc-300">
+                {JSON.stringify(data, null, 2)}
+              </pre>
+            </div>
+          )}
+        </div>
+
+        {/* Main panels */}
+        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+          {/* Market Context */}
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-5">
+            <div className="mb-4 text-xs tracking-wide text-zinc-400">MARKET CONTEXT</div>
+
+            <div className="space-y-3 text-sm">
+              <div className="flex items-center justify-between">
+                <div className="text-zinc-400">VENUE</div>
+                <div className="rounded-lg border border-zinc-800 bg-black px-2 py-1 text-xs">
+                  {lis ? lis.venue.toUpperCase() : titleVenue}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="text-zinc-400">SYMBOL</div>
+                <div className="font-medium">{lis?.symbol ?? "—"}</div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="text-zinc-400">SPREAD</div>
+                <div>{lis?.spread?.bps !== undefined ? `${lis.spread.bps} bps` : "—"}</div>
+              </div>
+
+              <div className="pt-2 text-xs text-zinc-500">
+                Note: TSLE inputs remain liquidity-native (no price-derived signals).
+              </div>
+            </div>
+          </div>
+
+          {/* PoLi */}
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="text-xs tracking-wide text-zinc-400">POLI SCORE</div>
+              <div className="text-xs text-zinc-400">{loading ? "…" : ""}</div>
+            </div>
+
+            <div className="flex items-center gap-5">
+              <div className="flex h-24 w-24 items-center justify-center rounded-full border border-zinc-800 bg-black">
+                <div className="text-center">
+                  <div className="text-2xl font-semibold">{tsle?.poli ?? "—"}</div>
+                  <div className="text-xs text-zinc-400">/100</div>
+                </div>
+              </div>
+
+              <div className="text-sm text-zinc-300">
+                <div className="font-medium">
+                  {tsle?.poli !== undefined ? `Venue: ${titleVenue}` : "—"}
+                </div>
+                <div className="mt-1 text-xs text-zinc-500">
+                  Computed from depth + balance + spread (liquidity-native).
+                </div>
+                <div className="mt-3 text-xs text-zinc-400">
+                  Hist avg: {data?.stability?.meanDepth ? formatUsd(data.stability.meanDepth) : "—"}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Executable Depth */}
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="text-xs tracking-wide text-zinc-400">EXECUTABLE DEPTH</div>
+              <div className={`rounded-full border px-3 py-1 text-xs ${depthBadge.tone}`}>
+                {depthBadge.label}
+              </div>
+            </div>
+
+            <div className="overflow-hidden rounded-xl border border-zinc-800 bg-black">
+              <table className="w-full text-sm">
+                <thead className="border-b border-zinc-800 text-xs text-zinc-400">
+                  <tr>
+                    <th className="px-4 py-3 text-left">BAND</th>
+                    <th className="px-4 py-3 text-right">BID USD</th>
+                    <th className="px-4 py-3 text-right">ASK USD</th>
+                    <th className="px-4 py-3 text-right">TOTAL</th>
+                    <th className="px-4 py-3 text-right">IMB</th>
+                  </tr>
+                </thead>
+                <tbody className="text-zinc-200">
+                  {[
+                    { label: "10 BPS", band: band10 },
+                    { label: "25 BPS", band: band25 },
+                    { label: "50 BPS", band: band50 },
+                    { label: "100 BPS", band: band100 },
+                    { label: "200 BPS", band: band200 },
+                  ].map((row) => (
+                    <tr key={row.label} className="border-b border-zinc-900 last:border-b-0">
+                      <td className="px-4 py-3 text-left text-zinc-300">{row.label}</td>
+                      <td className="px-4 py-3 text-right">{formatUsd(row.band?.bid_notional)}</td>
+                      <td className="px-4 py-3 text-right">{formatUsd(row.band?.ask_notional)}</td>
+                      <td className="px-4 py-3 text-right font-medium">
+                        {formatUsd(row.band?.total_notional)}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {formatPct(imbalancePct(row.band), 2)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-3 text-xs text-zinc-500">
+              Executable size inside each band (USD notional).
+            </div>
+          </div>
+        </div>
+
+        {/* Footer note */}
+        <div className="mt-8 text-xs text-zinc-600">
+          LIS v1.1 → TSLE v1.1 pipeline. Venue selection must always clear stale state before repainting.
+        </div>
+      </div>
+    </div>
+  );
+}
