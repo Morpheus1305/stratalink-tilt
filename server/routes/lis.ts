@@ -10,16 +10,10 @@ const router = Router();
 
 /**
  * Map UI venue → relay venue
+ * Note: Both binance and coinbase use their lowercase names directly
  */
 function mapRelayVenue(venue: string): string {
-  switch (venue.toLowerCase()) {
-    case "binance":
-      return "binance";
-    case "coinbase":
-      return "coinbase_spot";
-    default:
-      return venue;
-  }
+  return venue.toLowerCase();
 }
 
 /**
