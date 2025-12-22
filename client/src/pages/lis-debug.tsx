@@ -254,7 +254,20 @@ export default function LiquidityTruthConsole() {
 
   useEffect(() => {
     let alive = true;
+    
+    // Clear stale state when venue/token changes
     setError(null);
+    setData(null);
+    setPoliData(null);
+    setLastUpdate(null);
+    prevScoreRef.current = null;
+    setFragilityState({
+      isFragile: false,
+      prevScore: null,
+      prevPrice: null,
+      prevSpread: null,
+    });
+    setFragilityWarning({ isFragile: false, message: "" });
 
     const fetchDepth = async () => {
       const res = await fetch(
@@ -262,7 +275,8 @@ export default function LiquidityTruthConsole() {
       );
 
       if (!res.ok) {
-        throw new Error(`Depth not available for ${token} on ${venue}`);
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || `Depth not available for ${token} on ${venue}`);
       }
 
       return res.json();
@@ -372,6 +386,18 @@ export default function LiquidityTruthConsole() {
           <Card className="bg-destructive/10 border-destructive/30">
             <CardContent className="p-4">
               <p className="text-sm text-destructive">Error: {error}</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Loading State */}
+        {!data && !error && (
+          <Card className="bg-card border-border">
+            <CardContent className="p-8 flex flex-col items-center justify-center">
+              <RefreshCw className="h-6 w-6 text-primary animate-spin mb-3" />
+              <p className="text-sm text-muted-foreground">
+                Loading {token} liquidity from {venue.toUpperCase()}...
+              </p>
             </CardContent>
           </Card>
         )}
