@@ -1,23 +1,13 @@
 // client/src/services/lis.ts
 // ============================================================================
-// LIS Frontend Service (Canonical, with legacy compatibility)
+// Canonical LIS client adapter
 // -----------------------------------------------------------------------------
-// Canonical liquidity source for the UI.
-// TSLE v1.1 remains untouched.
-//
-// Canonical endpoints:
-//   Binance  → /lis
-//   Coinbase → /lis/coinbase
-//
-// Legacy compatibility:
-//   fetchLiquiditySnapshot() → mapped to canonical LIS
+// Maps UI → backend → relay correctly per venue.
+// Backend contract:
+//   GET /api/lis/:venue/depth?symbol=BTC
 // ============================================================================
 
-export type Venue = "binance" | "coinbase";
-
-/* =======================
-   LIS + TSLE TYPES
-   ======================= */
+export type Venue = "binance" | "coinbase" | "okx" | "kraken";
 
 export interface LISBand {
   bid_notional: number;
@@ -26,95 +16,59 @@ export interface LISBand {
 }
 
 export interface LISSnapshot {
-  schema_version: string;
   venue: Venue;
   symbol: string;
-  timestamp: number;
   spread?: {
+    absolute?: number;
     bps?: number;
   };
   bands: Record<string, LISBand>;
 }
 
-export interface TSLEPoint {
-  ts: number;
-  depth25: number;
-  depth50: number;
-  imbalance2550: number;
-  poli: number;
-}
-
-export interface StabilityStats {
-  stabilityScore: number;
-  halfLifeMinutes: number;
-  volatility: number;
-  meanDepth: number;
-  minDepth: number;
-  maxDepth: number;
+export interface TSLEOutput {
+  tsle_state?: string;
+  confidence?: number;
+  poli?: number;
 }
 
 export interface LISResponse {
   lis: LISSnapshot;
-  tsle: TSLEPoint;
-  stability: StabilityStats;
+  tsle?: TSLEOutput;
+  stability?: any;
 }
 
-/* =======================
-   ENDPOINT RESOLUTION
-   ======================= */
-
-function resolveEndpoint(venue: Venue): string {
-  switch (venue) {
-    case "binance":
-      return "/lis";
-    case "coinbase":
-      return "/lis/coinbase";
-    default:
-      throw new Error(`Unsupported venue: ${venue}`);
-  }
-}
-
-/* =======================
-   CANONICAL FETCH
-   ======================= */
-
-export async function fetchLIS(
+// -----------------------------------------------------------------------------
+// Canonical fetch — THIS IS THE ONLY PLACE VENUE IS RESOLVED
+// -----------------------------------------------------------------------------
+async function fetchFromBackend(
+  symbol: string,
   venue: Venue
 ): Promise<LISResponse> {
-  const endpoint = resolveEndpoint(venue);
-
-  const res = await fetch(endpoint, {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
+  const res = await fetch(
+    `/api/lis/${venue}/depth?symbol=${encodeURIComponent(symbol)}`
+  );
 
   if (!res.ok) {
-    const text = await res.text();
     throw new Error(
-      `LIS fetch failed (${venue}): ${res.status} ${text}`
+      `LIS backend error (${venue}): ${res.status}`
     );
   }
 
-  return res.json();
+  const json = await res.json();
+
+  // Normalize to canonical LISResponse shape
+  return {
+    lis: json,
+    tsle: json.tsle,
+  };
 }
 
-/* =======================
-   LEGACY COMPATIBILITY
-   ======================= */
-
-/**
- * Legacy API used by existing UI components.
- * Internally mapped to canonical LIS.
- *
- * DO NOT USE IN NEW CODE.
- */
+// -----------------------------------------------------------------------------
+// Public API used by UI
+// -----------------------------------------------------------------------------
 export async function fetchLiquiditySnapshot(
   symbol: string,
   venue: Venue
 ): Promise<LISResponse> {
-  // Symbol is currently implicit in LIS (BTC default),
-  // kept here for interface compatibility.
-  return fetchLIS(venue);
+  return fetchFromBackend(symbol, venue);
 }
