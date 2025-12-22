@@ -1,5 +1,6 @@
 // client/src/services/lis.ts
 
+// Currently supported venues - OKX and Kraken coming soon via LIS relay
 export type Venue = "binance" | "coinbase";
 
 export interface LISBand {

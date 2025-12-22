@@ -23,9 +23,11 @@ const BAND_LABELS: Record<string, string> = {
 };
 
 const TOKENS = ["BTC", "ETH", "SOL", "LINK", "AVAX"];
-const VENUES = ["binance", "coinbase", "okx", "kraken"] as const;
+const AVAILABLE_VENUES = ["binance", "coinbase"] as const;
+const COMING_SOON_VENUES = ["okx", "kraken"] as const;
+const VENUES = [...AVAILABLE_VENUES, ...COMING_SOON_VENUES] as const;
 
-type Venue = (typeof VENUES)[number];
+type Venue = (typeof AVAILABLE_VENUES)[number];
 
 type LISBand = {
   bid_notional?: number;
@@ -356,12 +358,20 @@ export default function LiquidityTruthConsole() {
               <div className="space-y-1">
                 <label className="text-xs text-muted-foreground uppercase tracking-wide">Venue</label>
                 <Select value={venue} onValueChange={(v) => setVenue(v as Venue)}>
-                  <SelectTrigger className="w-[140px] h-9 text-sm" data-testid="select-venue">
+                  <SelectTrigger className="w-[180px] h-9 text-sm" data-testid="select-venue">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {VENUES.map((v) => (
+                    {AVAILABLE_VENUES.map((v) => (
                       <SelectItem key={v} value={v}>{v.toUpperCase()}</SelectItem>
+                    ))}
+                    <div className="px-2 py-1.5 text-[10px] text-muted-foreground uppercase tracking-wider border-t border-border mt-1">
+                      Coming Soon
+                    </div>
+                    {COMING_SOON_VENUES.map((v) => (
+                      <SelectItem key={v} value={v} disabled className="opacity-50">
+                        {v.toUpperCase()}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
