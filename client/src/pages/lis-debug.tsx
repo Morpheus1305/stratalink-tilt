@@ -7,6 +7,7 @@ import { Database, Eye, EyeOff, ArrowUp, ArrowDown, TrendingUp, AlertTriangle, R
 import { DashboardHeader } from "@/components/dashboard-header";
 import { PlatformTabs } from "@/components/platform-tabs";
 import PollingOrbital from "@/components/polling-orbital";
+import TSLEChart from "@/components/tsle-chart";
 import { cn } from "@/lib/utils";
 import { getPoLiRating } from "@/lib/poli-rating";
 
@@ -655,6 +656,13 @@ export default function LiquidityTruthConsole() {
                   </table>
               </div>
             </Card>
+
+            {/* TSLE Analytics Panel */}
+            <TSLEChart 
+              venue={venue} 
+              symbol={token} 
+              pollTick={pollTick}
+            />
 
             {/* Raw JSON */}
             {showRaw && (

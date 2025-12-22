@@ -154,8 +154,9 @@ class TSLEBuffer {
   }
 
   public record(snapshot: LISSnapshot): TSLEPoint | null {
-    // Only process Binance spot for now
-    if (snapshot.venue.toLowerCase() !== "binance") {
+    // Process both Binance and Coinbase venues
+    const venue = snapshot.venue.toLowerCase();
+    if (venue !== "binance" && venue !== "coinbase") {
       return null;
     }
 
@@ -735,8 +736,10 @@ class TSLEStateEngine {
     buffer: TSLEPoint[],
     spreadBps?: number
   ): TSLEOutput {
-    if (venue.toLowerCase() !== "binance") {
-      return { tsle_state: TSLE_STATE.STABLE, reason: "Non-Binance venue", confidence: 0 };
+    // Support both Binance and Coinbase venues
+    const v = venue.toLowerCase();
+    if (v !== "binance" && v !== "coinbase") {
+      return { tsle_state: TSLE_STATE.STABLE, reason: "Unsupported venue", confidence: 0 };
     }
 
     const key = this.getKey(venue, symbol);

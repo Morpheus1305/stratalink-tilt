@@ -12,8 +12,10 @@ import {
   ReferenceLine,
   Area,
   ComposedChart,
+  Bar,
+  Cell,
 } from "recharts";
-import { TrendingUp, TrendingDown, Minus, AlertTriangle, Activity, Shield, Zap, Target } from "lucide-react";
+import { TrendingUp, TrendingDown, AlertTriangle, Activity, Shield, Zap, Target, Layers } from "lucide-react";
 
 interface TSLEPoint {
   ts: number;
@@ -42,6 +44,16 @@ interface TSLESignal {
   threshold: number;
 }
 
+interface TSLEStateSnapshot {
+  state: string;
+  since: number;
+  durationMs: number;
+  transitionCount: number;
+  pendingState: string | null;
+  confirmationProgress: number;
+  confirmationRequired: number;
+}
+
 interface TSLEDashboardData {
   venue: string;
   symbol: string;
@@ -55,6 +67,7 @@ interface TSLEDashboardData {
     maxPoli: number | null;
   };
   latest: TSLEPoint | null;
+  stateSnapshot?: TSLEStateSnapshot;
 }
 
 interface TSLEChartProps {
@@ -64,6 +77,7 @@ interface TSLEChartProps {
 }
 
 type LiquidityHorizon = "now" | "session" | "baseline";
+type ChartView = "poli" | "depth" | "imbalance" | "multi";
 
 interface RegimeState {
   label: string;
@@ -72,11 +86,60 @@ interface RegimeState {
   icon: typeof Shield;
 }
 
+const TSLE_STATE_COLORS: Record<string, string> = {
+  STABLE: "#22C55E",
+  THINNING: "#FBBF24",
+  FRAGILE: "#F97316",
+  DISLOCATED: "#EF4444",
+};
+
+const TSLE_STATE_LABELS: Record<string, string> = {
+  STABLE: "Stable",
+  THINNING: "Thinning",
+  FRAGILE: "Fragile",
+  DISLOCATED: "Dislocated",
+};
+
 function getRegimeState(
   trend: TSLETrend,
   signals: TSLESignal[],
-  latestPoli: number
+  latestPoli: number,
+  stateSnapshot?: TSLEStateSnapshot
 ): RegimeState {
+  if (stateSnapshot?.state) {
+    const state = stateSnapshot.state;
+    if (state === "DISLOCATED") {
+      return {
+        label: "Dislocated",
+        description: "Institutional liquidity collapsed — execution severely impaired",
+        severity: "critical",
+        icon: AlertTriangle,
+      };
+    }
+    if (state === "FRAGILE") {
+      return {
+        label: "Fragile",
+        description: "Depth materially reduced, imbalance worsening",
+        severity: "fragile",
+        icon: AlertTriangle,
+      };
+    }
+    if (state === "THINNING") {
+      return {
+        label: "Thinning",
+        description: "Depth declining, PoLi slope negative",
+        severity: "fragile",
+        icon: Zap,
+      };
+    }
+    return {
+      label: "Stable",
+      description: "Institutional liquidity holding in 25–50 bps window",
+      severity: "stable",
+      icon: Shield,
+    };
+  }
+
   const hasHighSeveritySignal = signals.some(s => s.severity === "high");
   const hasPoliDrop = signals.some(s => s.type === "poli_drop");
   const hasDepthErosion = signals.some(s => s.type === "depth_erosion");
@@ -165,11 +228,19 @@ function downsamplePoints(points: TSLEPoint[], targetCount: number): TSLEPoint[]
   return result;
 }
 
+function deriveRegimeFromPoli(poli: number): string {
+  if (poli >= 75) return "STABLE";
+  if (poli >= 55) return "THINNING";
+  if (poli >= 35) return "FRAGILE";
+  return "DISLOCATED";
+}
+
 export default function TSLEChart({ venue, symbol, pollTick }: TSLEChartProps) {
   const [data, setData] = useState<TSLEDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [prevVenueSymbol, setPrevVenueSymbol] = useState(`${venue}:${symbol}`);
   const [horizon, setHorizon] = useState<LiquidityHorizon>("now");
+  const [chartView, setChartView] = useState<ChartView>("poli");
 
   const currentKey = `${venue}:${symbol}`;
   if (currentKey !== prevVenueSymbol) {
@@ -229,8 +300,13 @@ export default function TSLEChart({ venue, symbol, pollTick }: TSLEChartProps) {
       }),
       ts: point.ts,
       poli: point.poli,
-      depth: (point.depth25 + point.depth50) / 2 / 1e6,
+      depth25: point.depth25 / 1e6,
+      depth50: point.depth50 / 1e6,
+      totalDepth: (point.depth25 + point.depth50) / 1e6,
       imbalance: point.imbalance2550 * 100,
+      absImbalance: Math.abs(point.imbalance2550 * 100),
+      regime: deriveRegimeFromPoli(point.poli),
+      regimeValue: point.poli >= 75 ? 4 : point.poli >= 55 ? 3 : point.poli >= 35 ? 2 : 1,
     }));
   }, [data, horizon]);
 
@@ -246,7 +322,7 @@ export default function TSLEChart({ venue, symbol, pollTick }: TSLEChartProps) {
 
   const regime = useMemo(() => {
     if (!data?.latest || !data.trend) return null;
-    return getRegimeState(data.trend, data.signals, data.latest.poli);
+    return getRegimeState(data.trend, data.signals, data.latest.poli, data.stateSnapshot);
   }, [data]);
 
   if (loading || !data) {
@@ -265,7 +341,7 @@ export default function TSLEChart({ venue, symbol, pollTick }: TSLEChartProps) {
       <Card className="col-span-12 p-4 bg-card border-border">
         <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
           <Activity className="h-4 w-4 mr-2" />
-          Collecting data... ({data.history.length}/3 points minimum)
+          Collecting TSLE history... ({data.history.length}/3 points minimum)
         </div>
       </Card>
     );
@@ -277,48 +353,88 @@ export default function TSLEChart({ venue, symbol, pollTick }: TSLEChartProps) {
     ? "~0" 
     : `${data.trend.poliVelocity > 0 ? "+" : ""}${data.trend.poliVelocity}`;
 
+  const stateLabel = data.stateSnapshot?.state 
+    ? TSLE_STATE_LABELS[data.stateSnapshot.state] || data.stateSnapshot.state
+    : null;
+
   return (
     <Card className="col-span-12 p-4 bg-card border-border" data-testid="card-tsle-chart">
-      {/* TSLE Definition (Static, Canonical) */}
-      <p className="text-xs text-muted-foreground mb-2">
-        TSLE (Time-Series Liquidity Engine) tracks execution quality and liquidity regime over time using PoLi, depth symmetry, and fragility signals — not price.
+      <div className="flex items-center gap-2 mb-2">
+        <Layers className="h-4 w-4 text-primary" />
+        <h3 className="text-sm font-semibold text-foreground">
+          TSLE v1.1 — Liquidity as a State Machine
+        </h3>
+      </div>
+      
+      <p className="text-xs text-muted-foreground mb-3">
+        Time-Series Liquidity Engine tracks execution quality and regime over time using PoLi, depth symmetry, and fragility signals — not price.
       </p>
 
-      {/* Header with Horizon Selector */}
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-        <div className="flex items-center gap-3">
-          <h3 className="text-xs font-semibold text-foreground uppercase tracking-wide">
-            TSLE Liquidity Over Time
-          </h3>
+        <div className="flex items-center gap-2">
           <Badge variant="outline" className="text-xs font-mono">
             {data.stats.count} pts
           </Badge>
+          {stateLabel && (
+            <Badge 
+              variant="outline" 
+              className="text-xs font-mono"
+              style={{ 
+                borderColor: TSLE_STATE_COLORS[data.stateSnapshot?.state || "STABLE"],
+                color: TSLE_STATE_COLORS[data.stateSnapshot?.state || "STABLE"],
+              }}
+              data-testid="badge-tsle-state"
+            >
+              {stateLabel}
+            </Badge>
+          )}
         </div>
 
-        {/* Liquidity Horizon Selector */}
-        <div 
-          className="flex items-center bg-muted/30 rounded-md p-0.5 border border-border/50"
-          data-testid="selector-liquidity-horizon"
-        >
-          {(["now", "session", "baseline"] as LiquidityHorizon[]).map((h) => (
-            <button
-              key={h}
-              onClick={() => setHorizon(h)}
-              className={cn(
-                "px-3 py-1 text-xs font-medium rounded transition-all",
-                horizon === h
-                  ? "bg-primary/20 text-primary border border-primary/30 shadow-sm shadow-primary/10"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-              data-testid={`button-horizon-${h}`}
-            >
-              {h === "now" ? "Now" : h === "session" ? "Session" : "Baseline"}
-            </button>
-          ))}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div 
+            className="flex items-center bg-muted/30 rounded-md p-0.5 border border-border/50"
+            data-testid="selector-chart-view"
+          >
+            {(["poli", "depth", "imbalance", "multi"] as ChartView[]).map((v) => (
+              <button
+                key={v}
+                onClick={() => setChartView(v)}
+                className={cn(
+                  "px-2 py-1 text-xs font-medium rounded transition-all",
+                  chartView === v
+                    ? "bg-primary/20 text-primary border border-primary/30"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                data-testid={`button-view-${v}`}
+              >
+                {v === "poli" ? "PoLi" : v === "depth" ? "Depth" : v === "imbalance" ? "Balance" : "Multi"}
+              </button>
+            ))}
+          </div>
+
+          <div 
+            className="flex items-center bg-muted/30 rounded-md p-0.5 border border-border/50"
+            data-testid="selector-liquidity-horizon"
+          >
+            {(["now", "session", "baseline"] as LiquidityHorizon[]).map((h) => (
+              <button
+                key={h}
+                onClick={() => setHorizon(h)}
+                className={cn(
+                  "px-2 py-1 text-xs font-medium rounded transition-all",
+                  horizon === h
+                    ? "bg-primary/20 text-primary border border-primary/30"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                data-testid={`button-horizon-${h}`}
+              >
+                {h === "now" ? "Now" : h === "session" ? "Session" : "Baseline"}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Regime Label */}
       {regime && (
         <div 
           className={cn(
@@ -351,12 +467,16 @@ export default function TSLEChart({ venue, symbol, pollTick }: TSLEChartProps) {
               — {regime.description}
             </span>
           </div>
+          {data.stateSnapshot && Math.round(data.trend.confidence * 100) > 0 && (
+            <Badge variant="outline" className="text-xs font-mono ml-2">
+              {Math.round(data.trend.confidence * 100)}% conf
+            </Badge>
+          )}
         </div>
       )}
 
-      {/* Chart or Baseline View */}
       {horizon === "baseline" ? (
-        <div className="h-40 flex flex-col items-center justify-center bg-muted/20 rounded-lg border border-border/50">
+        <div className="h-44 flex flex-col items-center justify-center bg-muted/20 rounded-lg border border-border/50">
           <div className="text-center">
             <div className="text-xs text-muted-foreground uppercase tracking-wide mb-1">
               Baseline PoLi (Rolling Avg)
@@ -383,14 +503,71 @@ export default function TSLEChart({ venue, symbol, pollTick }: TSLEChartProps) {
             )}
           </div>
         </div>
+      ) : chartView === "multi" ? (
+        <div className="space-y-2">
+          <div className="h-24">
+            <div className="text-xs text-muted-foreground mb-1 pl-1">Lane A: PoLi Score</div>
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={processedData || []} margin={{ top: 2, right: 5, left: -20, bottom: 2 }}>
+                <defs>
+                  <linearGradient id="poliGradientMulti" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#FBBF24" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#FBBF24" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="time" hide />
+                <YAxis domain={[0, 100]} tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} width={30} />
+                <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "6px", fontSize: "10px" }} />
+                <ReferenceLine y={75} stroke="hsl(var(--chart-3))" strokeDasharray="2 2" strokeOpacity={0.3} />
+                <ReferenceLine y={50} stroke="hsl(var(--primary))" strokeDasharray="2 2" strokeOpacity={0.3} />
+                <Area type="monotone" dataKey="poli" stroke="transparent" fill="url(#poliGradientMulti)" />
+                <Line type="monotone" dataKey="poli" stroke="#FBBF24" strokeWidth={1.5} dot={false} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="h-24">
+            <div className="text-xs text-muted-foreground mb-1 pl-1">Lane B: Institutional Depth (25–50 bps)</div>
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={processedData || []} margin={{ top: 2, right: 5, left: -20, bottom: 2 }}>
+                <XAxis dataKey="time" hide />
+                <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} width={30} tickFormatter={(v) => `$${v}M`} />
+                <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "6px", fontSize: "10px" }} formatter={(v: number, name: string) => [`$${v.toFixed(2)}M`, name === "depth25" ? "25 bps" : "50 bps"]} />
+                <Line type="monotone" dataKey="depth25" stroke="#3B82F6" strokeWidth={1.5} dot={false} name="depth25" />
+                <Line type="monotone" dataKey="depth50" stroke="#10B981" strokeWidth={1.5} dot={false} name="depth50" />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="h-20">
+            <div className="text-xs text-muted-foreground mb-1 pl-1">Lane C: Imbalance (bid-heavy +, ask-heavy −)</div>
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={processedData || []} margin={{ top: 2, right: 5, left: -20, bottom: 2 }}>
+                <XAxis dataKey="time" tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+                <YAxis domain={[-50, 50]} tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} width={30} tickFormatter={(v) => `${v}%`} />
+                <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "6px", fontSize: "10px" }} formatter={(v: number) => [`${v.toFixed(1)}%`, "Imbalance"]} />
+                <ReferenceLine y={0} stroke="hsl(var(--border))" strokeOpacity={0.5} />
+                <Bar dataKey="imbalance" fill="#8B5CF6">
+                  {(processedData || []).map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.imbalance >= 0 ? "#3B82F6" : "#EF4444"} fillOpacity={0.7} />
+                  ))}
+                </Bar>
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
       ) : (
-        <div className="h-40">
+        <div className="h-44">
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={processedData || []} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
               <defs>
                 <linearGradient id="poliGradientTSLE" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#FBBF24" stopOpacity={0.3} />
                   <stop offset="95%" stopColor="#FBBF24" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="depthGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <XAxis 
@@ -400,13 +577,32 @@ export default function TSLEChart({ venue, symbol, pollTick }: TSLEChartProps) {
                 axisLine={{ stroke: "hsl(var(--border))", strokeOpacity: 0.5 }}
                 interval="preserveStartEnd"
               />
-              <YAxis 
-                domain={[0, 100]}
-                tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(v) => `${v}`}
-              />
+              {chartView === "poli" && (
+                <YAxis 
+                  domain={[0, 100]}
+                  tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(v) => `${v}`}
+                />
+              )}
+              {chartView === "depth" && (
+                <YAxis 
+                  tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(v) => `$${v}M`}
+                />
+              )}
+              {chartView === "imbalance" && (
+                <YAxis 
+                  domain={[-50, 50]}
+                  tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(v) => `${v}%`}
+                />
+              )}
               <Tooltip
                 contentStyle={{
                   backgroundColor: "hsl(var(--card))",
@@ -417,34 +613,46 @@ export default function TSLEChart({ venue, symbol, pollTick }: TSLEChartProps) {
                 labelStyle={{ color: "hsl(var(--foreground))" }}
                 formatter={(value: number, name: string) => {
                   if (name === "poli") return [`${value}`, "PoLi Score"];
-                  if (name === "depth") return [`$${value.toFixed(2)}M`, "Avg Depth"];
+                  if (name === "depth25") return [`$${value.toFixed(2)}M`, "Depth 25bps"];
+                  if (name === "depth50") return [`$${value.toFixed(2)}M`, "Depth 50bps"];
+                  if (name === "totalDepth") return [`$${value.toFixed(2)}M`, "Total Depth"];
                   if (name === "imbalance") return [`${value.toFixed(1)}%`, "Imbalance"];
                   return [value, name];
                 }}
               />
-              <ReferenceLine y={75} stroke="hsl(var(--chart-3))" strokeDasharray="3 3" strokeOpacity={0.3} />
-              <ReferenceLine y={50} stroke="hsl(var(--primary))" strokeDasharray="3 3" strokeOpacity={0.3} />
-              <ReferenceLine y={25} stroke="hsl(var(--destructive))" strokeDasharray="3 3" strokeOpacity={0.3} />
-              <Area
-                type={horizon === "session" ? "monotone" : "linear"}
-                dataKey="poli"
-                stroke="transparent"
-                fill="url(#poliGradientTSLE)"
-              />
-              <Line
-                type={horizon === "session" ? "monotone" : "linear"}
-                dataKey="poli"
-                stroke="#FBBF24"
-                strokeWidth={horizon === "session" ? 2.5 : 2}
-                dot={false}
-                activeDot={{ r: 4, fill: "#FBBF24" }}
-              />
+              {chartView === "poli" && (
+                <>
+                  <ReferenceLine y={75} stroke="hsl(var(--chart-3))" strokeDasharray="3 3" strokeOpacity={0.3} />
+                  <ReferenceLine y={50} stroke="hsl(var(--primary))" strokeDasharray="3 3" strokeOpacity={0.3} />
+                  <ReferenceLine y={25} stroke="hsl(var(--destructive))" strokeDasharray="3 3" strokeOpacity={0.3} />
+                  <Area type={horizon === "session" ? "monotone" : "linear"} dataKey="poli" stroke="transparent" fill="url(#poliGradientTSLE)" />
+                  <Line type={horizon === "session" ? "monotone" : "linear"} dataKey="poli" stroke="#FBBF24" strokeWidth={2} dot={false} activeDot={{ r: 4, fill: "#FBBF24" }} />
+                </>
+              )}
+              {chartView === "depth" && (
+                <>
+                  <Area type="monotone" dataKey="totalDepth" stroke="transparent" fill="url(#depthGradient)" />
+                  <Line type="monotone" dataKey="depth25" stroke="#3B82F6" strokeWidth={2} dot={false} name="depth25" />
+                  <Line type="monotone" dataKey="depth50" stroke="#10B981" strokeWidth={2} dot={false} name="depth50" />
+                </>
+              )}
+              {chartView === "imbalance" && (
+                <>
+                  <ReferenceLine y={0} stroke="hsl(var(--border))" strokeOpacity={0.5} />
+                  <ReferenceLine y={20} stroke="hsl(var(--amber-500))" strokeDasharray="3 3" strokeOpacity={0.3} />
+                  <ReferenceLine y={-20} stroke="hsl(var(--amber-500))" strokeDasharray="3 3" strokeOpacity={0.3} />
+                  <Bar dataKey="imbalance" fill="#8B5CF6">
+                    {(processedData || []).map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.imbalance >= 0 ? "#3B82F6" : "#EF4444"} fillOpacity={0.7} />
+                    ))}
+                  </Bar>
+                </>
+              )}
             </ComposedChart>
           </ResponsiveContainer>
         </div>
       )}
 
-      {/* Metrics Row */}
       <div className="grid grid-cols-4 gap-3 mt-3 pt-3 border-t border-border">
         <div className="text-center">
           <div className="text-xs text-muted-foreground uppercase tracking-wide">Avg PoLi</div>
@@ -470,12 +678,16 @@ export default function TSLEChart({ venue, symbol, pollTick }: TSLEChartProps) {
           </div>
         </div>
         <div className="text-center">
-          <div className="text-xs text-muted-foreground uppercase tracking-wide">Confidence</div>
-          <div className="text-sm font-mono font-medium">{Math.round(data.trend.confidence * 100)}%</div>
+          <div className="text-xs text-muted-foreground uppercase tracking-wide">Imbalance</div>
+          <div className={cn(
+            "text-sm font-mono font-medium",
+            Math.abs(data.trend.imbalanceShift) > 0.1 ? "text-amber-500" : ""
+          )}>
+            {data.latest ? `${(data.latest.imbalance2550 * 100).toFixed(1)}%` : "—"}
+          </div>
         </div>
       </div>
 
-      {/* Signals (only show for Now horizon) */}
       {horizon === "now" && data.signals.length > 0 && (
         <div className="mt-3 pt-3 border-t border-border space-y-1">
           {data.signals.slice(0, 3).map((signal, idx) => (

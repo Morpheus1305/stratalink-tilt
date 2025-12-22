@@ -1,0 +1,149 @@
+Replit Prompt: Restore TSLE Analytics in Liquidity Truth Console (LTC)
+
+You are working in the Stratalink codebase. The Liquidity Truth Console (LTC) page previously included a TSLE analytics panel (time-series + regime/state view) but it was lost/regressed when Coinbase exchange functionality was added. Your task is to rebuild and reintegrate TSLE analytics into LTC, preserving the current LTC layout (Token/Venue selectors + Market Context + PoLi + Executable Depth table) and adding back the missing TSLE time-series visualization below/alongside the existing cards.
+
+0) Locate the relevant files
+	1.	Search the repo for:
+	•	“Liquidity Truth Console”
+	•	“LTC”
+	•	“LIS”
+	•	“Show Raw JSON”
+	•	“Executable Depth”
+	•	“PoLi Score”
+	2.	Identify the main LTC page/component (likely something like LiquidityTruthConsole.*, LTC.*, OverviewConsole.*, or a route under /overview).
+	3.	Also search git history / old components for “TSLE”, “state machine”, “regime”, “timeSeries”, “recharts”, “sparkline”, “timeline”, etc. If an older TSLE chart component still exists but is unused, restore it rather than rebuilding from scratch.
+
+1) TSLE v1.1 definition (must align to this)
+
+Implement TSLE (Time-Series Liquidity Engine) as an operational liquidity state machine driven by order-book depth snapshots, not price. TSLE output should be:
+	•	Deterministic
+	•	Venue-specific
+	•	Price-agnostic
+	•	Comparable across time/assets
+
+Core states (v1.1):
+	•	STABLE: institutional liquidity holds in the 25–50 bps window
+	•	FRAGILE: liquidity is thinning / becoming asymmetric while price may remain stable
+	•	DEGRADING: executable depth is deteriorating across bands
+	•	BROKEN: institutional liquidity is no longer present
+
+Each state should carry:
+	•	A short human-readable reason
+	•	A probabilistic confidence score (0–1 or 0–100)
+
+Invariant (“Definition Lock-In”):
+Liquidity state must be derived from liquidity, not price. Inputs should be liquidity signals only, e.g.:
+	•	executable depth by band
+	•	band stability (20–200 bps)
+	•	institutional window integrity (25–50 bps)
+	•	imbalance behavior
+	•	persistence over time
+
+2) Data requirements (do not break Coinbase/Binance)
+
+The LTC already fetches LIS “ground truth” JSON for the selected token + venue (Binance, Coinbase, etc). Extend that flow to support TSLE time series.
+
+Implement one of these approaches (choose the one that matches existing backend/API reality):
+
+Preferred (if backend already supports history):
+	•	Add a fetch to a history endpoint such as:
+	•	/api/lis/history?symbol=BTC&venue=BINANCE&window=6h
+	•	or /api/lis/timeseries?...
+	•	Return an array of snapshots where each snapshot includes:
+	•	timestamp
+	•	depth by band (10/25/50/100/200 bps) bid/ask/total
+	•	imbalance by band
+	•	spread (if available)
+	•	tsleState, tsleConfidence, tsleReason (if backend emits it)
+
+Fallback (if only “latest snapshot” exists):
+	•	Build a lightweight client-side ring buffer:
+	•	Every N seconds, poll the same “latest LIS snapshot” endpoint used by LTC
+	•	Store the last 120 points (e.g. 2 hours at 1-min cadence, or 6 hours at 3-min cadence)
+	•	Deduplicate by timestamp
+	•	This must work for both Binance and Coinbase venues.
+
+3) TSLE analytics UI to add back (time-series with buckets)
+
+Rebuild a TSLE Analytics section on the LTC page with the same premium Stratalink styling (dark cards, subtle borders, neon accents consistent with the existing LTC design).
+
+Add one main time-series chart with bucketed tracks (stacked lanes) that shows key information grouped logically (this matches the “nice timeSeries chart depicted key information in different buckets” requirement).
+
+Chart spec (use Recharts if already in the project; otherwise add it)
+Create a chart with lanes such as:
+
+Lane A — TSLE Regime (state machine)
+	•	Plot TSLE state over time as a categorical regime band (STABLE/FRAGILE/DEGRADING/BROKEN)
+	•	Show state changes clearly (step-like transitions)
+	•	Tooltip shows: timestamp, state, confidence, reason
+
+Lane B — Institutional Window Integrity (25–50 bps)
+	•	Time series of:
+	•	total executable depth at 25 bps
+	•	total executable depth at 50 bps
+	•	Optional: show “key band” emphasis (25/50) consistent with the table
+
+Lane C — Symmetry / Imbalance
+	•	Time series of imbalance at 25 bps (and optionally 50 bps)
+	•	Tooltip shows bid, ask, total, imbalance
+
+Lane D — Spread / Microstructure Stress (if available)
+	•	Spread time series (or substitute: depth change rate / volatility proxy if spread missing)
+	•	If spread not available, show “depth slope” or “depth decay” metric you derive from band depths.
+
+All lanes must share the same time axis and brush/zoom if feasible.
+
+4) TSLE derivation logic (only if backend doesn’t emit TSLE)
+
+If tsleState is not present in snapshots, derive it deterministically from liquidity signals:
+
+Example deterministic rules (implement cleanly + comment them):
+	•	Compute institutionalDepth = totalDepth_25bps + totalDepth_50bps
+	•	Compute depthTrend over a short horizon (e.g. last 5–10 points)
+	•	Compute asymmetry from imbalance magnitude at 25/50
+	•	Compute persistence: fraction of last N points that meet thresholds
+
+Then:
+	•	STABLE if institutionalDepth is above threshold AND asymmetry low AND persistence high
+	•	FRAGILE if institutionalDepth declining or asymmetry rising while still above minimum
+	•	DEGRADING if institutionalDepth below stable threshold AND trend negative across bands
+	•	BROKEN if institutionalDepth collapses below hard floor OR persistence fails badly
+
+Confidence score:
+	•	Higher when thresholds are cleanly met and persistence is strong
+	•	Lower when near boundaries or noisy
+
+Reason string:
+	•	Short and specific, e.g.:
+	•	“25–50 bps depth stable, two-sided”
+	•	“Asymmetry rising at 25 bps”
+	•	“Depth decaying across 25–200 bps”
+	•	“Institutional window collapsed”
+
+Make thresholds configurable at the top of the file so we can tune them later.
+
+5) Integration & UX requirements
+	•	TSLE section must update when:
+	•	token changes
+	•	venue changes (Binance/Coinbase)
+	•	Must not break existing LTC cards/table.
+	•	Add a small header row for TSLE panel:
+	•	“TSLE v1.1 — Liquidity as a State Machine”
+	•	Show current state badge + confidence + reason (derived from the latest data point)
+	•	Provide loading + empty states:
+	•	If insufficient points (< 5), show “Collecting TSLE history…”
+	•	Keep everything responsive and consistent with the existing LTC styling.
+
+6) Acceptance criteria
+	•	LTC renders exactly as before plus a restored TSLE analytics section.
+	•	Time-series chart shows regime/state transitions and at least two additional bucket lanes.
+	•	Works for both BINANCE and COINBASE venue selections.
+	•	No console errors, no NaNs in tooltips (guard missing data).
+	•	TSLE state shown on-screen matches the TSLE v1.1 definition and is price-agnostic.
+
+7) Deliverables
+	•	PR-quality code changes:
+	•	Restored TSLE panel + chart component(s)
+	•	Any supporting utilities (formatters, ring buffer, derivation logic)
+	•	Comment the TSLE derivation rules clearly.
+	•	If you find the old TSLE component in the repo, reinstate it and adapt it to the current LIS data model.

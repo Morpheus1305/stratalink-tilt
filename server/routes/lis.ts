@@ -143,24 +143,92 @@ router.get("/:venue/depth", async (req, res) => {
       data = normalizeOrderbook(rawData, venue, symbol);
     }
 
-    // TSLE ONLY runs on Binance
-    if (venue === "binance") {
-      tsleBuffer.record(data);
-      const buffer = tsleBuffer.getHistory(venue, symbol);
-      const spreadBps = data.spread?.bps;
-      const tsle = tsleStateEngine.transition(
-        venue,
-        symbol,
-        buffer,
-        spreadBps
-      );
-      (data as any).tsle = tsle;
-    }
+    // TSLE runs on both Binance and Coinbase
+    tsleBuffer.record(data);
+    const buffer = tsleBuffer.getHistory(venue, symbol);
+    const spreadBps = data.spread?.bps;
+    const tsle = tsleStateEngine.transition(
+      venue,
+      symbol,
+      buffer,
+      spreadBps
+    );
+    (data as any).tsle = tsle;
 
     res.json(data);
   } catch (err) {
     console.error("[LIS Proxy]", err);
     res.status(500).json({ error: "LIS proxy failed" });
+  }
+});
+
+/**
+ * TSLE Dashboard endpoint
+ * Returns time-series history, trend analysis, signals, and stats
+ * Used by the TSLE chart component
+ */
+router.get("/tsle/dashboard", async (req, res) => {
+  const venue = (req.query.venue as string) || "binance";
+  const symbol = (req.query.symbol as string) || "BTC";
+  const limit = parseInt(req.query.limit as string) || 60;
+
+  const validVenues = ["binance", "coinbase"];
+  if (!validVenues.includes(venue.toLowerCase())) {
+    return res.status(400).json({
+      error: `Invalid venue. Must be one of: ${validVenues.join(", ")}`,
+    });
+  }
+
+  try {
+    const history = tsleBuffer.getHistory(venue, symbol, limit);
+    const stats = tsleBuffer.getStats(venue, symbol);
+    const trend = tsleBuffer.getTrend(venue, symbol, 12);
+    const signals = tsleBuffer.getSignals(venue, symbol);
+    const latest = tsleBuffer.getLatest(venue, symbol);
+
+    // Get state machine snapshot
+    const stateSnapshot = tsleStateEngine.getState(venue, symbol);
+
+    res.json({
+      venue,
+      symbol,
+      history,
+      trend,
+      signals,
+      stats,
+      latest,
+      stateSnapshot,
+    });
+  } catch (err) {
+    console.error("[TSLE Dashboard]", err);
+    res.status(500).json({ error: "TSLE dashboard failed" });
+  }
+});
+
+/**
+ * TSLE State endpoint
+ * Returns current TSLE state machine snapshot
+ */
+router.get("/tsle/state", async (req, res) => {
+  const venue = (req.query.venue as string) || "binance";
+  const symbol = (req.query.symbol as string) || "BTC";
+
+  try {
+    const stateSnapshot = tsleStateEngine.getState(venue, symbol);
+    const latest = tsleBuffer.getLatest(venue, symbol);
+    const trend = tsleBuffer.getTrend(venue, symbol, 12);
+
+    res.json({
+      venue,
+      symbol,
+      state: stateSnapshot.state || TSLE_STATE.STABLE,
+      stateSnapshot,
+      latest,
+      trend,
+    });
+  } catch (err) {
+    console.error("[TSLE State]", err);
+    res.status(500).json({ error: "TSLE state failed" });
   }
 });
 
