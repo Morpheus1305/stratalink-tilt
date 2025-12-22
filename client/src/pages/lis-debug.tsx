@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Database, Eye, EyeOff, ArrowUp, ArrowDown, TrendingUp, AlertTriangle, RefreshCw } from "lucide-react";
+import { Database, Eye, EyeOff, ArrowUp, ArrowDown, TrendingUp, AlertTriangle, RefreshCw, Activity, Zap } from "lucide-react";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { PlatformTabs } from "@/components/platform-tabs";
 import PollingOrbital from "@/components/polling-orbital";
@@ -242,6 +242,27 @@ export default function LiquidityTruthConsole() {
   });
   const [fragilityWarning, setFragilityWarning] = useState<{ isFragile: boolean; message: string }>({ isFragile: false, message: "" });
   const [pollTick, setPollTick] = useState(0);
+  const [divergenceData, setDivergenceData] = useState<{
+    hasDivergence: boolean;
+    signals: Array<{
+      type: "POLI" | "DEPTH" | "SPREAD" | "IMBALANCE" | "STATE";
+      severity: "LOW" | "MODERATE" | "HIGH" | "CRITICAL";
+      referenceVenue: string;
+      stressVenue: string;
+      referenceValue: number | string;
+      stressValue: number | string;
+      delta: number;
+      threshold: number;
+      message: string;
+      timestamp: number;
+    }>;
+    summary: string;
+    regime: "NORMAL" | "EARLY_WARNING" | "STRESS_BUILDING" | "CONFIRMED_STRESS";
+    timestamp: number;
+    referenceVenue: string;
+    stressVenue: string;
+    symbol: string;
+  } | null>(null);
   
   useEffect(() => {
     if (data) {
@@ -323,6 +344,31 @@ export default function LiquidityTruthConsole() {
       clearInterval(interval);
     };
   }, [token, venue]);
+
+  // Fetch divergence data (cross-venue comparison)
+  useEffect(() => {
+    let alive = true;
+    
+    const fetchDivergence = async () => {
+      try {
+        const res = await fetch(`/api/lis/divergence?symbol=${token}`);
+        if (res.ok && alive) {
+          const data = await res.json();
+          setDivergenceData(data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch divergence data:", err);
+      }
+    };
+
+    fetchDivergence();
+    const interval = setInterval(fetchDivergence, 10000); // Every 10s
+
+    return () => {
+      alive = false;
+      clearInterval(interval);
+    };
+  }, [token]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -720,6 +766,103 @@ export default function LiquidityTruthConsole() {
                   </table>
               </div>
             </Card>
+
+            {/* Venue Divergence Detection Panel */}
+            {divergenceData && (
+              <Card className={cn(
+                "col-span-12 border",
+                divergenceData.regime === "CONFIRMED_STRESS" ? "border-red-500/50 bg-red-500/5" :
+                divergenceData.regime === "STRESS_BUILDING" ? "border-amber-500/50 bg-amber-500/5" :
+                divergenceData.regime === "EARLY_WARNING" ? "border-yellow-500/50 bg-yellow-500/5" :
+                "border-border bg-card"
+              )} data-testid="card-venue-divergence">
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Activity className={cn(
+                        "h-4 w-4",
+                        divergenceData.regime === "CONFIRMED_STRESS" ? "text-red-400" :
+                        divergenceData.regime === "STRESS_BUILDING" ? "text-amber-400" :
+                        divergenceData.regime === "EARLY_WARNING" ? "text-yellow-400" :
+                        "text-emerald-400"
+                      )} />
+                      <CardTitle className="text-sm font-medium uppercase tracking-wide">
+                        Cross-Venue Divergence
+                      </CardTitle>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge 
+                        variant="outline" 
+                        className={cn(
+                          "text-xs font-semibold",
+                          divergenceData.regime === "CONFIRMED_STRESS" ? "text-red-400 border-red-400/30 bg-red-400/10" :
+                          divergenceData.regime === "STRESS_BUILDING" ? "text-amber-400 border-amber-400/30 bg-amber-400/10" :
+                          divergenceData.regime === "EARLY_WARNING" ? "text-yellow-400 border-yellow-400/30 bg-yellow-400/10" :
+                          "text-emerald-400 border-emerald-400/30 bg-emerald-400/10"
+                        )}
+                        data-testid="badge-divergence-regime"
+                      >
+                        {divergenceData.regime.replace(/_/g, " ")}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground font-mono">
+                        {divergenceData.referenceVenue.toUpperCase()} vs {divergenceData.stressVenue.toUpperCase()}
+                      </span>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-2">
+                  <p className="text-sm text-muted-foreground mb-3">{divergenceData.summary}</p>
+                  
+                  {divergenceData.hasDivergence && divergenceData.signals.length > 0 && (
+                    <div className="space-y-2">
+                      {divergenceData.signals.map((signal, idx) => (
+                        <div 
+                          key={idx}
+                          className={cn(
+                            "flex items-center justify-between p-2 rounded-md border",
+                            signal.severity === "CRITICAL" ? "border-red-500/30 bg-red-500/10" :
+                            signal.severity === "HIGH" ? "border-amber-500/30 bg-amber-500/10" :
+                            signal.severity === "MODERATE" ? "border-yellow-500/30 bg-yellow-500/10" :
+                            "border-border bg-muted/20"
+                          )}
+                          data-testid={`divergence-signal-${idx}`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Zap className={cn(
+                              "h-3.5 w-3.5",
+                              signal.severity === "CRITICAL" ? "text-red-400" :
+                              signal.severity === "HIGH" ? "text-amber-400" :
+                              signal.severity === "MODERATE" ? "text-yellow-400" :
+                              "text-muted-foreground"
+                            )} />
+                            <Badge variant="outline" className="text-[10px] font-mono">{signal.type}</Badge>
+                            <span className="text-xs text-muted-foreground">{signal.message}</span>
+                          </div>
+                          <Badge 
+                            variant="outline" 
+                            className={cn(
+                              "text-[10px]",
+                              signal.severity === "CRITICAL" ? "text-red-400 border-red-400/30" :
+                              signal.severity === "HIGH" ? "text-amber-400 border-amber-400/30" :
+                              signal.severity === "MODERATE" ? "text-yellow-400 border-yellow-400/30" :
+                              "text-muted-foreground border-muted"
+                            )}
+                          >
+                            {signal.severity}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {!divergenceData.hasDivergence && (
+                    <div className="flex items-center gap-2 text-emerald-400">
+                      <span className="text-xs">Venues aligned — no divergence detected</span>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             {/* TSLE Analytics Panel */}
             <TSLEChart 

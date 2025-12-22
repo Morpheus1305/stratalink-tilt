@@ -5,6 +5,11 @@ import {
   TSLE_STATE,
   type LISSnapshot,
 } from "../services/tsle-buffer";
+import {
+  detectDivergence,
+  generateDivergenceReport,
+  type VenueSnapshot,
+} from "../services/divergence-detector";
 
 const router = Router();
 
@@ -230,6 +235,82 @@ router.get("/tsle/state", async (req, res) => {
   } catch (err) {
     console.error("[TSLE State]", err);
     res.status(500).json({ error: "TSLE state failed" });
+  }
+});
+
+/**
+ * Venue Divergence Detection endpoint
+ * Compares Reference vs Stress venues for a given symbol
+ * Returns divergence signals and regime classification
+ */
+router.get("/divergence", async (req, res) => {
+  const symbol = (req.query.symbol as string) || "BTC";
+  const referenceVenue = "coinbase";
+  const stressVenue = "binance";
+
+  try {
+    // Get latest snapshots for both venues
+    const refLatest = tsleBuffer.getLatest(referenceVenue, symbol);
+    const stressLatest = tsleBuffer.getLatest(stressVenue, symbol);
+
+    if (!refLatest || !stressLatest) {
+      return res.json({
+        hasDivergence: false,
+        signals: [],
+        summary: "Insufficient data. Both venues must have recent snapshots.",
+        regime: "NORMAL",
+        timestamp: Date.now(),
+        referenceVenue,
+        stressVenue,
+        symbol,
+      });
+    }
+
+    // Get TSLE states for both venues
+    const refState = tsleStateEngine.getState(referenceVenue, symbol);
+    const stressState = tsleStateEngine.getState(stressVenue, symbol);
+
+    // Build venue snapshots for comparison
+    // Note: TSLEPoint uses 'ts' for timestamp and doesn't store spread
+    const refSnapshot: VenueSnapshot = {
+      venue: referenceVenue,
+      poli: refLatest.poli,
+      depth25: refLatest.depth25,
+      depth50: refLatest.depth50,
+      spreadBps: 0, // Spread not stored in TSLEPoint, would need separate lookup
+      imbalance2550: refLatest.imbalance2550,
+      tsleState: refState.state || "STABLE",
+      timestamp: refLatest.ts,
+    };
+
+    const stressSnapshot: VenueSnapshot = {
+      venue: stressVenue,
+      poli: stressLatest.poli,
+      depth25: stressLatest.depth25,
+      depth50: stressLatest.depth50,
+      spreadBps: 0, // Spread not stored in TSLEPoint, would need separate lookup
+      imbalance2550: stressLatest.imbalance2550,
+      tsleState: stressState.state || "STABLE",
+      timestamp: stressLatest.ts,
+    };
+
+    // Detect divergence signals
+    const signals = detectDivergence(refSnapshot, stressSnapshot);
+    const report = generateDivergenceReport(signals);
+
+    res.json({
+      ...report,
+      referenceVenue,
+      stressVenue,
+      symbol,
+      snapshots: {
+        reference: refSnapshot,
+        stress: stressSnapshot,
+      },
+    });
+  } catch (err) {
+    console.error("[Divergence Detection]", err);
+    res.status(500).json({ error: "Divergence detection failed" });
   }
 });
 
