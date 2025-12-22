@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Database, Eye, EyeOff, ArrowUp, ArrowDown, TrendingUp, AlertTriangle, RefreshCw, Activity, Zap } from "lucide-react";
+import { Database, Eye, EyeOff, ArrowUp, ArrowDown, TrendingUp, AlertTriangle, RefreshCw, Activity, Zap, Bell } from "lucide-react";
+import { Link } from "wouter";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { PlatformTabs } from "@/components/platform-tabs";
 import PollingOrbital from "@/components/polling-orbital";
@@ -807,6 +808,12 @@ export default function LiquidityTruthConsole() {
                       <span className="text-xs text-muted-foreground font-mono">
                         {divergenceData.referenceVenue.toUpperCase()} vs {divergenceData.stressVenue.toUpperCase()}
                       </span>
+                      <Link href="/alerts/config">
+                        <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5" data-testid="button-configure-alerts">
+                          <Bell className="h-3 w-3" />
+                          Configure Alerts
+                        </Button>
+                      </Link>
                     </div>
                   </div>
                 </CardHeader>

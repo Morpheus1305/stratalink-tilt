@@ -1,5 +1,43 @@
 # StrataLink Labs - Institutional Liquidity Terminal
 
+## Version Milestone: Alert System v1.0 - Customizable Stress Notifications
+**Date**: December 22, 2025
+
+This milestone adds a full-featured alert system for monitoring stress conditions:
+
+**Alert Trigger Types:**
+- DIVERGENCE: Fires when cross-venue divergence signals exceed severity threshold
+- REGIME_CHANGE: Fires when regime transitions to/past configured level
+- POLI_DROP: Fires when PoLi drops below configured threshold
+- DEPTH_DROP: Fires when depth divergence exceeds configured percentage
+
+**Notification Channels:**
+- Email via Resend API with HTML-formatted alerts
+- Webhooks with full JSON payload for integration with external systems
+- Configurable cooldown (1-1440 minutes) prevents notification spam
+
+**Features:**
+- PostgreSQL persistence for alert rules and history
+- Enable/disable individual rules without deletion
+- Optional symbol filtering (e.g., BTC-only alerts)
+- Alert history tracking with status (TRIGGERED, EMAIL_SENT, WEBHOOK_SENT, FAILED)
+- "Configure Alerts" button in divergence panel for quick access
+
+**API Endpoints:**
+- `GET /api/alerts/rules` - List all alert rules
+- `POST /api/alerts/rules` - Create new alert rule
+- `PATCH /api/alerts/rules/:id` - Update alert rule
+- `DELETE /api/alerts/rules/:id` - Delete alert rule
+- `GET /api/alerts/history` - View alert history with optional limit
+
+**Files:**
+- `shared/schema.ts` - alertRules, alertHistory tables
+- `server/services/alert-service.ts` - Alert evaluation and notification engine
+- `server/routes/alerts.ts` - API routes
+- `client/src/pages/alert-config.tsx` - Configuration UI at `/alerts/config`
+
+---
+
 ## Version Milestone: Venue Role Doctrine v1.2 - Cross-Venue Divergence
 **Commit**: `b62ed5d7` | **Date**: December 22, 2025
 

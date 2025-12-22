@@ -12,6 +12,7 @@ import fundingRoutes from "./routes/funding";
 import depthRoutes from "./routes/depth";
 import tsleRoutes from "./routes/tsle";
 import lisRoutes from "./routes/lis";
+import alertsRoutes from "./routes/alerts";
 import dailyCommentaryRouter from "./api/dailyCommentary";
 import { startIngestionLoop } from "../analytics/engines/ingestionManager";
 import { 
@@ -393,6 +394,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mount daily commentary routes
   app.use("/api", dailyCommentaryRouter);
+
+  // Mount stress alert routes
+  app.use("/api/alerts", alertsRoutes);
 
   // Start analytics ingestion loop
   startIngestionLoop();

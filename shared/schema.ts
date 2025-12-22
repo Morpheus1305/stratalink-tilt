@@ -429,6 +429,117 @@ export const commentaryDeltaSchema = z.object({
 
 export type CommentaryDelta = z.infer<typeof commentaryDeltaSchema>;
 
+// ========================================
+// Stress Alert Configuration & History
+// ========================================
+
+export const alertRules = pgTable("alert_rules", {
+  id: varchar("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  enabled: boolean("enabled").notNull().default(true),
+  symbol: varchar("symbol", { length: 20 }),
+  triggerType: varchar("trigger_type", { length: 50 }).notNull(),
+  severityThreshold: varchar("severity_threshold", { length: 20 }).notNull(),
+  regimeThreshold: varchar("regime_threshold", { length: 30 }),
+  poliThreshold: integer("poli_threshold"),
+  depthDivergenceThreshold: real("depth_divergence_threshold"),
+  notifyEmail: boolean("notify_email").notNull().default(false),
+  emailRecipients: text("email_recipients").array(),
+  notifyWebhook: boolean("notify_webhook").notNull().default(false),
+  webhookUrl: text("webhook_url"),
+  cooldownMinutes: integer("cooldown_minutes").notNull().default(15),
+  lastTriggered: timestamp("last_triggered"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const alertHistory = pgTable("alert_history", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  ruleId: varchar("rule_id").notNull().references(() => alertRules.id, { onDelete: 'cascade' }),
+  symbol: varchar("symbol", { length: 20 }).notNull(),
+  triggerType: varchar("trigger_type", { length: 50 }).notNull(),
+  severity: varchar("severity", { length: 20 }).notNull(),
+  regime: varchar("regime", { length: 30 }).notNull(),
+  signalData: json("signal_data").$type<object>().notNull(),
+  emailSent: boolean("email_sent").notNull().default(false),
+  webhookSent: boolean("webhook_sent").notNull().default(false),
+  notificationStatus: varchar("notification_status", { length: 20 }).notNull(),
+  triggeredAt: timestamp("triggered_at").notNull().defaultNow(),
+});
+
+export const insertAlertRuleSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().min(1).max(255),
+  enabled: z.boolean().default(true),
+  symbol: z.string().max(20).nullable().optional(),
+  triggerType: z.enum(["DIVERGENCE", "REGIME_CHANGE", "POLI_DROP", "DEPTH_DROP"]),
+  severityThreshold: z.enum(["LOW", "MODERATE", "HIGH", "CRITICAL"]),
+  regimeThreshold: z.enum(["NORMAL", "EARLY_WARNING", "STRESS_BUILDING", "CONFIRMED_STRESS"]).nullable().optional(),
+  poliThreshold: z.number().min(0).max(100).nullable().optional(),
+  depthDivergenceThreshold: z.number().min(0).max(100).nullable().optional(),
+  notifyEmail: z.boolean().default(false),
+  emailRecipients: z.array(z.string().email()).nullable().optional(),
+  notifyWebhook: z.boolean().default(false),
+  webhookUrl: z.string().url().nullable().optional(),
+  cooldownMinutes: z.number().min(1).max(1440).default(15),
+});
+
+export type InsertAlertRule = z.infer<typeof insertAlertRuleSchema>;
+export type SelectAlertRule = typeof alertRules.$inferSelect;
+
+export const insertAlertHistorySchema = z.object({
+  ruleId: z.string(),
+  symbol: z.string(),
+  triggerType: z.string(),
+  severity: z.string(),
+  regime: z.string(),
+  signalData: z.object({}).passthrough(),
+  emailSent: z.boolean().default(false),
+  webhookSent: z.boolean().default(false),
+  notificationStatus: z.enum(["SENT", "PARTIAL", "FAILED", "SKIPPED"]),
+});
+
+export type InsertAlertHistory = z.infer<typeof insertAlertHistorySchema>;
+export type SelectAlertHistory = typeof alertHistory.$inferSelect;
+
+export const alertRuleResponseSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  enabled: z.boolean(),
+  symbol: z.string().nullable(),
+  triggerType: z.string(),
+  severityThreshold: z.string(),
+  regimeThreshold: z.string().nullable(),
+  poliThreshold: z.number().nullable(),
+  depthDivergenceThreshold: z.number().nullable(),
+  notifyEmail: z.boolean(),
+  emailRecipients: z.array(z.string()).nullable(),
+  notifyWebhook: z.boolean(),
+  webhookUrl: z.string().nullable(),
+  cooldownMinutes: z.number(),
+  lastTriggered: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type AlertRuleResponse = z.infer<typeof alertRuleResponseSchema>;
+
+export const alertHistoryResponseSchema = z.object({
+  id: z.number(),
+  ruleId: z.string(),
+  symbol: z.string(),
+  triggerType: z.string(),
+  severity: z.string(),
+  regime: z.string(),
+  signalData: z.object({}).passthrough(),
+  emailSent: z.boolean(),
+  webhookSent: z.boolean(),
+  notificationStatus: z.string(),
+  triggeredAt: z.string(),
+});
+
+export type AlertHistoryResponse = z.infer<typeof alertHistoryResponseSchema>;
+
 // Extended daily commentary response with deltas
 export const dailyCommentaryResponseSchema = z.object({
   symbol: z.string(),
