@@ -230,10 +230,13 @@ export default function LiquidityTruthConsole() {
       const newPoli = computePoLiFromLIS(data, prevScoreRef.current);
       setPoliData(newPoli);
       
+      const midPrice = data.mid_price ?? 0;
+      const spreadBps = data.spread?.bps ?? 0;
+      
       const fragility = detectLiquidityFragility(
         newPoli.score,
-        data.mid_price,
-        data.spread?.bps ?? 0,
+        midPrice,
+        spreadBps,
         fragilityState
       );
       setFragilityWarning(fragility);
@@ -241,8 +244,8 @@ export default function LiquidityTruthConsole() {
       setFragilityState({
         isFragile: fragility.isFragile,
         prevScore: newPoli.score,
-        prevPrice: data.mid_price,
-        prevSpread: data.spread?.bps ?? 0,
+        prevPrice: midPrice,
+        prevSpread: spreadBps,
       });
       
       prevScoreRef.current = newPoli.score;

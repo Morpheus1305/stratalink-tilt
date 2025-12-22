@@ -9,17 +9,28 @@ export interface LISBand {
 }
 
 export interface LISResponse {
-  venue: Venue;
+  venue: string;
   symbol: string;
-  mid_price: number | null;
-  spread_bps: number | null;
+  timestamp: number;
+  mid_price: number;
+  spread: {
+    absolute: number;
+    bps: number;
+  };
+  spread_bps: number;
   bands: Record<string, LISBand>;
   raw?: any;
+  tsle?: {
+    tsle_state: string;
+    reason: string;
+    confidence: number;
+  };
 }
 
 /**
  * Canonical LIS fetch.
  * Normalizes venue-specific payloads into a stable UI contract.
+ * Returns a unified shape regardless of venue differences.
  */
 export async function fetchLiquiditySnapshot(
   symbol: string,
@@ -34,27 +45,46 @@ export async function fetchLiquiditySnapshot(
   const data = await res.json();
 
   // ---- SAFE NORMALIZATION ----
+  // Handle multiple possible response formats from different venues
 
   const midPrice =
     typeof data.mid_price === "number"
       ? data.mid_price
       : typeof data.price === "number"
       ? data.price
-      : null;
+      : 0;
+
+  const spreadAbsolute =
+    typeof data.spread?.absolute === "number"
+      ? data.spread.absolute
+      : 0;
 
   const spreadBps =
     typeof data.spread?.bps === "number"
       ? data.spread.bps
       : typeof data.spread_bps === "number"
       ? data.spread_bps
-      : null;
+      : 0;
+
+  const timestamp =
+    typeof data.timestamp === "number"
+      ? data.timestamp
+      : typeof data.ts === "number"
+      ? data.ts
+      : Date.now();
 
   return {
-    venue: data.venue,
-    symbol: data.symbol,
+    venue: data.venue ?? venue,
+    symbol: data.symbol ?? symbol,
+    timestamp,
     mid_price: midPrice,
+    spread: {
+      absolute: spreadAbsolute,
+      bps: spreadBps,
+    },
     spread_bps: spreadBps,
     bands: data.bands ?? {},
-    raw: data.raw ?? data
+    raw: data.raw ?? data,
+    tsle: data.tsle,
   };
 }
