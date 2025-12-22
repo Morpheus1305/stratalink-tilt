@@ -10,9 +10,10 @@
  */
 
 export type VenueRole = 
-  | "REFERENCE_VENUE"     // Clean, institutional-grade liquidity truth
-  | "STRESS_VENUE"        // Stress, leverage, and tail risk discovery
-  | "REFERENCE_ADJACENT"; // Reinforces reference truth, cross-validates
+  | "REFERENCE_VENUE"       // Clean, institutional-grade liquidity truth
+  | "STRESS_VENUE"          // Stress, leverage, and tail risk discovery
+  | "REFERENCE_ADJACENT"    // Reinforces reference truth, cross-validates
+  | "DERIVATIVES_SPECIALIST"; // Options/futures specialist, institutional derivatives
 
 export type ConfidenceMode = 
   | "HIGH"      // Stable confidence, used for anchoring
@@ -87,15 +88,17 @@ export const VENUE_CONFIGS: Record<string, VenueConfig> = {
     confidence: "MODERATE",
     scope: ["SPOT"],
     available: false,
-    description: "USD-native with conservative spot books and lower leverage footprint.",
+    description: "USD/EUR-native pricing with conservative spot books and lower leverage footprint. Strong regulatory posture.",
     usedFor: [
       "Reinforcing reference truth",
       "Cross-validating Coinbase signals",
       "Improving resilience against venue-specific bias",
+      "EUR-pair liquidity assessment",
     ],
     notUsedFor: [
       "Primary stress detection",
       "Leverage cascade modeling",
+      "Derivatives regime analysis",
     ],
   },
   okx: {
@@ -103,17 +106,59 @@ export const VENUE_CONFIGS: Record<string, VenueConfig> = {
     displayName: "OKX",
     role: "STRESS_VENUE",
     confidence: "VARIABLE",
-    scope: ["SPOT", "PERP", "FUNDING"],
+    scope: ["SPOT", "PERP", "FUNDING", "LIQUIDATIONS"],
     available: false,
-    description: "High-volume derivatives exchange with significant leverage exposure.",
+    description: "High-volume derivatives with unified margin. Key stress venue for Asian session liquidity and leverage cascade detection.",
     usedFor: [
-      "Secondary stress signals",
+      "Unified margin stress signals",
       "Leverage regime confirmation",
       "Asian session liquidity assessment",
+      "Cross-margin liquidation cascades",
     ],
     notUsedFor: [
       "Reference anchoring",
       "Regulatory baseline",
+      "Clean spread calibration",
+    ],
+  },
+  bybit: {
+    venue: "BYBIT",
+    displayName: "Bybit",
+    role: "STRESS_VENUE",
+    confidence: "VARIABLE",
+    scope: ["SPOT", "PERP", "FUNDING", "LIQUIDATIONS"],
+    available: false,
+    description: "Derivatives-first exchange with high leverage exposure. Primary signal for retail leverage stress and liquidation cascades.",
+    usedFor: [
+      "Retail leverage stress detection",
+      "Liquidation cascade signals",
+      "High-frequency funding rate analysis",
+      "Perp-spot basis divergence",
+    ],
+    notUsedFor: [
+      "Reference anchoring",
+      "Institutional baseline",
+      "Regulatory truth",
+    ],
+  },
+  deribit: {
+    venue: "DERIBIT",
+    displayName: "Deribit",
+    role: "DERIVATIVES_SPECIALIST",
+    confidence: "HIGH",
+    scope: ["PERP", "FUNDING"],
+    available: false,
+    description: "Options and futures specialist with institutional derivatives focus. Primary source for volatility surface and options flow intelligence.",
+    usedFor: [
+      "Options flow analysis",
+      "Volatility surface calibration",
+      "Institutional derivatives positioning",
+      "Term structure analysis",
+    ],
+    notUsedFor: [
+      "Spot liquidity baseline",
+      "Reference anchoring",
+      "Retail flow analysis",
     ],
   },
 };
@@ -149,9 +194,24 @@ export function getStressVenues(): string[] {
 }
 
 /**
+ * Get derivatives specialist venues
+ */
+export function getDerivativesVenues(): string[] {
+  return Object.keys(VENUE_CONFIGS).filter(v => VENUE_CONFIGS[v].role === "DERIVATIVES_SPECIALIST");
+}
+
+/**
+ * Get all venues (including unavailable)
+ */
+export function getAllVenues(): string[] {
+  return Object.keys(VENUE_CONFIGS);
+}
+
+/**
  * Role-based confidence multiplier for TSLE
  * Reference venues have higher weight for baseline truth
  * Stress venues have higher weight for fragility signals
+ * Derivatives specialists have high confidence for their specialized domain
  */
 export function getRoleConfidenceMultiplier(venue: string, mode: "baseline" | "stress"): number {
   const config = VENUE_CONFIGS[venue.toLowerCase()];
@@ -162,12 +222,14 @@ export function getRoleConfidenceMultiplier(venue: string, mode: "baseline" | "s
       case "REFERENCE_VENUE": return 1.5;
       case "REFERENCE_ADJACENT": return 1.2;
       case "STRESS_VENUE": return 0.7;
+      case "DERIVATIVES_SPECIALIST": return 0.9; // Moderate baseline, specialized domain
     }
   } else {
     switch (config.role) {
       case "STRESS_VENUE": return 1.5;
       case "REFERENCE_ADJACENT": return 1.0;
       case "REFERENCE_VENUE": return 0.8;
+      case "DERIVATIVES_SPECIALIST": return 1.3; // High for derivatives stress signals
     }
   }
   return 1.0;
@@ -184,6 +246,8 @@ export function getVenueRoleStyling(role: VenueRole): { label: string; color: st
       return { label: "STRESS", color: "text-amber-400", bgColor: "bg-amber-400/10" };
     case "REFERENCE_ADJACENT":
       return { label: "REF-ADJ", color: "text-blue-400", bgColor: "bg-blue-400/10" };
+    case "DERIVATIVES_SPECIALIST":
+      return { label: "DERIV-SPEC", color: "text-purple-400", bgColor: "bg-purple-400/10" };
   }
 }
 

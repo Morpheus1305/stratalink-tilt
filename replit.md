@@ -1,16 +1,31 @@
 # StrataLink Labs - Institutional Liquidity Terminal
 
-## Version Milestone: Venue Role Doctrine v1.0
+## Version Milestone: Venue Role Doctrine v1.1
 **Date**: December 22, 2025
 
-This milestone implements the foundational Venue Role Encoding system:
-- **Reference Venues**: Anchor liquidity truth (Coinbase - USD-native, spot-only, institutional)
-- **Stress Venues**: Reveal fragility and tail risk (Binance - deepest liquidity, full leverage stack)
-- **Reference-Adjacent**: Reinforces reference truth (Kraken - conservative spot books)
-- **Venue Config**: Shared configuration in `shared/venue-config.ts`
-- **Role-based Confidence**: TSLE uses venue roles for confidence multipliers
-- **Frontend Integration**: Market Context shows venue role badge, confidence mode, scope
-- **Non-Negotiable Principle**: "Liquidity truth is multi-venue by necessity"
+This milestone expands the Venue Role Encoding system with formal classifications for 6 exchanges:
+
+**Venue Classifications:**
+| Venue | Role | Confidence | Scope |
+|-------|------|------------|-------|
+| Coinbase | REFERENCE_VENUE | HIGH | SPOT |
+| Binance | STRESS_VENUE | VARIABLE | SPOT, PERP, FUNDING |
+| Kraken | REFERENCE_ADJACENT | MODERATE | SPOT |
+| OKX | STRESS_VENUE | VARIABLE | SPOT, PERP, FUNDING, LIQUIDATIONS |
+| Bybit | STRESS_VENUE | VARIABLE | SPOT, PERP, FUNDING, LIQUIDATIONS |
+| Deribit | DERIVATIVES_SPECIALIST | HIGH | PERP, FUNDING |
+
+**Role Definitions:**
+- **REFERENCE_VENUE**: USD-native pricing, institutional liquidity truth anchor
+- **STRESS_VENUE**: Leverage-heavy, fragility/tail risk discovery
+- **REFERENCE_ADJACENT**: Reinforces reference truth, cross-validation
+- **DERIVATIVES_SPECIALIST**: Options/futures specialist, volatility surface calibration
+
+**Implementation:**
+- Shared configuration in `shared/venue-config.ts`
+- Role-based confidence multipliers in TSLE (1.5x for domain-appropriate signals)
+- Frontend shows venue role badge, confidence mode, and scope badges
+- Non-Negotiable Principle: "Liquidity truth is multi-venue by necessity"
 
 ---
 
