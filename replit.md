@@ -1,5 +1,28 @@
 # StrataLink Labs - Institutional Liquidity Terminal
 
+## Version Milestone: Venue Role Doctrine v1.2 - Cross-Venue Divergence
+**Commit**: `b62ed5d7` | **Date**: December 22, 2025
+
+This milestone adds cross-venue divergence detection to surface regime stress signals:
+
+**Divergence Detection:**
+- Compares Reference venues (Coinbase) vs Stress venues (Binance) in real-time
+- Uses only liquidity-native inputs: PoLi, depth, imbalance, TSLE state (no price data)
+- Thresholds: 15 PoLi points, 30% depth, 20% imbalance divergence
+
+**Regime Classification Ladder:**
+- NORMAL: No signals or only MODERATE-severity signals
+- EARLY_WARNING: At least one HIGH-severity signal or STATE divergence
+- STRESS_BUILDING: STATE divergence combined with HIGH-severity signals
+- CONFIRMED_STRESS: CRITICAL signals or multiple HIGH-severity signals
+
+**API Endpoint:**
+- `GET /api/lis/divergence?symbol=BTC` returns divergence report with signals, regime, and snapshots
+- Frontend displays divergence panel with regime badges and signal details
+- Auto-refreshes every 10 seconds
+
+---
+
 ## Version Milestone: Venue Role Doctrine v1.1
 **Date**: December 22, 2025
 
