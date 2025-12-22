@@ -384,19 +384,19 @@ export default function LiquidityTruthConsole() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-neutral-400 uppercase tracking-wide">Venue</span>
-                  <Badge variant="outline" className="font-mono text-xs">{data.venue.toUpperCase()}</Badge>
+                  <Badge variant="outline" className="font-mono text-xs">{data?.venue?.toUpperCase?.() ?? "—"}</Badge>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-neutral-400 uppercase tracking-wide">Symbol</span>
-                  <span className="font-mono text-sm font-medium text-foreground">{data.symbol}</span>
+                  <span className="font-mono text-sm font-medium text-foreground">{data?.symbol ?? "—"}</span>
                 </div>
                 <div className="flex items-center justify-between border-t border-border/50 pt-2 mt-1">
                   <span className="text-xs text-neutral-400 uppercase tracking-wide">Ref Price</span>
-                  <span className="text-sm font-medium text-muted-foreground">${data.mid_price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <span className="text-sm font-medium text-muted-foreground">${data?.mid_price?.toLocaleString?.(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? "—"}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-neutral-400 uppercase tracking-wide">Spread</span>
-                  <span className="text-xs font-medium text-muted-foreground">{(data.spread?.bps ?? 0).toFixed(4)} bps</span>
+                  <span className="text-xs font-medium text-muted-foreground">{(data?.spread?.bps ?? 0).toFixed(4)} bps</span>
                 </div>
               </div>
             </Card>
@@ -521,7 +521,7 @@ export default function LiquidityTruthConsole() {
                     Executable Depth
                   </h3>
                     {(() => {
-                      const quality = getExecutionQuality(data.bands);
+                      const quality = getExecutionQuality(data?.bands);
                       return (
                         <span className="inline-flex items-center gap-1">
                           <span className={cn(
