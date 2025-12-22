@@ -1,0 +1,154 @@
+Stratalink Doctrine
+
+Reference Venues vs Stress Venues
+
+Version: 1.0
+Status: Canonical
+Applies to: TSLE, LIS, Liquidity Scoring, Consolidated Views
+
+⸻
+
+1. Purpose of This Doctrine
+
+Stratalink operates on the principle that liquidity truth cannot be inferred from a single venue type.
+
+Different exchanges exhibit structurally different liquidity behaviors:
+	•	some represent clean price discovery
+	•	others represent stress, leverage, and tail risk
+
+This doctrine formally defines how Stratalink classifies venues into Reference Venues and Stress Venues, and how each is used within the TSLE (Truth-Seeking Liquidity Engine).
+
+⸻
+
+2. Core Definitions
+
+2.1 Reference Venue
+
+A Reference Venue is an exchange whose order book most closely represents clean, institutional-grade liquidity truth under normal market conditions.
+
+Reference Venues are used to:
+	•	anchor liquidity expectations
+	•	calibrate TSLE thresholds
+	•	define “healthy” market states
+
+They prioritize price integrity over raw activity.
+
+⸻
+
+2.2 Stress Venue
+
+A Stress Venue is an exchange whose order book reflects market extremes, including:
+	•	leverage amplification
+	•	liquidation cascades
+	•	microstructure stress
+	•	regime shifts
+
+Stress Venues are used to:
+	•	test TSLE robustness
+	•	observe tail risk formation
+	•	model liquidity under duress
+
+They prioritize signal richness over cleanliness.
+
+⸻
+
+3. Why Stratalink Requires Both
+
+Liquidity is state-dependent.
+
+A venue that looks healthy in calm markets may fail catastrophically under stress, while a venue that looks chaotic may be precisely where stress is first observable.
+
+Stratalink therefore does not choose between realism and cleanliness — it reconciles both.
+
+Truth emerges from convergence, not consensus.
+
+⸻
+
+4. Canonical Venue Classification
+
+4.1 Stress Template — Binance
+
+Role: Engineering & Stress Baseline
+Classification: STRESS_VENUE
+Confidence Mode: Variable / Regime-Dependent
+
+Rationale
+	•	Deepest global liquidity
+	•	Highest update frequency
+	•	Full leverage stack:
+	•	spot
+	•	perpetuals
+	•	funding
+	•	liquidations
+	•	Early signal of regime transitions
+
+What Binance Is Used For
+	•	Stress-testing TSLE state logic
+	•	Detecting imbalance cascades
+	•	Measuring liquidity fragility
+	•	Modeling tail events
+
+What Binance Is Not Used For
+	•	Defining “healthy” spreads
+	•	Anchoring baseline depth expectations
+	•	Regulatory truth anchoring
+
+⸻
+
+4.2 Reference Template — Coinbase
+
+Role: Liquidity Truth Anchor
+Classification: REFERENCE_VENUE
+Confidence Mode: High / Stable
+
+Rationale
+	•	USD-native pricing
+	•	Spot-only microstructure
+	•	Conservative matching engine
+	•	Institutional participation
+	•	Strong regulatory alignment
+
+What Coinbase Is Used For
+	•	Anchoring TSLE thresholds
+	•	Calibrating spread expectations
+	•	Defining executable depth realism
+	•	Establishing clean imbalance baselines
+
+What Coinbase Is Not Used For
+	•	Stress discovery
+	•	Leverage regime modeling
+	•	Tail risk extrapolation
+
+⸻
+
+5. How TSLE Uses These Roles
+
+5.1 Threshold Calibration
+	•	Reference Venues define:
+	•	acceptable spread bands
+	•	expected depth curves
+	•	imbalance tolerance ranges
+	•	Stress Venues expand:
+	•	volatility envelopes
+	•	drawdown expectations
+	•	stress multipliers
+
+⸻
+
+5.2 Regime Detection
+	•	Divergence between Reference and Stress Venues is itself a signal
+	•	TSLE explicitly measures:
+	•	spread divergence
+	•	depth decay asymmetry
+	•	imbalance lead-lag behavior
+
+This allows TSLE to identify:
+	•	early stress formation
+	•	liquidity illusion breakdowns
+	•	regime transitions before price dislocation
+
+⸻
+
+6. Venue Role Encoding (System Level)
+
+Every exchange integrated into Stratalink must be assigned a role:

@@ -29,6 +29,21 @@ const VENUES = [...AVAILABLE_VENUES, ...COMING_SOON_VENUES] as const;
 
 type Venue = (typeof AVAILABLE_VENUES)[number];
 
+import { VENUE_CONFIGS, getVenueRoleStyling, type VenueRole } from "../../../shared/venue-config";
+
+function getVenueRoleBadge(venue: string): { label: string; color: string; bgColor: string; borderColor: string } {
+  const config = VENUE_CONFIGS[venue.toLowerCase()];
+  if (!config) return { label: "UNKNOWN", color: "text-muted-foreground", bgColor: "bg-muted/20", borderColor: "border-muted" };
+  
+  const styling = getVenueRoleStyling(config.role);
+  return { 
+    label: styling.label, 
+    color: styling.color, 
+    bgColor: styling.bgColor, 
+    borderColor: styling.color.replace("text-", "border-") + "/30"
+  };
+}
+
 type LISBand = {
   bid_notional?: number;
   ask_notional?: number;
@@ -424,12 +439,31 @@ export default function LiquidityTruthConsole() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-neutral-400 uppercase tracking-wide">Venue</span>
-                  <Badge variant="outline" className="font-mono text-xs">{data?.venue?.toUpperCase?.() ?? "—"}</Badge>
+                  <div className="flex items-center gap-1.5">
+                    <Badge variant="outline" className="font-mono text-xs">{data?.venue?.toUpperCase?.() ?? "—"}</Badge>
+                    {(() => {
+                      const roleBadge = getVenueRoleBadge(data?.venue ?? "");
+                      return (
+                        <Badge 
+                          variant="outline" 
+                          className={cn("text-[10px] font-semibold", roleBadge.color, roleBadge.bgColor, roleBadge.borderColor)}
+                          data-testid="badge-venue-role"
+                        >
+                          {roleBadge.label}
+                        </Badge>
+                      );
+                    })()}
+                  </div>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-neutral-400 uppercase tracking-wide">Symbol</span>
                   <span className="font-mono text-sm font-medium text-foreground">{data?.symbol ?? "—"}</span>
                 </div>
+                {VENUE_CONFIGS[data?.venue?.toLowerCase?.() ?? venue]?.description && (
+                  <div className="text-[10px] text-muted-foreground italic border-l-2 border-primary/30 pl-2 mt-1">
+                    {VENUE_CONFIGS[data?.venue?.toLowerCase?.() ?? venue].description}
+                  </div>
+                )}
                 <div className="flex items-center justify-between border-t border-border/50 pt-2 mt-1">
                   <span className="text-xs text-neutral-400 uppercase tracking-wide">Ref Price</span>
                   <span className="text-sm font-medium text-muted-foreground">${data?.mid_price?.toLocaleString?.(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? "—"}</span>
@@ -438,6 +472,26 @@ export default function LiquidityTruthConsole() {
                   <span className="text-xs text-neutral-400 uppercase tracking-wide">Spread</span>
                   <span className="text-xs font-medium text-muted-foreground">{(data?.spread?.bps ?? 0).toFixed(4)} bps</span>
                 </div>
+                {VENUE_CONFIGS[data?.venue?.toLowerCase?.() ?? venue] && (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-neutral-400 uppercase tracking-wide">Confidence</span>
+                      <span className={cn(
+                        "text-xs font-medium",
+                        VENUE_CONFIGS[data?.venue?.toLowerCase?.() ?? venue]?.confidence === "HIGH" ? "text-emerald-400" :
+                        VENUE_CONFIGS[data?.venue?.toLowerCase?.() ?? venue]?.confidence === "VARIABLE" ? "text-amber-400" : "text-blue-400"
+                      )}>
+                        {VENUE_CONFIGS[data?.venue?.toLowerCase?.() ?? venue]?.confidence ?? "—"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <span className="text-xs text-neutral-400 uppercase tracking-wide mr-1">Scope</span>
+                      {VENUE_CONFIGS[data?.venue?.toLowerCase?.() ?? venue]?.scope?.map((s) => (
+                        <Badge key={s} variant="outline" className="text-[9px] py-0 px-1 font-mono">{s}</Badge>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
             </Card>
 

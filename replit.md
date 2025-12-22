@@ -1,5 +1,19 @@
 # StrataLink Labs - Institutional Liquidity Terminal
 
+## Version Milestone: Venue Role Doctrine v1.0
+**Date**: December 22, 2025
+
+This milestone implements the foundational Venue Role Encoding system:
+- **Reference Venues**: Anchor liquidity truth (Coinbase - USD-native, spot-only, institutional)
+- **Stress Venues**: Reveal fragility and tail risk (Binance - deepest liquidity, full leverage stack)
+- **Reference-Adjacent**: Reinforces reference truth (Kraken - conservative spot books)
+- **Venue Config**: Shared configuration in `shared/venue-config.ts`
+- **Role-based Confidence**: TSLE uses venue roles for confidence multipliers
+- **Frontend Integration**: Market Context shows venue role badge, confidence mode, scope
+- **Non-Negotiable Principle**: "Liquidity truth is multi-venue by necessity"
+
+---
+
 ## Version Milestone: TSLE Phase 2 v1.1 - Liquidity Horizons
 **Commit**: `6b542bcb` | **Date**: December 20, 2025
 

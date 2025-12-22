@@ -32,7 +32,10 @@
  */
 // TSLE — Time-Series Liquidity Engine
 // In-memory ring buffer for rolling liquidity history
-// Venue: Binance only | Market: Spot only | No persistence
+// Multi-venue support with role-based confidence adjustment
+// Venue Roles: REFERENCE_VENUE, STRESS_VENUE, REFERENCE_ADJACENT
+
+import { VENUE_CONFIGS, getRoleConfidenceMultiplier, type VenueRole } from "../../shared/venue-config";
 
 // ============================================================================
 // TSLE INVARIANT — DO NOT VIOLATE
@@ -736,15 +739,22 @@ class TSLEStateEngine {
     buffer: TSLEPoint[],
     spreadBps?: number
   ): TSLEOutput {
-    // Support both Binance and Coinbase venues
+    // Support available venues from config
     const v = venue.toLowerCase();
-    if (v !== "binance" && v !== "coinbase") {
+    const venueConfig = VENUE_CONFIGS[v];
+    if (!venueConfig?.available) {
       return { tsle_state: TSLE_STATE.STABLE, reason: "Unsupported venue", confidence: 0 };
     }
 
     const key = this.getKey(venue, symbol);
     const currentState = this.states.get(key) || TSLE_STATE.STABLE;
-    const { state: rawState, reason, confidence } = this.computeRawState(buffer, spreadBps);
+    const { state: rawState, reason, confidence: rawConfidence } = this.computeRawState(buffer, spreadBps);
+    
+    // Apply venue role-based confidence multiplier
+    // Reference venues have higher baseline confidence, stress venues have higher stress detection confidence
+    const isStressState = rawState === TSLE_STATE.FRAGILE || rawState === TSLE_STATE.DISLOCATED;
+    const roleMultiplier = getRoleConfidenceMultiplier(v, isStressState ? "stress" : "baseline");
+    const confidence = Math.min(100, Math.round(rawConfidence * roleMultiplier));
 
     // If raw state matches current, reset pending
     if (rawState === currentState) {
