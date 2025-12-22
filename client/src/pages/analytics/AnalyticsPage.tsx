@@ -39,31 +39,9 @@ import TokenLiquidityTable from "@/components/analytics/TokenLiquidityTable";
 
 /* 🔌 LIS imports */
 import { fetchLiquiditySnapshot } from "@/services/lis";
-import { lisSnapshotToTokenDepth } from "@/adapters/lisToTokenDepth";
+import { lisSnapshotToTokenDepth, type TokenDepth } from "@/adapters/lisToTokenDepth";
 
 /* ===================== TYPES ===================== */
-
-type DepthBand = {
-  bidUSD: number;
-  askUSD: number;
-  totalUSD: number;
-  imbalance: number;
-};
-
-type TokenDepth = {
-  mid: number;
-  spread: number;
-  spreadBps: number;
-  bands: {
-    "10bps": DepthBand;
-    "25bps": DepthBand;
-    "50bps": DepthBand;
-    "100bps": DepthBand;
-    "200bps": DepthBand;
-  };
-  source: string;
-  ts?: number;
-};
 
 type StressDriver = {
   category: string;

@@ -1,74 +1,60 @@
 // client/src/services/lis.ts
-// ============================================================================
-// Canonical LIS client adapter
-// -----------------------------------------------------------------------------
-// Maps UI → backend → relay correctly per venue.
-// Backend contract:
-//   GET /api/lis/:venue/depth?symbol=BTC
-// ============================================================================
 
-export type Venue = "binance" | "coinbase" | "okx" | "kraken";
+export type Venue = "binance" | "coinbase";
 
 export interface LISBand {
-  bid_notional: number;
-  ask_notional: number;
-  total_notional: number;
-}
-
-export interface LISSnapshot {
-  venue: Venue;
-  symbol: string;
-  spread?: {
-    absolute?: number;
-    bps?: number;
-  };
-  bands: Record<string, LISBand>;
-}
-
-export interface TSLEOutput {
-  tsle_state?: string;
-  confidence?: number;
-  poli?: number;
+  bid_notional?: number;
+  ask_notional?: number;
+  total_notional?: number;
 }
 
 export interface LISResponse {
-  lis: LISSnapshot;
-  tsle?: TSLEOutput;
-  stability?: any;
+  venue: Venue;
+  symbol: string;
+  mid_price: number | null;
+  spread_bps: number | null;
+  bands: Record<string, LISBand>;
+  raw?: any;
 }
 
-// -----------------------------------------------------------------------------
-// Canonical fetch — THIS IS THE ONLY PLACE VENUE IS RESOLVED
-// -----------------------------------------------------------------------------
-async function fetchFromBackend(
-  symbol: string,
-  venue: Venue
-): Promise<LISResponse> {
-  const res = await fetch(
-    `/api/lis/${venue}/depth?symbol=${encodeURIComponent(symbol)}`
-  );
-
-  if (!res.ok) {
-    throw new Error(
-      `LIS backend error (${venue}): ${res.status}`
-    );
-  }
-
-  const json = await res.json();
-
-  // Normalize to canonical LISResponse shape
-  return {
-    lis: json,
-    tsle: json.tsle,
-  };
-}
-
-// -----------------------------------------------------------------------------
-// Public API used by UI
-// -----------------------------------------------------------------------------
+/**
+ * Canonical LIS fetch.
+ * Normalizes venue-specific payloads into a stable UI contract.
+ */
 export async function fetchLiquiditySnapshot(
   symbol: string,
   venue: Venue
 ): Promise<LISResponse> {
-  return fetchFromBackend(symbol, venue);
+  const res = await fetch(`/api/lis/${venue}/depth?symbol=${symbol}`);
+
+  if (!res.ok) {
+    throw new Error(`LIS ${venue} fetch failed (${res.status})`);
+  }
+
+  const data = await res.json();
+
+  // ---- SAFE NORMALIZATION ----
+
+  const midPrice =
+    typeof data.mid_price === "number"
+      ? data.mid_price
+      : typeof data.price === "number"
+      ? data.price
+      : null;
+
+  const spreadBps =
+    typeof data.spread?.bps === "number"
+      ? data.spread.bps
+      : typeof data.spread_bps === "number"
+      ? data.spread_bps
+      : null;
+
+  return {
+    venue: data.venue,
+    symbol: data.symbol,
+    mid_price: midPrice,
+    spread_bps: spreadBps,
+    bands: data.bands ?? {},
+    raw: data.raw ?? data
+  };
 }

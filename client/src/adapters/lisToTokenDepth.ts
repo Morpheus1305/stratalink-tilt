@@ -1,16 +1,16 @@
 // client/src/adapters/lisToTokenDepth.ts
 
 type DepthBand = {
-  bid: number;
-  ask: number;
+  bidUSD: number;
+  askUSD: number;
   totalUSD: number;
   imbalance: number;
 };
 
-type TokenDepth = {
+export type TokenDepth = {
   mid: number;
   spread: number;
-  spreadbps: number;
+  spreadBps: number;
   bands: {
     "10bps": DepthBand;
     "25bps": DepthBand;
@@ -19,25 +19,33 @@ type TokenDepth = {
     "200bps": DepthBand;
   };
   source: string;
-  imbalance: number;
+  ts: number;
 };
 
-function computeImbalance(bid: number, ask: number, total: number): number {
+function computeImbalance(bid: number, ask: number): number {
+  const total = bid + ask;
   if (!total) return 0;
-  return (bid - ask) / total;
+  return ((bid - ask) / total) * 100;
 }
 
 function convertBand(lisBand: any): DepthBand {
   const bid = lisBand?.bid_notional ?? 0;
   const ask = lisBand?.ask_notional ?? 0;
-  const total = lisBand?.total_notional ?? 0;
+  const total = lisBand?.total_notional ?? bid + ask;
 
   return {
-    bid,
-    ask,
+    bidUSD: bid,
+    askUSD: ask,
     totalUSD: total,
-    imbalance: computeImbalance(bid, ask, total),
+    imbalance: computeImbalance(bid, ask),
   };
+}
+
+function getBand(bands: any, ...keys: string[]): any {
+  for (const key of keys) {
+    if (bands[key]) return bands[key];
+  }
+  return {};
 }
 
 export function lisSnapshotToTokenDepth(snapshot: any): TokenDepth {
@@ -46,16 +54,16 @@ export function lisSnapshotToTokenDepth(snapshot: any): TokenDepth {
   return {
     mid: snapshot?.mid_price ?? 0,
     spread: snapshot?.spread?.absolute ?? 0,
-    spreadbps: snapshot?.spread?.bps ?? 0,
+    spreadBps: snapshot?.spread?.bps ?? 0,
     source: snapshot?.venue ?? "unknown",
-    imbalance: snapshot?.metrics?.bid_ask_balance ?? 0,
+    ts: snapshot?.timestamp ?? Date.now(),
 
     bands: {
-      "10bps": convertBand(bands.pct_0_1),
-      "25bps": convertBand(bands.pct_0_25),
-      "50bps": convertBand(bands.pct_0_5),
-      "100bps": convertBand(bands.pct_1),
-      "200bps": convertBand(bands.pct_2),
+      "10bps": convertBand(getBand(bands, "pct_0.1", "pct_0_1")),
+      "25bps": convertBand(getBand(bands, "pct_0.25", "pct_0_25")),
+      "50bps": convertBand(getBand(bands, "pct_0.5", "pct_0_5")),
+      "100bps": convertBand(getBand(bands, "pct_1")),
+      "200bps": convertBand(getBand(bands, "pct_2")),
     },
   };
 }
