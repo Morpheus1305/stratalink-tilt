@@ -74,6 +74,7 @@ interface TSLEChartProps {
   venue: string;
   symbol: string;
   pollTick: number;
+  className?: string;
 }
 
 type LiquidityHorizon = "now" | "session" | "baseline";
@@ -235,7 +236,7 @@ function deriveRegimeFromPoli(poli: number): string {
   return "DISLOCATED";
 }
 
-export default function TSLEChart({ venue, symbol, pollTick }: TSLEChartProps) {
+export default function TSLEChart({ venue, symbol, pollTick, className }: TSLEChartProps) {
   const [data, setData] = useState<TSLEDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [prevVenueSymbol, setPrevVenueSymbol] = useState(`${venue}:${symbol}`);
@@ -327,7 +328,7 @@ export default function TSLEChart({ venue, symbol, pollTick }: TSLEChartProps) {
 
   if (loading || !data) {
     return (
-      <Card className="col-span-12 p-4 bg-card border-border">
+      <Card className={cn("col-span-12 p-4 bg-card border-border", className)}>
         <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
           <Activity className="h-4 w-4 animate-pulse mr-2" />
           Loading TSLE data...
@@ -338,7 +339,7 @@ export default function TSLEChart({ venue, symbol, pollTick }: TSLEChartProps) {
 
   if (data.history.length < 3) {
     return (
-      <Card className="col-span-12 p-4 bg-card border-border">
+      <Card className={cn("col-span-12 p-4 bg-card border-border", className)}>
         <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
           <Activity className="h-4 w-4 mr-2" />
           Collecting TSLE history... ({data.history.length}/3 points minimum)
@@ -358,7 +359,7 @@ export default function TSLEChart({ venue, symbol, pollTick }: TSLEChartProps) {
     : null;
 
   return (
-    <Card className="col-span-12 p-4 bg-card border-border" data-testid="card-tsle-chart">
+    <Card className={cn("col-span-12 p-4 bg-card border-border", className)} data-testid="card-tsle-chart">
       <div className="flex items-center gap-2 mb-2">
         <Layers className="h-4 w-4 text-primary" />
         <h3 className="text-sm font-semibold text-foreground">

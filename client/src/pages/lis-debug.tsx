@@ -768,10 +768,12 @@ export default function LiquidityTruthConsole() {
               </div>
             </Card>
 
-            {/* Venue Divergence Detection Panel */}
-            {divergenceData && (
-              <Card className={cn(
-                "col-span-12 border",
+            {/* Divergence + TSLE Side-by-Side */}
+            <div className="col-span-12 grid grid-cols-12 gap-4">
+              {/* Venue Divergence Detection Panel */}
+              {divergenceData && (
+                <Card className={cn(
+                  "col-span-12 lg:col-span-6 border",
                 divergenceData.regime === "CONFIRMED_STRESS" ? "border-red-500/50 bg-red-500/5" :
                 divergenceData.regime === "STRESS_BUILDING" ? "border-amber-500/50 bg-amber-500/5" :
                 divergenceData.regime === "EARLY_WARNING" ? "border-yellow-500/50 bg-yellow-500/5" :
@@ -871,12 +873,14 @@ export default function LiquidityTruthConsole() {
               </Card>
             )}
 
-            {/* TSLE Analytics Panel */}
-            <TSLEChart 
-              venue={venue} 
-              symbol={token} 
-              pollTick={pollTick}
-            />
+              {/* TSLE Analytics Panel */}
+              <TSLEChart 
+                venue={venue} 
+                symbol={token} 
+                pollTick={pollTick}
+                className="col-span-12 lg:col-span-6"
+              />
+            </div>
 
             {/* Raw JSON */}
             {showRaw && (
