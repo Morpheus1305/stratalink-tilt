@@ -654,35 +654,35 @@ export default function TSLEChart({ venue, symbol, pollTick, className }: TSLECh
         </div>
       )}
 
-      <div className="grid grid-cols-4 gap-3 mt-3 pt-3 border-t border-border">
+      <div className="grid grid-cols-4 gap-3 mt-3 pt-3 border-t border-border/50">
         <div className="text-center">
-          <div className="text-xs text-muted-foreground uppercase tracking-wide">Avg PoLi</div>
-          <div className="text-sm font-mono font-medium">{data.stats.avgPoli ?? "—"}</div>
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Avg PoLi</div>
+          <div className="text-xs font-mono font-medium text-foreground">{data.stats.avgPoli ?? "—"}</div>
         </div>
         <div className="text-center">
-          <div className="text-xs text-muted-foreground uppercase tracking-wide">Velocity</div>
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Velocity</div>
           <div className={cn(
-            "text-sm font-mono font-medium",
+            "text-xs font-mono font-medium",
             horizon !== "baseline" && data.trend.poliVelocity > 0 ? "text-chart-3" : 
-            horizon !== "baseline" && data.trend.poliVelocity < 0 ? "text-destructive" : ""
+            horizon !== "baseline" && data.trend.poliVelocity < 0 ? "text-destructive" : "text-foreground"
           )}>
             {velocityDisplay}/min
           </div>
         </div>
         <div className="text-center">
-          <div className="text-xs text-muted-foreground uppercase tracking-wide">Depth Δ</div>
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Depth Δ</div>
           <div className={cn(
-            "text-sm font-mono font-medium",
-            data.trend.depthChange > 0 ? "text-chart-3" : data.trend.depthChange < 0 ? "text-destructive" : ""
+            "text-xs font-mono font-medium",
+            data.trend.depthChange > 0 ? "text-chart-3" : data.trend.depthChange < 0 ? "text-destructive" : "text-foreground"
           )}>
             {data.trend.depthChange > 0 ? "+" : ""}{data.trend.depthChange}%
           </div>
         </div>
         <div className="text-center">
-          <div className="text-xs text-muted-foreground uppercase tracking-wide">Imbalance</div>
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Imbalance</div>
           <div className={cn(
-            "text-sm font-mono font-medium",
-            Math.abs(data.trend.imbalanceShift) > 0.1 ? "text-amber-500" : ""
+            "text-xs font-mono font-medium",
+            Math.abs(data.trend.imbalanceShift) > 0.1 ? "text-amber-500" : "text-foreground"
           )}>
             {data.latest ? `${(data.latest.imbalance2550 * 100).toFixed(1)}%` : "—"}
           </div>
