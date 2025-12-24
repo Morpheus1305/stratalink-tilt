@@ -157,9 +157,10 @@ class TSLEBuffer {
   }
 
   public record(snapshot: LISSnapshot): TSLEPoint | null {
-    // Process both Binance and Coinbase venues
+    // Process all supported venues
     const venue = snapshot.venue.toLowerCase();
-    if (venue !== "binance" && venue !== "coinbase") {
+    const supportedVenues = ["binance", "coinbase", "kraken"];
+    if (!supportedVenues.includes(venue)) {
       return null;
     }
 
