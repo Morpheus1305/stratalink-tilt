@@ -105,8 +105,8 @@ router.get("/:venue/depth", async (req, res) => {
     return res.status(400).json({ error: "symbol query parameter required" });
   }
 
-  // Currently supported venues - OKX and Kraken coming soon
-  const validVenues = ["binance", "coinbase"];
+  // Currently supported venues
+  const validVenues = ["binance", "coinbase", "kraken"];
   if (!validVenues.includes(venue)) {
     return res.status(400).json({
       error: `Venue "${venue}" coming soon. Currently supported: ${validVenues.join(", ")}`,
