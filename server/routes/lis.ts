@@ -10,6 +10,7 @@ import {
   generateDivergenceReport,
   type VenueSnapshot,
 } from "../services/divergence-detector";
+import { fetchCoinbaseDepth } from "../services/lis-coinbase";
 
 const router = Router();
 
@@ -114,42 +115,49 @@ router.get("/:venue/depth", async (req, res) => {
   }
 
   try {
-    const relayKey =
-      process.env.VITE_LIS_RELAY_KEY || process.env.LIS_RELAY_KEY;
-
-    if (!relayKey) {
-      return res.status(500).json({ error: "LIS_RELAY_KEY not configured" });
-    }
-
-    const relayVenue = mapRelayVenue(venue);
-
-    const response = await fetch(
-      `https://relay.stratalink.ai/${relayVenue}/depth?symbol=${symbol}`,
-      {
-        headers: {
-          "x-relay-key": relayKey,
-        },
-      }
-    );
-
-    if (!response.ok) {
-      return res.status(response.status).json({
-        error: `LIS relay returned ${response.status}`,
-      });
-    }
-
-    const rawData = await response.json();
-
-    // Check if data is already normalized (has bands) or needs normalization
     let data: LISSnapshot;
-    if (rawData.bands && rawData.mid_price !== undefined) {
-      data = rawData as LISSnapshot;
-      data.venue = venue;
+
+    // Use direct API for Coinbase (more reliable than relay)
+    if (venue === "coinbase") {
+      data = await fetchCoinbaseDepth(symbol);
     } else {
-      data = normalizeOrderbook(rawData, venue, symbol);
+      // Use relay for other venues (Binance, Kraken, etc.)
+      const relayKey =
+        process.env.VITE_LIS_RELAY_KEY || process.env.LIS_RELAY_KEY;
+
+      if (!relayKey) {
+        return res.status(500).json({ error: "LIS_RELAY_KEY not configured" });
+      }
+
+      const relayVenue = mapRelayVenue(venue);
+
+      const response = await fetch(
+        `https://relay.stratalink.ai/${relayVenue}/depth?symbol=${symbol}`,
+        {
+          headers: {
+            "x-relay-key": relayKey,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        return res.status(response.status).json({
+          error: `LIS relay returned ${response.status}`,
+        });
+      }
+
+      const rawData = await response.json();
+
+      // Check if data is already normalized (has bands) or needs normalization
+      if (rawData.bands && rawData.mid_price !== undefined) {
+        data = rawData as LISSnapshot;
+        data.venue = venue;
+      } else {
+        data = normalizeOrderbook(rawData, venue, symbol);
+      }
     }
 
-    // TSLE runs on both Binance and Coinbase
+    // TSLE runs on all venues
     tsleBuffer.record(data);
     const buffer = tsleBuffer.getHistory(venue, symbol);
     const spreadBps = data.spread?.bps;
@@ -178,7 +186,7 @@ router.get("/tsle/dashboard", async (req, res) => {
   const symbol = (req.query.symbol as string) || "BTC";
   const limit = parseInt(req.query.limit as string) || 60;
 
-  const validVenues = ["binance", "coinbase"];
+  const validVenues = ["binance", "coinbase", "kraken"];
   if (!validVenues.includes(venue.toLowerCase())) {
     return res.status(400).json({
       error: `Invalid venue. Must be one of: ${validVenues.join(", ")}`,

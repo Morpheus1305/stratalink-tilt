@@ -1,59 +1,73 @@
-// server/services/lis-coinbase.ts
-import type { LISSnapshot, LISBand } from "./tsle-buffer";
+import type { LISSnapshot } from "./tsle-buffer";
 
-const COINBASE_BOOK_URL =
-  "https://api.exchange.coinbase.com/products/BTC-USD/book?level=2";
+const COINBASE_API_BASE = "https://api.exchange.coinbase.com";
 
 type CoinbaseBook = {
-  bids: [string, string][];
-  asks: [string, string][];
+  bids: [string, string, string][];
+  asks: [string, string, string][];
+};
+
+const SYMBOL_MAP: Record<string, string> = {
+  BTC: "BTC-USD",
+  ETH: "ETH-USD",
+  SOL: "SOL-USD",
+  LINK: "LINK-USD",
+  AVAX: "AVAX-USD",
+  DOGE: "DOGE-USD",
+  XRP: "XRP-USD",
+  ADA: "ADA-USD",
+  DOT: "DOT-USD",
+  MATIC: "MATIC-USD",
 };
 
 function buildBands(
-  bids: [string, string][],
-  asks: [string, string][],
+  bids: [string, string, string][],
+  asks: [string, string, string][],
   mid: number
-): Record<string, LISBand> {
-  const bands = {
-    pct_0_1: { bid_notional: 0, ask_notional: 0 },
-    pct_0_25: { bid_notional: 0, ask_notional: 0 },
-    pct_0_5: { bid_notional: 0, ask_notional: 0 },
-    pct_1: { bid_notional: 0, ask_notional: 0 },
-    pct_2: { bid_notional: 0, ask_notional: 0 },
-  };
+): Record<string, { bid_notional: number; ask_notional: number; total_notional: number }> {
+  const bpsLevels = [0.1, 0.25, 0.5, 1, 2];
+  const bands: Record<string, { bid_notional: number; ask_notional: number; total_notional: number }> = {};
 
-  function accumulate(
-    side: "bid_notional" | "ask_notional",
-    price: number,
-    size: number
-  ) {
-    const bps = Math.abs(price - mid) / mid * 10_000;
+  for (const bps of bpsLevels) {
+    const priceRange = mid * (bps / 100);
+    const bidFloor = mid - priceRange;
+    const askCeil = mid + priceRange;
 
-    if (bps <= 10) bands.pct_0_1[side]! += price * size;
-    if (bps <= 25) bands.pct_0_25[side]! += price * size;
-    if (bps <= 50) bands.pct_0_5[side]! += price * size;
-    if (bps <= 100) bands.pct_1[side]! += price * size;
-    if (bps <= 200) bands.pct_2[side]! += price * size;
+    let bidNotional = 0;
+    for (const [priceStr, sizeStr] of bids) {
+      const price = parseFloat(priceStr);
+      const size = parseFloat(sizeStr);
+      if (price >= bidFloor) {
+        bidNotional += price * size;
+      }
+    }
+
+    let askNotional = 0;
+    for (const [priceStr, sizeStr] of asks) {
+      const price = parseFloat(priceStr);
+      const size = parseFloat(sizeStr);
+      if (price <= askCeil) {
+        askNotional += price * size;
+      }
+    }
+
+    const key = `pct_${bps}`;
+    bands[key] = {
+      bid_notional: bidNotional,
+      ask_notional: askNotional,
+      total_notional: bidNotional + askNotional,
+    };
   }
-
-  bids.forEach(([p, s]) =>
-    accumulate("bid_notional", Number(p), Number(s))
-  );
-  asks.forEach(([p, s]) =>
-    accumulate("ask_notional", Number(p), Number(s))
-  );
-
-  Object.values(bands).forEach(b => {
-    b.total_notional =
-      (b.bid_notional ?? 0) + (b.ask_notional ?? 0);
-  });
 
   return bands;
 }
 
-export async function fetchCoinbaseLIS(): Promise<LISSnapshot> {
-  const res = await fetch(COINBASE_BOOK_URL, {
-    headers: { "User-Agent": "Stratalink-LIS" },
+export async function fetchCoinbaseDepth(symbol: string): Promise<LISSnapshot> {
+  const product = SYMBOL_MAP[symbol.toUpperCase()] || `${symbol.toUpperCase()}-USD`;
+  const url = `${COINBASE_API_BASE}/products/${product}/book?level=2`;
+
+  const res = await fetch(url, {
+    headers: { "User-Agent": "Stratalink-LIS/1.0" },
   });
 
   if (!res.ok) {
@@ -62,19 +76,24 @@ export async function fetchCoinbaseLIS(): Promise<LISSnapshot> {
 
   const book = (await res.json()) as CoinbaseBook;
 
-  const bestBid = Number(book.bids[0][0]);
-  const bestAsk = Number(book.asks[0][0]);
+  if (!book.bids?.length || !book.asks?.length) {
+    throw new Error("Empty orderbook from Coinbase");
+  }
+
+  const bestBid = parseFloat(book.bids[0][0]);
+  const bestAsk = parseFloat(book.asks[0][0]);
   const mid = (bestBid + bestAsk) / 2;
+  const spreadAbsolute = bestAsk - bestBid;
+  const spreadBps = mid > 0 ? (spreadAbsolute / mid) * 10000 : 0;
 
   return {
     venue: "coinbase",
-    symbol: "BTC",
-    quote: "USD",
+    symbol: symbol.toUpperCase(),
     timestamp: Date.now(),
     mid_price: mid,
     spread: {
-      absolute: bestAsk - bestBid,
-      bps: ((bestAsk - bestBid) / mid) * 10_000,
+      absolute: spreadAbsolute,
+      bps: spreadBps,
     },
     bands: buildBands(book.bids, book.asks, mid),
   };
