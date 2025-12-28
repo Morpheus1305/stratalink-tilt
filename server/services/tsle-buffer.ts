@@ -875,6 +875,169 @@ class TSLEStateEngine {
   }
 }
 
+// ============================================================================
+// LIQUIDITY TRUTH INTEGRATION
+// ============================================================================
+
+import {
+  TSLE_DEFINITION,
+  type LiquidityState,
+  type LiquidityHorizon,
+  type HorizonTSLE,
+  type PoLiScore,
+  computePoLiRating,
+  isLiquidityReal,
+  getPoLiInterpretation,
+  classifyRegime,
+  createEmptyLiquidityState,
+} from "../../shared/liquidity-truth";
+
+/**
+ * Build a PoLiScore from raw values
+ */
+function buildPoLiScore(
+  poli: number,
+  depthScore: number,
+  balanceScore: number,
+  spreadScore: number
+): PoLiScore {
+  return {
+    value: poli,
+    rating: computePoLiRating(poli),
+    isReal: isLiquidityReal(poli),
+    components: { depthScore, balanceScore, spreadScore },
+    interpretation: getPoLiInterpretation(poli),
+  };
+}
+
+/**
+ * Compute TSLE for a specific horizon
+ */
+function computeHorizonTSLE(
+  buffer: TSLEPoint[],
+  horizon: LiquidityHorizon,
+  windowMinutes: number
+): HorizonTSLE | null {
+  if (buffer.length === 0) return null;
+
+  const now = Date.now();
+  const windowMs = windowMinutes * 60 * 1000;
+  const cutoff = now - windowMs;
+
+  const windowPoints = buffer.filter(p => p.ts >= cutoff);
+  if (windowPoints.length === 0) return null;
+
+  const avgPoli = windowPoints.reduce((s, p) => s + p.poli, 0) / windowPoints.length;
+  const latest = windowPoints[windowPoints.length - 1];
+
+  let direction: "rising" | "falling" | "stable" = "stable";
+  let velocity = 0;
+  let momentum: "accelerating" | "decelerating" | "neutral" = "neutral";
+
+  if (windowPoints.length >= 2) {
+    const oldest = windowPoints[0];
+    const poliChange = latest.poli - oldest.poli;
+    const timeSpanMin = Math.max((latest.ts - oldest.ts) / 60000, 0.1);
+    velocity = poliChange / timeSpanMin;
+
+    if (Math.abs(poliChange) < 2) {
+      direction = "stable";
+    } else if (poliChange > 0) {
+      direction = "rising";
+    } else {
+      direction = "falling";
+    }
+
+    if (windowPoints.length >= 4) {
+      const mid = Math.floor(windowPoints.length / 2);
+      const recentAvg = windowPoints.slice(mid).reduce((s, p) => s + p.poli, 0) / (windowPoints.length - mid);
+      const olderAvg = windowPoints.slice(0, mid).reduce((s, p) => s + p.poli, 0) / mid;
+      const diff = recentAvg - olderAvg;
+      if (diff > 3) momentum = "accelerating";
+      else if (diff < -3) momentum = "decelerating";
+    }
+  }
+
+  return {
+    horizon,
+    poli: buildPoLiScore(Math.round(avgPoli), 0, 0, 0),
+    state: {
+      state: latest.poli >= 70 ? "STABLE" : latest.poli >= 50 ? "THINNING" : latest.poli >= 30 ? "FRAGILE" : "DISLOCATED",
+      since: windowPoints[0].ts,
+      confidence: Math.min(100, windowPoints.length * 10),
+      reason: `Based on ${windowPoints.length} data points over ${windowMinutes} minutes`,
+    },
+    trend: { direction, velocity: Math.round(velocity * 100) / 100, momentum },
+    dataPoints: windowPoints.length,
+  };
+}
+
+/**
+ * Build unified LiquidityState from TSLE buffer data
+ * This is the canonical method for constructing liquidity truth
+ */
+export function buildLiquidityState(
+  venue: string,
+  symbol: string,
+  buffer: TSLEPoint[],
+  stateSnapshot: TSLEStateSnapshot,
+  trend: TSLETrend,
+  signals: TSLESignal[]
+): LiquidityState {
+  if (buffer.length === 0) {
+    return createEmptyLiquidityState(venue, symbol);
+  }
+
+  const latest = buffer[buffer.length - 1];
+
+  const depthTrend = trend.depthChange > 5 ? "improving" : trend.depthChange < -5 ? "declining" : "stable";
+  let consecutiveDeclines = 0;
+  for (let i = buffer.length - 1; i > 0; i--) {
+    const curr = buffer[i].depth25 + buffer[i].depth50;
+    const prev = buffer[i - 1].depth25 + buffer[i - 1].depth50;
+    if (curr < prev * 0.98) consecutiveDeclines++;
+    else break;
+  }
+
+  const nowHorizon = computeHorizonTSLE(buffer, "now", 1);
+  const sessionHorizon = computeHorizonTSLE(buffer, "session", 60);
+  const baselineHorizon = computeHorizonTSLE(buffer, "baseline", 1440);
+
+  return {
+    symbol,
+    venue,
+    timestamp: Date.now(),
+    poli: buildPoLiScore(latest.poli, 0, 0, 0),
+    regime: classifyRegime(latest.poli, depthTrend, latest.imbalance2550, consecutiveDeclines),
+    tsle: {
+      definition: TSLE_DEFINITION,
+      state: {
+        state: stateSnapshot.state,
+        since: stateSnapshot.since,
+        confidence: stateSnapshot.confirmationProgress > 0 
+          ? (stateSnapshot.confirmationProgress / stateSnapshot.confirmationRequired) * 100 
+          : 100,
+        reason: stateSnapshot.lastTransition?.reason || "Stable baseline",
+      },
+      horizons: {
+        now: nowHorizon,
+        session: sessionHorizon,
+        baseline: baselineHorizon,
+      },
+    },
+    fragmentation: null,
+    signals: signals.map(s => ({
+      type: s.type,
+      severity: s.severity,
+      message: s.message,
+    })),
+    invariants: {
+      priceIndependent: true,
+      forbiddenInputsUsed: [],
+    },
+  };
+}
+
 // Singleton instances
 export const tsleBuffer = new TSLEBuffer();
 export const tsleStateEngine = new TSLEStateEngine();

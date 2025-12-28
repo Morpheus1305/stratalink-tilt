@@ -1,0 +1,55 @@
+You are operating inside the Stratalink Liquidity Truth Console (LTC).
+
+Your task is to FINALIZE and LOCK the Liquidity Truth Console as a first-class, invariant liquidity layer.
+
+This is not a UI task. This is a systems-definition task.
+
+GOALS (ALL REQUIRED):
+
+1. Establish LTC as the canonical source of liquidity truth.
+2. Ensure all liquidity metrics are price-independent.
+3. Promote TSLE and PoLi to first-class primitives.
+4. Enforce internal invariants so downstream products cannot violate liquidity truth.
+
+REQUIREMENTS:
+
+A. TSLE
+- Add a permanent, visible one-line definition:
+  “TSLE measures the intensity, resilience, and continuity of executable liquidity across venues, independent of price.”
+- Implement an internal invariant:
+  TSLE must not change due to price-only movements.
+- TSLE inputs may include depth quality, spread integrity, fragmentation, regime.
+- TSLE inputs must exclude price, returns, volatility.
+
+B. Liquidity Horizons
+- Implement three horizons: Now, Session, Baseline.
+- Treat horizons as liquidity memory windows, not raw timeframes.
+- Compute TSLE separately for each horizon.
+
+C. PoLi
+- Implement Proof of Liquidity as a primitive derived from the LTC state.
+- Express PoLi as a numeric score and rating band.
+- PoLi must answer “is liquidity real?” not “is liquidity good?”
+
+D. Regime & Fragmentation
+- Classify liquidity regimes: Normal, Thin, Stressed.
+- Explicitly compute cross-venue fragmentation.
+- Fragmentation must feed TSLE and PoLi.
+
+E. Console Constraints
+- Remove or ignore all price-based inputs or visuals.
+- Ensure all UI components read from a unified LiquidityState object.
+- Prevent venue-specific logic from leaking into UI layers.
+
+OUTPUT EXPECTATION:
+
+When complete, the Liquidity Truth Console must allow a user to understand:
+- Whether liquidity is real
+- Whether liquidity is fragmenting
+- Whether liquidity is resilient
+- Without seeing or inferring price
+
+If any requirement is ambiguous, choose correctness over speed.
+If any metric conflicts with the invariants, refactor the metric.
+
+This task is complete only when LTC can serve as the sole upstream source for rebuilding LIS and all future Stratalink products.
