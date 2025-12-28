@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import path from "path";
 import { storage } from "./storage";
 import { authHelpers, sendOTPEmail, sanitizeUser } from "./auth";
 import { web3DataService } from "./apiClients";
@@ -397,6 +398,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mount stress alert routes
   app.use("/api/alerts", alertsRoutes);
+
+  // Download endpoint for LTC code archive
+  app.get("/download/LTC-v1.0.zip", (_req, res) => {
+    const zipPath = path.resolve(process.cwd(), "client/public/LTC-v1.0.zip");
+    res.download(zipPath, "LTC-v1.0.zip", (err) => {
+      if (err) {
+        console.error("Download error:", err);
+        res.status(404).json({ error: "File not found" });
+      }
+    });
+  });
 
   // Start analytics ingestion loop
   startIngestionLoop();
