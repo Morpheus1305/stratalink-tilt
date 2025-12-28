@@ -367,8 +367,12 @@ export default function TSLEChart({ venue, symbol, pollTick, className }: TSLECh
         </h3>
       </div>
       
-      <p className="text-xs text-muted-foreground mb-3">
-        Time-Series Liquidity Engine tracks execution quality and regime over time using PoLi, depth symmetry, and fragility signals — not price.
+      <p className="text-[10px] text-muted-foreground mb-2 italic border-l-2 border-primary/30 pl-2">
+        TSLE measures the intensity, resilience, and continuity of executable liquidity across venues, independent of price.
+      </p>
+      
+      <p className="text-[10px] text-muted-foreground mb-3">
+        Tracks execution quality and regime over time using PoLi, depth symmetry, and fragility signals.
       </p>
 
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">

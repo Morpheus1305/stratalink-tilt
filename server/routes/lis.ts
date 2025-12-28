@@ -4,6 +4,7 @@ import {
   tsleStateEngine,
   TSLE_STATE,
   type LISSnapshot,
+  buildLiquidityState,
 } from "../services/tsle-buffer";
 import {
   detectDivergence,
@@ -319,6 +320,39 @@ router.get("/divergence", async (req, res) => {
   } catch (err) {
     console.error("[Divergence Detection]", err);
     res.status(500).json({ error: "Divergence detection failed" });
+  }
+});
+
+/**
+ * GET /api/lis/state
+ * Returns the unified LiquidityState object — canonical liquidity truth
+ * 
+ * This endpoint is the single source of truth for liquidity intelligence.
+ * All downstream products should read from this state.
+ */
+router.get("/state", (req, res) => {
+  const venue = ((req.query.venue as string) || "coinbase").toLowerCase();
+  const symbol = ((req.query.symbol as string) || "BTC").toUpperCase();
+
+  try {
+    const buffer = tsleBuffer.getHistory(venue, symbol);
+    const stateSnapshot = tsleStateEngine.getState(venue, symbol);
+    const trend = tsleBuffer.getTrend(venue, symbol);
+    const signals = tsleBuffer.getSignals(venue, symbol);
+
+    const liquidityState = buildLiquidityState(
+      venue,
+      symbol,
+      buffer,
+      stateSnapshot,
+      trend,
+      signals
+    );
+
+    res.json(liquidityState);
+  } catch (err) {
+    console.error("[LiquidityState]", err);
+    res.status(500).json({ error: "Failed to build liquidity state" });
   }
 });
 
