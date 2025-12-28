@@ -1,5 +1,50 @@
 # StrataLink Labs - Institutional Liquidity Terminal
 
+## Version Milestone: Liquidity Truth Console (LTC) v1.0 - Canonical Liquidity State
+**Date**: December 28, 2025
+
+This milestone formalizes the Liquidity Truth system with unified state objects and price-independent invariants:
+
+**TSLE Permanent Definition:**
+> "TSLE measures the intensity, resilience, and continuity of executable liquidity across venues, independent of price."
+
+**TSLE Invariant (Absolute):**
+- Only allowed inputs: depth25, depth50, imbalance2550, poli, spread
+- Forbidden: price, returns, volume, open interest, funding rate, technical indicators
+- Violation of this invariant invalidates the entire LiquidityState object
+
+**Unified LiquidityState Object:**
+- Canonical source of liquidity truth for all downstream products
+- Contains: PoLi score, regime classification, TSLE state, horizons, fragmentation, signals
+- Invariant validation built-in with `priceIndependent` flag and `forbiddenInputsUsed` tracking
+
+**PoLi Formalization:**
+- Numeric score (0-100) with rating bands (AAA through D)
+- `isReal` boolean: true when score ≥ 40 (answers "Is liquidity real?")
+- Component breakdown: depthScore, balanceScore, spreadScore
+- Interpretation text for UI display
+
+**Liquidity Horizons:**
+- NOW (1 minute): Immediate execution quality snapshot
+- SESSION (60 minutes): Intraday liquidity drift analysis
+- BASELINE (1440 minutes): Rolling 24h liquidity baseline
+
+**Regime Classification:**
+- NORMAL: PoLi ≥ 70, stable depth
+- THIN: PoLi 50-69, stable or thinning depth
+- STRESSED: PoLi < 50, declining depth with consecutive erosion
+
+**API Endpoint:**
+- `GET /api/lis/state?venue=coinbase&symbol=BTC` - Returns unified LiquidityState object
+
+**Files:**
+- `shared/liquidity-truth.ts` - Type definitions, primitives, invariant enforcement
+- `server/services/tsle-buffer.ts` - `buildLiquidityState()` function and horizon computation
+- `server/routes/lis.ts` - `/api/lis/state` endpoint
+- `client/src/components/tsle-chart.tsx` - TSLE definition display
+
+---
+
 ## Version Milestone: Alert System v1.0 - Customizable Stress Notifications
 **Date**: December 22, 2025
 
