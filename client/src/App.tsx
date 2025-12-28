@@ -22,6 +22,7 @@ import IdentityAlertsPage from "@/pages/identity/IdentityAlertsPage";
 import RegSurveillancePage from "@/pages/identity/RegSurveillancePage";
 import LisDebugPage from "@/pages/lis-debug";
 import AlertConfigPage from "@/pages/alert-config";
+import DownloadPage from "@/pages/download";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { TokenProvider } from "@/contexts/TokenContext";
 import { MicrostructureFeedProvider } from "@/contexts/MicrostructureFeed";
@@ -121,6 +122,7 @@ function Router() {
       </Route>
       <Route path="/lis" component={LisDebugPage} />
       <Route path="/alerts/config" component={AlertConfigPage} />
+      <Route path="/download" component={DownloadPage} />
       <Route component={NotFound} />
     </Switch>
   );
