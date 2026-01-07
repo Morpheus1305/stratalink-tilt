@@ -1,0 +1,533 @@
+I'll create a surgical prompt that adapts the PoLi spec to your existing architecture. First, let me understand your current structure:
+
+**Your existing architecture:**
+- Component-driven with panel paradigm already established
+- TypeScript/React with established patterns
+- Routing structure with `/identity`, `/overview`, `/analytics` tabs
+- Existing panel components and utilities
+- Already has scoring/rating display patterns
+
+Here's your **implementation-ready prompt**:
+
+---
+
+## TILT v1 PoLi Integration Prompt
+**Task:** Integrate PoLi Scorecard + Pillar Panels into existing TILT architecture without rewriting base components.
+
+### Context
+- **Existing codebase:** TypeScript React app with panel-driven UI
+- **Target location:** New route `/scorecard` (add to existing tab navigation)
+- **Reuse strategy:** Leverage existing `Card.tsx`, layout patterns, and utility components
+- **New components only:** PoLi-specific scorecard and pillar drill-downs
+
+---
+
+### 1. New Route & Navigation
+
+**File:** `src/client/App.tsx`
+
+Add new route:
+```typescript
+<Route path="/scorecard" element={<PoLiScorecardPage />} />
+```
+
+**File:** `src/components/layout/Tabs.tsx` (or navigation component)
+
+Add "SCORECARD" tab between "ALERTS" and "ANALYTICS":
+```typescript
+{ label: 'SCORECARD', path: '/scorecard' }
+```
+
+---
+
+### 2. API Integration
+
+**File:** `src/client/api.tsx` (or equivalent API service file)
+
+Add new endpoint:
+```typescript
+export async function fetchPoLiData(
+  token: string,
+  window: '24H' | '7D' | '30D' = '7D',
+  venues: string[] | 'ALL' = 'ALL'
+): Promise<PoLiPayload> {
+  const venueParam = venues === 'ALL' ? 'ALL' : venues.join(',');
+  const response = await fetch(
+    `/tilt/poli?token=${token}&window=${window}&venues=${venueParam}`
+  );
+  if (!response.ok) throw new Error('Failed to fetch PoLi data');
+  return response.json();
+}
+```
+
+**File:** `src/types/poli.ts` (new file)
+
+Define payload types:
+```typescript
+export type RagStatus = 'GREEN' | 'AMBER' | 'ORANGE' | 'RED';
+export type Confidence = 'HIGH' | 'MEDIUM' | 'LOW';
+export type VerifyState = 'VALID' | 'WARNING' | 'INVALID' | 'PASS' | 'FAIL';
+
+export interface PoLiPayload {
+  meta: {
+    token: string;
+    window: string;
+    venues: string[];
+    last_updated: string;
+    versions: {
+      verify: string;
+      poli: string;
+      tsle: string;
+    };
+  };
+  overall: {
+    score: number;
+    rag: RagStatus;
+    confidence: Confidence;
+    coverage: {
+      venues_covered: number;
+      venues_expected: number;
+      regimes_observed: string[];
+      min_required_regimes_met: boolean;
+    };
+    trend: {
+      window_points: Array<{ t: string; score: number }>;
+      delta_7d: number;
+      direction: 'UP' | 'DOWN' | 'FLAT';
+    };
+  };
+  pillars: {
+    executability_cefi: PillarData;
+    market_coherence: PillarData;
+    onchain_executability: PillarData;
+    method_integrity: PillarData;
+  };
+}
+
+export interface PillarData {
+  score: number;
+  rag: RagStatus;
+  summary: string;
+  inputs: Record<string, InputCategory>;
+}
+
+export interface InputCategory {
+  score: number;
+  state: VerifyState;
+  highlights?: string[];
+  metrics?: Array<{
+    key: string;
+    label: string;
+    value: number | string;
+    unit: string;
+  }>;
+}
+```
+
+---
+
+### 3. Page Component (Top Level)
+
+**File:** `src/adapters/components/PoLiScorecardPage.tsx` (new file)
+
+```typescript
+import React, { useState, useEffect } from 'react';
+import { fetchPoLiData } from '../../client/api';
+import { PoLiPayload } from '../../types/poli';
+import PoLiScorecard from './PoLiScorecard';
+import PillarSummaryBars from './PillarSummaryBars';
+import PillarPanel from './PillarPanel';
+
+export default function PoLiScorecardPage() {
+  const [token, setToken] = useState('BTC');
+  const [window, setWindow] = useState<'24H' | '7D' | '30D'>('7D');
+  const [venues, setVenues] = useState<string[] | 'ALL'>('ALL');
+  const [data, setData] = useState<PoLiPayload | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    fetchPoLiData(token, window, venues)
+      .then(setData)
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [token, window, venues]);
+
+  if (loading) return <div>Loading PoLi data...</div>;
+  if (error) return <div>Error: {error}</div>;
+  if (!data) return null;
+
+  return (
+    <div className="poli-scorecard-page">
+      {/* Header Controls */}
+      <div className="header-controls">
+        <select value={token} onChange={e => setToken(e.target.value)}>
+          <option value="BTC">BTC</option>
+          <option value="ETH">ETH</option>
+          {/* Add more tokens */}
+        </select>
+        <select value={window} onChange={e => setWindow(e.target.value as any)}>
+          <option value="24H">24H</option>
+          <option value="7D">7D</option>
+          <option value="30D">30D</option>
+        </select>
+      </div>
+
+      {/* Row 1: Scorecard + Summary */}
+      <div className="row-1">
+        <PoLiScorecard overall={data.overall} meta={data.meta} />
+        <PillarSummaryBars pillars={data.pillars} />
+      </div>
+
+      {/* Row 2: Pillar Panels */}
+      <div className="pillar-grid">
+        <PillarPanel
+          title="Executability (CeFi)"
+          pillarKey="executability_cefi"
+          data={data.pillars.executability_cefi}
+        />
+        <PillarPanel
+          title="Market Coherence"
+          pillarKey="market_coherence"
+          data={data.pillars.market_coherence}
+        />
+        <PillarPanel
+          title="On-chain Executability"
+          pillarKey="onchain_executability"
+          data={data.pillars.onchain_executability}
+        />
+        <PillarPanel
+          title="Method Integrity"
+          pillarKey="method_integrity"
+          data={data.pillars.method_integrity}
+        />
+      </div>
+    </div>
+  );
+}
+```
+
+---
+
+### 4. Scorecard Component
+
+**File:** `src/adapters/components/PoLiScorecard.tsx` (new file)
+
+**Reuse:** Your existing `Card.tsx` wrapper
+
+```typescript
+import React from 'react';
+import Card from './Card'; // REUSE existing
+import { PoLiPayload } from '../../types/poli';
+
+interface Props {
+  overall: PoLiPayload['overall'];
+  meta: PoLiPayload['meta'];
+}
+
+export default function PoLiScorecard({ overall, meta }: Props) {
+  return (
+    <Card className="poli-scorecard">
+      <div className="score-display">
+        <div className="score-value">{overall.score.toFixed(1)}</div>
+        <div className="score-denominator">/100</div>
+      </div>
+      
+      <div className="rag-badge" data-rag={overall.rag}>
+        {overall.rag}
+      </div>
+      
+      <div className="confidence-badge">
+        Confidence: {overall.confidence}
+      </div>
+
+      {/* Coverage */}
+      <div className="coverage">
+        <span>{overall.coverage.venues_covered}/{overall.coverage.venues_expected} venues</span>
+        <span>Regimes: {overall.coverage.regimes_observed.join(', ')}</span>
+      </div>
+
+      {/* Trend - REUSE existing sparkline if available */}
+      <div className="trend">
+        <span>7D: {overall.trend.delta_7d > 0 ? '+' : ''}{overall.trend.delta_7d.toFixed(1)}%</span>
+        {/* Insert TrendSparkline component here if you have one */}
+      </div>
+
+      {/* Version stamp */}
+      <div className="version-stamp">
+        VERIFY {meta.versions.verify} | PoLi {meta.versions.poli}
+      </div>
+    </Card>
+  );
+}
+```
+
+---
+
+### 5. Pillar Summary Bars
+
+**File:** `src/adapters/components/PillarSummaryBars.tsx` (new file)
+
+```typescript
+import React from 'react';
+import { PoLiPayload } from '../../types/poli';
+
+interface Props {
+  pillars: PoLiPayload['pillars'];
+}
+
+const pillarLabels = {
+  executability_cefi: 'Executability (CeFi)',
+  market_coherence: 'Market Coherence',
+  onchain_executability: 'On-chain Executability',
+  method_integrity: 'Method Integrity'
+};
+
+export default function PillarSummaryBars({ pillars }: Props) {
+  return (
+    <div className="pillar-summary-bars">
+      {Object.entries(pillars).map(([key, data]) => (
+        <div key={key} className="pillar-bar">
+          <div className="pillar-label">{pillarLabels[key]}</div>
+          <div className="pillar-score-bar">
+            <div
+              className="pillar-fill"
+              style={{ width: `${data.score}%` }}
+              data-rag={data.rag}
+            />
+          </div>
+          <div className="pillar-score">{data.score.toFixed(1)}</div>
+          <div className="pillar-rag-dot" data-rag={data.rag} />
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+---
+
+### 6. Pillar Panel (Expandable)
+
+**File:** `src/adapters/components/PillarPanel.tsx` (new file)
+
+**Reuse:** Your existing `Card.tsx` and expand/collapse patterns
+
+```typescript
+import React, { useState } from 'react';
+import Card from './Card'; // REUSE
+import { PillarData } from '../../types/poli';
+import MetricRow from './MetricRow';
+
+interface Props {
+  title: string;
+  pillarKey: string;
+  data: PillarData;
+}
+
+export default function PillarPanel({ title, pillarKey, data }: Props) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <Card className="pillar-panel">
+      <div className="pillar-header" onClick={() => setExpanded(!expanded)}>
+        <h3>{title}</h3>
+        <div className="pillar-score" data-rag={data.rag}>
+          {data.score.toFixed(1)}
+        </div>
+      </div>
+
+      <div className="pillar-summary">{data.summary}</div>
+
+      {expanded && (
+        <div className="pillar-inputs">
+          {Object.entries(data.inputs).map(([inputKey, inputData]) => (
+            <div key={inputKey} className="input-subcard">
+              <div className="input-header">
+                <span className="verify-tag">{inputKey.toUpperCase()}</span>
+                <span className="input-score">{inputData.score.toFixed(1)}</span>
+                <span className="input-state" data-state={inputData.state}>
+                  {inputData.state}
+                </span>
+              </div>
+
+              {inputData.highlights && (
+                <ul className="highlights">
+                  {inputData.highlights.map((h, i) => (
+                    <li key={i}>{h}</li>
+                  ))}
+                </ul>
+              )}
+
+              {inputData.metrics && (
+                <div className="metrics">
+                  {inputData.metrics.map(m => (
+                    <MetricRow key={m.key} metric={m} />
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+```
+
+---
+
+### 7. Metric Row Component
+
+**File:** `src/adapters/components/MetricRow.tsx` (new file)
+
+```typescript
+import React from 'react';
+
+interface Metric {
+  key: string;
+  label: string;
+  value: number | string;
+  unit: string;
+}
+
+export default function MetricRow({ metric }: { metric: Metric }) {
+  const formattedValue = typeof metric.value === 'number'
+    ? metric.value.toFixed(metric.unit === '%' || metric.unit === 'bps' ? 1 : 2)
+    : metric.value;
+
+  return (
+    <div className="metric-row">
+      <span className="metric-label">{metric.label}</span>
+      <span className="metric-value">
+        {formattedValue}
+        <span className="metric-unit">{metric.unit}</span>
+      </span>
+    </div>
+  );
+}
+```
+
+---
+
+### 8. Styling Recommendations
+
+**File:** Add to your existing global CSS or create `PoLiScorecard.css`
+
+```css
+/* Scorecard */
+.poli-scorecard {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.score-display {
+  font-size: 4rem;
+  font-weight: bold;
+}
+
+.rag-badge[data-rag="GREEN"] { background: #10b981; }
+.rag-badge[data-rag="AMBER"] { background: #f59e0b; }
+.rag-badge[data-rag="ORANGE"] { background: #f97316; }
+.rag-badge[data-rag="RED"] { background: #ef4444; }
+
+/* Pillar Panels */
+.pillar-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 1rem;
+}
+
+.pillar-panel {
+  cursor: pointer;
+}
+
+.verify-tag {
+  background: #6b7280;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+}
+
+.metric-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #374151;
+}
+```
+
+---
+
+### 9. Mock Data (Until Backend Ready)
+
+**File:** `src/mocks/poliMockData.json` (new file)
+
+```json
+{
+  "meta": {
+    "token": "BTC",
+    "window": "7D",
+    "venues": ["binance", "coinbase", "kraken"],
+    "last_updated": "2026-01-07T09:10:00Z",
+    "versions": { "verify": "3.0", "poli": "1.0", "tsle": "2.0" }
+  },
+  "overall": {
+    "score": 78.4,
+    "rag": "AMBER",
+    "confidence": "HIGH",
+    "coverage": {
+      "venues_covered": 3,
+      "venues_expected": 3,
+      "regimes_observed": ["NORMAL", "THIN"],
+      "min_required_regimes_met": true
+    },
+    "trend": {
+      "window_points": [
+        {"t": "2026-01-01", "score": 74.1},
+        {"t": "2026-01-07", "score": 78.4}
+      ],
+      "delta_7d": 4.3,
+      "direction": "UP"
+    }
+  },
+  "pillars": {
+    "executability_cefi": {
+      "score": 74.0,
+      "rag": "AMBER",
+      "summary": "Executable depth is moderately resilient.",
+      "inputs": {
+        "vf_ed": {
+          "score": 70.0,
+          "state": "VALID",
+          "highlights": ["Structural quote continuity >95%"],
+          "metrics": [
+            {"key": "structural_quote_presence_pct", "label": "Structural Quote Presence", "value": 96.2, "unit": "%"}
+          ]
+        }
+      }
+    }
+  }
+}
+```
+
+Temporarily use this in `fetchPoLiData` until backend is ready.
+
+---
+
+### 10. Acceptance Criteria
+✅ SCORECARD tab appears in navigation  
+✅ Token/window/venue controls work  
+✅ PoLiScorecard displays score, RAG, confidence, trend  
+✅ Pillar summary bars show all 4 pillars  
+✅ Pillar panels expand/collapse  
+✅ VERIFY tags appear as neutral badges  
+✅ No raw order book data visible  
+✅ Version stamp visible  
+✅ Mobile responsive (panels stack vertically)  
+
+---
+
+**Ready to paste into Replit/Cursor/Windsurf. No rewrites needed—slots directly into your existing architecture.**
