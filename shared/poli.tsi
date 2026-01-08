@@ -1,0 +1,240 @@
+/**
+ * Stratalink — PoLi (Proof of Liquidity) Contract
+ * v0.1.0 — UI + API schema lock for PoLi judgement layer (TILT)
+ *
+ * Principles:
+ * - Deterministic: same inputs → same scores/ratings
+ * - Explainable: drivers + flags included
+ * - Read-only: PoLi consumes LIS/TSLE outputs; does not mutate ingestion
+ * - Versioned: contract changes require bump
+ */
+
+export const POLI_CONTRACT_VERSION = "0.1.0" as const;
+
+/** Subtle embedding of VERIFY governance tags (VERIFY v3.0). */
+export type VerifyMeta = {
+  source: "VERIFY_v3.0";
+  /** When true, semantics for this object are considered locked. */
+  locked: boolean;
+  /** Optional tags for internal traceability (e.g., "VERIFY:LOCKED", "VERIFY:PARTIAL"). */
+  tags?: string[];
+  /** Optional notes for auditors/devs (not user-facing by default). */
+  notes?: string;
+};
+
+export type PoLiRating =
+  | "AAA"
+  | "AA"
+  | "A"
+  | "BBB"
+  | "BB"
+  | "B"
+  | "CCC"
+  | "CC"
+  | "C"
+  | "D";
+
+export type RiskBand = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+
+/** Status for data sufficiency and computation completeness. */
+export type PoLiStatus = "ok" | "partial" | "insufficient" | "error";
+
+/** Pillars — stable IDs (do not rename once live). */
+export type PoLiPillarId =
+  | "DEPTH"
+  | "RESILIENCE"
+  | "CONTINUITY"
+  | "FRAGMENTATION"
+  | "INTEGRITY";
+
+export type Direction = "improving" | "worsening" | "flat" | "unknown";
+
+/** Minimal metric identity — extend later as PoLi expands. */
+export type PoLiMetricId =
+  // Depth / execution
+  | "SPREAD_BPS"
+  | "DEPTH_USD_10BPS"
+  | "DEPTH_USD_25BPS"
+  | "DEPTH_USD_50BPS"
+  | "IMBALANCE_PCT_25BPS"
+  // Resilience / stability
+  | "DEPTH_SLOPE"
+  | "SPREAD_STABILITY"
+  | "LIQUIDITY_REGIME"
+  // Continuity / uptime
+  | "FEED_HEALTH"
+  | "UPDATE_LATENCY_MS"
+  | "GAP_RATE"
+  // Fragmentation
+  | "CEX_DEX_RATIO"
+  | "CROSS_VENUE_DIVERGENCE"
+  // Integrity
+  | "WASH_TRADING_RISK"
+  | "SPOOFING_RISK"
+  | "MM_CONCENTRATION";
+
+/** Driver: explain why a score moved or why it is where it is. */
+export type PoLiDriver = {
+  metricId: PoLiMetricId;
+  label: string;
+  value?: number | string;
+  unit?: string; // e.g., "bps", "usd", "%", "ms"
+  direction?: Direction;
+  weight?: number; // 0–1 optional
+};
+
+export type PoLiFlagSeverity = "info" | "warn" | "risk" | "critical";
+
+/** Flag: notable risk condition, suitable for reporting. */
+export type PoLiFlag = {
+  id: string; // stable within pillar, e.g. "DEPTH_SHALLOW_25_50"
+  severity: PoLiFlagSeverity;
+  title: string;
+  detail?: string;
+  metricId?: PoLiMetricId;
+  verify?: VerifyMeta;
+};
+
+/** Confidence is not probability; it’s an internal measure of input quality. */
+export type Confidence = {
+  /** 0–1; 1 = high confidence. */
+  score: number;
+  /** What drove confidence up/down (e.g. "3/3 samples", "missing asks"). */
+  rationale?: string;
+};
+
+export type PoLiPillar = {
+  id: PoLiPillarId;
+  name: string;
+  score: number; // 0–100
+  rating: PoLiRating;
+  band: RiskBand;
+  confidence: Confidence;
+  drivers: PoLiDriver[];
+  flags: PoLiFlag[];
+  verify?: VerifyMeta;
+};
+
+export type PoLiContext = {
+  token: string; // "BTC"
+  venue: string; // "coinbase"
+  symbol?: string; // "BTC"
+  scope?: "spot" | "perp" | "options" | "multi";
+  timestamp: number; // epoch ms
+};
+
+export type PoLiSnapshot = {
+  version: typeof POLI_CONTRACT_VERSION;
+  status: PoLiStatus;
+  context: PoLiContext;
+
+  score: number; // 0–100
+  rating: PoLiRating;
+  band: RiskBand;
+
+  /** Optional day-over-day / last-window deltas. */
+  delta?: {
+    score?: number;
+    direction?: Direction;
+  };
+
+  confidence: Confidence;
+
+  /** The five pillars (always present; may be partial). */
+  pillars: Record<PoLiPillarId, PoLiPillar>;
+
+  /** Global flags not belonging to a single pillar. */
+  flags: PoLiFlag[];
+
+  /** Short, user-facing interpretation string. */
+  summary: string;
+
+  verify?: VerifyMeta;
+};
+
+/**
+ * Deterministic score→rating ladder.
+ * Adjust later only with a contract version bump.
+ */
+export function poliRatingFromScore(score: number): PoLiRating {
+  if (score >= 90) return "AAA";
+  if (score >= 85) return "AA";
+  if (score >= 80) return "A";
+  if (score >= 75) return "BBB";
+  if (score >= 70) return "BB";
+  if (score >= 60) return "B";
+  if (score >= 50) return "CCC";
+  if (score >= 40) return "CC";
+  if (score >= 30) return "C";
+  return "D";
+}
+
+/** Deterministic score→risk band mapping. */
+export function riskBandFromScore(score: number): RiskBand {
+  if (score >= 80) return "LOW";
+  if (score >= 65) return "MEDIUM";
+  if (score >= 45) return "HIGH";
+  return "CRITICAL";
+}
+
+/** Clamp helper for safety. */
+export function clampScore(x: number): number {
+  if (!Number.isFinite(x)) return 0;
+  return Math.max(0, Math.min(100, Math.round(x)));
+}
+
+/**
+ * Creates an "empty but valid" PoLi snapshot.
+ * Useful for skeleton UI + cases where data is not yet available.
+ */
+export function makeEmptyPoLiSnapshot(input: {
+  token: string;
+  venue: string;
+  symbol?: string;
+  scope?: PoLiContext["scope"];
+  timestamp?: number;
+  status?: PoLiStatus;
+  summary?: string;
+}): PoLiSnapshot {
+  const timestamp = input.timestamp ?? Date.now();
+  const status = input.status ?? "insufficient";
+  const score = 0;
+
+  const mkPillar = (id: PoLiPillarId, name: string): PoLiPillar => ({
+    id,
+    name,
+    score,
+    rating: poliRatingFromScore(score),
+    band: riskBandFromScore(score),
+    confidence: { score: 0, rationale: "No data yet" },
+    drivers: [],
+    flags: [],
+    verify: { source: "VERIFY_v3.0", locked: false, tags: ["VERIFY:PARTIAL"] },
+  });
+
+  return {
+    version: POLI_CONTRACT_VERSION,
+    status,
+    context: {
+      token: input.token,
+      venue: input.venue,
+      symbol: input.symbol,
+      scope: input.scope ?? "spot",
+      timestamp,
+    },
+    score,
+    rating: poliRatingFromScore(score),
+    band: riskBandFromScore(score),
+    confidence: { score: 0, rationale: "No data yet" },
+    pillars: {
+      DEPTH: mkPillar("DEPTH", "Depth"),
+      RESILIENCE: mkPillar("RESILIENCE", "Resilience"),
+      CONTINUITY: mkPillar("CONTINUITY", "Continuity"),
+      FRAGMENTATION: mkPillar("FRAGMENTATION", "Fragmentation"),
+      INTEGRITY: mkPillar("INTEGRITY", "Integrity"),
+    },
+    flags: [],
+    summary: input.summary ?? "Insufficient data to compute PoLi yet.",
+    verify: { source: "VERIFY_v3.0", locked: false, tags: ["VERIFY:PARTIAL"] },
+  };
+}

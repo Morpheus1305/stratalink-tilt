@@ -13,6 +13,7 @@ import fundingRoutes from "./routes/funding";
 import depthRoutes from "./routes/depth";
 import tsleRoutes from "./routes/tsle";
 import lisRoutes from "./routes/lis";
+import poliRoutes from "./routes/poli";
 import alertsRoutes from "./routes/alerts";
 import dailyCommentaryRouter from "./api/dailyCommentary";
 import { startIngestionLoop } from "../analytics/engines/ingestionManager";
@@ -380,6 +381,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mount LIS routes (Liquidity Ingress Service proxy)
   app.use("/api/lis", lisRoutes);
+
+  // Mount PoLi routes (Liquidity Ingress Service proxy)
+  app.use("/api/poli", poliRoutes);
 
   // Mount analytics routes
   app.use("/api/analytics", analyticsRoutes);

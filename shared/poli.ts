@@ -1,6 +1,109 @@
+export const POLI_CONTRACT_VERSION = "1.0.0";
+
 export type RagStatus = 'GREEN' | 'AMBER' | 'ORANGE' | 'RED';
 export type Confidence = 'HIGH' | 'MEDIUM' | 'LOW';
 export type VerifyState = 'VALID' | 'WARNING' | 'INVALID' | 'PASS' | 'FAIL';
+export type PoLiStatus = 'ok' | 'insufficient' | 'error';
+export type PoLiRating = 'A' | 'B' | 'C' | 'D' | 'F';
+export type RiskBand = 'low' | 'medium' | 'high' | 'critical';
+
+export interface PoLiContext {
+  token: string;
+  venue: string;
+  symbol: string;
+  scope: 'spot' | 'perp' | 'futures';
+  timestamp: number;
+}
+
+export interface PoLiDriver {
+  metricId: string;
+  label: string;
+  value: number | string;
+  unit?: string;
+  direction?: 'up' | 'down' | 'flat';
+}
+
+export interface PoLiVerify {
+  source: string;
+  locked: boolean;
+  tags: string[];
+}
+
+export interface PoLiPillar {
+  id: string;
+  name: string;
+  score: number;
+  rating: PoLiRating;
+  band: RiskBand;
+  confidence: { score: number; rationale: string };
+  drivers: PoLiDriver[];
+  flags: string[];
+  verify: PoLiVerify;
+}
+
+export interface PoLiSnapshot {
+  version: string;
+  status: PoLiStatus;
+  context: PoLiContext;
+  score: number;
+  rating: PoLiRating;
+  band: RiskBand;
+  delta: { score: number; direction: string };
+  confidence: { score: number; rationale: string };
+  pillars: Record<string, PoLiPillar>;
+  flags: string[];
+  summary: string;
+  verify: PoLiVerify;
+}
+
+export function clampScore(score: number): number {
+  return Math.max(0, Math.min(100, score));
+}
+
+export function poliRatingFromScore(score: number): PoLiRating {
+  if (score >= 80) return 'A';
+  if (score >= 60) return 'B';
+  if (score >= 40) return 'C';
+  if (score >= 20) return 'D';
+  return 'F';
+}
+
+export function riskBandFromScore(score: number): RiskBand {
+  if (score >= 75) return 'low';
+  if (score >= 50) return 'medium';
+  if (score >= 25) return 'high';
+  return 'critical';
+}
+
+export function makeEmptyPoLiSnapshot(opts: {
+  token: string;
+  venue: string;
+  symbol?: string;
+  scope?: PoLiContext['scope'];
+  status?: PoLiStatus;
+  summary?: string;
+}): PoLiSnapshot {
+  return {
+    version: POLI_CONTRACT_VERSION,
+    status: opts.status ?? 'insufficient',
+    context: {
+      token: opts.token,
+      venue: opts.venue,
+      symbol: opts.symbol ?? opts.token,
+      scope: opts.scope ?? 'spot',
+      timestamp: Date.now(),
+    },
+    score: 0,
+    rating: 'F',
+    band: 'critical',
+    delta: { score: 0, direction: 'unknown' },
+    confidence: { score: 0, rationale: 'No data' },
+    pillars: {},
+    flags: [],
+    summary: opts.summary ?? 'Empty PoLi snapshot.',
+    verify: { source: 'VERIFY_v3.0', locked: false, tags: [] },
+  };
+}
 
 export interface PoLiMetric {
   key: string;
