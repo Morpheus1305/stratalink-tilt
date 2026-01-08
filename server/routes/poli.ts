@@ -12,6 +12,9 @@ import {
 } from "../../shared/poli";
 
 const router = Router();
+router.get("/health", (_req, res) => {
+  return res.json({ ok: true, contract: POLI_CONTRACT_VERSION });
+});
 
 /**
  * GET /api/poli?token=BTC&venue=coinbase&scope=spot
