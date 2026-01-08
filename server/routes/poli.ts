@@ -42,8 +42,17 @@ function composePoLiFromTSLE(args: {
 }): PoLiSnapshot {
   const { context, tsle } = args;
 
-  // Decide whether TSLE provides sufficient evidence to graduate from "insufficient"
-  const sufficient = Boolean(tsle?.evidence?.sufficient);
+  // Debug logging
+  console.log("[POLI] tsle.source:", tsle?.source);
+  console.log("[POLI] tsle.evidence.sufficient:", tsle?.evidence?.sufficient);
+  console.log("[POLI] tsle.evidence.rationale:", tsle?.evidence?.rationale);
+
+  // ACCEPTANCE CRITERIA:
+  // - status="ok" ONLY when source="live" AND evidence.sufficient=true
+  // - otherwise status="insufficient" with pillars={}
+  const isLiveSource = tsle?.source === "live";
+  const hasEvidence = Boolean(tsle?.evidence?.sufficient);
+  const sufficient = isLiveSource && hasEvidence;
   const status: PoLiStatus = sufficient ? "ok" : "insufficient";
 
   // If insufficient, keep score conservative for now (contract-first semantics)
@@ -155,7 +164,7 @@ function composePoLiFromTSLE(args: {
       score: confidenceScore,
       rationale: sufficient
         ? "Phase 1 TSLE wiring (no LIS/history yet)"
-        : `Insufficient evidence: ${tsle?.evidence?.rationale ?? "unknown"}`,
+        : `Insufficient evidence: ${!isLiveSource ? "Fallback source" : (tsle?.evidence?.rationale ?? "unknown")}`,
     },
 
     pillars: sufficient

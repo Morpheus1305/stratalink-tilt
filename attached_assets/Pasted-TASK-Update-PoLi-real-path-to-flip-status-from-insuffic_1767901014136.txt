@@ -1,0 +1,42 @@
+TASK: Update PoLi real path to flip status from "insufficient" → "ok" when TSLE evidence is sufficient (i.e., relay depth is live).
+
+CONTEXT:
+- PoLi contract is frozen in shared/poli.ts (POLI_CONTRACT_VERSION=1.0.0). Do not change the contract types or structure.
+- PoLi endpoint is server/routes/poli.ts.
+- TSLE endpoint is server/routes/tsle.ts and compute is in server/services/tsleCompute.ts which returns TSLEComputeResult including:
+  - source: "live" | "fallback"
+  - totals.depth25bps/depth50bps/depth100bps
+  - maxSizeAt25bps/maxSizeAt50bps/maxSizeAt100bps
+  - evidence: { sufficient: boolean, rationale: string }
+
+GOAL:
+1) Stop using HTTP fetch("http://localhost:${PORT}/api/tsle") inside PoLi.
+2) Instead, call computeTSLE({ token, venue, symbol, side, requestedSize }) directly from server/services/tsleCompute.ts.
+   - In PoLi, default side="buy" and requestedSize=100000 if not provided.
+3) Modify composePoLiFromTSLE logic to set:
+   - status = "ok" ONLY when tsle.evidence.sufficient === true AND tsle.source !== "fallback"
+   - otherwise status = "insufficient"
+4) When status is "insufficient", still return a fully contract-compliant PoLiSnapshot BUT include:
+   - confidence.rationale that contains tsle.evidence.rationale (e.g., "Insufficient evidence: Fallback source")
+   - summary: "PoLi scaffold live. Waiting for sufficient TSLE/LIS evidence."
+   - pillars should be {} (empty) in insufficient mode
+5) When status is "ok":
+   - populate pillars with at least DEPTH and RESILIENCE as currently done
+   - set confidence.score ~0.55-0.65 (Phase 1)
+   - ensure verify.tags includes ["VERIFY:PARTIAL", "SOURCE:TSLE"]
+6) Keep mock mode (?mock=1) unchanged.
+7) Add small debug logs:
+   - [POLI] tsle.source, tsle.evidence.sufficient, tsle.evidence.rationale
+8) After changes, these should hold:
+   - curl -s "http://localhost:5000/api/poli?token=BTC&venue=coinbase" returns status "ok" when TSLE is live+sufficient, else "insufficient"
+   - curl -s "http://localhost:5000/api/poli?token=BTC&venue=coinbase&mock=1" returns status "ok" always (mock)
+
+FILES TO EDIT:
+- server/routes/poli.ts (main changes)
+- optionally minor helper adjustments in server/services/tsleCompute.ts if needed, but prefer not to.
+
+IMPORTANT:
+- Do NOT change shared/poli.ts contract.
+- Do NOT change client files.
+- No new dependencies.
+- Keep output JSON strictly contract-compliant.
