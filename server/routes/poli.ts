@@ -23,10 +23,16 @@ const router = Router();
  */
 router.get("/", (req: Request, res: Response) => {
   try {
+    console.log("[POLI] HIT /api/poli", req.query);
+
     const token = String(req.query.token ?? "BTC").toUpperCase();
     const venue = String(req.query.venue ?? "coinbase").toLowerCase();
     const symbol = req.query.symbol ? String(req.query.symbol) : token;
-    const scope = (req.query.scope ? String(req.query.scope) : "spot") as PoLiContext["scope"];
+
+    const scope = (req.query.scope
+      ? String(req.query.scope)
+      : "spot") as PoLiContext["scope"];
+
     const mock = String(req.query.mock ?? "0") === "1";
 
     // ✅ Phase 1: return valid snapshot (empty or mock)
@@ -75,7 +81,13 @@ router.get("/", (req: Request, res: Response) => {
           band: riskBandFromScore(clampScore(score + 3)),
           confidence: { score: 0.6, rationale: "Mock mode" },
           drivers: [
-            { metricId: "DEPTH_USD_25BPS", label: "Depth @ 25 bps", value: 9.4, unit: "m", direction: "flat" },
+            {
+              metricId: "DEPTH_USD_25BPS",
+              label: "Depth @ 25 bps",
+              value: 9.4,
+              unit: "m",
+              direction: "flat",
+            },
             { metricId: "SPREAD_BPS", label: "Spread", value: 1.2, unit: "bps", direction: "flat" },
           ],
           flags: [],
