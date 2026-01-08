@@ -301,7 +301,7 @@ function placeholderResponse(symbol: string) {
 //  Client-compatible endpoint for execution cost calculator
 // --------------------------------------------------------------------
 
-router.get("/depth", async (req: Request, res: Response) => {
+router.get("/", async (req: Request, res: Response) => {
   const rawSymbol = (req.query.symbol as string) || "BTC";
   const symbol = rawSymbol.toUpperCase();
   const side = ((req.query.side as string) || "buy").toLowerCase() as "buy" | "sell";

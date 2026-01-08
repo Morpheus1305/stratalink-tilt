@@ -56,7 +56,7 @@ async function getOKXDepthDirect(symbol: string, bps: number): Promise<DepthVenu
   }
 }
 
-router.get("/snapshot", async (req, res) => {
+router.get("/", async (req, res) => {
   try {
     const symbol = ((req.query.symbol as string) || "BTC").toUpperCase();
     const bps = Number(req.query.bps) || 10;
