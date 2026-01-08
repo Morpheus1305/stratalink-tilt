@@ -5,28 +5,12 @@ import type { Request, Response } from "express";
 const router = Router();
 
 /**
- * Stratalink Depth Endpoint (Phase 1)
- * -----------------------------------
- * GET /api/depth?token=BTC&venue=coinbase&bps=25
- *
- * Returns a stable response shape used by TSLE/PoLi wiring:
- * {
- *   symbol, bps,
- *   venues: [{ venue, bid, ask, ok, error }],
- *   totalBid, totalAsk, symmetry,
- *   timestamp,
- *   source: "live" | "fallback"
- * }
- *
- * Important:
- * - "bid"/"ask" are currently "liquidity notional proxies" derived from top-of-book levels.
- * - This is intentionally simple/stable while we wire in full depth quality math later.
+ * Depth API response (what your UI/TSLE expects today)
  */
-
 type DepthVenue = {
-  venue: string; // "BINANCE" | "COINBASE" | "KRAKEN" | "OKX"
-  bid: number;   // summed notional (price * qty) across top N bids
-  ask: number;   // summed notional (price * qty) across top N asks
+  venue: string; // e.g. "BINANCE" | "COINBASE" | "KRAKEN" | "OKX"
+  bid: number; // USD notional within bps band
+  ask: number; // USD notional within bps band
   ok: boolean;
   error: string | null;
 };
@@ -37,282 +21,457 @@ type DepthResponse = {
   venues: DepthVenue[];
   totalBid: number;
   totalAsk: number;
-  symmetry: number;
+  symmetry: number; // totalBid / (totalBid + totalAsk)
   timestamp: number;
   source: "live" | "fallback";
 };
 
-// -------------------------
-// tiny helpers
-// -------------------------
+// ----------------------------
+// Helpers
+// ----------------------------
 const num = (x: unknown, d = 0) => (Number.isFinite(Number(x)) ? Number(x) : d);
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
-const lower = (s: unknown) => String(s ?? "").trim().toLowerCase();
-const upper = (s: unknown) => String(s ?? "").trim().toUpperCase();
 
-function computeSymmetry(totalBid: number, totalAsk: number): number {
+function upperVenue(v: string) {
+  return String(v || "").trim().toUpperCase();
+}
+
+function normalizeTokenSymbol(tokenOrSymbol: string) {
+  // used for display, defaults to BTC if missing
+  const raw = String(tokenOrSymbol ?? "").trim();
+  return (raw || "BTC").toUpperCase();
+}
+
+/**
+ * Convert user token/symbol into a venue-specific market identifier.
+ * - Binance: BTCUSDT
+ * - Coinbase: BTC-USD
+ * - Kraken: XBTUSD (Kraken uses XBT for BTC)
+ * - OKX: BTC-USDT
+ *
+ * User can override with ?symbol=... (we respect it and try to coerce).
+ */
+function toVenueSymbol(params: { token: string; venue: string; symbol?: string }) {
+  const token = normalizeTokenSymbol(params.symbol ?? params.token);
+  const venue = String(params.venue ?? "").toLowerCase();
+
+  // If user already passed a venue-style symbol, try to keep it.
+  const raw = String(params.symbol ?? "").trim();
+  const hasDash = raw.includes("-");
+  const hasUnderscore = raw.includes("_");
+
+  if (venue === "binance") {
+    // Binance commonly uses BTCUSDT; accept BTCUSDT or BTC-USDT or BTC_USDT
+    if (raw) {
+      return raw.replace("-", "").replace("_", "").toUpperCase();
+    }
+    return `${token}USDT`;
+  }
+
+  if (venue === "coinbase") {
+    // Coinbase Exchange API expects BTC-USD
+    if (raw) {
+      if (raw.includes("-")) return raw.toUpperCase();
+      if (raw.length >= 6) {
+        // BTCUSD -> BTC-USD (best effort)
+        return `${raw.slice(0, 3).toUpperCase()}-${raw.slice(3).toUpperCase()}`;
+      }
+      return `${token}-USD`;
+    }
+    return `${token}-USD`;
+  }
+
+  if (venue === "kraken") {
+    // Kraken uses XBT for BTC
+    const base = token === "BTC" ? "XBT" : token;
+    if (raw) {
+      // BTCUSD / XBTUSD / BTC-USD → normalize
+      const r = raw.replace("-", "").replace("_", "").toUpperCase();
+      return r.startsWith("BTC") ? `XBT${r.slice(3)}` : r;
+    }
+    return `${base}USD`;
+  }
+
+  if (venue === "okx") {
+    // OKX expects BTC-USDT
+    if (raw) {
+      if (hasDash) return raw.toUpperCase();
+      if (hasUnderscore) return raw.replace("_", "-").toUpperCase();
+      // BTCUSDT -> BTC-USDT
+      if (raw.length >= 6) return `${raw.slice(0, 3).toUpperCase()}-${raw.slice(3).toUpperCase()}`;
+      return `${token}-USDT`;
+    }
+    return `${token}-USDT`;
+  }
+
+  // Default best effort
+  if (raw) return raw.toUpperCase();
+  return token;
+}
+
+function symmetry(totalBid: number, totalAsk: number) {
   const denom = totalBid + totalAsk;
-  if (!Number.isFinite(denom) || denom <= 0) return 0.5;
+  if (denom <= 0) return 0.5;
   return totalBid / denom;
 }
 
-function sumNotional(levels: Array<[string, string]>, maxLevels = 50): number {
-  let total = 0;
-  for (let i = 0; i < Math.min(levels.length, maxLevels); i++) {
-    const p = num(levels[i][0], 0);
-    const q = num(levels[i][1], 0);
-    total += p * q;
-  }
-  return total;
-}
+async function fetchJson(url: string, opts?: { timeoutMs?: number; headers?: Record<string, string> }) {
+  const timeoutMs = opts?.timeoutMs ?? 6000;
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), timeoutMs);
 
-// -------------------------
-// Venue mappers
-// -------------------------
-function mapBinanceSymbol(token: string): string {
-  // Phase 1 convention: BTC -> BTCUSDT
-  return `${token}USDT`;
-}
+  try {
+    const resp = await fetch(url, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        ...(opts?.headers ?? {}),
+      },
+      signal: controller.signal,
+    });
 
-function mapCoinbaseProduct(token: string): string {
-  // Phase 1 convention: BTC -> BTC-USD
-  return `${token}-USD`;
-}
+    const text = await resp.text();
+    if (!resp.ok) {
+      return { ok: false as const, status: resp.status, text };
+    }
 
-function mapKrakenPair(token: string): string {
-  // Kraken uses XBT for BTC
-  if (token === "BTC") return "XBTUSD";
-  return `${token}USD`;
-}
-
-function mapOKXInstId(token: string): string {
-  // OKX common: BTC-USDT
-  return `${token}-USDT`;
-}
-
-// -------------------------
-// BINANCE VIA RELAY (Option A)
-// -------------------------
-async function getBinanceDepthViaRelay(token: string): Promise<DepthVenue> {
-  const relayBase = (process.env.RELAY_BASE_URL || "https://relay.stratalink.ai").replace(/\/$/, "");
-  const relayKey = process.env.RELAY_KEY;
-
-  const symbol = mapBinanceSymbol(token);
-  const limit = 1000;
-
-  // Try a few common relay mount patterns.
-  // (Your exact worker/nginx path may differ; this list maximizes chance of success.)
-  const candidates = [
-    // Pattern A: /binance/depth
-    `${relayBase}/binance/depth?symbol=${encodeURIComponent(symbol)}&limit=${limit}`,
-    // Pattern B: /depth?venue=binance
-    `${relayBase}/depth?venue=binance&symbol=${encodeURIComponent(symbol)}&limit=${limit}`,
-    // Pattern C: /api/binance/depth
-    `${relayBase}/api/binance/depth?symbol=${encodeURIComponent(symbol)}&limit=${limit}`,
-    // Pattern D: /api/depth?venue=binance
-    `${relayBase}/api/depth?venue=binance&symbol=${encodeURIComponent(symbol)}&limit=${limit}`,
-  ];
-
-  let lastErr = "Relay fetch failed";
-
-  for (const url of candidates) {
+    // Some APIs return JSON; guard parse
     try {
-      const resp = await fetch(url, {
-        headers: {
-          Accept: "application/json",
-          ...(relayKey ? { "x-relay-key": relayKey } : {}),
-        },
-      });
-
-      if (!resp.ok) {
-        lastErr = `HTTP ${resp.status}`;
-        continue;
-      }
-
-      const data = (await resp.json()) as any;
-
-      // Expect Binance-like shape: { bids: [[price, qty],...], asks: [[price, qty],...] }
-      const bids: Array<[string, string]> = Array.isArray(data?.bids) ? data.bids : [];
-      const asks: Array<[string, string]> = Array.isArray(data?.asks) ? data.asks : [];
-
-      if (!bids.length && !asks.length) {
-        lastErr = "Empty orderbook from relay";
-        continue;
-      }
-
-      const bidNotional = sumNotional(bids, 50);
-      const askNotional = sumNotional(asks, 50);
-
-      return { venue: "BINANCE", bid: bidNotional, ask: askNotional, ok: true, error: null };
-    } catch (e: any) {
-      lastErr = e?.message ?? "relay_error";
-      continue;
+      return { ok: true as const, json: JSON.parse(text) };
+    } catch {
+      return { ok: false as const, status: 200, text };
     }
-  }
-
-  return { venue: "BINANCE", bid: 0, ask: 0, ok: false, error: lastErr };
-}
-
-// -------------------------
-// COINBASE DIRECT
-// -------------------------
-async function getCoinbaseDepthDirect(token: string): Promise<DepthVenue> {
-  const productId = mapCoinbaseProduct(token);
-
-  try {
-    // Coinbase Exchange book endpoint (level=2 is aggregated)
-    const url = `https://api.exchange.coinbase.com/products/${encodeURIComponent(productId)}/book?level=2`;
-
-    const resp = await fetch(url, { headers: { Accept: "application/json" } });
-    if (!resp.ok) {
-      return { venue: "COINBASE", bid: 0, ask: 0, ok: false, error: `HTTP ${resp.status}` };
-    }
-
-    const data = (await resp.json()) as { bids?: Array<[string, string]>; asks?: Array<[string, string]> };
-
-    const bids = Array.isArray(data?.bids) ? data.bids : [];
-    const asks = Array.isArray(data?.asks) ? data.asks : [];
-
-    const bidNotional = sumNotional(bids, 50);
-    const askNotional = sumNotional(asks, 50);
-
-    return { venue: "COINBASE", bid: bidNotional, ask: askNotional, ok: true, error: null };
-  } catch (e: any) {
-    return { venue: "COINBASE", bid: 0, ask: 0, ok: false, error: e?.message ?? "coinbase_error" };
+  } finally {
+    clearTimeout(t);
   }
 }
 
-// -------------------------
-// KRAKEN DIRECT (optional but useful)
-// -------------------------
-async function getKrakenDepthDirect(token: string): Promise<DepthVenue> {
-  const pair = mapKrakenPair(token);
+/**
+ * Compute USD notional depth within +/-bps from mid.
+ * bids/asks arrays are [price, qty] as numbers.
+ */
+function computeBandDepthUSD(args: {
+  bids: Array<[number, number]>;
+  asks: Array<[number, number]>;
+  bps: number;
+}) {
+  const { bids, asks } = args;
+  const bpsClamped = clamp(args.bps, 1, 500);
 
-  try {
-    const url = `https://api.kraken.com/0/public/Depth?pair=${encodeURIComponent(pair)}&count=50`;
-    const resp = await fetch(url, { headers: { Accept: "application/json" } });
+  const bestBid = bids.length ? bids[0][0] : 0;
+  const bestAsk = asks.length ? asks[0][0] : 0;
 
-    if (!resp.ok) {
-      return { venue: "KRAKEN", bid: 0, ask: 0, ok: false, error: `HTTP ${resp.status}` };
-    }
-
-    const data = (await resp.json()) as any;
-    const resultKey = data?.result ? Object.keys(data.result)[0] : null;
-    const book = resultKey ? data.result[resultKey] : null;
-
-    const bids: Array<[string, string]> = Array.isArray(book?.bids) ? book.bids : [];
-    const asks: Array<[string, string]> = Array.isArray(book?.asks) ? book.asks : [];
-
-    const bidNotional = sumNotional(bids, 50);
-    const askNotional = sumNotional(asks, 50);
-
-    return { venue: "KRAKEN", bid: bidNotional, ask: askNotional, ok: true, error: null };
-  } catch (e: any) {
-    return { venue: "KRAKEN", bid: 0, ask: 0, ok: false, error: e?.message ?? "kraken_error" };
+  if (!(bestBid > 0 && bestAsk > 0)) {
+    return { bidUSD: 0, askUSD: 0, mid: 0, band: bpsClamped };
   }
+
+  const mid = (bestBid + bestAsk) / 2;
+  const bandFrac = bpsClamped / 10000;
+
+  const bidFloor = mid * (1 - bandFrac);
+  const askCeil = mid * (1 + bandFrac);
+
+  let bidUSD = 0;
+  for (const [p, q] of bids) {
+    if (p < bidFloor) break;
+    bidUSD += p * q;
+  }
+
+  let askUSD = 0;
+  for (const [p, q] of asks) {
+    if (p > askCeil) break;
+    askUSD += p * q;
+  }
+
+  return { bidUSD, askUSD, mid, band: bpsClamped };
 }
 
-// -------------------------
-// OKX DIRECT (optional)
-// -------------------------
-async function getOKXDepthDirect(token: string): Promise<DepthVenue> {
-  const instId = mapOKXInstId(token);
+// ----------------------------
+// Venue Fetchers
+// ----------------------------
 
-  try {
-    const url = `https://www.okx.com/api/v5/market/books?instId=${encodeURIComponent(instId)}&sz=50`;
-    const resp = await fetch(url, { headers: { Accept: "application/json" } });
+async function getBinanceDepthViaRelay(params: { symbol: string; limit: number }) {
+  const RELAY_BASE = process.env.RELAY_BASE_URL || "https://relay.stratalink.ai";
+  // Canonical relay endpoint (Option A)
+  const url = `${RELAY_BASE}/binance/depth?symbol=${encodeURIComponent(params.symbol)}&limit=${params.limit}`;
 
-    if (!resp.ok) {
-      return { venue: "OKX", bid: 0, ask: 0, ok: false, error: `HTTP ${resp.status}` };
-    }
+  const out = await fetchJson(url, { timeoutMs: 7000 });
 
-    const data = (await resp.json()) as any;
-    const book = Array.isArray(data?.data) ? data.data[0] : null;
-
-    // OKX: bids/asks arrays like [[price, qty, ...], ...]
-    const bidsRaw: any[] = Array.isArray(book?.bids) ? book.bids : [];
-    const asksRaw: any[] = Array.isArray(book?.asks) ? book.asks : [];
-
-    const bids: Array<[string, string]> = bidsRaw.map((r) => [String(r?.[0] ?? "0"), String(r?.[1] ?? "0")]);
-    const asks: Array<[string, string]> = asksRaw.map((r) => [String(r?.[0] ?? "0"), String(r?.[1] ?? "0")]);
-
-    const bidNotional = sumNotional(bids, 50);
-    const askNotional = sumNotional(asks, 50);
-
-    return { venue: "OKX", bid: bidNotional, ask: askNotional, ok: true, error: null };
-  } catch (e: any) {
-    return { venue: "OKX", bid: 0, ask: 0, ok: false, error: e?.message ?? "okx_error" };
+  if (!out.ok) {
+    return { ok: false, error: `Relay HTTP error` };
   }
+
+  const j = out.json as any;
+
+  // Expect Binance style: { lastUpdateId, bids:[[price,qty],...], asks:[[price,qty],...] }
+  const bidsRaw = Array.isArray(j?.bids) ? j.bids : [];
+  const asksRaw = Array.isArray(j?.asks) ? j.asks : [];
+
+  const bids: Array<[number, number]> = bidsRaw
+    .map((r: any) => [num(r?.[0]), num(r?.[1])])
+    .filter(([p, q]: [number, number]) => p > 0 && q > 0);
+
+  const asks: Array<[number, number]> = asksRaw
+    .map((r: any) => [num(r?.[0]), num(r?.[1])])
+    .filter(([p, q]: [number, number]) => p > 0 && q > 0);
+
+  return { ok: true, bids, asks };
 }
 
-// -------------------------
-// Router handler
-// -------------------------
+async function getCoinbaseDepthDirect(params: { productId: string; level: 2 | 3 }) {
+  // Coinbase Exchange (legacy) public endpoint
+  const url = `https://api.exchange.coinbase.com/products/${encodeURIComponent(params.productId)}/book?level=${params.level}`;
+  const out = await fetchJson(url, { timeoutMs: 7000 });
+
+  if (!out.ok) return { ok: false, error: `Coinbase HTTP error` };
+
+  const j = out.json as any;
+  const bidsRaw = Array.isArray(j?.bids) ? j.bids : [];
+  const asksRaw = Array.isArray(j?.asks) ? j.asks : [];
+
+  const bids: Array<[number, number]> = bidsRaw
+    .map((r: any) => [num(r?.[0]), num(r?.[1])])
+    .filter(([p, q]: [number, number]) => p > 0 && q > 0);
+
+  const asks: Array<[number, number]> = asksRaw
+    .map((r: any) => [num(r?.[0]), num(r?.[1])])
+    .filter(([p, q]: [number, number]) => p > 0 && q > 0);
+
+  return { ok: true, bids, asks };
+}
+
+async function getKrakenDepthDirect(params: { pair: string; count: number }) {
+  const url = `https://api.kraken.com/0/public/Depth?pair=${encodeURIComponent(params.pair)}&count=${params.count}`;
+  const out = await fetchJson(url, { timeoutMs: 7000 });
+
+  if (!out.ok) return { ok: false, error: `Kraken HTTP error` };
+
+  const j = out.json as any;
+  const result = j?.result;
+  if (!result || typeof result !== "object") return { ok: false, error: "Kraken malformed result" };
+
+  const key = Object.keys(result)[0];
+  const book = result[key];
+
+  const bidsRaw = Array.isArray(book?.bids) ? book.bids : [];
+  const asksRaw = Array.isArray(book?.asks) ? book.asks : [];
+
+  // Kraken: [price, volume, timestamp]
+  const bids: Array<[number, number]> = bidsRaw
+    .map((r: any) => [num(r?.[0]), num(r?.[1])])
+    .filter(([p, q]: [number, number]) => p > 0 && q > 0);
+
+  const asks: Array<[number, number]> = asksRaw
+    .map((r: any) => [num(r?.[0]), num(r?.[1])])
+    .filter(([p, q]: [number, number]) => p > 0 && q > 0);
+
+  return { ok: true, bids, asks };
+}
+
+async function getOKXDepthDirect(params: { instId: string; sz: number }) {
+  // OKX books: /api/v5/market/books?instId=BTC-USDT&sz=200
+  const url = `https://www.okx.com/api/v5/market/books?instId=${encodeURIComponent(params.instId)}&sz=${params.sz}`;
+  const out = await fetchJson(url, { timeoutMs: 7000 });
+
+  if (!out.ok) return { ok: false, error: `OKX HTTP error` };
+
+  const j = out.json as any;
+  const data0 = Array.isArray(j?.data) ? j.data[0] : null;
+
+  const bidsRaw = Array.isArray(data0?.bids) ? data0.bids : [];
+  const asksRaw = Array.isArray(data0?.asks) ? data0.asks : [];
+
+  // OKX: [price, size, ...]
+  const bids: Array<[number, number]> = bidsRaw
+    .map((r: any) => [num(r?.[0]), num(r?.[1])])
+    .filter(([p, q]: [number, number]) => p > 0 && q > 0);
+
+  const asks: Array<[number, number]> = asksRaw
+    .map((r: any) => [num(r?.[0]), num(r?.[1])])
+    .filter(([p, q]: [number, number]) => p > 0 && q > 0);
+
+  return { ok: true, bids, asks };
+}
+
+// ----------------------------
+// Route
+// ----------------------------
+
+/**
+ * GET /api/depth?token=BTC&venue=coinbase&bps=25
+ * Optional: &symbol=BTC-USD (coinbase) / BTCUSDT (binance) / XBTUSD (kraken)
+ */
 router.get("/", async (req: Request, res: Response) => {
+  const token = normalizeTokenSymbol((req.query.token as string) ?? "BTC");
+  const venueIn = String((req.query.venue as string) ?? "coinbase").toLowerCase();
+  const bps = clamp(num(req.query.bps, 10), 1, 500);
+
+  const userSymbol = (req.query.symbol as string | undefined) ?? undefined;
+  const symbolForVenue = toVenueSymbol({ token, venue: venueIn, symbol: userSymbol });
+
+  const timestamp = Date.now();
+
+  // Default response skeleton
+  const resp: DepthResponse = {
+    symbol: token,
+    bps,
+    venues: [],
+    totalBid: 0,
+    totalAsk: 0,
+    symmetry: 0.5,
+    timestamp,
+    source: "fallback",
+  };
+
+  // Helper to append a venue line item
+  const pushVenue = (v: DepthVenue) => {
+    resp.venues.push(v);
+    resp.totalBid += v.bid;
+    resp.totalAsk += v.ask;
+    resp.symmetry = symmetry(resp.totalBid, resp.totalAsk);
+  };
+
   try {
-    const token = upper(req.query.token ?? "BTC");
-    const venue = lower(req.query.venue ?? "coinbase");
-    const bps = clamp(num(req.query.bps, 25), 1, 500);
+    // ---- BINANCE via relay (Option A) ----
+    if (venueIn === "binance") {
+      const relay = await getBinanceDepthViaRelay({ symbol: symbolForVenue, limit: 1000 });
 
-    let venueResult: DepthVenue;
-
-    if (venue === "binance") {
-      // ✅ Option A: relay
-      venueResult = await getBinanceDepthViaRelay(token);
-    } else if (venue === "coinbase") {
-      venueResult = await getCoinbaseDepthDirect(token);
-    } else if (venue === "kraken") {
-      venueResult = await getKrakenDepthDirect(token);
-    } else if (venue === "okx") {
-      venueResult = await getOKXDepthDirect(token);
-    } else {
-      venueResult = {
-        venue: upper(venue),
-        bid: 0,
-        ask: 0,
-        ok: false,
-        error: "Unknown venue",
-      };
-    }
-
-    const venues: DepthVenue[] = [venueResult];
-
-    const totalBid = venues.reduce((acc, v) => acc + (v.ok ? num(v.bid, 0) : 0), 0);
-    const totalAsk = venues.reduce((acc, v) => acc + (v.ok ? num(v.ask, 0) : 0), 0);
-
-    const out: DepthResponse = {
-      symbol: token,
-      bps,
-      venues,
-      totalBid,
-      totalAsk,
-      symmetry: computeSymmetry(totalBid, totalAsk),
-      timestamp: Date.now(),
-      source: venueResult.ok ? "live" : "fallback",
-    };
-
-    return res.json(out);
-  } catch (err: any) {
-    const out: DepthResponse = {
-      symbol: upper(req.query.token ?? "BTC"),
-      bps: clamp(num(req.query.bps, 25), 1, 500),
-      venues: [
-        {
-          venue: upper(req.query.venue ?? "UNKNOWN"),
+      if (!relay.ok) {
+        pushVenue({
+          venue: "BINANCE",
           bid: 0,
           ask: 0,
           ok: false,
-          error: err?.message ?? "depth_error",
-        },
-      ],
-      totalBid: 0,
-      totalAsk: 0,
-      symmetry: 0.5,
-      timestamp: Date.now(),
-      source: "fallback",
-    };
+          error: "Binance relay failed",
+        });
+        resp.source = "fallback";
+        return res.json(resp);
+      }
 
-    return res.status(200).json(out);
+      const { bidUSD, askUSD } = computeBandDepthUSD({ bids: relay.bids, asks: relay.asks, bps });
+
+      pushVenue({
+        venue: "BINANCE",
+        bid: bidUSD,
+        ask: askUSD,
+        ok: true,
+        error: null,
+      });
+
+      resp.source = "live";
+      return res.json(resp);
+    }
+
+    // ---- COINBASE direct (public) ----
+    if (venueIn === "coinbase") {
+      const book = await getCoinbaseDepthDirect({ productId: symbolForVenue, level: 2 });
+
+      if (!book.ok) {
+        pushVenue({
+          venue: "COINBASE",
+          bid: 0,
+          ask: 0,
+          ok: false,
+          error: "Coinbase fetch failed",
+        });
+        resp.source = "fallback";
+        return res.json(resp);
+      }
+
+      const { bidUSD, askUSD } = computeBandDepthUSD({ bids: book.bids, asks: book.asks, bps });
+
+      pushVenue({
+        venue: "COINBASE",
+        bid: bidUSD,
+        ask: askUSD,
+        ok: true,
+        error: null,
+      });
+
+      resp.source = "live";
+      return res.json(resp);
+    }
+
+    // ---- KRAKEN direct (public) ----
+    if (venueIn === "kraken") {
+      const book = await getKrakenDepthDirect({ pair: symbolForVenue, count: 200 });
+
+      if (!book.ok) {
+        pushVenue({
+          venue: "KRAKEN",
+          bid: 0,
+          ask: 0,
+          ok: false,
+          error: "Kraken fetch failed",
+        });
+        resp.source = "fallback";
+        return res.json(resp);
+      }
+
+      const { bidUSD, askUSD } = computeBandDepthUSD({ bids: book.bids, asks: book.asks, bps });
+
+      pushVenue({
+        venue: "KRAKEN",
+        bid: bidUSD,
+        ask: askUSD,
+        ok: true,
+        error: null,
+      });
+
+      resp.source = "live";
+      return res.json(resp);
+    }
+
+    // ---- OKX direct (public) ----
+    if (venueIn === "okx") {
+      const book = await getOKXDepthDirect({ instId: symbolForVenue, sz: 400 });
+
+      if (!book.ok) {
+        pushVenue({
+          venue: "OKX",
+          bid: 0,
+          ask: 0,
+          ok: false,
+          error: "OKX fetch failed",
+        });
+        resp.source = "fallback";
+        return res.json(resp);
+      }
+
+      const { bidUSD, askUSD } = computeBandDepthUSD({ bids: book.bids, asks: book.asks, bps });
+
+      pushVenue({
+        venue: "OKX",
+        bid: bidUSD,
+        ask: askUSD,
+        ok: true,
+        error: null,
+      });
+
+      resp.source = "live";
+      return res.json(resp);
+    }
+
+    // Unknown venue
+    pushVenue({
+      venue: upperVenue(venueIn),
+      bid: 0,
+      ask: 0,
+      ok: false,
+      error: `Unsupported venue: ${venueIn}`,
+    });
+    resp.source = "fallback";
+    return res.status(400).json(resp);
+  } catch (err: any) {
+    pushVenue({
+      venue: upperVenue(venueIn),
+      bid: 0,
+      ask: 0,
+      ok: false,
+      error: err?.message ? String(err.message) : "Unknown error",
+    });
+    resp.source = "fallback";
+    return res.status(500).json(resp);
   }
 });
 
