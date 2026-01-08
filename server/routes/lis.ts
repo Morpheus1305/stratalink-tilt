@@ -224,7 +224,7 @@ router.get("/tsle/dashboard", async (req, res) => {
  * TSLE State endpoint
  * Returns current TSLE state machine snapshot
  */
-router.get("/", (req, res) => {
+router.get("/", async (req, res) => {
   const venue = (req.query.venue as string) || "binance";
   const symbol = (req.query.symbol as string) || "BTC";
 

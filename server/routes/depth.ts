@@ -1,3 +1,4 @@
+import { alertHistoryResponseSchema } from "@shared/schema";
 import express from "express";
 
 const router = express.Router();
