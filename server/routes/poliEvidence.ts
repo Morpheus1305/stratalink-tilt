@@ -51,7 +51,9 @@ router.get("/", async (req: Request, res: Response) => {
   const symbol = String(req.query.symbol ?? token).toUpperCase();
 
   const venuesParam = parseVenuesParam(req.query.venues);
-  const venues = (venuesParam.length ? venuesParam : DEFAULT_VENUES).map((v) => v.toLowerCase());
+  const venues = (venuesParam.length ? venuesParam : DEFAULT_VENUES).map((v) =>
+    v.toLowerCase()
+  );
 
   const debug = String(req.query.debug ?? "0") === "1";
 
@@ -67,8 +69,19 @@ router.get("/", async (req: Request, res: Response) => {
       const stateSnapshot = tsleStateEngine.getState(venue, symbol);
       const trend = tsleBuffer.getTrend(venue, symbol);
       const signals = tsleBuffer.getSignals(venue, symbol);
+      const latest = tsleBuffer.getLatest(venue, symbol);
 
-      const liquidityState = buildLiquidityState(venue, symbol, buffer, stateSnapshot, trend, signals);
+      // 🔧 Ensure LiquidityState matches /api/lis/state
+      // (latest is critical for POLI_POINT/DEPTH_BANDS and for timestamp anchoring)
+      const liquidityState = buildLiquidityState(
+        venue,
+        symbol,
+        buffer,
+        stateSnapshot,
+        trend,
+        signals,
+        latest
+      );
 
       // Standardize LIS → PoLi evidence bundle
       const evidenceBundle: any = lisStateToEvidenceBundle(liquidityState);
