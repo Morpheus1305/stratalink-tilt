@@ -1,4 +1,12 @@
 // server/routes/poli.ts
+/**
+ * PoLi Phase 1 implementation
+ * Spec: docs/poli/PHASE_1.md
+ *
+ * Rules:
+ * - status flips to "ok" ONLY when TSLE evidence is live + sufficient
+ * - otherwise return contract-compliant "insufficient"
+ */
 import { Router } from "express";
 import type { Request, Response } from "express";
 
@@ -6,9 +14,7 @@ import {
   POLI_CONTRACT_VERSION,
   type PoLiSnapshot,
   type PoLiContext,
-  type PoLiStatus,
   clampScore,
-  clamp01,
   poliRatingFromScore,
   riskBandFromScore,
   makeEmptyPoLiSnapshot,
@@ -16,6 +22,14 @@ import {
   makePillar,
 } from "../../shared/poli";
 
+/**
+ * ✅ Step 1: Use extracted composer (single source of truth for PoLi-from-TSLE mapping)
+ */
+import composePoLiFromTSLE from "../PoLi/composePoLiFromTSLE";
+
+/**
+ * ✅ Real TSLE compute (direct call, no internal HTTP)
+ */
 import { computeTSLE } from "../services/tsleCompute";
 
 const router = Router();
@@ -27,159 +41,6 @@ const router = Router();
 router.get("/health", (_req: Request, res: Response) => {
   return res.json({ ok: true, contract: POLI_CONTRACT_VERSION });
 });
-
-/**
- * Compose a PoLiSnapshot from TSLE output (Phase 1).
- *
- * Rules:
- * - Keep PoLi contract stable (do NOT leak TSLE schema).
- * - Phase 1 pillars: DEPTH + RESILIENCE (minimal wiring).
- * - Other pillars remain empty until LIS/history is wired.
- */
-function composePoLiFromTSLE(args: {
-  context: PoLiContext;
-  tsle: Awaited<ReturnType<typeof computeTSLE>>;
-}): PoLiSnapshot {
-  const { context, tsle } = args;
-
-  // Debug logging
-  console.log("[POLI] tsle.source:", tsle?.source);
-  console.log("[POLI] tsle.evidence.sufficient:", tsle?.evidence?.sufficient);
-  console.log("[POLI] tsle.evidence.rationale:", tsle?.evidence?.rationale);
-
-  // ACCEPTANCE CRITERIA:
-  // - status="ok" ONLY when source="live" AND evidence.sufficient=true
-  // - otherwise status="insufficient" with pillars={}
-  const isLiveSource = tsle?.source === "live";
-  const hasEvidence = Boolean(tsle?.evidence?.sufficient);
-  const sufficient = isLiveSource && hasEvidence;
-  const status: PoLiStatus = sufficient ? "ok" : "insufficient";
-
-  // If insufficient, keep score conservative for now (contract-first semantics)
-  const headlineScore = sufficient ? clampScore(Number(tsle.score ?? 0)) : 0;
-
-  const rating = poliRatingFromScore(headlineScore);
-  const band = riskBandFromScore(headlineScore);
-
-  // Conservative confidence for Phase 1 (no LIS/history yet)
-  const confidenceScore = clamp01(
-    sufficient ? 0.6 : 0.0
-  );
-
-  // DEPTH pillar drivers from TSLE
-  const depthDrivers = [
-    {
-      metricId: "TSLE_MAX_SIZE_25BPS",
-      label: "Max size @ 25 bps",
-      value: Number.isFinite(Number(tsle.maxSizeAt25bps)) ? Number(tsle.maxSizeAt25bps) : null,
-      unit: "USD",
-      direction: "unknown" as const,
-    },
-    {
-      metricId: "TSLE_MAX_SIZE_50BPS",
-      label: "Max size @ 50 bps",
-      value: Number.isFinite(Number(tsle.maxSizeAt50bps)) ? Number(tsle.maxSizeAt50bps) : null,
-      unit: "USD",
-      direction: "unknown" as const,
-    },
-    {
-      metricId: "TSLE_MAX_SIZE_100BPS",
-      label: "Max size @ 100 bps",
-      value: Number.isFinite(Number(tsle.maxSizeAt100bps)) ? Number(tsle.maxSizeAt100bps) : null,
-      unit: "USD",
-      direction: "unknown" as const,
-    },
-    {
-      metricId: "TSLE_EST_IMPACT_BPS",
-      label: "Estimated impact",
-      value: Number.isFinite(Number(tsle.estImpactBps)) ? Number(tsle.estImpactBps) : null,
-      unit: "bps",
-      direction: "unknown" as const,
-    },
-  ];
-
-  const depthFlags: Array<any> = [];
-  if (Number.isFinite(Number(tsle.estImpactBps)) && Number(tsle.estImpactBps) >= 100) {
-    depthFlags.push({
-      id: "IMPACT_HIGH",
-      severity: "risk" as const,
-      message: "Estimated impact exceeds 100 bps for the requested size.",
-      meta: { estImpactBps: tsle.estImpactBps },
-    });
-  }
-
-  const depthPillar = makePillar({
-    id: "DEPTH",
-    name: "Depth",
-    score: headlineScore, // Phase 1: DEPTH ~= TSLE score when sufficient
-    confidence: {
-      score: confidenceScore,
-      rationale: sufficient
-        ? "Derived from TSLE evidence (Phase 1)"
-        : `Insufficient TSLE evidence (${tsle?.evidence?.rationale ?? "unknown"})`,
-    },
-    drivers: depthDrivers,
-    flags: depthFlags,
-    verifyTags: ["VERIFY:PARTIAL", "SOURCE:TSLE"],
-  });
-
-  // RESILIENCE: basic regime-derived adjustment
-  const regime = String(tsle.regime ?? "").toLowerCase();
-  const resilienceScore = sufficient
-    ? (
-        regime.includes("thin") ? clampScore(headlineScore - 8) :
-        regime.includes("stressed") ? clampScore(headlineScore - 12) :
-        clampScore(headlineScore - 2)
-      )
-    : 0;
-
-  const resiliencePillar = makePillar({
-    id: "RESILIENCE",
-    name: "Resilience",
-    score: resilienceScore,
-    confidence: {
-      score: confidenceScore,
-      rationale: sufficient ? "Regime-derived (Phase 1)" : "No evidence",
-    },
-    drivers: [
-      { metricId: "TSLE_REGIME", label: "Regime", value: tsle.regime ?? "unknown" },
-      { metricId: "TSLE_SOURCE", label: "Source", value: tsle.source ?? "unknown" },
-    ],
-    flags: [],
-    verifyTags: ["VERIFY:PARTIAL", "SOURCE:TSLE"],
-  });
-
-  return {
-    version: POLI_CONTRACT_VERSION,
-    status,
-    context,
-
-    score: headlineScore,
-    rating,
-    band,
-
-    delta: { score: 0, direction: "unknown" },
-
-    confidence: {
-      score: confidenceScore,
-      rationale: sufficient
-        ? "Phase 1 TSLE wiring (no LIS/history yet)"
-        : `Insufficient evidence: ${!isLiveSource ? "Fallback source" : (tsle?.evidence?.rationale ?? "unknown")}`,
-    },
-
-    pillars: sufficient
-      ? { DEPTH: depthPillar, RESILIENCE: resiliencePillar }
-      : {},
-
-    flags: [],
-
-    summary: sufficient
-      ? "PoLi computed from TSLE (Phase 1)."
-      : "PoLi scaffold live. Waiting for sufficient TSLE/LIS evidence.",
-
-    verify: makeDefaultVerify(["VERIFY:PARTIAL", "SOURCE:TSLE"]),
-  };
-}
 
 /**
  * GET /api/poli?token=BTC&venue=coinbase&scope=spot&mock=1
@@ -206,7 +67,9 @@ router.get("/", async (req: Request, res: Response) => {
       timestamp: Date.now(),
     };
 
-    // ✅ MOCK MODE
+    // -----------------------------
+    // ✅ MOCK MODE (UI dev only)
+    // -----------------------------
     if (mock) {
       const score = clampScore(70 + Math.round((Math.random() - 0.5) * 10));
       const rating = poliRatingFromScore(score);
@@ -279,13 +142,18 @@ router.get("/", async (req: Request, res: Response) => {
       return res.json(snapshot);
     }
 
-    // ✅ REAL MODE (Phase 1): direct compute call (no internal HTTP)
+    // -----------------------------------------
+    // ✅ REAL MODE (Phase 1): direct TSLE compute
+    // -----------------------------------------
+    const side = ((req.query.side as string | undefined) ?? "buy") as "buy" | "sell";
+    const requestedSize = req.query.size ? Number(req.query.size) : undefined;
+
     const tsle = await computeTSLE({
       token,
       venue,
       symbol,
-      side: (req.query.side as "buy" | "sell" | undefined) ?? "buy",
-      requestedSize: req.query.size ? Number(req.query.size) : undefined,
+      side,
+      requestedSize,
     });
 
     // If TSLE compute fails, keep contract compliant
@@ -296,13 +164,16 @@ router.get("/", async (req: Request, res: Response) => {
         symbol,
         scope,
         status: "insufficient",
-        summary: "PoLi scaffold live. Waiting for TSLE/LIS wiring.",
-        verifyTags: ["VERIFY:PARTIAL"],
+        summary: "PoLi scaffold live. Waiting for sufficient TSLE/LIS evidence.",
+        verifyTags: ["VERIFY:PARTIAL", "SOURCE:TSLE"],
       });
       return res.json(snapshot);
     }
 
-    // Compose PoLi from TSLE
+    /**
+     * ✅ Step 2: Use extracted composePoLiFromTSLE() as the ONLY path
+     * (this is where the evidence-gated flip happens)
+     */
     const snapshot = composePoLiFromTSLE({ context, tsle });
     return res.json(snapshot);
   } catch (err) {
