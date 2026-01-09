@@ -2,66 +2,22 @@
 /**
  * LIS (LiquidityState) → PoLi-grade Evidence Bundle
  *
- * Goal:
- * - Produce a canonical, timestamped evidence bundle PoLi can gate on.
- * - MUST emit TSLE_STATE when LiquidityState has stateSnapshot (your current shape does).
+ * Contract for downstream gating:
+ * - bundle.blocks MUST contain TSLE_STATE when TSLE is available
+ * - DEPTH_BANDS should contain at least pct_0.25 and pct_0.5 totals when available
  *
- * LiquidityState shape observed from /api/lis and /api/lis/tsle/dashboard:
- * - liquidityState.stateSnapshot.state   (e.g. "STABLE")
- * - liquidityState.latest.ts            (number timestamp)
- * - liquidityState.latest.depth25/depth50/poli/imbalance2550
- * - liquidityState.trend (optional)
+ * This file is intentionally defensive: it supports multiple LiquidityState shapes.
  */
 
-type AnyLiquidityState = any;
-
-export type PoLiEvidenceBlock =
-  | {
-      type: "TSLE_STATE";
-      venue: string;
-      symbol: string;
-      ts: number;
-      quality: number; // 0..1
-      payload: {
-        state: string;
-        confidence?: number; // 0..1 (optional)
-        raw?: any;
-      };
-    }
-  | {
-      type: "POLI_POINT";
-      venue: string;
-      symbol: string;
-      ts: number;
-      quality: number;
-      payload: any;
-    }
-  | {
-      type: "DEPTH_BANDS";
-      venue: string;
-      symbol: string;
-      ts: number;
-      quality: number;
-      payload: {
-        bands: Record<
-          string,
-          {
-            total_notional?: number;
-            bid_notional?: number;
-            ask_notional?: number;
-          }
-        >;
-        raw?: any;
-      };
-    }
-  | {
-      type: "DIVERGENCE";
-      venuePair: string;
-      symbol: string;
-      ts: number;
-      quality: number;
-      payload: any;
-    };
+export type PoLiEvidenceBlock = {
+  type: "TSLE_STATE" | "POLI_POINT" | "DEPTH_BANDS" | "DIVERGENCE";
+  venue?: string;
+  symbol?: string;
+  ts?: number;
+  quality?: number;
+  payload?: any;
+  venuePair?: string;
+};
 
 export type PoLiEvidenceBundle = {
   venue: string;
@@ -70,108 +26,127 @@ export type PoLiEvidenceBundle = {
   blocks: PoLiEvidenceBlock[];
 };
 
-function clamp01(x: unknown): number | undefined {
-  const n = Number(x);
-  if (!Number.isFinite(n)) return undefined;
-  return Math.max(0, Math.min(1, n));
-}
+type AnyLiquidityState = any;
 
 function num(x: unknown): number | undefined {
   const n = Number(x);
   return Number.isFinite(n) ? n : undefined;
 }
 
+function clamp01(x: unknown): number | undefined {
+  const n = Number(x);
+  if (!Number.isFinite(n)) return undefined;
+  return Math.max(0, Math.min(1, n));
+}
+
+function normalizeConfidence(raw: unknown): number | undefined {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return undefined;
+  // Accept 0..1 or 0..100
+  return n > 1 ? clamp01(n / 100) : clamp01(n);
+}
+
 /**
- * Build a PoLiEvidenceBundle from LiquidityState.
- * This is the critical standardization step for Phase 2 gating.
+ * Primary mapper
  */
 export function lisStateToEvidenceBundle(liquidityState: AnyLiquidityState): PoLiEvidenceBundle {
   const venue = String(liquidityState?.venue ?? "unknown").toLowerCase();
   const symbol = String(liquidityState?.symbol ?? "UNKNOWN").toUpperCase();
 
-  const latest = liquidityState?.latest ?? null;
-  const stateSnapshot = liquidityState?.stateSnapshot ?? null;
-
-  // Use latest.ts where available; otherwise fallback to now.
-  const tsLatest = num(latest?.ts) ?? Date.now();
+  // ✅ Debug marker (remove later)
+  // If you don't see this in logs when hitting /api/poli/evidence, you're not executing this file.
+  console.log("[lisToPoLiEvidence] mapper active", { venue, symbol });
 
   const blocks: PoLiEvidenceBlock[] = [];
+
+  const stateSnapshot = liquidityState?.stateSnapshot ?? null;
+
+  // TSLE state can exist in either of these (we support both):
+  const tsleState =
+    stateSnapshot?.state ??
+    liquidityState?.state ??
+    liquidityState?.tsle_state ??
+    liquidityState?.tsleState;
+
+  // Latest point can exist in these places:
+  // - liquidityState.latest (as per /api/lis)
+  // - liquidityState.latestPoint / liquidityState.latestSnapshot (fallback)
+  // - last element of liquidityState.history (fallback)
+  const history = Array.isArray(liquidityState?.history) ? liquidityState.history : [];
+  const latestFromHistory = history.length ? history[history.length - 1] : null;
+
+  const latest =
+    liquidityState?.latest ??
+    liquidityState?.latestPoint ??
+    liquidityState?.latestSnapshot ??
+    latestFromHistory ??
+    null;
+
+  const tsLatest =
+    num(latest?.ts) ??
+    num(stateSnapshot?.since) ??
+    Date.now();
 
   // ------------------------------------------------------------
   // 1) TSLE_STATE (authoritative)
   // ------------------------------------------------------------
-  const tsleState =
-    liquidityState?.stateSnapshot?.state ??
-    liquidityState?.state; // ← THIS WAS MISSING
-
   if (tsleState) {
+    const rawConf =
+      stateSnapshot?.confidence ??
+      latest?.confidence ??
+      liquidityState?.trend?.confidence ??
+      liquidityState?.confidence;
+
     blocks.push({
       type: "TSLE_STATE",
       venue,
       symbol,
-      ts:
-        Number(liquidityState?.stateSnapshot?.since) ??
-        Number(liquidityState?.latest?.ts) ??
-        Date.now(),
+      ts: num(stateSnapshot?.since) ?? tsLatest,
       quality: 1,
       payload: {
         state: String(tsleState),
-        confidence:
-          Number.isFinite(liquidityState?.latest?.confidence)
-            ? liquidityState.latest.confidence
-            : undefined,
-        raw: liquidityState.stateSnapshot ?? liquidityState.state,
+        confidence: normalizeConfidence(rawConf),
+        raw: stateSnapshot ?? { state: tsleState },
       },
     });
   }
 
   // ------------------------------------------------------------
-  // 2) POLI_POINT (latest point evidence) ✅
+  // 2) POLI_POINT (latest computed point from TSLE buffer)
   // ------------------------------------------------------------
-  if (latest) {
+  if (latest && (num(latest?.ts) || num(latest?.poli) || num(latest?.depth25) || num(latest?.depth50))) {
     blocks.push({
       type: "POLI_POINT",
       venue,
       symbol,
-      ts: tsLatest,
+      ts: num(latest?.ts) ?? tsLatest,
       quality: 0.9,
       payload: latest,
     });
   }
 
   // ------------------------------------------------------------
-  // 3) DEPTH_BANDS (canonical 25/50 bps mapping) ✅
+  // 3) DEPTH_BANDS (canonical: pct_0.25 and pct_0.5 totals)
   // ------------------------------------------------------------
-  // Your LiquidityState.latest exposes depth25/depth50; the depth route exposes detailed bands.
-  // For gating we only need pct_0.25 and pct_0.5 total notionals.
   const depth25 = num(latest?.depth25);
   const depth50 = num(latest?.depth50);
 
-  const bands = {
-    "pct_0.25": { total_notional: depth25 ?? 0 },
-    "pct_0.5": { total_notional: depth50 ?? 0 },
-  };
-
-  // Only add DEPTH_BANDS if we have at least one numeric depth value (still fine if one is 0).
   if (Number.isFinite(depth25) || Number.isFinite(depth50)) {
     blocks.push({
       type: "DEPTH_BANDS",
       venue,
       symbol,
-      ts: tsLatest,
+      ts: num(latest?.ts) ?? tsLatest,
       quality: 0.85,
       payload: {
-        bands,
+        bands: {
+          "pct_0.25": { total_notional: depth25 ?? 0 },
+          "pct_0.5": { total_notional: depth50 ?? 0 },
+        },
         raw: { depth25, depth50 },
       },
     });
   }
-
-  // ------------------------------------------------------------
-  // 4) (Optional) DIVERGENCE block
-  // ------------------------------------------------------------
-  // Not emitted here because LiquidityState is per-venue.
-  // Cross-venue divergence can be added later by composing a multi-venue bundle.
 
   return {
     venue,
