@@ -82,7 +82,7 @@ async function fetchDepth(params: {
   bps: number;
 }): Promise<DepthResponse | null> {
   try {
-    const port = process.env.PORT ?? "5000";
+    const port = process.env.PORT || "3000";
     const url = `http://127.0.0.1:${port}/api/depth?token=${encodeURIComponent(
       params.token
     )}&venue=${encodeURIComponent(params.venue)}&bps=${encodeURIComponent(String(params.bps))}`;

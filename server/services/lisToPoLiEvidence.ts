@@ -39,8 +39,8 @@ export function lisStateToEvidenceBundle(liquidityState: any): PoLiEvidenceBundl
     // If your LiquidityState already includes banded depth, map it here.
     // If not, you can pass a synthetic bands object using depth25/depth50.
     const bands = liquidityState?.bands ?? {
-      pct_0.25: { total_notional: latest?.depth25 ?? 0 },
-      pct_0.5:  { total_notional: latest?.depth50 ?? 0 },
+      "pct_0.25": { total_notional: latest?.depth25 ?? 0 },
+      "pct_0.5":  { total_notional: latest?.depth50 ?? 0 },
     };
 
     blocks.push({

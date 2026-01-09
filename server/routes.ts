@@ -14,6 +14,7 @@ import depthRoutes from "./routes/depth";
 import tsleRoutes from "./routes/tsle";
 import lisRoutes from "./routes/lis";
 import poliRoutes from "./routes/poli";
+import poliEvidenceRoutes from "./routes/poliEvidence";
 import alertsRoutes from "./routes/alerts";
 import dailyCommentaryRouter from "./api/dailyCommentary";
 import { startIngestionLoop } from "../analytics/engines/ingestionManager";
@@ -384,6 +385,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mount PoLi routes (Liquidity Ingress Service proxy)
   app.use("/api/poli", poliRoutes);
+
+  // Mount PoLi routes (Liquidity Ingress Service proxy)
+  app.use("/api/poli/evidence", poliEvidenceRoutes);
 
   // Mount analytics routes
   app.use("/api/analytics", analyticsRoutes);
