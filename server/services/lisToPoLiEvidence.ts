@@ -98,33 +98,29 @@ export function lisStateToEvidenceBundle(liquidityState: AnyLiquidityState): PoL
   const blocks: PoLiEvidenceBlock[] = [];
 
   // ------------------------------------------------------------
-  // 1) TSLE_STATE (MUST EMIT if stateSnapshot exists) ✅
+  // 1) TSLE_STATE (authoritative)
   // ------------------------------------------------------------
-  if (stateSnapshot?.state) {
-    // Confidence normalization:
-    // - Your LIS endpoints often carry confidence as 0..100 on some payloads,
-    //   but LiquidityState.stateSnapshot doesn’t always have it.
-    // - We accept either 0..1 or 0..100 and normalize to 0..1 when possible.
-    const rawConf = stateSnapshot?.confidence ?? latest?.confidence ?? liquidityState?.trend?.confidence;
+  const tsleState =
+    liquidityState?.stateSnapshot?.state ??
+    liquidityState?.state; // ← THIS WAS MISSING
 
-    let conf01: number | undefined = undefined;
-    const n = Number(rawConf);
-    if (Number.isFinite(n)) {
-      // If it looks like 0..100, normalize
-      conf01 = n > 1 ? clamp01(n / 100) : clamp01(n);
-    }
-
+  if (tsleState) {
     blocks.push({
       type: "TSLE_STATE",
       venue,
       symbol,
-      // Prefer "since" if present; otherwise anchor to latest.ts so freshness works.
-      ts: num(stateSnapshot?.since) ?? tsLatest,
+      ts:
+        Number(liquidityState?.stateSnapshot?.since) ??
+        Number(liquidityState?.latest?.ts) ??
+        Date.now(),
       quality: 1,
       payload: {
-        state: String(stateSnapshot.state),
-        confidence: conf01,
-        raw: stateSnapshot,
+        state: String(tsleState),
+        confidence:
+          Number.isFinite(liquidityState?.latest?.confidence)
+            ? liquidityState.latest.confidence
+            : undefined,
+        raw: liquidityState.stateSnapshot ?? liquidityState.state,
       },
     });
   }
