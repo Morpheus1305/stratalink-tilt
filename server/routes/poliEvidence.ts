@@ -3,21 +3,25 @@
  * PoLi Evidence Debug / Explainability Endpoint
  *
  * GET /api/poli/evidence?token=BTC&venues=coinbase,binance,kraken
+ * Optional: &debug=1  → includes bundlesMeta (block types per venue)
  *
  * - Builds LIS LiquidityState per venue (same canonical builder as /api/lis/state)
  * - Standardizes LIS → PoLi evidence bundles
  * - Produces a venue-by-venue evidence breakdown + aggregate sufficiency report
  *
  * Notes:
- * - This is a diagnostics endpoint; it does NOT change PoLi scoring.
- * - It is safe to call frequently (reads from in-memory buffers/state).
+ * - Diagnostics endpoint; does NOT change PoLi scoring.
+ * - Safe to call frequently (reads from in-memory buffers/state).
  */
 
 import { Router } from "express";
 import type { Request, Response } from "express";
 
 import { tsleBuffer, tsleStateEngine, buildLiquidityState } from "../services/tsle-buffer";
-import { lisStateToEvidenceBundle } from "../services/lisToPoLiEvidence";
+
+// ✅ Prefer DEFAULT import to avoid named-vs-default export mismatch issues
+import lisStateToEvidenceBundle from "../services/lisToPoLiEvidence";
+
 import { buildVenueEvidenceReport } from "../services/poliVenueEvidence";
 
 const router = Router();
@@ -47,10 +51,11 @@ router.get("/", async (req: Request, res: Response) => {
   const symbol = String(req.query.symbol ?? token).toUpperCase();
 
   const venuesParam = parseVenuesParam(req.query.venues);
-  const venues = (venuesParam.length ? venuesParam : DEFAULT_VENUES)
-    .map((v) => v.toLowerCase());
+  const venues = (venuesParam.length ? venuesParam : DEFAULT_VENUES).map((v) => v.toLowerCase());
 
-  // Optional tuning
+  const debug = String(req.query.debug ?? "0") === "1";
+
+  // Optional tuning knobs
   const maxAgeMsTSLE = req.query.maxAgeMsTSLE ? Number(req.query.maxAgeMsTSLE) : 30_000;
   const maxAgeMsDepth = req.query.maxAgeMsDepth ? Number(req.query.maxAgeMsDepth) : 15_000;
   const minOkVenues = req.query.minOkVenues ? Number(req.query.minOkVenues) : 2;
@@ -63,24 +68,26 @@ router.get("/", async (req: Request, res: Response) => {
       const trend = tsleBuffer.getTrend(venue, symbol);
       const signals = tsleBuffer.getSignals(venue, symbol);
 
-      const liquidityState = buildLiquidityState(
-        venue,
-        symbol,
-        buffer,
-        stateSnapshot,
-        trend,
-        signals
-      );
+      const liquidityState = buildLiquidityState(venue, symbol, buffer, stateSnapshot, trend, signals);
 
       // Standardize LIS → PoLi evidence bundle
-      const evidenceBundle = lisStateToEvidenceBundle(liquidityState);
+      const evidenceBundle: any = lisStateToEvidenceBundle(liquidityState);
 
-      // Ensure venue/symbol fields are set predictably
-      (evidenceBundle as any).venue = (evidenceBundle as any).venue ?? venue;
-      (evidenceBundle as any).symbol = (evidenceBundle as any).symbol ?? symbol;
+      // Ensure venue/symbol fields are set predictably (defensive)
+      evidenceBundle.venue = evidenceBundle.venue ?? venue;
+      evidenceBundle.symbol = evidenceBundle.symbol ?? symbol;
 
       return evidenceBundle;
     });
+
+    // Debug meta: show block types and counts so we can verify TSLE_STATE exists
+    const bundlesMeta = bundles.map((b: any) => ({
+      venue: b?.venue,
+      symbol: b?.symbol,
+      hasBlocks: Array.isArray(b?.blocks),
+      blockCount: Array.isArray(b?.blocks) ? b.blocks.length : 0,
+      blocks: Array.isArray(b?.blocks) ? b.blocks.map((x: any) => x?.type) : null,
+    }));
 
     const report = buildVenueEvidenceReport({
       symbol,
@@ -97,6 +104,7 @@ router.get("/", async (req: Request, res: Response) => {
       token,
       symbol,
       venues,
+      ...(debug ? { bundlesMeta } : {}),
       ...report,
     });
   } catch (err) {
