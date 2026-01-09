@@ -5,7 +5,7 @@
  * GET /api/poli/evidence?token=BTC&venues=coinbase,binance,kraken
  * Optional: &debug=1  → includes bundlesMeta (block types per venue)
  *
- * - Builds LIS LiquidityState per venue (same canonical builder as /api/lis/state)
+ * - Builds LIS LiquidityState per venue using a single canonical builder (shared helper)
  * - Standardizes LIS → PoLi evidence bundles
  * - Produces a venue-by-venue evidence breakdown + aggregate sufficiency report
  *
@@ -17,7 +17,8 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
 
-import { tsleBuffer, tsleStateEngine, buildLiquidityState } from "../services/tsle-buffer";
+// ✅ Use shared canonical LiquidityState builder (single source of truth)
+import { getLiquidityState } from "../services/getLiquidityState";
 
 // ✅ Prefer DEFAULT import to avoid named-vs-default export mismatch issues
 import lisStateToEvidenceBundle from "../services/lisToPoLiEvidence";
@@ -63,25 +64,9 @@ router.get("/", async (req: Request, res: Response) => {
   const minOkVenues = req.query.minOkVenues ? Number(req.query.minOkVenues) : 2;
 
   try {
-    // Build evidence bundles per venue
+    // Build evidence bundles per venue using canonical LiquidityState
     const bundles = venues.map((venue) => {
-      const buffer = tsleBuffer.getHistory(venue, symbol);
-      const stateSnapshot = tsleStateEngine.getState(venue, symbol);
-      const trend = tsleBuffer.getTrend(venue, symbol);
-      const signals = tsleBuffer.getSignals(venue, symbol);
-      const latest = tsleBuffer.getLatest(venue, symbol);
-
-      // 🔧 Ensure LiquidityState matches /api/lis/state
-      // (latest is critical for POLI_POINT/DEPTH_BANDS and for timestamp anchoring)
-      const liquidityState = buildLiquidityState(
-        venue,
-        symbol,
-        buffer,
-        stateSnapshot,
-        trend,
-        signals,
-        latest
-      );
+      const liquidityState = getLiquidityState(venue, symbol);
 
       // Standardize LIS → PoLi evidence bundle
       const evidenceBundle: any = lisStateToEvidenceBundle(liquidityState);
