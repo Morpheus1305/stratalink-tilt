@@ -1,324 +1,375 @@
 // server/services/poliVenueEvidence.ts
 /**
- * Venue-by-venue PoLi evidence breakdown (Phase 2 visibility layer)
+ * PoLi Venue-by-Venue Evidence Report + Aggregate Ladder (L0→L3)
  *
- * Purpose:
- * - Take one or more PoLiEvidenceBundle objects (typically one per venue)
- * - Evaluate the Evidence Ladder per venue (freshness + sufficiency)
- * - Return an aggregate report for UI / debugging / institutional explainability
+ * This module takes standardized LIS→PoLi evidence bundles (per venue),
+ * computes per-venue sufficiency + freshness, and produces an aggregate
+ * evidence ladder status.
  *
- * Notes:
- * - This module is deliberately defensive: it tolerates missing fields and mixed payload shapes.
- * - It does NOT fetch data. It only evaluates already-built evidence bundles.
+ * IMPORTANT:
+ * - L2 = single-venue depth sufficiency across N venues
+ * - L3 = cross-venue divergence block
+ * - L3 override semantics:
+ *     if crossVenue.gatingOk === false  => aggregate.ok MUST be false
  */
 
-import { evaluateEvidenceLadder } from "./poliEvidenceGate";
+import { buildCrossVenueEvidence, type CrossVenueEvidence } from "./poliCrossVenueEvidence";
 
-/** ---------- Types (kept local to avoid tight coupling) ---------- */
+type LadderLevel = "L0_NONE" | "L1_TSLE" | "L2_DEPTH" | "L3_DIVERGENCE";
 
-export type EvidenceLevel =
-  | "L0_NONE"
-  | "L1_TSLE"
-  | "L2_DEPTH"
-  | "L3_CROSS_VENUE"
-  | "L4_SUSTAINED";
-
-export type VenueEvidenceStatus = {
+type VenueEvidenceRow = {
   venue: string;
   ok: boolean;
-  ladderLevel: EvidenceLevel;
-
+  ladderLevel: LadderLevel;
   freshnessMs: {
-    TSLE?: number;
-    DEPTH?: number;
-    POLI?: number;
-    DIVERGENCE?: number;
+    TSLE?: number | null;
+    DEPTH?: number | null;
+    POLI?: number | null;
   };
-
   depth: {
-    pct_0_25?: number; // total notional at 25bps
-    pct_0_5?: number;  // total notional at 50bps
+    pct_0_25?: number | null;
+    pct_0_5?: number | null;
     sufficient: boolean;
   };
-
   tsle: {
     state?: string;
     confidence?: number;
     fresh: boolean;
   };
-
   reasons: string[];
   verifyTags: string[];
 };
 
+type EvidenceBundle = {
+  venue?: string;
+  symbol?: string;
+  blocks?: any[];
+};
+
 export type VenueEvidenceReport = {
   symbol: string;
+  venues: VenueEvidenceRow[];
   timestamp: number;
-  venues: VenueEvidenceStatus[];
   aggregate: {
     ok: boolean;
-    ladderLevel: EvidenceLevel;
+    ladderLevel: LadderLevel;
     reasons: string[];
     okVenues: string[];
     requiredOkVenues: number;
+    // optional L3
+    crossVenue?: CrossVenueEvidence & {
+      // allow extra fields without fighting TS
+      [k: string]: any;
+    };
   };
 };
 
-export type VenueEvidenceGateOpts = {
-  /** Freshness thresholds used by evaluateEvidenceLadder */
-  maxAgeMsTSLE?: number;
-  maxAgeMsDepth?: number;
-
-  /**
-   * Required depth bands in the evidence payload (keys you map in lisStateToEvidenceBundle)
-   * Default aligns with your current LIS → PoLi mapping (pct_0.25, pct_0.5).
-   */
-  requireDepthBands?: Array<"pct_0.25" | "pct_0.5">;
-
-  /** Aggregate requirement: how many venues must individually pass the ladder to call aggregate ok */
-  minOkVenues?: number;
-};
-
-type AnyEvidenceBlock = {
-  type?: string;
-  venue?: string;
-  symbol?: string;
-  ts?: number;
-  quality?: number;
-  payload?: any;
-  venuePair?: string;
-};
-
-/** ---------- Helpers ---------- */
-
-const LEVEL_RANK: Record<EvidenceLevel, number> = {
-  L0_NONE: 0,
-  L1_TSLE: 1,
-  L2_DEPTH: 2,
-  L3_CROSS_VENUE: 3,
-  L4_SUSTAINED: 4,
-};
-
-function toLevel(x: any): EvidenceLevel {
-  const s = String(x ?? "").toUpperCase();
-  if (s.includes("L4")) return "L4_SUSTAINED";
-  if (s.includes("L3")) return "L3_CROSS_VENUE";
-  if (s.includes("L2")) return "L2_DEPTH";
-  if (s.includes("L1")) return "L1_TSLE";
-  if (s.includes("L0")) return "L0_NONE";
-  // Fallback
-  return "L0_NONE";
+function nowMs() {
+  return Date.now();
 }
 
-function maxLevel(levels: EvidenceLevel[]): EvidenceLevel {
-  let best: EvidenceLevel = "L0_NONE";
-  for (const l of levels) {
-    if (LEVEL_RANK[l] > LEVEL_RANK[best]) best = l;
-  }
-  return best;
+function normVenue(v: unknown) {
+  return String(v ?? "").toLowerCase().trim();
 }
 
-function getBlocks(bundle: any): AnyEvidenceBlock[] {
-  const blocks = bundle?.blocks;
-  return Array.isArray(blocks) ? (blocks as AnyEvidenceBlock[]) : [];
+function normSymbol(s: unknown) {
+  return String(s ?? "").toUpperCase().trim();
 }
 
-function findBlock(bundle: any, type: string): AnyEvidenceBlock | undefined {
-  return getBlocks(bundle).find((b) => String(b?.type ?? "").toUpperCase() === type.toUpperCase());
+function safeNum(x: any): number | null {
+  const n = Number(x);
+  return Number.isFinite(n) ? n : null;
 }
 
-function ageMs(ts?: number, now = Date.now()): number | undefined {
-  if (!Number.isFinite(ts)) return undefined;
-  return Math.max(0, now - Number(ts));
+function getBlock(bundle: EvidenceBundle, type: string): any | null {
+  const blocks = Array.isArray(bundle?.blocks) ? bundle.blocks : [];
+  return blocks.find((b: any) => String(b?.type ?? b?.kind ?? "").toUpperCase() === type.toUpperCase()) ?? null;
 }
 
-/**
- * Extract depth bands from the evidence bundle in a tolerant way.
- * Prefers DEPTH_BANDS payload.bands, falls back to POLI_POINT payload depth25/depth50.
- */
-function extractDepth(bundle: any): { pct_0_25?: number; pct_0_5?: number; sufficient: boolean } {
-  const depthBlock = findBlock(bundle, "DEPTH_BANDS");
-  const poliBlock = findBlock(bundle, "POLI_POINT");
+function getBlockTs(block: any): number | null {
+  // tolerate different shapes
+  const ts =
+    block?.ts ??
+    block?.timestamp ??
+    block?.t ??
+    block?.meta?.ts ??
+    block?.meta?.timestamp ??
+    block?.payload?.ts ??
+    block?.payload?.timestamp;
 
-  // Primary: DEPTH_BANDS payload
-  const bands = depthBlock?.payload?.bands ?? depthBlock?.payload?.BANDS ?? null;
-
-  let d25: number | undefined;
-  let d50: number | undefined;
-
-  if (bands && typeof bands === "object") {
-    const v25 = bands["pct_0.25"]?.total_notional ?? bands["pct_0.25"]?.total ?? bands["pct_0.25"];
-    const v50 = bands["pct_0.5"]?.total_notional ?? bands["pct_0.5"]?.total ?? bands["pct_0.5"];
-
-    if (Number.isFinite(v25)) d25 = Number(v25);
-    if (Number.isFinite(v50)) d50 = Number(v50);
-  }
-
-  // Fallback: POLI_POINT style (depth25/depth50)
-  if (!Number.isFinite(d25)) {
-    const v = poliBlock?.payload?.depth25 ?? poliBlock?.payload?.DEPTH25;
-    if (Number.isFinite(v)) d25 = Number(v);
-  }
-  if (!Number.isFinite(d50)) {
-    const v = poliBlock?.payload?.depth50 ?? poliBlock?.payload?.DEPTH50;
-    if (Number.isFinite(v)) d50 = Number(v);
-  }
-
-  const sufficient =
-    (Number.isFinite(d25) ? (d25 as number) > 0 : false) &&
-    (Number.isFinite(d50) ? (d50 as number) > 0 : false);
-
-  return { pct_0_25: d25, pct_0_5: d50, sufficient };
+  const n = Number(ts);
+  return Number.isFinite(n) ? n : null;
 }
 
-/**
- * Extract TSLE state/ confidence in a tolerant way.
- */
-function extractTSLE(bundle: any): { state?: string; confidence?: number } {
-  const tsleBlock = findBlock(bundle, "TSLE_STATE");
-  const p = tsleBlock?.payload ?? {};
-  const state =
-    p?.state ??
-    p?.currentState ??
-    p?.tsleState ??
-    p?.stateSnapshot?.state ??
-    undefined;
+function getDepthFromBlock(depthBlock: any) {
+  // tolerate different shapes
+  const p = depthBlock?.payload ?? depthBlock?.data ?? depthBlock ?? {};
+  const b025 =
+    p?.pct_0_25?.total_notional ??
+    p?.pct_0_25?.total ??
+    p?.pct_0_25 ??
+    p?.bands?.pct_0_25?.total_notional ??
+    null;
 
-  const confidence =
-    Number.isFinite(p?.confidence) ? Number(p.confidence) :
-    Number.isFinite(p?.score) ? Number(p.score) :
-    undefined;
+  const b05 =
+    p?.pct_0_5?.total_notional ??
+    p?.pct_0_5?.total ??
+    p?.pct_0_5 ??
+    p?.bands?.pct_0_5?.total_notional ??
+    null;
 
-  return { state: state ? String(state) : undefined, confidence };
+  return {
+    pct_0_25: safeNum(b025),
+    pct_0_5: safeNum(b05),
+  };
 }
 
-function normalizeGateResult(gate: any): { ok: boolean; level: EvidenceLevel; reasons: string[]; verifyTags: string[] } {
-  const ok = Boolean(gate?.ok);
-
-  // gate may return .level or .ladderLevel
-  const level = toLevel(gate?.level ?? gate?.ladderLevel);
-
-  const reasons: string[] = Array.isArray(gate?.reasons) ? gate.reasons.map(String) : [];
-
-  // gate may return .verifyTags or .verifyFlags or .verify (array)
-  const tagsRaw =
-    gate?.verifyTags ??
-    gate?.verifyFlags ??
-    gate?.verify ??
-    [];
-
-  const verifyTags = Array.isArray(tagsRaw) ? tagsRaw.map(String) : [];
-
-  return { ok, level, reasons, verifyTags };
+function getTSLEFromBlock(tsleBlock: any) {
+  const p = tsleBlock?.payload ?? tsleBlock?.data ?? tsleBlock ?? {};
+  return {
+    state: String(p?.state ?? p?.tsle_state ?? p?.tsleState ?? "UNKNOWN"),
+    confidence: safeNum(p?.confidence ?? p?.conf ?? 0) ?? 0,
+  };
 }
 
-/** ---------- Main API ---------- */
-
-/**
- * Build a venue-by-venue evidence report from one or more evidence bundles.
- *
- * Typical usage:
- * - Call lisStateToEvidenceBundle() per venue (coinbase/binance/kraken)
- * - Pass the resulting bundles array into this function
- * - Render report. Use report.aggregate.ok to explain overall PoLi gate
- */
-export function buildVenueEvidenceReport(params: {
+export function buildVenueEvidenceReport(args: {
   symbol: string;
-  bundles: any[];
-  opts?: VenueEvidenceGateOpts;
+  bundles: EvidenceBundle[];
+  opts: {
+    maxAgeMsTSLE?: number; // default 30s
+    maxAgeMsDepth?: number; // default 15s
+    requireDepthBands?: Array<"pct_0.25" | "pct_0.5">; // default ["pct_0.25","pct_0.5"]
+    minOkVenues?: number; // default 2
+
+    // L3 (optional)
+    maxAgeMsCrossVenue?: number; // default 60s
+    referenceVenue?: string; // default "coinbase"
+    stressVenue?: string; // default "binance"
+  };
 }): VenueEvidenceReport {
-  const now = Date.now();
+  const t = nowMs();
 
-  const {
-    symbol,
-    bundles,
-    opts,
-  } = params;
+  const symbol = normSymbol(args.symbol || "BTC");
+  const bundles = Array.isArray(args.bundles) ? args.bundles : [];
 
-  const maxAgeMsTSLE = opts?.maxAgeMsTSLE ?? 30_000;
-  const maxAgeMsDepth = opts?.maxAgeMsDepth ?? 15_000;
-  const requireDepthBands = opts?.requireDepthBands ?? ["pct_0.25", "pct_0.5"];
-  const minOkVenues = opts?.minOkVenues ?? 2; // institutional default for cross-venue confidence
+  const maxAgeMsTSLE = Number.isFinite(args.opts?.maxAgeMsTSLE) ? Number(args.opts.maxAgeMsTSLE) : 30_000;
+  const maxAgeMsDepth = Number.isFinite(args.opts?.maxAgeMsDepth) ? Number(args.opts.maxAgeMsDepth) : 15_000;
+  const minOkVenues = Number.isFinite(args.opts?.minOkVenues) ? Number(args.opts.minOkVenues) : 2;
 
-  const venues: VenueEvidenceStatus[] = (Array.isArray(bundles) ? bundles : []).map((bundle) => {
-    const venue = String(bundle?.venue ?? bundle?.context?.venue ?? "unknown").toLowerCase();
+  const requiredBands = args.opts?.requireDepthBands?.length
+    ? args.opts.requireDepthBands
+    : (["pct_0.25", "pct_0.5"] as const);
 
-    // Evaluate ladder (per venue)
-    const gateRaw = evaluateEvidenceLadder(bundle, {
-      maxAgeMsTSLE,
-      maxAgeMsDepth,
-      requireDepthBands,
-    } as any);
+  const venues: VenueEvidenceRow[] = bundles.map((bundle) => {
+    const venue = normVenue(bundle?.venue);
+    const reasons: string[] = [];
+    const verifyTags: string[] = [];
 
-    const gate = normalizeGateResult(gateRaw);
+    // Pull blocks
+    const tsleBlock = getBlock(bundle, "TSLE_STATE");
+    const poliBlock = getBlock(bundle, "POLI_POINT");
+    const depthBlock = getBlock(bundle, "DEPTH_BANDS");
 
-    // Freshness breakdown
-    const tsleBlock = findBlock(bundle, "TSLE_STATE");
-    const depthBlock = findBlock(bundle, "DEPTH_BANDS");
-    const poliBlock = findBlock(bundle, "POLI_POINT");
-    const divBlock = findBlock(bundle, "DIVERGENCE");
+    // Freshness
+    const tsleAge = tsleBlock ? (t - (getBlockTs(tsleBlock) ?? t)) : null;
+    const poliAge = poliBlock ? (t - (getBlockTs(poliBlock) ?? t)) : null;
+    const depthAge = depthBlock ? (t - (getBlockTs(depthBlock) ?? t)) : null;
 
-    const freshness = {
-      TSLE: ageMs(tsleBlock?.ts, now),
-      DEPTH: ageMs(depthBlock?.ts, now),
-      POLI: ageMs(poliBlock?.ts, now),
-      DIVERGENCE: ageMs(divBlock?.ts, now),
-    };
+    // TSLE interpret
+    const tsle = tsleBlock ? getTSLEFromBlock(tsleBlock) : { state: "UNKNOWN", confidence: 0 };
+    const tsleFresh = tsleAge !== null ? tsleAge <= maxAgeMsTSLE : false;
 
-    // Extract key values for UI
-    const depth = extractDepth(bundle);
-    const tsle = extractTSLE(bundle);
+    // Depth interpret
+    const depthVals = depthBlock ? getDepthFromBlock(depthBlock) : { pct_0_25: null, pct_0_5: null };
 
-    const tsleFresh = typeof freshness.TSLE === "number" ? freshness.TSLE <= maxAgeMsTSLE : false;
+    const has025 = depthVals.pct_0_25 !== null && depthVals.pct_0_25 > 0;
+    const has05 = depthVals.pct_0_5 !== null && depthVals.pct_0_5 > 0;
+
+    // Required bands present?
+    const require025 = requiredBands.includes("pct_0.25");
+    const require05 = requiredBands.includes("pct_0.5");
+    const depthSufficient = (!require025 || has025) && (!require05 || has05);
+
+    // Freshness gating on depth
+    const depthFresh = depthAge !== null ? depthAge <= maxAgeMsDepth : false;
+
+    // Ladder logic per venue
+    let ladderLevel: LadderLevel = "L0_NONE";
+    let ok = false;
+
+    // L0: must have a venue + blocks
+    if (!venue) {
+      reasons.push("Missing venue on evidence bundle.");
+      verifyTags.push("VERIFY_INSUFFICIENT");
+      return {
+        venue: venue || "unknown",
+        ok: false,
+        ladderLevel,
+        freshnessMs: { TSLE: tsleAge, DEPTH: depthAge, POLI: poliAge },
+        depth: { ...depthVals, sufficient: false },
+        tsle: { ...tsle, fresh: false },
+        reasons,
+        verifyTags,
+      };
+    }
+
+    // L1: TSLE must exist and be fresh
+    if (!tsleBlock) {
+      ladderLevel = "L0_NONE";
+      reasons.push("Missing TSLE evidence.");
+      verifyTags.push("VERIFY_INSUFFICIENT");
+      return {
+        venue,
+        ok: false,
+        ladderLevel,
+        freshnessMs: { TSLE: tsleAge, DEPTH: depthAge, POLI: poliAge },
+        depth: { ...depthVals, sufficient: false },
+        tsle: { ...tsle, fresh: false },
+        reasons,
+        verifyTags,
+      };
+    }
+
+    if (!tsleFresh) {
+      ladderLevel = "L1_TSLE";
+      reasons.push(`TSLE evidence stale (${tsleAge}ms).`);
+      verifyTags.push("VERIFY_STALE");
+      return {
+        venue,
+        ok: false,
+        ladderLevel,
+        freshnessMs: { TSLE: tsleAge, DEPTH: depthAge, POLI: poliAge },
+        depth: { ...depthVals, sufficient: false },
+        tsle: { ...tsle, fresh: false },
+        reasons,
+        verifyTags,
+      };
+    }
+
+    // If we are here, L1 passed
+    ladderLevel = "L1_TSLE";
+
+    // L2: depth must exist, be fresh, and sufficient
+    if (!depthBlock) {
+      reasons.push("Missing Depth evidence.");
+      verifyTags.push("VERIFY_INSUFFICIENT");
+      return {
+        venue,
+        ok: false,
+        ladderLevel: "L1_TSLE",
+        freshnessMs: { TSLE: tsleAge, DEPTH: depthAge, POLI: poliAge },
+        depth: { ...depthVals, sufficient: false },
+        tsle: { ...tsle, fresh: true },
+        reasons,
+        verifyTags,
+      };
+    }
+
+    if (!depthFresh) {
+      reasons.push(`Depth evidence stale (${depthAge}ms).`);
+      verifyTags.push("VERIFY_STALE");
+      return {
+        venue,
+        ok: false,
+        ladderLevel: "L2_DEPTH",
+        freshnessMs: { TSLE: tsleAge, DEPTH: depthAge, POLI: poliAge },
+        depth: { ...depthVals, sufficient: depthSufficient },
+        tsle: { ...tsle, fresh: true },
+        reasons,
+        verifyTags,
+      };
+    }
+
+    if (!depthSufficient) {
+      reasons.push("Depth evidence insufficient (missing required bands).");
+      verifyTags.push("VERIFY_INSUFFICIENT");
+      return {
+        venue,
+        ok: false,
+        ladderLevel: "L2_DEPTH",
+        freshnessMs: { TSLE: tsleAge, DEPTH: depthAge, POLI: poliAge },
+        depth: { ...depthVals, sufficient: false },
+        tsle: { ...tsle, fresh: true },
+        reasons,
+        verifyTags,
+      };
+    }
+
+    // Venue passes L2
+    ok = true;
+    ladderLevel = "L2_DEPTH";
+    verifyTags.push("VERIFY_OK");
 
     return {
       venue,
-      ok: gate.ok,
-      ladderLevel: gate.level,
-      freshnessMs: freshness,
-      depth,
-      tsle: {
-        state: tsle.state,
-        confidence: tsle.confidence,
-        fresh: tsleFresh,
-      },
-      reasons: gate.reasons,
-      verifyTags: gate.verifyTags,
+      ok,
+      ladderLevel,
+      freshnessMs: { TSLE: tsleAge, DEPTH: depthAge, POLI: poliAge },
+      depth: { ...depthVals, sufficient: true },
+      tsle: { ...tsle, fresh: true },
+      reasons,
+      verifyTags,
     };
   });
 
-  // Aggregate: require >= minOkVenues venues to pass individually
-  const okVenues = venues.filter(v => v.ok).map(v => v.venue);
-  const aggregateOk = okVenues.length >= minOkVenues;
-
-  const levels = venues.map(v => v.ladderLevel);
-  const aggregateLevel = maxLevel(levels);
-
+  const okVenues = venues.filter((v) => v.ok).map((v) => v.venue);
   const aggregateReasons: string[] = [];
+
+  // Aggregate baseline (L2)
+  let aggregateOk = okVenues.length >= minOkVenues;
+  let aggregateLevel: LadderLevel = aggregateOk ? "L2_DEPTH" : "L0_NONE";
+
   if (!aggregateOk) {
-    aggregateReasons.push(
-      `Only ${okVenues.length} venue(s) meet evidence sufficiency; require ${minOkVenues}.`
-    );
+    aggregateReasons.push(`Only ${okVenues.length} venue(s) meet evidence sufficiency; require ${minOkVenues}.`);
+    for (const v of venues) {
+      if (!v.ok) aggregateReasons.push(`${v.venue}: ${v.reasons[0] ?? "Insufficient evidence."}`);
+    }
+  }
 
-    // Add top failure reasons from non-ok venues (useful for UI)
-    const blockers = venues
-      .filter(v => !v.ok)
-      .flatMap(v => (v.reasons?.length ? v.reasons.map(r => `${v.venue}: ${r}`) : [`${v.venue}: insufficient evidence`]))
-      .slice(0, 10);
+  // Build L3 cross-venue block if requested (we compute it regardless of L2 ok — it’s diagnostic)
+  const referenceVenue = normVenue(args.opts?.referenceVenue || "coinbase") || "coinbase";
+  const stressVenue = normVenue(args.opts?.stressVenue || "binance") || "binance";
+  const maxAgeMsCrossVenue = Number.isFinite(args.opts?.maxAgeMsCrossVenue) ? Number(args.opts.maxAgeMsCrossVenue) : 60_000;
 
-    aggregateReasons.push(...blockers);
+  const crossVenue = buildCrossVenueEvidence({
+    symbol,
+    referenceVenue,
+    stressVenue,
+    maxAgeMs: maxAgeMsCrossVenue,
+  });
+
+  // If we have cross-venue evidence, overall ladder is at least L3 (even if failing)
+  aggregateLevel = "L3_DIVERGENCE";
+
+  // -------------------------------
+  // ✅ L3 OVERRIDE (THE IMPORTANT BIT)
+  // -------------------------------
+  // If L3 says "do not gate", aggregate.ok MUST be false.
+  if ((crossVenue as any)?.gatingOk === false) {
+    aggregateOk = false;
+
+    // Preserve ladderLevel at L3 (we failed at L3, not L2)
+    aggregateLevel = "L3_DIVERGENCE";
+
+    // Merge reasons so it’s visible at aggregate
+    const l3Reasons = Array.isArray(crossVenue.reasons) ? crossVenue.reasons : [];
+    for (const r of l3Reasons) aggregateReasons.push(r);
+
+    // If you want: ensure we always have a leading reason
+    if (!l3Reasons.length) aggregateReasons.push("L3 cross-venue gating failed.");
   }
 
   return {
     symbol,
-    timestamp: now,
     venues,
+    timestamp: t,
     aggregate: {
       ok: aggregateOk,
       ladderLevel: aggregateLevel,
       reasons: aggregateReasons,
       okVenues,
       requiredOkVenues: minOkVenues,
+      crossVenue,
     },
   };
 }

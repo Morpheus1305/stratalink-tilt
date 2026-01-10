@@ -5,9 +5,11 @@
  * GET /api/poli/evidence?token=BTC&venues=coinbase,binance,kraken
  * Optional: &debug=1  → includes bundlesMeta (block types per venue)
  *
- * - Builds LIS LiquidityState per venue using a single canonical builder (shared helper)
+ * - Builds LIS LiquidityState per venue (same canonical builder as /api/lis/state)
  * - Standardizes LIS → PoLi evidence bundles
  * - Produces a venue-by-venue evidence breakdown + aggregate sufficiency report
+ * - Mounts L3 cross-venue divergence evidence (if wired in poliVenueEvidence)
+ * - ✅ Mounts L4 market integrity evidence + applies aggregate gating override
  *
  * Notes:
  * - Diagnostics endpoint; does NOT change PoLi scoring.
@@ -17,13 +19,19 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
 
-// ✅ Use shared canonical LiquidityState builder (single source of truth)
-import { getLiquidityState } from "../services/getLiquidityState";
-
 // ✅ Prefer DEFAULT import to avoid named-vs-default export mismatch issues
 import lisStateToEvidenceBundle from "../services/lisToPoLiEvidence";
 
 import { buildVenueEvidenceReport } from "../services/poliVenueEvidence";
+
+// ✅ Canonical LiquidityState getter (includes latest TSLE point)
+import { getLiquidityState } from "../services/getLiquidityState";
+
+// ✅ L4 Market Integrity (Phase 1)
+import {
+  buildMarketIntegrityEvidence,
+  type MarketIntegrityEvidence,
+} from "../services/poliMarketIntegrityEvidence";
 
 const router = Router();
 
@@ -47,25 +55,36 @@ function parseVenuesParam(q: unknown): string[] {
   return [];
 }
 
+function safeNum(x: unknown, fallback: number): number {
+  const n = Number(x);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 router.get("/", async (req: Request, res: Response) => {
   const token = String(req.query.token ?? "BTC").toUpperCase();
   const symbol = String(req.query.symbol ?? token).toUpperCase();
 
   const venuesParam = parseVenuesParam(req.query.venues);
-  const venues = (venuesParam.length ? venuesParam : DEFAULT_VENUES).map((v) =>
-    v.toLowerCase()
-  );
+  const venues = (venuesParam.length ? venuesParam : DEFAULT_VENUES).map((v) => v.toLowerCase());
 
   const debug = String(req.query.debug ?? "0") === "1";
 
-  // Optional tuning knobs
-  const maxAgeMsTSLE = req.query.maxAgeMsTSLE ? Number(req.query.maxAgeMsTSLE) : 30_000;
-  const maxAgeMsDepth = req.query.maxAgeMsDepth ? Number(req.query.maxAgeMsDepth) : 15_000;
-  const minOkVenues = req.query.minOkVenues ? Number(req.query.minOkVenues) : 2;
+  // Optional tuning knobs (L2/L3 aggregation)
+  const maxAgeMsTSLE = safeNum(req.query.maxAgeMsTSLE, 30_000);
+  const maxAgeMsDepth = safeNum(req.query.maxAgeMsDepth, 15_000);
+  const minOkVenues = safeNum(req.query.minOkVenues, 2);
+
+  // L4 knobs
+  const maxAgeMsIntegrity = safeNum(req.query.maxAgeMsIntegrity, 60_000);
+  const integrityWindowPoints = safeNum(req.query.integrityWindowPoints, 12);
+  const integrityMinPoints = safeNum(req.query.integrityMinPoints, 3);
 
   try {
-    // Build evidence bundles per venue using canonical LiquidityState
+    // -----------------------------
+    // Build evidence bundles per venue (L1/L2/L3)
+    // -----------------------------
     const bundles = venues.map((venue) => {
+      // 🔧 Canonical LiquidityState matches /api/lis/state (includes latest TSLE point)
       const liquidityState = getLiquidityState(venue, symbol);
 
       // Standardize LIS → PoLi evidence bundle
@@ -87,7 +106,7 @@ router.get("/", async (req: Request, res: Response) => {
       blocks: Array.isArray(b?.blocks) ? b.blocks.map((x: any) => x?.type) : null,
     }));
 
-    const report = buildVenueEvidenceReport({
+    const report: any = buildVenueEvidenceReport({
       symbol,
       bundles,
       opts: {
@@ -98,17 +117,109 @@ router.get("/", async (req: Request, res: Response) => {
       },
     });
 
+    // -----------------------------
+    // ✅ L4: Market Integrity Evidence (per venue) + aggregate override
+    // -----------------------------
+    const l4PerVenue: MarketIntegrityEvidence[] = venues.map((venue) =>
+      buildMarketIntegrityEvidence({
+        venue,
+        symbol,
+        maxAgeMs: maxAgeMsIntegrity,
+        windowPoints: integrityWindowPoints,
+        minPoints: integrityMinPoints,
+        // Phase 1: conservative gating defaults (can tune via query params later if needed)
+        policy: {
+          failOn: "HIGH",
+          minFailConfidence: 0.65,
+        },
+      })
+    );
+
+    const l4OkCount = l4PerVenue.filter((e) => e?.ok).length;
+    const l4GatingOkCount = l4PerVenue.filter((e) => e?.gatingOk).length;
+
+    // Aggregate policy:
+    // - We consider L4 "computable" if at least minOkVenues are ok (fresh + sufficient TSLE points).
+    // - We consider L4 "passing" if at least minOkVenues are gatingOk.
+    const l4Aggregate = {
+      ok: l4OkCount >= minOkVenues,
+      gatingOk: l4GatingOkCount >= minOkVenues,
+      minOkVenues,
+      okVenues: l4OkCount,
+      gatingOkVenues: l4GatingOkCount,
+      verdict:
+        l4GatingOkCount >= minOkVenues
+          ? "PASS"
+          : l4OkCount >= minOkVenues
+          ? "FAIL"
+          : "INSUFFICIENT",
+      reasons: [] as string[],
+      timestamp: Date.now(),
+    };
+
+    if (!l4Aggregate.ok) {
+      l4Aggregate.reasons.push(
+        `L4 integrity insufficient: only ${l4OkCount}/${venues.length} venues have fresh/sufficient evidence (minOkVenues=${minOkVenues}).`
+      );
+    }
+    if (l4Aggregate.ok && !l4Aggregate.gatingOk) {
+      l4Aggregate.reasons.push(
+        `L4 integrity gating failed: only ${l4GatingOkCount}/${venues.length} venues are gatingOk (minOkVenues=${minOkVenues}).`
+      );
+    }
+
+    // ✅ Aggregate override: if L4 fails gating, force overall ok/gatingOk false.
+    // (We keep the original report as-is, but apply a final override at the end.)
+    const originalOk = Boolean(report?.ok ?? true);
+    const originalGatingOk = Boolean(report?.gatingOk ?? report?.ok ?? true);
+
+    const finalOk = originalOk && l4Aggregate.ok && l4Aggregate.gatingOk;
+    const finalGatingOk = originalGatingOk && l4Aggregate.ok && l4Aggregate.gatingOk;
+
+    report.ok = finalOk;
+    report.gatingOk = finalGatingOk;
+
+    // Provide a clear machine-readable “final override” descriptor
+    report.overrides = {
+      ...(report.overrides ?? {}),
+      L4_INTEGRITY: {
+        applied: l4Aggregate.ok && !l4Aggregate.gatingOk,
+        note:
+          l4Aggregate.ok && !l4Aggregate.gatingOk
+            ? "L4 integrity computed but failed gating; overriding aggregate ok/gatingOk."
+            : !l4Aggregate.ok
+            ? "L4 integrity insufficient; aggregate ok/gatingOk require L4 computable + pass."
+            : "L4 integrity passed.",
+        l4Aggregate,
+      },
+    };
+
+    // -----------------------------
+    // Response
+    // -----------------------------
     return res.json({
       token,
       symbol,
       venues,
+
+      // Existing debug view
       ...(debug ? { bundlesMeta } : {}),
+
+      // Existing venue evidence report (L0–L3 aggregation)
       ...report,
+
+      // ✅ L4 output mounted explicitly (per-venue + aggregate)
+      L4: {
+        type: "MARKET_INTEGRITY",
+        perVenue: l4PerVenue,
+        aggregate: l4Aggregate,
+      },
     });
   } catch (err) {
     console.error("[POLI EVIDENCE] route error:", err);
     return res.status(500).json({
       ok: false,
+      gatingOk: false,
       error: "PoLi evidence endpoint failed. See server logs.",
       token,
       symbol,

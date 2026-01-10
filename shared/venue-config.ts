@@ -87,7 +87,7 @@ export const VENUE_CONFIGS: Record<string, VenueConfig> = {
     role: "REFERENCE_ADJACENT",
     confidence: "MODERATE",
     scope: ["SPOT"],
-    available: false,
+    available: true,
     description: "USD/EUR-native pricing with conservative spot books and lower leverage footprint. Strong regulatory posture.",
     usedFor: [
       "Reinforcing reference truth",
@@ -107,7 +107,7 @@ export const VENUE_CONFIGS: Record<string, VenueConfig> = {
     role: "STRESS_VENUE",
     confidence: "VARIABLE",
     scope: ["SPOT", "PERP", "FUNDING", "LIQUIDATIONS"],
-    available: false,
+    available: true,
     description: "High-volume derivatives with unified margin. Key stress venue for Asian session liquidity and leverage cascade detection.",
     usedFor: [
       "Unified margin stress signals",
