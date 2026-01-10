@@ -1,14 +1,13 @@
-import path from "path";
-import { fileURLToPath } from "url";
+// server/app.ts
 import { type Server } from "node:http";
-import path from "node:path";
 import fs from "node:fs";
+import path from "node:path";
 
 import express, {
   type Express,
   type Request,
-  Response,
-  NextFunction,
+  type Response,
+  type NextFunction,
 } from "express";
 
 import { registerRoutes } from "./routes";
@@ -32,36 +31,42 @@ declare module "http" {
   }
 }
 
+// Preserve raw body (useful for webhooks/signatures)
 app.use(
   express.json({
     verify: (req, _res, buf) => {
-      req.rawBody = buf;
+      (req as any).rawBody = buf;
     },
   })
 );
+
 app.use(express.urlencoded({ extended: false }));
 
+// Lightweight API logging (only for /api)
 app.use((req, res, next) => {
   const start = Date.now();
-  const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
+  const reqPath = req.path;
 
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
+  let capturedJsonResponse: Record<string, any> | undefined;
+
+  const originalResJson = res.json.bind(res);
+  res.json = function (bodyJson: any, ...args: any[]) {
     capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
+    return originalResJson(bodyJson, ...args);
   };
 
   res.on("finish", () => {
     const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+
+    if (reqPath.startsWith("/api")) {
+      let logLine = `${req.method} ${reqPath} ${res.statusCode} in ${duration}ms`;
+
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
 
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
+      if (logLine.length > 180) {
+        logLine = logLine.slice(0, 179) + "…";
       }
 
       log(logLine);
@@ -71,73 +76,58 @@ app.use((req, res, next) => {
   next();
 });
 
+/**
+ * Serve built Vite client from dist/public (SPA fallback for Wouter).
+ * Safe:
+ *  - will NOT override /api/*
+ *  - only activates when dist/public/index.html exists
+ */
+function maybeServeClient(app: Express) {
+  const publicDir = path.resolve("dist/public");
+  const indexFile = path.join(publicDir, "index.html");
+
+  if (!fs.existsSync(indexFile)) {
+    log(`client not mounted (missing ${indexFile})`, "express");
+    return;
+  }
+
+  // Static assets: /assets/*, /logo.png, etc.
+  app.use(express.static(publicDir));
+
+  // SPA fallback — only for non-API routes
+  // This ensures deep links like /clt/evidence render the React app.
+  app.get(/^\/(?!api\/).*/, (_req, res) => {
+    res.sendFile(indexFile);
+  });
+
+  log(`client mounted from ${publicDir}`, "express");
+}
+
 export default async function runApp(
   setup: (app: Express, server: Server) => Promise<void>
 ) {
   const server = await registerRoutes(app);
 
+  // App error handler
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-
+    const status = err?.status || err?.statusCode || 500;
+    const message = err?.message || "Internal Server Error";
     res.status(status).json({ message });
     throw err;
   });
 
-  // importantly run the final setup after setting up all the other routes so
-  // the catch-all route doesn't interfere with the other routes
+  // IMPORTANT: run setup AFTER routes (so SPA catch-all won’t eat /api routes)
   await setup(app, server);
 
-  // ------------------------------------------------------------
-  // SPA hosting for Vite build (enables direct hits to /clt/evidence)
-  // IMPORTANT: this must be AFTER all /api routes are registered.
-  // ------------------------------------------------------------
-  const clientDist = path.resolve(process.cwd(), "client", "dist");
-
-  if (fs.existsSync(clientDist)) {
-    app.use(express.static(clientDist));
-
-    // SPA history fallback — serve index.html for non-API routes
-    app.get("*", (req, res, next) => {
-      if (req.path.startsWith("/api")) return next();
-      return res.sendFile(path.join(clientDist, "index.html"));
-    });
-
-    log(`[SPA] serving static from ${clientDist}`);
-  } else {
-    log(
-      `[SPA] client/dist not found at ${clientDist}. Build with: (cd client && npm run build)`,
-      "warn"
-    );
-  }
+  // Auto-mount built client if present
+  maybeServeClient(app);
 
   // Standardized port binding:
-  // - Prefer process.env.PORT when defined (required on Replit where port 5000 is used)
-  // - Fall back to 3000 for local development
-  // - Bind to 0.0.0.0 for compatibility with Replit and cloud environments
+  // - Prefer process.env.PORT (Replit)
+  // - Fall back to 3000 for local dev
   const port = Number(process.env.PORT) || 3000;
   const host = "0.0.0.0";
 
-  // --- SPA STATIC HOSTING (Vite build) ---
-
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = path.dirname(__filename);
-
-  // Vite outputs to client/dist/public
-  const clientDistPath = path.resolve(__dirname, "../client/dist/public");
-
-  // Serve static assets
-  app.use(express.static(clientDistPath));
-
-  // SPA fallback: any non-API route → index.html
-  app.get("*", (req, res) => {
-    if (req.path.startsWith("/api")) {
-      return res.status(404).json({ error: "API route not found" });
-    }
-
-    res.sendFile(path.join(clientDistPath, "index.html"));
-  });
-  
   server.listen({ port, host, reusePort: true }, () => {
     log(`serving on ${host}:${port}`);
   });
