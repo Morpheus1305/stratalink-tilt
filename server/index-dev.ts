@@ -5,6 +5,7 @@ import type { Express } from "express";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { createServer as createViteServer, type ViteDevServer } from "vite";
+import react from "@vitejs/plugin-react";
 
 import runApp, { app, log } from "./app";
 
@@ -15,6 +16,7 @@ async function setupVite(app: Express, _server: Server) {
 
   const vite: ViteDevServer = await createViteServer({
     root,
+    plugins: [react()],
     resolve: {
       alias: {
         "@": path.resolve(projectRoot, "client", "src"),
