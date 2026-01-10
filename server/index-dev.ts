@@ -5,36 +5,21 @@ import type { Express } from "express";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { createServer as createViteServer, type ViteDevServer } from "vite";
-import react from "@vitejs/plugin-react";
 
 import runApp, { app, log } from "./app";
 
 // Mount Vite correctly in middleware mode so /@vite/client works.
 async function setupVite(app: Express, _server: Server) {
-  const root = path.resolve(process.cwd(), "client");
   const projectRoot = process.cwd();
+  const configFile = path.resolve(projectRoot, "vite.config.ts");
 
   const vite: ViteDevServer = await createViteServer({
-    root,
-    plugins: [react()],
-    resolve: {
-      alias: {
-        "@": path.resolve(projectRoot, "client", "src"),
-        "@shared": path.resolve(projectRoot, "shared"),
-        "@assets": path.resolve(projectRoot, "attached_assets"),
-      },
-    },
+    configFile,
     server: {
       middlewareMode: true,
-      host: true,
-      allowedHosts: [
-        ".replit.dev",
-        ".janeway.replit.dev",
-        ".replit.app",
-        "localhost",
-      ],
+      // Disable HMR WebSocket server - can't bind to external IPs on Replit
+      hmr: false,
     },
-    appType: "spa",
   });
 
   // ✅ CRITICAL: must come BEFORE any "*" catch-all
