@@ -1,3 +1,7 @@
+// server/index-prod.ts
+import path from "path";
+import express, { type Express } from "express";
+import type { Server } from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import { type Server } from "node:http";
@@ -5,6 +9,18 @@ import { type Server } from "node:http";
 import express, { type Express } from "express";
 import runApp from "./app";
 
+export async function setupProd(app: Express, _server: Server) {
+  const publicDir = path.resolve("dist/public");
+  const indexHtml = path.join(publicDir, "index.html");
+
+  // Serve built assets
+  app.use(express.static(publicDir));
+
+  // SPA fallback (do not hijack /api)
+  app.get(/^\/(?!api\/).*/, (_req, res) => {
+    res.sendFile(indexHtml);
+  });
+}
 export async function serveStatic(app: Express, _server: Server) {
   const distPath = path.resolve(import.meta.dirname, "public");
 
