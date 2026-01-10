@@ -1,4 +1,6 @@
 import { type Server } from "node:http";
+import path from "node:path";
+import fs from "node:fs";
 
 import express, {
   type Express,
@@ -22,16 +24,19 @@ export function log(message: string, source = "express") {
 
 export const app = express();
 
-declare module 'http' {
+declare module "http" {
   interface IncomingMessage {
-    rawBody: unknown
+    rawBody: unknown;
   }
 }
-app.use(express.json({
-  verify: (req, _res, buf) => {
-    req.rawBody = buf;
-  }
-}));
+
+app.use(
+  express.json({
+    verify: (req, _res, buf) => {
+      req.rawBody = buf;
+    },
+  })
+);
 app.use(express.urlencoded({ extended: false }));
 
 app.use((req, res, next) => {
@@ -65,7 +70,7 @@ app.use((req, res, next) => {
 });
 
 export default async function runApp(
-  setup: (app: Express, server: Server) => Promise<void>,
+  setup: (app: Express, server: Server) => Promise<void>
 ) {
   const server = await registerRoutes(app);
 
@@ -80,6 +85,29 @@ export default async function runApp(
   // importantly run the final setup after setting up all the other routes so
   // the catch-all route doesn't interfere with the other routes
   await setup(app, server);
+
+  // ------------------------------------------------------------
+  // SPA hosting for Vite build (enables direct hits to /clt/evidence)
+  // IMPORTANT: this must be AFTER all /api routes are registered.
+  // ------------------------------------------------------------
+  const clientDist = path.resolve(process.cwd(), "client", "dist");
+
+  if (fs.existsSync(clientDist)) {
+    app.use(express.static(clientDist));
+
+    // SPA history fallback — serve index.html for non-API routes
+    app.get("*", (req, res, next) => {
+      if (req.path.startsWith("/api")) return next();
+      return res.sendFile(path.join(clientDist, "index.html"));
+    });
+
+    log(`[SPA] serving static from ${clientDist}`);
+  } else {
+    log(
+      `[SPA] client/dist not found at ${clientDist}. Build with: (cd client && npm run build)`,
+      "warn"
+    );
+  }
 
   // Standardized port binding:
   // - Prefer process.env.PORT when defined (required on Replit where port 5000 is used)
