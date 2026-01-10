@@ -39,6 +39,45 @@ function canonicalizeKeys(venue: string, symbol: string) {
 }
 
 /**
+ * Canonicalize depth band keys to contract-stable names.
+ * Accepts common variants and rewrites to:
+ *   pct_0.1, pct_0.25, pct_0.5, pct_1, pct_2
+ */
+function canonicalizeBands(bands: any): Record<string, any> {
+  if (!bands || typeof bands !== "object") return {};
+
+  const out: Record<string, any> = {};
+
+  const map: Record<string, string> = {
+    // 0.1
+    "pct_0.1": "pct_0.1",
+    "pct_0_1": "pct_0.1",
+
+    // 0.25
+    "pct_0.25": "pct_0.25",
+    "pct_0_25": "pct_0.25",
+
+    // 0.5
+    "pct_0.5": "pct_0.5",
+    "pct_0_5": "pct_0.5",
+
+    // 1
+    "pct_1": "pct_1",
+
+    // 2
+    "pct_2": "pct_2",
+  };
+
+  for (const [k, v] of Object.entries(bands)) {
+    const nk = map[k];
+    if (!nk) continue;
+    out[nk] = v;
+  }
+
+  return out;
+}
+
+/**
  * Map UI venue → relay venue
  */
 function mapRelayVenue(venue: string): string {
@@ -152,9 +191,7 @@ router.get("/:venue/depth", async (req: Request, res: Response) => {
 
       const response = await fetch(
         `https://relay.stratalink.ai/${relayVenue}/depth?symbol=${encodeURIComponent(symbol)}`,
-        {
-          headers: { "x-relay-key": relayKey },
-        }
+        { headers: { "x-relay-key": relayKey } }
       );
 
       if (!response.ok) {
@@ -165,7 +202,7 @@ router.get("/:venue/depth", async (req: Request, res: Response) => {
 
       const rawData = await response.json();
 
-      // If already normalized, accept shape but still enforce canonical keys.
+      // If already normalized, accept shape but still enforce canonical keys + bands.
       if (rawData?.bands && rawData?.mid_price !== undefined) {
         data = rawData as LISSnapshot;
       } else {
@@ -173,9 +210,33 @@ router.get("/:venue/depth", async (req: Request, res: Response) => {
       }
     }
 
-    // 🔧 HARD CANONICALIZATION (prevents key drift / empty /api/lis/state)
+    // ✅ HARD CANONICALIZATION (prevents key drift / empty /api/lis/state)
     data.venue = venue;
     data.symbol = symbol;
+
+    // ✅ HARD CANONICALIZATION OF BANDS (prevents L2 missing/NULL due to key drift)
+    (data as any).bands = canonicalizeBands((data as any).bands);
+
+    // ✅ Deterministic depth evidence marker (L2 requires pct_0.25 + pct_0.5)
+    const requiredBandKeys = ["pct_0.25", "pct_0.5"] as const;
+    const hasRequiredBands = requiredBandKeys.every((k) => {
+      const b = (data as any).bands?.[k];
+      return b && Number.isFinite(b.total_notional);
+    });
+    if (!hasRequiredBands) {
+      (data as any).__depthEvidenceMissing = true;
+    }
+
+    // ✅ Debug health for fast freeze verification (harmless if ignored by clients)
+    (data as any).bandHealth = {
+      hasBands: !!(data as any).bands && Object.keys((data as any).bands).length > 0,
+      hasPct01: !!(data as any).bands?.["pct_0.1"],
+      hasPct025: !!(data as any).bands?.["pct_0.25"],
+      hasPct05: !!(data as any).bands?.["pct_0.5"],
+      hasPct1: !!(data as any).bands?.["pct_1"],
+      hasPct2: !!(data as any).bands?.["pct_2"],
+      hasRequiredBands,
+    };
 
     // TSLE runs on all venues
     tsleBuffer.record(data);
