@@ -1,3 +1,5 @@
+import path from "path";
+import { fileURLToPath } from "url";
 import { type Server } from "node:http";
 import path from "node:path";
 import fs from "node:fs";
@@ -116,6 +118,26 @@ export default async function runApp(
   const port = Number(process.env.PORT) || 3000;
   const host = "0.0.0.0";
 
+  // --- SPA STATIC HOSTING (Vite build) ---
+
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+
+  // Vite outputs to client/dist/public
+  const clientDistPath = path.resolve(__dirname, "../client/dist/public");
+
+  // Serve static assets
+  app.use(express.static(clientDistPath));
+
+  // SPA fallback: any non-API route → index.html
+  app.get("*", (req, res) => {
+    if (req.path.startsWith("/api")) {
+      return res.status(404).json({ error: "API route not found" });
+    }
+
+    res.sendFile(path.join(clientDistPath, "index.html"));
+  });
+  
   server.listen({ port, host, reusePort: true }, () => {
     log(`serving on ${host}:${port}`);
   });
