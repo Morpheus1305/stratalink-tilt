@@ -1,11 +1,10 @@
-// client/vite.config.ts
+// vite.config.ts (project root)
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
 export default defineConfig(async () => {
-  // Replit host (used for allowedHosts and HMR)
   const replitHost =
     process.env.REPLIT_DEV_DOMAIN ||
     (process.env.REPLIT_DOMAINS?.split(",")?.[0] ?? undefined) ||
@@ -40,15 +39,17 @@ export default defineConfig(async () => {
     },
 
     server: {
-      // ✅ fixes: "Blocked request host not allowed"
+      host: true,
+
       allowedHosts: [
+        "localhost",
         ".replit.dev",
         ".janeway.replit.dev",
         ".replit.app",
         ...(replitHost ? [replitHost] : []),
       ],
 
-      // HMR stability on Replit (helps avoid silent white screens)
+      // This is fine to keep; in dev middleware mode we also attach HMR to Express server.
       hmr:
         process.env.REPL_ID !== undefined && replitHost
           ? { protocol: "wss", host: replitHost, clientPort: 443 }

@@ -6,31 +6,41 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { createServer as createViteServer, type ViteDevServer } from "vite";
 
-import runApp, { app, log } from "./app";
+import runApp, { log } from "./app";
 
 // Mount Vite correctly in middleware mode so /@vite/client works.
-async function setupVite(app: Express, _server: Server) {
+async function setupVite(app: Express, server: Server) {
   const projectRoot = process.cwd();
+
+  // Your vite config is in the project root (recommended).
+  // If yours is actually at client/vite.config.ts, change this one line.
   const configFile = path.resolve(projectRoot, "vite.config.ts");
+
+  // Vite "root" is your client directory
+  const clientRoot = path.resolve(projectRoot, "client");
 
   const vite: ViteDevServer = await createViteServer({
     configFile,
+    root: clientRoot,
     server: {
       middlewareMode: true,
-      // Disable HMR WebSocket server - can't bind to external IPs on Replit
-      hmr: false,
+
+      // ✅ Key fix for Replit:
+      // Attach Vite's HMR websocket to your existing Express server (no extra ports).
+      hmr: { server },
     },
+    appType: "spa",
   });
 
   // ✅ CRITICAL: must come BEFORE any "*" catch-all
   app.use(vite.middlewares);
 
-  // ✅ SPA HTML fallback (also must be AFTER vite.middlewares)
+  // ✅ SPA HTML fallback (must be AFTER vite.middlewares)
   app.use("*", async (req, res, next) => {
     try {
       const url = req.originalUrl;
 
-      const templatePath = path.resolve(root, "index.html");
+      const templatePath = path.resolve(clientRoot, "index.html");
       const raw = await fs.readFile(templatePath, "utf-8");
 
       const html = await vite.transformIndexHtml(url, raw);
