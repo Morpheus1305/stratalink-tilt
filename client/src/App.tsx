@@ -1,8 +1,13 @@
+// client/src/App.tsx
 import { Switch, Route } from "wouter";
-import { queryClient } from "./lib/queryClient";
+import { useEffect, useState } from "react";
+
 import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "./lib/queryClient";
+
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import Documentation from "@/pages/documentation";
@@ -13,29 +18,40 @@ import Alerts from "@/pages/alerts";
 import Scorecard from "@/pages/scorecard";
 import LoginPage from "@/pages/LoginPage";
 import VerifyOTPPage from "@/pages/VerifyOTPPage";
+
 import IdentityLandingPage from "@/pages/identity/IdentityLandingPage";
-import AnalyticsPage from "@/pages/analytics/AnalyticsPage";
 import LiquidityFragmentationPage from "@/pages/identity/LiquidityFragmentationPage";
 import MMIntegrityPage from "@/pages/identity/MMIntegrityPage";
 import PoliPlusPage from "@/pages/identity/PoliPlusPage";
 import IdentityAlertsPage from "@/pages/identity/IdentityAlertsPage";
 import RegSurveillancePage from "@/pages/identity/RegSurveillancePage";
+
+import AnalyticsPage from "@/pages/analytics/AnalyticsPage";
+
 import LisDebugPage from "@/pages/lis-debug";
 import AlertConfigPage from "@/pages/alert-config";
 import DownloadPage from "@/pages/download";
+
+import CLTEvidence from "./pages/clt-evidence";
+
 import { AuthProvider } from "@/contexts/AuthContext";
 import { TokenProvider } from "@/contexts/TokenContext";
 import { MicrostructureFeedProvider } from "@/contexts/MicrostructureFeed";
 import { RequireAuth } from "@/components/RequireAuth";
-import { useEffect, useState } from "react";
 
-function Router() {
+function AppRouter() {
   return (
     <Switch>
+      {/* Public */}
       <Route path="/" component={Landing} />
       <Route path="/docs" component={Documentation} />
       <Route path="/login" component={LoginPage} />
       <Route path="/verify-otp" component={VerifyOTPPage} />
+
+      {/* CLT Evidence Console (keep public for now; flip to RequireAuth later if desired) */}
+      <Route path="/clt/evidence" component={CLTEvidence} />
+
+      {/* Platform (auth-gated) */}
       <Route path="/platform">
         {() => (
           <RequireAuth>
@@ -43,6 +59,7 @@ function Router() {
           </RequireAuth>
         )}
       </Route>
+
       <Route path="/platform/trends">
         {() => (
           <RequireAuth>
@@ -50,6 +67,7 @@ function Router() {
           </RequireAuth>
         )}
       </Route>
+
       <Route path="/platform/portfolio">
         {() => (
           <RequireAuth>
@@ -57,6 +75,7 @@ function Router() {
           </RequireAuth>
         )}
       </Route>
+
       <Route path="/platform/alerts">
         {() => (
           <RequireAuth>
@@ -64,6 +83,7 @@ function Router() {
           </RequireAuth>
         )}
       </Route>
+
       <Route path="/platform/scorecard">
         {() => (
           <RequireAuth>
@@ -71,6 +91,7 @@ function Router() {
           </RequireAuth>
         )}
       </Route>
+
       <Route path="/platform/analytics">
         {() => (
           <RequireAuth>
@@ -78,6 +99,8 @@ function Router() {
           </RequireAuth>
         )}
       </Route>
+
+      {/* Identity (auth-gated) */}
       <Route path="/identity">
         {() => (
           <RequireAuth>
@@ -85,6 +108,7 @@ function Router() {
           </RequireAuth>
         )}
       </Route>
+
       <Route path="/identity/liquidity-fragmentation">
         {() => (
           <RequireAuth>
@@ -92,6 +116,7 @@ function Router() {
           </RequireAuth>
         )}
       </Route>
+
       <Route path="/identity/mm-integrity">
         {() => (
           <RequireAuth>
@@ -99,6 +124,7 @@ function Router() {
           </RequireAuth>
         )}
       </Route>
+
       <Route path="/identity/poli-plus">
         {() => (
           <RequireAuth>
@@ -106,6 +132,7 @@ function Router() {
           </RequireAuth>
         )}
       </Route>
+
       <Route path="/identity/identity-alerts">
         {() => (
           <RequireAuth>
@@ -113,6 +140,7 @@ function Router() {
           </RequireAuth>
         )}
       </Route>
+
       <Route path="/identity/reg-surveillance">
         {() => (
           <RequireAuth>
@@ -120,27 +148,31 @@ function Router() {
           </RequireAuth>
         )}
       </Route>
+
+      {/* Tools / Debug */}
       <Route path="/lis" component={LisDebugPage} />
       <Route path="/alerts/config" component={AlertConfigPage} />
       <Route path="/download" component={DownloadPage} />
+
+      {/* Fallback */}
       <Route component={NotFound} />
     </Switch>
   );
 }
 
-function App() {
-  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+export default function App() {
+  const [theme, setTheme] = useState<"light" | "dark">("dark");
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
-    const initialTheme = savedTheme || 'dark';
+    const savedTheme = localStorage.getItem("theme") as "light" | "dark" | null;
+    const initialTheme = savedTheme ?? "dark";
     setTheme(initialTheme);
-    document.documentElement.classList.toggle('dark', initialTheme === 'dark');
+    document.documentElement.classList.toggle("dark", initialTheme === "dark");
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('theme', theme);
-    document.documentElement.classList.toggle('dark', theme === 'dark');
+    localStorage.setItem("theme", theme);
+    document.documentElement.classList.toggle("dark", theme === "dark");
   }, [theme]);
 
   return (
@@ -150,7 +182,7 @@ function App() {
           <TokenProvider>
             <TooltipProvider>
               <Toaster />
-              <Router />
+              <AppRouter />
             </TooltipProvider>
           </TokenProvider>
         </AuthProvider>
@@ -158,5 +190,3 @@ function App() {
     </MicrostructureFeedProvider>
   );
 }
-
-export default App;
