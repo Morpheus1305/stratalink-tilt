@@ -19,7 +19,15 @@ const clientRoot = path.resolve(__dirname, "..", "client");
 async function setupVite(app: Express, _server: Server) {
   const vite = await createViteServer({
     root: clientRoot,
-    server: { middlewareMode: true },
+    server: {
+      middlewareMode: true,
+      allowedHosts: [
+        ".replit.dev",
+        ".janeway.replit.dev",
+        ".replit.app",
+        "localhost",
+      ],
+    },
     appType: "custom",
   });
 
