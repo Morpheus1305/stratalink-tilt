@@ -1,92 +1,54 @@
+// server/index-dev.ts
+import type { Express } from "express";
+import type { Server } from "node:http";
 import fs from "node:fs";
 import path from "node:path";
-import { type Server } from "node:http";
+import { fileURLToPath } from "node:url";
 
-import { nanoid } from "nanoid";
-import { type Express } from "express";
-import { createServer as createViteServer, createLogger } from "vite";
+import { createServer as createViteServer } from "vite";
 
-import viteConfig from "../vite.config";
-import runApp from "./app";
+import runApp, { log } from "./app";
 
-/**
- * ----------------------------------------------------------------------------
- * DEV ENTRYPOINT (Vite + Express)
- *
- * IMPORTANT:
- * - This file must only start the app ONCE per process.
- * - Replit may auto-start the server; ingestion loops keep it alive.
- * - We guard against double execution to prevent EADDRINUSE on port 5000.
- * ----------------------------------------------------------------------------
- */
+// Resolve paths (ESM-safe)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-export async function setupVite(app: Express, server: Server) {
-  const viteLogger = createLogger();
+// Your Vite project root is /client
+const clientRoot = path.resolve(__dirname, "..", "client");
 
-  const serverOptions = {
-    middlewareMode: true,
-    hmr: { server },
-    allowedHosts: true as const,
-  };
-
+async function setupVite(app: Express, _server: Server) {
   const vite = await createViteServer({
-    ...viteConfig,
-    configFile: false,
-    customLogger: {
-      ...viteLogger,
-      error: (msg, options) => {
-        viteLogger.error(msg, options);
-        process.exit(1);
-      },
-    },
-    server: serverOptions,
+    root: clientRoot,
+    server: { middlewareMode: true },
     appType: "custom",
   });
 
+  // Vite dev middleware (HMR, /@vite/client, etc.)
   app.use(vite.middlewares);
 
+  // SPA fallback: for all non-API routes, serve transformed index.html
   app.use("*", async (req, res, next) => {
-    const url = req.originalUrl;
-
     try {
-      const clientTemplate = path.resolve(
-        import.meta.dirname,
-        "..",
-        "client",
-        "index.html"
-      );
+      // Never intercept API routes
+      if (req.originalUrl.startsWith("/api")) return next();
 
-      // Always reload index.html from disk in case it changes
-      let template = await fs.promises.readFile(clientTemplate, "utf-8");
+      const url = req.originalUrl;
 
-      template = template.replace(
-        'src="/src/main.tsx"',
-        `src="/src/main.tsx?v=${nanoid()}"`
-      );
+      const indexPath = path.join(clientRoot, "index.html");
+      const rawTemplate = fs.readFileSync(indexPath, "utf-8");
 
-      const page = await vite.transformIndexHtml(url, template);
-      res.status(200).set({ "Content-Type": "text/html" }).end(page);
-    } catch (e) {
-      vite.ssrFixStacktrace(e as Error);
-      next(e);
+      const html = await vite.transformIndexHtml(url, rawTemplate);
+
+      res.status(200).setHeader("Content-Type", "text/html").end(html);
+    } catch (err) {
+      // Better stack traces in dev
+      vite.ssrFixStacktrace(err as Error);
+      next(err);
     }
   });
+
+  log(`vite dev middleware mounted (root=${clientRoot})`, "vite");
 }
 
-/**
- * ----------------------------------------------------------------------------
- * SAFE APP BOOTSTRAP
- *
- * Prevents double-listen when Replit auto-runs + manual `npm run dev`
- * ----------------------------------------------------------------------------
- */
-(async () => {
-  if ((global as any).__APP_STARTED__) {
-    console.log("[DEV] App already running — skipping duplicate startup");
-    return;
-  }
-
-  (global as any).__APP_STARTED__ = true;
-
-  await runApp(setupVite);
-})();
+// ✅ This is the only top-level call you need:
+runApp(setupVite);
