@@ -1,4 +1,5 @@
 // client/src/App.tsx
+import React from "react"; // 👈 ADD THIS
 import { Switch, Route } from "wouter";
 import { useEffect, useState } from "react";
 
@@ -32,6 +33,8 @@ import LisDebugPage from "@/pages/lis-debug";
 import AlertConfigPage from "@/pages/alert-config";
 import DownloadPage from "@/pages/download";
 
+// ✅ IMPORTANT: this must point to your existing file:
+// client/src/pages/clt-evidence.tsx
 import CLTEvidence from "./pages/clt-evidence";
 
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -48,7 +51,7 @@ function AppRouter() {
       <Route path="/login" component={LoginPage} />
       <Route path="/verify-otp" component={VerifyOTPPage} />
 
-      {/* CLT Evidence Console (keep public for now; flip to RequireAuth later if desired) */}
+      {/* CLT Evidence Console (public for now) */}
       <Route path="/clt/evidence" component={CLTEvidence} />
 
       {/* Platform (auth-gated) */}

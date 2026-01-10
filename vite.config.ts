@@ -5,13 +5,13 @@ import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
 export default defineConfig(async () => {
-  // Replit provides one of these depending on environment
+  // Replit host (used for allowedHosts and HMR)
   const replitHost =
     process.env.REPLIT_DEV_DOMAIN ||
-    process.env.REPLIT_DOMAINS?.split(",")?.[0] ||
-    process.env.REPL_SLUG && process.env.REPL_OWNER
+    (process.env.REPLIT_DOMAINS?.split(",")?.[0] ?? undefined) ||
+    (process.env.REPL_SLUG && process.env.REPL_OWNER
       ? `${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
-      : undefined;
+      : undefined);
 
   const replitPlugins =
     process.env.NODE_ENV !== "production" && process.env.REPL_ID !== undefined
@@ -24,6 +24,8 @@ export default defineConfig(async () => {
   return {
     plugins: [react(), runtimeErrorOverlay(), ...replitPlugins],
 
+    root: path.resolve(import.meta.dirname, "client"),
+
     resolve: {
       alias: {
         "@": path.resolve(import.meta.dirname, "client", "src"),
@@ -32,15 +34,13 @@ export default defineConfig(async () => {
       },
     },
 
-    root: path.resolve(import.meta.dirname, "client"),
-
     build: {
       outDir: path.resolve(import.meta.dirname, "dist/public"),
       emptyOutDir: true,
     },
 
     server: {
-      // ✅ THIS is what fixes your “Blocked request host not allowed”
+      // ✅ fixes: "Blocked request host not allowed"
       allowedHosts: [
         ".replit.dev",
         ".janeway.replit.dev",
@@ -48,14 +48,10 @@ export default defineConfig(async () => {
         ...(replitHost ? [replitHost] : []),
       ],
 
-      // HMR can be finicky on Replit; these settings help avoid silent white screens
+      // HMR stability on Replit (helps avoid silent white screens)
       hmr:
-        process.env.REPL_ID !== undefined
-          ? {
-              protocol: "wss",
-              host: replitHost,
-              clientPort: 443,
-            }
+        process.env.REPL_ID !== undefined && replitHost
+          ? { protocol: "wss", host: replitHost, clientPort: 443 }
           : undefined,
 
       fs: {

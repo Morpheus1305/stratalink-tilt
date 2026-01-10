@@ -2,8 +2,7 @@
 import React, { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
-// If your app already has a shared API base, you can replace this.
-// This version works for same-origin (Express serves the SPA + /api).
+// Same-origin (Express serves the SPA + /api).
 const API_BASE = "";
 
 type FetchParams = {
@@ -28,7 +27,9 @@ async function fetchPoLiEvidence(p: FetchParams) {
   const res = await fetch(url, { headers: { Accept: "application/json" } });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(`HTTP ${res.status} ${res.statusText}${text ? ` — ${text}` : ""}`);
+    throw new Error(
+      `HTTP ${res.status} ${res.statusText}${text ? ` — ${text}` : ""}`,
+    );
   }
   return res.json();
 }
@@ -57,7 +58,7 @@ function Badge({
     <span
       className={cx(
         "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset",
-        map[tone]
+        map[tone],
       )}
     >
       {children}
@@ -82,11 +83,19 @@ function toneForOk(ok: boolean | undefined) {
 
 function toneForVerdict(v?: string) {
   const vv = (v || "").toUpperCase();
+
+  // verdict-like
   if (vv === "PASS" || vv === "OK") return "green";
   if (vv === "WARN" || vv === "WARNING") return "amber";
   if (vv === "FAIL" || vv === "FAILED") return "red";
   if (vv === "STALE") return "amber";
   if (vv === "INSUFFICIENT") return "amber";
+
+  // severity-like
+  if (vv === "HIGH" || vv === "CRITICAL") return "red";
+  if (vv === "MEDIUM") return "amber";
+  if (vv === "LOW") return "slate";
+
   return "slate";
 }
 
@@ -135,6 +144,26 @@ function JsonBox({ data }: { data: any }) {
   );
 }
 
+/**
+ * v0 compatibility helpers:
+ * - depth bands can come back as "pct_0.25" (dot key) or "pct_0_25" (underscore key)
+ * - same for "pct_0.5" / "pct_0_5"
+ */
+function getDepthBand(depth: any, band: "pct_0.25" | "pct_0.5") {
+  if (!depth || typeof depth !== "object") return undefined;
+  const underscoreKey = band.replace(".", "_"); // pct_0_25 / pct_0_5
+  return depth[band] ?? depth[underscoreKey];
+}
+
+function fmtMaybeNumber(x: any) {
+  if (x === null || x === undefined) return "—";
+  if (typeof x === "number" && Number.isFinite(x)) return String(x);
+  // allow numeric strings
+  const n = Number(x);
+  if (Number.isFinite(n)) return String(n);
+  return String(x);
+}
+
 export default function CLTEvidence() {
   // Controls
   const [token, setToken] = useState("BTC");
@@ -161,7 +190,7 @@ export default function CLTEvidence() {
       maxAgeMsIntegrity,
       debug,
     }),
-    [token, venuesCsv, maxAgeMsDepth, maxAgeMsCrossVenue, maxAgeMsIntegrity, debug]
+    [token, venuesCsv, maxAgeMsDepth, maxAgeMsCrossVenue, maxAgeMsIntegrity, debug],
   );
 
   const q = useQuery({
@@ -178,7 +207,19 @@ export default function CLTEvidence() {
   const perVenues: any[] = Array.isArray(data?.venues) ? data.venues : [];
   const aggregate = data?.aggregate || {};
   const crossVenue = aggregate?.crossVenue || data?.crossVenue;
-  const l4 = data?.L4 || aggregate?.L4 || data?.integrity || aggregate?.integrity;
+
+  // v0 L4 normalization (supports L4.aggregate + L4.perVenue[])
+  const rawL4 = data?.L4 || aggregate?.L4 || data?.integrity || aggregate?.integrity;
+  const l4Agg =
+    rawL4 && typeof rawL4 === "object" && "aggregate" in rawL4 ? rawL4.aggregate : rawL4;
+  const l4PerVenue: any[] =
+    rawL4 && typeof rawL4 === "object" && Array.isArray((rawL4 as any).perVenue)
+      ? (rawL4 as any).perVenue
+      : rawL4 && typeof rawL4 === "object" && Array.isArray((rawL4 as any).venues)
+        ? (rawL4 as any).venues
+        : rawL4 && typeof rawL4 === "object" && (rawL4 as any).venue
+          ? [rawL4]
+          : [];
 
   const ladderLevel = aggregate?.ladderLevel || data?.ladderLevel || "—";
   const aggregateOk = aggregate?.ok ?? data?.ok;
@@ -293,11 +334,7 @@ export default function CLTEvidence() {
               </label>
 
               <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-200">
-                <input
-                  type="checkbox"
-                  checked={debug}
-                  onChange={(e) => setDebug(e.target.checked)}
-                />
+                <input type="checkbox" checked={debug} onChange={(e) => setDebug(e.target.checked)} />
                 debug=1
               </label>
 
@@ -363,9 +400,16 @@ export default function CLTEvidence() {
                     const tags: string[] = Array.isArray(v?.verifyTags) ? v.verifyTags : [];
                     const reasons: string[] = Array.isArray(v?.reasons) ? v.reasons : [];
                     const f = v?.freshnessMs || {};
+                    const depth = v?.depth || {};
+                    const b025 = getDepthBand(depth, "pct_0.25");
+                    const b05 = getDepthBand(depth, "pct_0.5");
+                    const bandHealth = depth?.bandHealth ?? v?.bandHealth;
 
                     return (
-                      <div key={`${v?.venue || idx}`} className="rounded-2xl bg-black/25 p-4 ring-1 ring-white/10">
+                      <div
+                        key={`${v?.venue || idx}`}
+                        className="rounded-2xl bg-black/25 p-4 ring-1 ring-white/10"
+                      >
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <div className="flex items-center gap-2">
                             <div className="text-sm font-semibold">{String(v?.venue ?? "—")}</div>
@@ -385,9 +429,10 @@ export default function CLTEvidence() {
                           <KV k="fresh TSLE" v={fmtMs(f.TSLE)} />
                           <KV k="fresh DEPTH" v={fmtMs(f.DEPTH)} />
                           <KV k="fresh POLI" v={fmtMs(f.POLI)} />
-                          <KV k="depth.sufficient" v={String(Boolean(v?.depth?.sufficient))} />
-                          <KV k="depth.pct_0.25" v={String(v?.depth?.pct_0_25 ?? v?.depth?.pct_0_25 ?? v?.depth?.pct_0_25)} />
-                          <KV k="depth.pct_0.5" v={String(v?.depth?.pct_0_5 ?? v?.depth?.pct_0_5 ?? v?.depth?.pct_0_5)} />
+                          <KV k="depth.sufficient" v={String(Boolean(depth?.sufficient))} />
+                          <KV k='depth["pct_0.25"]' v={fmtMaybeNumber(b025)} />
+                          <KV k='depth["pct_0.5"]' v={fmtMaybeNumber(b05)} />
+                          {bandHealth !== undefined ? <KV k="bandHealth" v={String(bandHealth)} /> : null}
                         </div>
 
                         {reasons.length ? (
@@ -413,10 +458,16 @@ export default function CLTEvidence() {
               right={
                 <>
                   <Badge tone={toneForOk(Boolean(crossVenue?.ok)) as any}>
-                    compute: {crossVenue?.ok === undefined ? "—" : crossVenue.ok ? "OK" : "FAIL"}
+                    compute:{" "}
+                    {crossVenue?.ok === undefined ? "—" : crossVenue.ok ? "OK" : "FAIL"}
                   </Badge>
                   <Badge tone={toneForOk(Boolean(crossVenue?.gatingOk)) as any}>
-                    gatingOk: {crossVenue?.gatingOk === undefined ? "—" : crossVenue.gatingOk ? "true" : "false"}
+                    gatingOk:{" "}
+                    {crossVenue?.gatingOk === undefined
+                      ? "—"
+                      : crossVenue.gatingOk
+                        ? "true"
+                        : "false"}
                   </Badge>
                   <Badge tone={toneForVerdict(crossVenue?.verdict) as any}>
                     verdict: {String(crossVenue?.verdict ?? "—")}
@@ -433,14 +484,8 @@ export default function CLTEvidence() {
                     <KV k="stressVenue" v={String(crossVenue?.stressVenue ?? "—")} />
                     <KV k="severity" v={String(crossVenue?.severity ?? "—")} />
                     <KV k="ladderLevel" v={String(crossVenue?.ladderLevel ?? "—")} />
-                    <KV
-                      k="freshness(reference)"
-                      v={fmtMs(crossVenue?.freshnessMs?.reference)}
-                    />
-                    <KV
-                      k="freshness(stress)"
-                      v={fmtMs(crossVenue?.freshnessMs?.stress)}
-                    />
+                    <KV k="freshness(reference)" v={fmtMs(crossVenue?.freshnessMs?.reference)} />
+                    <KV k="freshness(stress)" v={fmtMs(crossVenue?.freshnessMs?.stress)} />
                   </div>
 
                   {Array.isArray(crossVenue?.reasons) && crossVenue.reasons.length ? (
@@ -461,10 +506,7 @@ export default function CLTEvidence() {
                     crossVenue.block.report.signals.length ? (
                       <div className="space-y-2">
                         {crossVenue.block.report.signals.slice(0, 12).map((s: any, i: number) => (
-                          <div
-                            key={i}
-                            className="rounded-xl bg-black/25 p-3 ring-1 ring-white/10"
-                          >
+                          <div key={i} className="rounded-xl bg-black/25 p-3 ring-1 ring-white/10">
                             <div className="flex flex-wrap items-center gap-2">
                               <Badge tone="slate">{String(s?.type ?? "—")}</Badge>
                               <Badge tone={toneForVerdict(s?.severity) as any}>
@@ -496,80 +538,141 @@ export default function CLTEvidence() {
               title="L4 — Market Integrity Evidence (Phase 1)"
               right={
                 <>
-                  <Badge tone={toneForOk(Boolean(l4?.ok)) as any}>
-                    compute: {l4?.ok === undefined ? "—" : l4.ok ? "OK" : "FAIL"}
+                  <Badge tone={toneForOk(Boolean(l4Agg?.ok)) as any}>
+                    compute: {l4Agg?.ok === undefined ? "—" : l4Agg.ok ? "OK" : "FAIL"}
                   </Badge>
-                  <Badge tone={toneForOk(Boolean(l4?.gatingOk)) as any}>
-                    gatingOk: {l4?.gatingOk === undefined ? "—" : l4.gatingOk ? "true" : "false"}
+                  <Badge tone={toneForOk(Boolean(l4Agg?.gatingOk)) as any}>
+                    gatingOk:{" "}
+                    {l4Agg?.gatingOk === undefined ? "—" : l4Agg.gatingOk ? "true" : "false"}
                   </Badge>
-                  <Badge tone={toneForVerdict(l4?.verdict) as any}>
-                    verdict: {String(l4?.verdict ?? "—")}
+                  <Badge tone={toneForVerdict(l4Agg?.verdict) as any}>
+                    verdict: {String(l4Agg?.verdict ?? "—")}
                   </Badge>
-                  <Badge tone={toneForVerdict(l4?.severity) as any}>
-                    severity: {String(l4?.severity ?? "—")}
+                  <Badge tone={toneForVerdict(l4Agg?.severity) as any}>
+                    severity: {String(l4Agg?.severity ?? "—")}
                   </Badge>
                 </>
               }
             >
-              {!l4 ? (
+              {!rawL4 ? (
                 <div className="text-sm text-slate-300">No L4 integrity block present.</div>
               ) : (
                 <>
+                  {/* L4 aggregate overview */}
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    <KV k="venue" v={String(l4?.venue ?? "—")} />
-                    <KV k="symbol" v={String(l4?.symbol ?? "—")} />
-                    <KV k="freshness(latestPoint)" v={fmtMs(l4?.freshnessMs?.latestPoint)} />
-                    <KV k="maxAgeMs" v={String(l4?.freshnessMs?.maxAgeMs ?? "—")} />
+                    <KV k="minOkVenues" v={String(l4Agg?.minOkVenues ?? "—")} />
+                    <KV k="okVenues" v={String(l4Agg?.okVenues ?? "—")} />
+                    <KV k="gatingOkVenues" v={String(l4Agg?.gatingOkVenues ?? "—")} />
+                    <KV k="timestamp" v={String(l4Agg?.timestamp ?? "—")} />
                   </div>
 
-                  {Array.isArray(l4?.reasons) && l4.reasons.length ? (
+                  {Array.isArray(l4Agg?.reasons) && l4Agg.reasons.length ? (
                     <div className="mt-3 rounded-xl bg-amber-600/10 p-3 text-xs text-amber-200 ring-1 ring-amber-500/20">
                       <div className="font-semibold">Reasons</div>
                       <ul className="mt-1 list-disc space-y-1 pl-4">
-                        {l4.reasons.slice(0, 8).map((r: string, i: number) => (
+                        {l4Agg.reasons.slice(0, 8).map((r: string, i: number) => (
                           <li key={`${i}-${r}`}>{r}</li>
                         ))}
                       </ul>
                     </div>
                   ) : null}
 
+                  {/* L4 per-venue cards */}
                   <div className="mt-4">
-                    <div className="mb-2 text-xs font-semibold text-slate-300">Integrity Signals</div>
-                    {Array.isArray(l4?.signals) && l4.signals.length ? (
-                      <div className="space-y-2">
-                        {l4.signals.slice(0, 16).map((s: any, i: number) => (
-                          <div key={i} className="rounded-xl bg-black/25 p-3 ring-1 ring-white/10">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <Badge tone="slate">{String(s?.type ?? "—")}</Badge>
-                              <Badge tone={toneForVerdict(s?.verdict) as any}>
-                                {String(s?.verdict ?? "—")}
-                              </Badge>
-                              <Badge tone={toneForVerdict(s?.severity) as any}>
-                                {String(s?.severity ?? "—")}
-                              </Badge>
-                              <Badge tone="blue">
-                                conf: {Number.isFinite(s?.confidence) ? Number(s.confidence).toFixed(2) : "—"}
-                              </Badge>
-                            </div>
-                            <div className="mt-2 text-xs text-slate-200">
-                              {String(s?.message ?? "")}
+                    <div className="mb-2 text-xs font-semibold text-slate-300">Per-venue integrity</div>
+
+                    {l4PerVenue.length ? (
+                      <div className="space-y-3">
+                        {l4PerVenue.slice(0, 8).map((pv: any, i: number) => (
+                          <div key={i} className="rounded-2xl bg-black/25 p-4 ring-1 ring-white/10">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="flex items-center gap-2">
+                                <div className="text-sm font-semibold">{String(pv?.venue ?? "—")}</div>
+                                <Badge tone={toneForOk(Boolean(pv?.ok)) as any}>
+                                  {pv?.ok === undefined ? "—" : pv.ok ? "OK" : "FAIL"}
+                                </Badge>
+                                <Badge tone={toneForOk(Boolean(pv?.gatingOk)) as any}>
+                                  gatingOk:{" "}
+                                  {pv?.gatingOk === undefined ? "—" : pv.gatingOk ? "true" : "false"}
+                                </Badge>
+                                <Badge tone={toneForVerdict(pv?.verdict) as any}>
+                                  {String(pv?.verdict ?? "—")}
+                                </Badge>
+                                <Badge tone={toneForVerdict(pv?.severity) as any}>
+                                  {String(pv?.severity ?? "—")}
+                                </Badge>
+                              </div>
+
+                              <div className="flex flex-wrap items-center gap-2">
+                                {Array.isArray(pv?.verifyTags)
+                                  ? pv.verifyTags.slice(0, 4).map((t: string) => (
+                                      <Badge key={t} tone="slate">
+                                        {t}
+                                      </Badge>
+                                    ))
+                                  : null}
+                              </div>
                             </div>
 
-                            {s?.metrics || s?.thresholds ? (
-                              <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                {s?.metrics ? (
-                                  <KV k="metrics" v={<span className="font-mono">{JSON.stringify(s.metrics)}</span>} mono={false} />
-                                ) : null}
-                                {s?.thresholds ? (
-                                  <KV k="thresholds" v={<span className="font-mono">{JSON.stringify(s.thresholds)}</span>} mono={false} />
-                                ) : null}
+                            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                              <KV k="freshness(latestPoint)" v={fmtMs(pv?.freshnessMs?.latestPoint)} />
+                              <KV k="maxAgeMs" v={String(pv?.freshnessMs?.maxAgeMs ?? "—")} />
+                            </div>
+
+                            {Array.isArray(pv?.reasons) && pv.reasons.length ? (
+                              <div className="mt-3 rounded-xl bg-amber-600/10 p-3 text-xs text-amber-200 ring-1 ring-amber-500/20">
+                                <div className="font-semibold">Reasons</div>
+                                <ul className="mt-1 list-disc space-y-1 pl-4">
+                                  {pv.reasons.slice(0, 6).map((r: string, j: number) => (
+                                    <li key={`${j}-${r}`}>{r}</li>
+                                  ))}
+                                </ul>
                               </div>
                             ) : null}
+
+                            <div className="mt-4">
+                              <div className="mb-2 text-xs font-semibold text-slate-300">Signals</div>
+                              {Array.isArray(pv?.signals) && pv.signals.length ? (
+                                <div className="space-y-2">
+                                  {pv.signals.slice(0, 12).map((s: any, j: number) => (
+                                    <div
+                                      key={j}
+                                      className="rounded-xl bg-black/25 p-3 ring-1 ring-white/10"
+                                    >
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <Badge tone="slate">{String(s?.type ?? "—")}</Badge>
+                                        <Badge tone={toneForVerdict(s?.verdict) as any}>
+                                          {String(s?.verdict ?? "—")}
+                                        </Badge>
+                                        <Badge tone={toneForVerdict(s?.severity) as any}>
+                                          {String(s?.severity ?? "—")}
+                                        </Badge>
+                                        <Badge tone="blue">
+                                          conf:{" "}
+                                          {Number.isFinite(s?.confidence)
+                                            ? Number(s.confidence).toFixed(2)
+                                            : "—"}
+                                        </Badge>
+                                      </div>
+                                      {s?.message ? (
+                                        <div className="mt-2 text-xs text-slate-200">
+                                          {String(s.message)}
+                                        </div>
+                                      ) : null}
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="text-sm text-slate-300">No L4 signals.</div>
+                              )}
+                            </div>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <div className="text-sm text-slate-300">No L4 signals.</div>
+                      <div className="text-sm text-slate-300">
+                        No per-venue L4 block found (this is expected when Phase 1 telemetry is insufficient).
+                      </div>
                     )}
                   </div>
                 </>
@@ -581,7 +684,11 @@ export default function CLTEvidence() {
           <div className="lg:col-span-4 flex flex-col gap-6">
             <Section
               title="Aggregate Summary"
-              right={<Badge tone={toneForOk(Boolean(aggregateOk)) as any}>{aggregateOk ? "OK" : "FAIL"}</Badge>}
+              right={
+                <Badge tone={toneForOk(Boolean(aggregateOk)) as any}>
+                  {aggregateOk ? "OK" : "FAIL"}
+                </Badge>
+              }
             >
               <div className="space-y-2">
                 <KV k="ladderLevel" v={String(ladderLevel)} />
