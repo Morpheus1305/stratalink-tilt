@@ -391,4 +391,58 @@ export function makePillar(params: {
     flags: params.flags ?? [],
     verify: makeDefaultVerify(params.verifyTags ?? ["VERIFY:PARTIAL"]),
   };
+
+  /* ------------------------------------------------------------------ */
+  /* UI Compatibility Types (non-contract)                               */
+  /* ------------------------------------------------------------------ */
+  /**
+   * These types exist ONLY to support client components that were built
+   * against an earlier PoLi UI model (PillarPanel / PillarSummaryBars).
+   *
+   * They DO NOT change the PoLiSnapshot contract above.
+   * Keep additive only.
+   */
+
+  export type RagStatus = "GREEN" | "AMBER" | "ORANGE" | "RED";
+  export type VerifyState = "VALID" | "PASS" | "WARNING" | "INVALID" | "FAIL";
+
+  export type PillarKey = "DEPTH" | "RESILIENCE" | "CONTINUITY" | "FRAGMENTATION" | "INTEGRITY";
+
+  export type PillarMetric = {
+    key: string;
+    label: string;
+    value: number | string | boolean | null;
+    unit?: string;
+    benchmark?: string;
+    delta?: number;
+    rag?: RagStatus;
+  };
+
+  export type PillarInputData = {
+    score: number;
+    state: VerifyState;
+    highlights?: string[];
+    metrics?: PillarMetric[];
+  };
+
+  export type PillarData = {
+    score: number;
+    rag: RagStatus;
+    summary: string;
+    inputs: Record<string, PillarInputData>;
+  };
+
+  export type PoLiPayload = {
+    version: typeof POLI_CONTRACT_VERSION;
+    token: string;
+    venue: string;
+    updatedAt: number;
+
+    // UI panels
+    pillars: Partial<Record<PillarKey, PillarData>>;
+
+    // Optional top-level summary hooks for UI
+    headline?: string;
+    flags?: PoLiFlag[];
+  };
 }
