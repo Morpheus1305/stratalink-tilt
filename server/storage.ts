@@ -19,6 +19,10 @@ import type {
 } from "@shared/schema";
 import { users, otpCodes, loginAttempts } from "@shared/schema";
 
+import { db } from "./db";
+import { eq } from "drizzle-orm";
+import { web3DataService } from "./apiClients";
+
 // In-memory snapshot storage type
 export type CommentarySnapshot = {
   id: number;
@@ -36,34 +40,16 @@ export type CommentarySnapshot = {
   generatedAt: number;
 };
 
-import { db } from "./db";
-import { eq, and, lt } from "drizzle-orm";
-import { web3DataService } from "./apiClients";
-
-/**
- * ------------------------------------------------------------
- * Minimal type-safety helpers (fix TS2322 + TS2769 clusters)
- * ------------------------------------------------------------
- */
-type UserRole = "viewer" | "admin" | "analyst";
+type UserRole = User["role"];
 
 function normalizeUserRole(role: unknown): UserRole {
   if (role === "viewer" || role === "admin" || role === "analyst") return role;
   return "viewer";
 }
 
-/**
- * Convert a DB user row (Date fields) into the shared User shape (string dates)
- * and ensure role is typed correctly.
- */
-function toUser(row: any): User {
-  return {
-    ...row,
-    role: normalizeUserRole(row?.role),
-    twoFactorMethod: (row?.twoFactorMethod ?? null) as "email" | "totp" | null,
-    createdAt: row?.createdAt?.toISOString?.() ?? String(row?.createdAt ?? ""),
-    lastLogin: row?.lastLogin ? row.lastLogin.toISOString() : null,
-  } as User;
+function normalizeTwoFactorMethod(m: unknown): "email" | "totp" | null {
+  if (m === "email" || m === "totp") return m;
+  return null;
 }
 
 export interface IStorage {
@@ -71,13 +57,13 @@ export interface IStorage {
   getTimeSeriesData(timeframe: string, asset?: string): Promise<TimeSeriesData>;
   getTrendsData(
     timeframe: "1D" | "7D" | "1M" | "3M" | "1Y",
-    asset?: string
+    asset?: string,
   ): Promise<TrendsData>;
   getPortfolioData(asset?: string): Promise<PortfolioData>;
   getAlertsData(asset?: string): Promise<AlertsData>;
   getScorecardData(
     metricType: "tokenomics" | "liquidity",
-    asset?: string
+    asset?: string,
   ): Promise<ScorecardData>;
 
   // Authentication methods
@@ -94,16 +80,16 @@ export interface IStorage {
 
   // Commentary snapshot methods
   saveCommentarySnapshot(
-    snapshot: Omit<CommentarySnapshot, "id">
+    snapshot: Omit<CommentarySnapshot, "id">,
   ): Promise<CommentarySnapshot>;
   getLatestSnapshot(
     symbol: string,
-    side: "buy" | "sell"
+    side: "buy" | "sell",
   ): Promise<CommentarySnapshot | null>;
   getPriorSnapshot(
     symbol: string,
     side: "buy" | "sell",
-    beforeDate: string
+    beforeDate: string,
   ): Promise<CommentarySnapshot | null>;
 }
 
@@ -115,7 +101,7 @@ export class MemStorage implements IStorage {
   private snapshotIdCounter: number = 1;
 
   private async fetchLiveMetrics(
-    asset: string = "BTC"
+    asset: string = "BTC",
   ): Promise<LiveMetric[] | null> {
     if (!this.useLiveData) return null;
 
@@ -184,7 +170,7 @@ export class MemStorage implements IStorage {
     } catch (error) {
       console.error(
         "Error fetching live metrics, falling back to mock data:",
-        error
+        error,
       );
       return null;
     }
@@ -223,7 +209,6 @@ export class MemStorage implements IStorage {
         cex: 68,
         volume: 0.7,
       };
-
     const poliScore = baseValues.poliScore + Math.floor(variance() * 5);
     const marketDepth = baseValues.depth + variance() * 2;
     const spread = baseValues.spread + variance() * 0.01;
@@ -338,9 +323,7 @@ export class MemStorage implements IStorage {
       {
         id: `signal-spread-${timestamp}-1`,
         title: "Elevated Liquidity Pressure",
-        description: `Bid-ask spread has widened by ${Math.abs(spreadChange).toFixed(
-          1
-        )}%, indicating heightened market uncertainty. Monitor for potential price swings.`,
+        description: `Bid-ask spread has widened by ${Math.abs(spreadChange).toFixed(1)}%, indicating heightened market uncertainty. Monitor for potential price swings.`,
         severity: spreadChange > 18 ? "warning" : "info",
         timestamp: formatTime(new Date(now.getTime() - 15 * 60000)),
         category: "SPREAD ANALYSIS",
@@ -356,9 +339,7 @@ export class MemStorage implements IStorage {
       {
         id: `signal-depth-${timestamp}-3`,
         title: "Strong Market Depth",
-        description: `Market depth is healthy at $${depthValue.toFixed(
-          1
-        )}M with balanced bid-ask spread across major exchanges.`,
+        description: `Market depth is healthy at $${depthValue.toFixed(1)}M with balanced bid-ask spread across major exchanges.`,
         severity: "success",
         timestamp: formatTime(new Date(now.getTime() - 48 * 60000)),
         category: "DEPTH MONITORING",
@@ -366,9 +347,7 @@ export class MemStorage implements IStorage {
       {
         id: `signal-balance-${timestamp}-4`,
         title: "CEX/DEX Balance Maintained",
-        description: `The CEX/DEX ratio (${concentration}:${
-          100 - concentration
-        }) remains within healthy parameters. DEX/CEX diversity reduces liquidity dependencies.`,
+        description: `The CEX/DEX ratio (${concentration}:${100 - concentration}) remains within healthy parameters. DEX/CEX diversity reduces liquidity dependencies.`,
         severity: "info",
         timestamp: formatTime(new Date(now.getTime() - 65 * 60000)),
         category: "BALANCE CHECK",
@@ -394,7 +373,6 @@ export class MemStorage implements IStorage {
 
     const baseMetrics =
       assetMetrics[asset] || { depth: 30.0, spread: 0.1, volatility: 15.0, volume: 0.7 };
-
     const marketDepth = baseMetrics.depth + variance() * 2;
     const spread = baseMetrics.spread + variance() * 0.01;
     const volatility = baseMetrics.volatility + variance() * 1.5;
@@ -492,10 +470,7 @@ export class MemStorage implements IStorage {
     const baseCex = assetCexRatios[asset] || 68;
     const cex = Math.max(55, Math.min(80, baseCex + variance));
 
-    return {
-      cex,
-      dex: 100 - cex,
-    };
+    return { cex, dex: 100 - cex };
   }
 
   private async fetchLiveTickerItems(): Promise<TickerItem[] | null> {
@@ -507,9 +482,7 @@ export class MemStorage implements IStorage {
 
       const items: TickerItem[] = [];
       const now = new Date();
-      const timestamp = `${String(now.getUTCHours()).padStart(2, "0")}:${String(
-        now.getUTCMinutes()
-      ).padStart(2, "0")} UTC`;
+      const timestamp = `${String(now.getUTCHours()).padStart(2, "0")}:${String(now.getUTCMinutes()).padStart(2, "0")} UTC`;
 
       const assetArray = Array.from(assetsData.entries());
       for (const [symbol, data] of assetArray) {
@@ -536,9 +509,7 @@ export class MemStorage implements IStorage {
   private generateTickerItems(): TickerItem[] {
     const variance = () => (Math.random() - 0.5) * 0.5;
     const now = new Date();
-    const timestamp = `${String(now.getUTCHours()).padStart(2, "0")}:${String(
-      now.getUTCMinutes()
-    ).padStart(2, "0")} UTC`;
+    const timestamp = `${String(now.getUTCHours()).padStart(2, "0")}:${String(now.getUTCMinutes()).padStart(2, "0")} UTC`;
 
     const btcPrice = 63421 + Math.floor(variance() * 500);
     const ethPrice = 3124 + Math.floor(variance() * 50);
@@ -581,7 +552,10 @@ export class MemStorage implements IStorage {
     ];
   }
 
-  private generateTimeSeriesPoints(timeframe: string, asset: string = "BTC"): TimeSeriesPoint[] {
+  private generateTimeSeriesPoints(
+    timeframe: string,
+    asset: string = "BTC",
+  ): TimeSeriesPoint[] {
     const now = new Date();
     const points: TimeSeriesPoint[] = [];
 
@@ -655,7 +629,7 @@ export class MemStorage implements IStorage {
   async getDashboardData(asset: string = "BTC"): Promise<DashboardData> {
     const [liveMetrics, tickerItems] = await Promise.all([
       this.fetchLiveMetrics(asset).catch((err) => {
-        console.log(`fetchLiveMetrics failed for ${asset}, using generated data:`, err.message);
+        console.log(`fetchLiveMetrics failed for ${asset}, using generated data:`, err?.message);
         return null;
       }),
       this.fetchLiveTickerItems().catch(() => null),
@@ -664,7 +638,7 @@ export class MemStorage implements IStorage {
     const finalMetrics = liveMetrics || this.generateLiveMetrics(asset);
     console.log(
       `Dashboard data for ${asset}, using ${liveMetrics ? "live" : "generated"} metrics. PoLi Score:`,
-      finalMetrics[0].value
+      finalMetrics[0]?.value,
     );
 
     return {
@@ -678,7 +652,10 @@ export class MemStorage implements IStorage {
     };
   }
 
-  async getTimeSeriesData(timeframe: string, asset: string = "BTC"): Promise<TimeSeriesData> {
+  async getTimeSeriesData(
+    timeframe: string,
+    asset: string = "BTC",
+  ): Promise<TimeSeriesData> {
     const validTimeframes = ["1H", "4H", "1D", "1W", "1M"];
     const tf = validTimeframes.includes(timeframe) ? timeframe : "1D";
 
@@ -690,14 +667,14 @@ export class MemStorage implements IStorage {
 
   async getTrendsData(
     timeframe: "1D" | "7D" | "1M" | "3M" | "1Y",
-    asset: string = "BTC"
+    asset: string = "BTC",
   ): Promise<TrendsData> {
     const dataPointsMap: Record<string, number> = {
-      "1D": 24, // Hourly data for 1 day
-      "7D": 168, // Hourly data for 7 days (or every few hours)
-      "1M": 30, // Daily data for 1 month
-      "3M": 90, // Daily data for 3 months
-      "1Y": 365, // Daily data for 1 year
+      "1D": 24,
+      "7D": 168,
+      "1M": 30,
+      "3M": 90,
+      "1Y": 365,
     };
 
     const dataPoints = dataPointsMap[timeframe] || 168;
@@ -720,9 +697,9 @@ export class MemStorage implements IStorage {
     const baseValues = assetBaseValues[asset] || { poliScore: 65, depth: 30, volatility: 12 };
 
     // Generate realistic trending data with some variability
-    const basePoliScore = baseValues.poliScore + Math.random() * 8 - 4; // ±4 variation
-    const baseDepth = baseValues.depth + Math.random() * 10 - 5; // ±5M variation
-    const baseVolatility = baseValues.volatility + Math.random() * 4 - 2; // ±2% variation
+    const basePoliScore = baseValues.poliScore + Math.random() * 8 - 4;
+    const baseDepth = baseValues.depth + Math.random() * 10 - 5;
+    const baseVolatility = baseValues.volatility + Math.random() * 4 - 2;
 
     for (let i = 0; i < dataPoints; i++) {
       let timeString: string;
@@ -730,9 +707,7 @@ export class MemStorage implements IStorage {
       // Calculate time based on timeframe
       if (timeframe === "1D") {
         const time = new Date(now.getTime() - (dataPoints - i) * 60 * 60 * 1000);
-        timeString = `${String(time.getUTCHours()).padStart(2, "0")}:${String(
-          time.getUTCMinutes()
-        ).padStart(2, "0")}`;
+        timeString = `${String(time.getUTCHours()).padStart(2, "0")}:${String(time.getUTCMinutes()).padStart(2, "0")}`;
       } else if (timeframe === "7D") {
         const time = new Date(now.getTime() - (dataPoints - i) * 60 * 60 * 1000);
         const day = time.toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -748,28 +723,23 @@ export class MemStorage implements IStorage {
       const noise = (Math.random() - 0.5) * 0.05;
 
       // PoLi Score: General upward trend with fluctuation
-      const poliScore = Math.max(50, Math.min(100, basePoliScore + wave * 20 + noise * 15 + progress * 5));
+      const poliScore = Math.max(
+        50,
+        Math.min(100, basePoliScore + wave * 20 + noise * 15 + progress * 5),
+      );
 
       // Market Depth: Relatively stable with slight variations
       const depth = Math.max(20, Math.min(60, baseDepth + wave * 8 + noise * 5));
 
       // Volatility: More erratic, trending down slightly
-      const volatility = Math.max(5, Math.min(15, baseVolatility + wave * 3 + noise * 4 - progress * 2));
+      const volatility = Math.max(
+        5,
+        Math.min(15, baseVolatility + wave * 3 + noise * 4 - progress * 2),
+      );
 
-      poliScoreEvolution.push({
-        time: timeString,
-        score: Number(poliScore.toFixed(1)),
-      });
-
-      marketDepthTrend.push({
-        time: timeString,
-        depth: Number(depth.toFixed(1)),
-      });
-
-      volatilityTrend.push({
-        time: timeString,
-        volatility: Number(volatility.toFixed(2)),
-      });
+      poliScoreEvolution.push({ time: timeString, score: Number(poliScore.toFixed(1)) });
+      marketDepthTrend.push({ time: timeString, depth: Number(depth.toFixed(1)) });
+      volatilityTrend.push({ time: timeString, volatility: Number(volatility.toFixed(2)) });
     }
 
     // Calculate overall change percent for PoLi score
@@ -801,72 +771,14 @@ export class MemStorage implements IStorage {
 
     return {
       portfolioPoliScore,
-      summary: {
-        healthyAssets: 2,
-        warningAssets: 3,
-        criticalAssets: 1,
-      },
+      summary: { healthyAssets: 2, warningAssets: 3, criticalAssets: 1 },
       tokens: [
-        {
-          token: "SOL",
-          name: "Solana",
-          poliScore: 73,
-          changePercent: -3.2,
-          depth: "$42.5M",
-          volatility: "12.4%",
-          spread: "0.08%",
-          action: "MONITOR",
-        },
-        {
-          token: "USDC",
-          name: "USD Coin",
-          poliScore: 94,
-          changePercent: 1.8,
-          depth: "$128.3M",
-          volatility: "1.6%",
-          spread: "0.02%",
-          action: "REVIEW",
-        },
-        {
-          token: "USDT",
-          name: "Tether",
-          poliScore: 91,
-          changePercent: 0.5,
-          depth: "$245.7M",
-          volatility: "0.9%",
-          spread: "0.01%",
-          action: "REVIEW",
-        },
-        {
-          token: "JTO",
-          name: "Jito",
-          poliScore: 58,
-          changePercent: -3.2,
-          depth: "$8.3M",
-          volatility: "24.7%",
-          spread: "0.45%",
-          action: "REVIEW",
-        },
-        {
-          token: "JUP",
-          name: "Jupiter",
-          poliScore: 65,
-          changePercent: 2.1,
-          depth: "$15.2M",
-          volatility: "19.3%",
-          spread: "0.28%",
-          action: "MONITOR",
-        },
-        {
-          token: "BONK",
-          name: "Bonk",
-          poliScore: 48,
-          changePercent: -13.2,
-          depth: "$5.1M",
-          volatility: "32.1%",
-          spread: "0.92%",
-          action: "CRITICAL",
-        },
+        { token: "SOL", name: "Solana", poliScore: 73, changePercent: -3.2, depth: "$42.5M", volatility: "12.4%", spread: "0.08%", action: "MONITOR" },
+        { token: "USDC", name: "USD Coin", poliScore: 94, changePercent: 1.8, depth: "$128.3M", volatility: "1.6%", spread: "0.02%", action: "REVIEW" },
+        { token: "USDT", name: "Tether", poliScore: 91, changePercent: 0.5, depth: "$245.7M", volatility: "0.9%", spread: "0.01%", action: "REVIEW" },
+        { token: "JTO", name: "Jito", poliScore: 58, changePercent: -3.2, depth: "$8.3M", volatility: "24.7%", spread: "0.45%", action: "REVIEW" },
+        { token: "JUP", name: "Jupiter", poliScore: 65, changePercent: 2.1, depth: "$15.2M", volatility: "19.3%", spread: "0.28%", action: "MONITOR" },
+        { token: "BONK", name: "Bonk", poliScore: 48, changePercent: -13.2, depth: "$5.1M", volatility: "32.1%", spread: "0.92%", action: "CRITICAL" },
       ],
       poliComparison: [
         { token: "SOL", score: 73 },
@@ -897,10 +809,7 @@ export class MemStorage implements IStorage {
         { indicator: "ADL Trigger Count", observedBehavior: "Multi-exchange", ras: "low" },
       ],
       activeWarningCapacity: "6-8 hours",
-      criticalAssets: {
-        count: 3,
-        total: 6,
-      },
+      criticalAssets: { count: 3, total: 6 },
       alertTimeline: this.generateAlertTimeline(),
       alertLog: [
         { id: "1", timeUTC: "18:45", alertType: "Depth", severity: "HIGH", description: "Liquidity sweep 85% of volume", status: "New" },
@@ -918,9 +827,7 @@ export class MemStorage implements IStorage {
 
     for (let i = 0; i < 100; i++) {
       const time = new Date(now.getTime() - (100 - i) * 15 * 60 * 1000);
-      const timeString = `${String(time.getUTCHours()).padStart(2, "0")}:${String(
-        time.getUTCMinutes()
-      ).padStart(2, "0")}`;
+      const timeString = `${String(time.getUTCHours()).padStart(2, "0")}:${String(time.getUTCMinutes()).padStart(2, "0")}`;
 
       data.push({
         time: timeString,
@@ -933,11 +840,10 @@ export class MemStorage implements IStorage {
     return data;
   }
 
-  async getScorecardData(metricType: "tokenomics" | "liquidity", asset: string = "BTC"): Promise<ScorecardData> {
-    // (unchanged: your long scorecard body)
-    // NOTE: I’m leaving this entire section as-is to keep the “minimal fix” promise.
-    // Your pasted file continues beyond here; keep it exactly as you had it.
-    // --- START: original scorecard body ---
+  async getScorecardData(
+    metricType: "tokenomics" | "liquidity",
+    asset: string = "BTC",
+  ): Promise<ScorecardData> {
     const tokenomicsMetrics = [
       { metric: "Circulating Supply", description: "Amount in active circulation", value: "466M", industryBenchmark: "< 25 billion", status: "GOOD" as const },
       { metric: "Total Supply", description: "Cumulative supply incl unlocked/vested tokens", value: "590M", industryBenchmark: "Company benchmark", status: "GOOD" as const },
@@ -955,9 +861,59 @@ export class MemStorage implements IStorage {
     ];
 
     const liquidityMetrics = [
+      // Core Depth Metrics (10)
       { metric: "Market Depth", description: "Total liquidity available within 2% of mid price", value: "$42.5M", industryBenchmark: "> $20M", status: "GOOD" as const },
-      // ... keep everything exactly as you pasted ...
-      { metric: "Stress Test Score", description: "Performance under simulated stress", value: "88/100", industryBenchmark: "> 75", status: "GOOD" as const },
+      { metric: "Bid-Side Depth", description: "Liquidity available on bid side within 2%", value: "$21.8M", industryBenchmark: "> $10M", status: "GOOD" as const },
+      { metric: "Ask-Side Depth", description: "Liquidity available on ask side within 2%", value: "$20.7M", industryBenchmark: "> $10M", status: "GOOD" as const },
+      { metric: "Depth Imbalance Ratio", description: "Ratio between bid and ask side depth", value: "1.05:1", industryBenchmark: "0.9-1.1", status: "GOOD" as const },
+      { metric: "Top 5 Levels Depth", description: "Total liquidity in top 5 order book levels", value: "$18.2M", industryBenchmark: "> $8M", status: "GOOD" as const },
+      { metric: "Depth at 1% Price Move", description: "Available liquidity within 1% of mid", value: "$28.3M", industryBenchmark: "> $12M", status: "GOOD" as const },
+      { metric: "Depth at 5% Price Move", description: "Available liquidity within 5% of mid", value: "$78.5M", industryBenchmark: "> $40M", status: "GOOD" as const },
+      { metric: "Depth Concentration (Top 10%)", description: "Percentage of depth in top 10% of orders", value: "42%", industryBenchmark: "< 60%", status: "GOOD" as const },
+      { metric: "Cumulative Depth Score", description: "Overall depth quality across price levels", value: "87/100", industryBenchmark: "> 75", status: "GOOD" as const },
+      { metric: "Depth Stability (24H)", description: "Standard deviation of depth over 24 hours", value: "6.2%", industryBenchmark: "< 15%", status: "GOOD" as const },
+
+      // Spread Metrics (8)
+      { metric: "Bid-Ask Spread", description: "Difference between best bid and ask price", value: "0.08%", industryBenchmark: "< 0.15%", status: "GOOD" as const },
+      { metric: "Effective Spread", description: "Actual cost of execution including slippage", value: "0.12%", industryBenchmark: "< 0.25%", status: "GOOD" as const },
+      { metric: "Quoted Spread", description: "Posted spread at best bid/ask", value: "0.08%", industryBenchmark: "< 0.15%", status: "GOOD" as const },
+      { metric: "Realized Spread", description: "Post-trade spread measurement", value: "0.09%", industryBenchmark: "< 0.20%", status: "GOOD" as const },
+      { metric: "Relative Spread", description: "Spread as percentage of mid price", value: "0.08%", industryBenchmark: "< 0.15%", status: "GOOD" as const },
+      { metric: "Spread Volatility (1H)", description: "Variation in spread over last hour", value: "0.02%", industryBenchmark: "< 0.05%", status: "GOOD" as const },
+      { metric: "Weighted Average Spread", description: "Volume-weighted spread across exchanges", value: "0.11%", industryBenchmark: "< 0.20%", status: "GOOD" as const },
+      { metric: "Spread Tightness Score", description: "Overall spread quality metric", value: "92/100", industryBenchmark: "> 80", status: "GOOD" as const },
+
+      // Volume Metrics (8)
+      { metric: "24H Trading Volume", description: "Total trading volume in last 24 hours", value: "$1.2B", industryBenchmark: "> $500M", status: "GOOD" as const },
+      { metric: "7D Average Volume", description: "Average daily volume over 7 days", value: "$980M", industryBenchmark: "> $400M", status: "GOOD" as const },
+      { metric: "Volume Concentration", description: "Distribution of volume across exchanges", value: "Moderate", industryBenchmark: "Low-Moderate", status: "GOOD" as const },
+      { metric: "Top Exchange Volume Share", description: "Percentage of volume on largest exchange", value: "28%", industryBenchmark: "< 40%", status: "GOOD" as const },
+      { metric: "Volume-to-Market Cap Ratio", description: "Trading volume relative to market cap", value: "12.3%", industryBenchmark: "5-20%", status: "GOOD" as const },
+      { metric: "Organic Volume %", description: "Estimated real trading vs wash trading", value: "94%", industryBenchmark: "> 85%", status: "GOOD" as const },
+      { metric: "Volume Trend (7D)", description: "Change in volume over past week", value: "+8.5%", industryBenchmark: "Stable/-10%", status: "GOOD" as const },
+      { metric: "Peak-to-Trough Volume Ratio", description: "Ratio between highest and lowest hourly volume", value: "3.2x", industryBenchmark: "< 5x", status: "GOOD" as const },
+
+      // Order Book Quality (6)
+      { metric: "Order Book Density", description: "Distribution of orders across price levels", value: "High", industryBenchmark: "Medium-High", status: "GOOD" as const },
+      { metric: "Order Book Skewness", description: "Asymmetry in bid vs ask orders", value: "0.12", industryBenchmark: "< 0.30", status: "GOOD" as const },
+      { metric: "Large Order Frequency", description: "Rate of orders > $100k appearing", value: "18/hour", industryBenchmark: "> 10/hour", status: "GOOD" as const },
+      { metric: "Order Cancellation Rate", description: "Percentage of orders cancelled vs filled", value: "24%", industryBenchmark: "< 35%", status: "GOOD" as const },
+      { metric: "Average Order Size", description: "Mean order size across exchanges", value: "$8,450", industryBenchmark: "> $5,000", status: "GOOD" as const },
+      { metric: "Order Book Update Frequency", description: "Rate of order book changes per second", value: "42/sec", industryBenchmark: "> 20/sec", status: "GOOD" as const },
+
+      // Slippage & Execution (5)
+      { metric: "Slippage (1% Depth)", description: "Price impact for 1% of daily volume", value: "0.15%", industryBenchmark: "< 0.30%", status: "GOOD" as const },
+      { metric: "Slippage (5% Depth)", description: "Price impact for 5% of daily volume", value: "0.68%", industryBenchmark: "< 1.0%", status: "GOOD" as const },
+      { metric: "Market Impact Score", description: "Ease of executing large orders", value: "84/100", industryBenchmark: "> 70", status: "GOOD" as const },
+      { metric: "Fill Rate", description: "Percentage of orders filled at posted price", value: "96.5%", industryBenchmark: "> 90%", status: "GOOD" as const },
+      { metric: "Average Fill Time", description: "Time to complete order execution", value: "2.3s", industryBenchmark: "< 5s", status: "GOOD" as const },
+
+      // Risk & Resilience (5)
+      { metric: "Liquidity Recovery Time", description: "Time to restore depth after large trade", value: "45s", industryBenchmark: "< 90s", status: "GOOD" as const },
+      { metric: "Flash Crash Resistance", description: "Resilience to sudden price movements", value: "High", industryBenchmark: "Medium-High", status: "GOOD" as const },
+      { metric: "Whale Order Absorption", description: "Capacity to handle $10M+ orders", value: "94%", industryBenchmark: "> 80%", status: "GOOD" as const },
+      { metric: "Liquidity Fragmentation", description: "Distribution across venues", value: "Low", industryBenchmark: "Low-Medium", status: "GOOD" as const },
+      { metric: "Stress Test Score", description: "Performance under simulated stress", value: "88/100", industryBenchmark: "> 75%", status: "GOOD" as const },
     ];
 
     const totalMetrics = tokenomicsMetrics.length + liquidityMetrics.length;
@@ -977,7 +933,6 @@ export class MemStorage implements IStorage {
         riskPercent: Math.round((riskCount / totalMetrics) * 100),
       },
     };
-    // --- END: original scorecard body ---
   }
 
   // ========================================
@@ -992,13 +947,30 @@ export class MemStorage implements IStorage {
       .limit(1);
 
     if (!user) return null;
-    return toUser(user);
+
+    return {
+      ...user,
+      role: normalizeUserRole(user.role),
+      twoFactorMethod: normalizeTwoFactorMethod(user.twoFactorMethod),
+      backupCodes: user.backupCodes ?? [],
+      createdAt: user.createdAt.toISOString(),
+      lastLogin: user.lastLogin ? user.lastLogin.toISOString() : null,
+    };
   }
 
   async getUserById(id: string): Promise<User | null> {
     const [user] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+
     if (!user) return null;
-    return toUser(user);
+
+    return {
+      ...user,
+      role: normalizeUserRole(user.role),
+      twoFactorMethod: normalizeTwoFactorMethod(user.twoFactorMethod),
+      backupCodes: user.backupCodes ?? [],
+      createdAt: user.createdAt.toISOString(),
+      lastLogin: user.lastLogin ? user.lastLogin.toISOString() : null,
+    };
   }
 
   async createUser(user: Omit<User, "id" | "createdAt">): Promise<User> {
@@ -1011,7 +983,7 @@ export class MemStorage implements IStorage {
         email: user.email,
         passwordHash: user.passwordHash,
         name: user.name,
-        role: normalizeUserRole(user.role), // ✅ ensure union-safe
+        role: normalizeUserRole(user.role),
         twoFactorEnabled: user.twoFactorEnabled,
         twoFactorMethod: user.twoFactorMethod,
         totpSecret: user.totpSecret,
@@ -1019,7 +991,14 @@ export class MemStorage implements IStorage {
       })
       .returning();
 
-    return toUser(newUser);
+    return {
+      ...newUser,
+      role: normalizeUserRole(newUser.role),
+      twoFactorMethod: normalizeTwoFactorMethod(newUser.twoFactorMethod),
+      backupCodes: newUser.backupCodes ?? [],
+      createdAt: newUser.createdAt.toISOString(),
+      lastLogin: newUser.lastLogin ? newUser.lastLogin.toISOString() : null,
+    };
   }
 
   async updateUser(id: string, updates: Partial<User>): Promise<User> {
@@ -1028,30 +1007,48 @@ export class MemStorage implements IStorage {
     if (updates.email !== undefined) updateData.email = updates.email;
     if (updates.passwordHash !== undefined) updateData.passwordHash = updates.passwordHash;
     if (updates.name !== undefined) updateData.name = updates.name;
-    if (updates.role !== undefined) updateData.role = normalizeUserRole(updates.role); // ✅ union-safe
+    if (updates.role !== undefined) updateData.role = normalizeUserRole(updates.role);
     if (updates.twoFactorEnabled !== undefined) updateData.twoFactorEnabled = updates.twoFactorEnabled;
     if (updates.twoFactorMethod !== undefined) updateData.twoFactorMethod = updates.twoFactorMethod;
     if (updates.totpSecret !== undefined) updateData.totpSecret = updates.totpSecret;
     if (updates.backupCodes !== undefined) updateData.backupCodes = updates.backupCodes;
 
-    // ✅ TS2769 fix: handle null explicitly
+    // ✅ null-safe lastLogin + avoids TS2769
     if (updates.lastLogin !== undefined) {
-      updateData.lastLogin = updates.lastLogin === null ? null : new Date(updates.lastLogin);
+      updateData.lastLogin = updates.lastLogin ? new Date(updates.lastLogin) : null;
     }
 
-    const [updatedUser] = await db.update(users).set(updateData).where(eq(users.id, id)).returning();
+    const [updatedUser] = await db
+      .update(users)
+      .set(updateData)
+      .where(eq(users.id, id))
+      .returning();
 
     if (!updatedUser) throw new Error("User not found");
-    return toUser(updatedUser);
+
+    return {
+      ...updatedUser,
+      role: normalizeUserRole(updatedUser.role),
+      twoFactorMethod: normalizeTwoFactorMethod(updatedUser.twoFactorMethod),
+      backupCodes: updatedUser.backupCodes ?? [],
+      createdAt: updatedUser.createdAt.toISOString(),
+      lastLogin: updatedUser.lastLogin ? updatedUser.lastLogin.toISOString() : null,
+    };
   }
 
   async storeOTP(userId: string, otp: string, expiresAt: Date): Promise<void> {
     await db.delete(otpCodes).where(eq(otpCodes.userId, userId));
-    await db.insert(otpCodes).values({ userId, otp, expiresAt });
+
+    await db.insert(otpCodes).values({
+      userId,
+      otp,
+      expiresAt,
+    });
   }
 
   async verifyOTP(userId: string, otp: string): Promise<boolean> {
     const [stored] = await db.select().from(otpCodes).where(eq(otpCodes.userId, userId)).limit(1);
+
     if (!stored) return false;
 
     if (new Date() > stored.expiresAt) {
@@ -1067,14 +1064,20 @@ export class MemStorage implements IStorage {
   }
 
   async incrementLoginAttempts(userId: string): Promise<number> {
-    const [existing] = await db.select().from(loginAttempts).where(eq(loginAttempts.userId, userId)).limit(1);
+    const [existing] = await db
+      .select()
+      .from(loginAttempts)
+      .where(eq(loginAttempts.userId, userId))
+      .limit(1);
 
     let newCount = 1;
     let lockedUntil: Date | null = null;
 
     if (existing) {
       newCount = parseInt(existing.count) + 1;
-      if (newCount >= 5) lockedUntil = new Date(Date.now() + 10 * 60 * 1000);
+      if (newCount >= 5) {
+        lockedUntil = new Date(Date.now() + 10 * 60 * 1000);
+      }
 
       await db
         .update(loginAttempts)
@@ -1100,7 +1103,12 @@ export class MemStorage implements IStorage {
   }
 
   async isUserLocked(userId: string): Promise<boolean> {
-    const [attempt] = await db.select().from(loginAttempts).where(eq(loginAttempts.userId, userId)).limit(1);
+    const [attempt] = await db
+      .select()
+      .from(loginAttempts)
+      .where(eq(loginAttempts.userId, userId))
+      .limit(1);
+
     if (!attempt || !attempt.lockedUntil) return false;
 
     if (new Date() > attempt.lockedUntil) {
@@ -1112,36 +1120,53 @@ export class MemStorage implements IStorage {
   }
 
   // Commentary snapshot methods
-  async saveCommentarySnapshot(snapshot: Omit<CommentarySnapshot, "id">): Promise<CommentarySnapshot> {
+  async saveCommentarySnapshot(
+    snapshot: Omit<CommentarySnapshot, "id">,
+  ): Promise<CommentarySnapshot> {
     const newSnapshot: CommentarySnapshot = {
       ...snapshot,
       id: this.snapshotIdCounter++,
     };
 
+    // Check if we already have a snapshot for this symbol/side/date
     const existingIdx = this.commentarySnapshots.findIndex(
-      (s) => s.symbol === snapshot.symbol && s.side === snapshot.side && s.snapshotDate === snapshot.snapshotDate
+      (s) => s.symbol === snapshot.symbol && s.side === snapshot.side && s.snapshotDate === snapshot.snapshotDate,
     );
 
     if (existingIdx >= 0) {
-      this.commentarySnapshots[existingIdx] = { ...newSnapshot, id: this.commentarySnapshots[existingIdx].id };
+      // Update existing snapshot
+      this.commentarySnapshots[existingIdx] = {
+        ...newSnapshot,
+        id: this.commentarySnapshots[existingIdx].id,
+      };
       return this.commentarySnapshots[existingIdx];
     }
 
+    // Add new snapshot
     this.commentarySnapshots.push(newSnapshot);
     return newSnapshot;
   }
 
-  async getLatestSnapshot(symbol: string, side: "buy" | "sell"): Promise<CommentarySnapshot | null> {
+  async getLatestSnapshot(
+    symbol: string,
+    side: "buy" | "sell",
+  ): Promise<CommentarySnapshot | null> {
     const matching = this.commentarySnapshots
       .filter((s) => s.symbol === symbol && s.side === side)
       .sort((a, b) => b.snapshotDate.localeCompare(a.snapshotDate));
+
     return matching[0] || null;
   }
 
-  async getPriorSnapshot(symbol: string, side: "buy" | "sell", beforeDate: string): Promise<CommentarySnapshot | null> {
+  async getPriorSnapshot(
+    symbol: string,
+    side: "buy" | "sell",
+    beforeDate: string,
+  ): Promise<CommentarySnapshot | null> {
     const matching = this.commentarySnapshots
       .filter((s) => s.symbol === symbol && s.side === side && s.snapshotDate < beforeDate)
       .sort((a, b) => b.snapshotDate.localeCompare(a.snapshotDate));
+
     return matching[0] || null;
   }
 }

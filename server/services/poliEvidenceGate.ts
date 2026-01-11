@@ -1,4 +1,4 @@
-import type { PoLiEvidenceBundle, EvidenceLevel } from "../../shared/poliEvidence";
+import type { PoLiEvidenceBundle, EvidenceLevel, EvidenceBlock } from "../../shared/poliEvidence";
 
 export type EvidenceGateResult = {
   ok: boolean;
@@ -22,9 +22,9 @@ export function evaluateEvidenceLadder(
 
   const now = Date.now();
 
-  const tsle = bundle.blocks.find(b => b.type === "TSLE_STATE");
-  const depth = bundle.blocks.find(b => b.type === "DEPTH_BANDS");
-  const poli  = bundle.blocks.find(b => b.type === "POLI_POINT");
+  const tsle = bundle.blocks.find((b: EvidenceBlock) => b.type === "TSLE_STATE");
+  const depth = bundle.blocks.find((b: EvidenceBlock) => b.type === "DEPTH_BANDS");
+  const poli  = bundle.blocks.find((b: EvidenceBlock) => b.type === "POLI_POINT");
 
   // L1: TSLE must be present + fresh
   if (!tsle) {
@@ -32,8 +32,9 @@ export function evaluateEvidenceLadder(
     flags.push("VERIFY_INSUFFICIENT");
     return { ok: false, level: "L0_NONE", reasons, verifyFlags: flags };
   }
-  if (now - tsle.ts > opts.maxAgeMsTSLE) {
-    reasons.push(`TSLE evidence stale (${now - tsle.ts}ms).`);
+  const tsleTs = tsle.ts ?? 0;
+  if (now - tsleTs > opts.maxAgeMsTSLE) {
+    reasons.push(`TSLE evidence stale (${now - tsleTs}ms).`);
     flags.push("VERIFY_STALE");
     return { ok: false, level: "L1_TSLE", reasons, verifyFlags: flags };
   }
@@ -44,8 +45,9 @@ export function evaluateEvidenceLadder(
     flags.push("VERIFY_PARTIAL");
     return { ok: false, level: "L1_TSLE", reasons, verifyFlags: flags };
   }
-  if (now - depth.ts > opts.maxAgeMsDepth) {
-    reasons.push(`Depth evidence stale (${now - depth.ts}ms).`);
+  const depthTs = depth.ts ?? 0;
+  if (now - depthTs > opts.maxAgeMsDepth) {
+    reasons.push(`Depth evidence stale (${now - depthTs}ms).`);
     flags.push("VERIFY_STALE");
     return { ok: false, level: "L2_DEPTH", reasons, verifyFlags: flags };
   }

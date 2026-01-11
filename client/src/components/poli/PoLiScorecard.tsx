@@ -26,9 +26,10 @@ function TrendIcon({ direction }: { direction: 'UP' | 'DOWN' | 'FLAT' }) {
 }
 
 export default function PoLiScorecard({ overall, meta }: Props) {
-  const trendColor = overall.trend.direction === 'UP' 
+  const direction = overall.trend.delta_7d > 0 ? 'UP' : overall.trend.delta_7d < 0 ? 'DOWN' : 'FLAT';
+  const trendColor = direction === 'UP' 
     ? 'text-green-400' 
-    : overall.trend.direction === 'DOWN' 
+    : direction === 'DOWN' 
       ? 'text-red-400' 
       : 'text-muted-foreground';
 
@@ -60,7 +61,7 @@ export default function PoLiScorecard({ overall, meta }: Props) {
           </Badge>
           
           <div className="flex items-center gap-1">
-            <TrendIcon direction={overall.trend.direction} />
+            <TrendIcon direction={direction} />
             <span className={`font-mono text-sm ${trendColor}`}>
               {overall.trend.delta_7d > 0 ? '+' : ''}
               {overall.trend.delta_7d.toFixed(1)}% (7D)
@@ -70,13 +71,13 @@ export default function PoLiScorecard({ overall, meta }: Props) {
 
         <div className="pt-3 border-t border-border space-y-2">
           <div className="flex items-center gap-2 text-sm">
-            {overall.coverage.venues_covered >= overall.coverage.venues_expected ? (
+            {overall.coverage.venues_observed.length >= overall.coverage.venues_expected.length ? (
               <CheckCircle className="h-4 w-4 text-green-400" />
             ) : (
               <AlertTriangle className="h-4 w-4 text-amber-400" />
             )}
             <span className="text-muted-foreground">
-              {overall.coverage.venues_covered}/{overall.coverage.venues_expected} venues
+              {overall.coverage.venues_observed.length}/{overall.coverage.venues_expected.length} venues
             </span>
           </div>
           

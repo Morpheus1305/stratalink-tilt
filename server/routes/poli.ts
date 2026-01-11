@@ -197,7 +197,7 @@ router.get("/", async (req: Request, res: Response) => {
 
     const mergedVerifyTags = Array.from(
       new Set([
-        ...(gate.verifyTags ?? []),
+        ...(gate.verifyFlags ?? []),
         "SOURCE:LIS",
         "SOURCE:TSLE",
       ])
@@ -216,7 +216,6 @@ router.get("/", async (req: Request, res: Response) => {
           gate?.reasons?.length
             ? `PoLi scaffold live. Evidence gate not satisfied: ${gate.reasons.join(" ")}`
             : "PoLi scaffold live. Waiting for sufficient LIS/TSLE evidence.",
-        verifyTags: mergedVerifyTags.length ? mergedVerifyTags : ["VERIFY:PARTIAL", "SOURCE:TSLE", "SOURCE:LIS"],
       });
       return res.json(snapshot);
     }
@@ -265,7 +264,6 @@ router.get("/", async (req: Request, res: Response) => {
       scope,
       status: "error",
       summary: "PoLi endpoint error. See server logs.",
-      verifyTags: ["VERIFY:PARTIAL", "ERROR"],
     });
 
     return res.status(500).json(snapshot);

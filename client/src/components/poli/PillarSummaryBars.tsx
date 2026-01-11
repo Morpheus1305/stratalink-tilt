@@ -26,25 +26,30 @@ function getRagDotClass(rag: RagStatus): string {
 export default function PillarSummaryBars({ pillars }: Props) {
   return (
     <div className="space-y-3" data-testid="pillar-summary-bars">
-      {(Object.entries(pillars) as [PillarKey, typeof pillars[PillarKey]][]).map(([key, data]) => (
-        <div key={key} className="flex items-center gap-3" data-testid={`pillar-bar-${key}`}>
-          <div className="w-40 text-sm text-muted-foreground truncate">
-            {PILLAR_LABELS[key]}
-          </div>
-          <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all duration-500 ${getRagBgClass(data.rag)}`}
-              style={{ width: `${data.score}%` }}
-            />
-          </div>
-          <div className="w-12 text-right font-mono text-sm">
-            {data.score.toFixed(1)}
-          </div>
-          <div 
-            className={`w-2 h-2 rounded-full shadow-sm ${getRagDotClass(data.rag)}`}
-          />
-        </div>
-      ))}
+      {(Object.entries(pillars) as [PillarKey, typeof pillars[PillarKey]][])
+        .filter(([, data]) => data !== undefined)
+        .map(([key, data]) => {
+          if (!data) return null;
+          return (
+            <div key={key} className="flex items-center gap-3" data-testid={`pillar-bar-${key}`}>
+              <div className="w-40 text-sm text-muted-foreground truncate">
+                {PILLAR_LABELS[key]}
+              </div>
+              <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${getRagBgClass(data.rag)}`}
+                  style={{ width: `${data.score}%` }}
+                />
+              </div>
+              <div className="w-12 text-right font-mono text-sm">
+                {data.score.toFixed(1)}
+              </div>
+              <div 
+                className={`w-2 h-2 rounded-full shadow-sm ${getRagDotClass(data.rag)}`}
+              />
+            </div>
+          );
+        })}
     </div>
   );
 }
