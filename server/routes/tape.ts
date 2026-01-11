@@ -53,9 +53,18 @@ router.get("/", (req: Request, res: Response) => {
 });
 
 router.get("/latest", (req: Request, res: Response) => {
-  const n = Math.min(Number(req.query.n) || 10, 100);
-  const events = tapeStore.latest(n);
-  return res.json({ ok: true, count: events.length, events });
+  const { symbol, venue, type, since, limit } = req.query;
+
+  const q: TapeQuery = {
+    symbol: typeof symbol === "string" ? symbol : undefined,
+    venue: typeof venue === "string" ? venue as LiquidityVenue : undefined,
+    type: typeof type === "string" ? type as LiquidityTapeEventType : undefined,
+    since: typeof since === "string" ? Number(since) : undefined,
+    limit: Math.min(Number(limit) || 10, 100),
+  };
+
+  const events = tapeStore.query(q);
+  res.json({ ok: true, count: events.length, events });
 });
 
 router.get("/snapshot", (_req: Request, res: Response) => {
