@@ -1,7 +1,15 @@
 // server/services/tapeStore.ts
 // RING BUFFER for Liquidity Tape events
 
-import type { LiquidityTapeEvent, TapeQuery } from "../../shared/liquidityTape";
+import type { LiquidityTapeEvent, LiquidityVenue, LiquidityTapeEventType } from "../../shared/liquidityTape";
+
+export type TapeQuery = {
+  symbol?: string;
+  venue?: LiquidityVenue;
+  type?: LiquidityTapeEventType;
+  since?: number;
+  limit?: number;
+};
 
 const DEFAULT_MAX_EVENTS = 10_000;
 

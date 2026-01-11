@@ -2,8 +2,8 @@
 // REST API for Liquidity Tape
 
 import { Router } from "express";
-import type { LiquidityTapeEvent, TapeQuery, LiquidityTapeVenue, LiquidityTapeEventType } from "../../shared/liquidityTape";
-import { tapeStore } from "../services/tapeStore";
+import type { LiquidityTapeEvent, LiquidityVenue, LiquidityTapeEventType } from "../../shared/liquidityTape";
+import { tapeStore, type TapeQuery } from "../services/tapeStore";
 
 const router = Router();
 
@@ -16,7 +16,7 @@ router.get("/", (req, res) => {
 
   const q: TapeQuery = {};
   if (symbol && typeof symbol === "string") q.symbol = symbol.toUpperCase();
-  if (venue && typeof venue === "string") q.venue = venue as LiquidityTapeVenue;
+  if (venue && typeof venue === "string") q.venue = venue as LiquidityVenue;
   if (type && typeof type === "string") q.type = type as LiquidityTapeEventType;
   if (since) q.since = Number(since);
   if (limit) q.limit = Math.min(Number(limit) || 100, 1000);

@@ -1,38 +1,69 @@
 // shared/liquidityTape.ts
-// Liquidity Tape v0.1 — Architecture (Locked)
-
-export type LiquidityTapeVenue = "binance" | "coinbase" | "kraken";
-
-export type LiquidityTapeMode = "live" | "test" | "mock";
+export type LiquidityVenue =
+  | "binance"
+  | "coinbase"
+  | "kraken"
+  | "okx"
+  | "bybit"
+  | "dex"
+  | "unknown";
 
 export type LiquidityTapeEventType =
   | "DEPTH_UPDATE"
-  | "TRADE"
-  | "LIQUIDATION"
-  | "FUNDING"
-  | "SPREAD_CHANGE";
+  | "SPREAD_UPDATE"
+  | "FUNDING_RATE"
+  | "IMBALANCE"
+  | "MARK_PRICE";
 
-export interface LiquidityTapeEvent {
+export type DepthPayload = {
+  side: "bid" | "ask";
+  price: number;
+  size: number;
+  notionalUsd?: number;
+  spreadBps?: number;
+  depthUsd?: number;
+  bps?: number;
+};
+
+export type SpreadPayload = {
+  spreadBps: number;
+  bid?: number;
+  ask?: number;
+  mid?: number;
+};
+
+export type FundingPayload = {
+  fundingRate: number;
+  apr?: number;
+};
+
+export type ImbalancePayload = {
+  imbalancePct: number;
+  totalUsd?: number;
+};
+
+export type MarkPricePayload = {
+  price: number;
+};
+
+export type LiquidityTapePayload =
+  | DepthPayload
+  | SpreadPayload
+  | FundingPayload
+  | ImbalancePayload
+  | MarkPricePayload;
+
+export type LiquidityTapeEvent = {
   id: string;
   ts: number;
   type: LiquidityTapeEventType;
-  venue: LiquidityTapeVenue;
+  venue: LiquidityVenue;
   symbol: string;
-  payload: {
-    side?: "bid" | "ask";
-    price?: number;
-    size?: number;
-    notionalUSD?: number;
-    spreadBps?: number;
-    fundingRate?: number;
-    [key: string]: unknown;
-  };
-}
+  payload: LiquidityTapePayload;
+};
 
-export interface TapeQuery {
-  symbol?: string;
-  venue?: LiquidityTapeVenue;
-  type?: LiquidityTapeEventType;
-  since?: number;
-  limit?: number;
-}
+export type LiquidityTapeLatestResponse = {
+  ok: true;
+  count: number;
+  events: LiquidityTapeEvent[];
+};
