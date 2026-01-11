@@ -1,17 +1,26 @@
 // server/index-prod.ts
-import path from "path";
-import express, { type Express } from "express";
-import type { Server } from "node:http";
 import fs from "node:fs";
 import path from "node:path";
-import { type Server } from "node:http";
-
 import express, { type Express } from "express";
+import type { Server } from "node:http";
+
 import runApp from "./app";
 
-export async function setupProd(app: Express, _server: Server) {
-  const publicDir = path.resolve("dist/public");
+/**
+ * Production static serving:
+ * - serves dist/public (Vite build output)
+ * - SPA fallback for non-/api routes
+ */
+export async function serveStatic(app: Express, _server: Server) {
+  // Primary location: Vite build outDir
+  const publicDir = path.resolve(process.cwd(), "dist/public");
   const indexHtml = path.join(publicDir, "index.html");
+
+  if (!fs.existsSync(indexHtml)) {
+    throw new Error(
+      `Could not find ${indexHtml}. Run "npm run build" before starting production.`,
+    );
+  }
 
   // Serve built assets
   app.use(express.static(publicDir));
@@ -21,23 +30,8 @@ export async function setupProd(app: Express, _server: Server) {
     res.sendFile(indexHtml);
   });
 }
-export async function serveStatic(app: Express, _server: Server) {
-  const distPath = path.resolve(import.meta.dirname, "public");
 
-  if (!fs.existsSync(distPath)) {
-    throw new Error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`,
-    );
-  }
-
-  app.use(express.static(distPath));
-
-  // fall through to index.html if the file doesn't exist
-  app.use("*", (_req, res) => {
-    res.sendFile(path.resolve(distPath, "index.html"));
-  });
-}
-
+// Boot
 (async () => {
   await runApp(serveStatic);
 })();
