@@ -348,7 +348,9 @@ router.get("/", async (req: Request, res: Response) => {
         return res.json(resp);
       }
 
-      const { bidUSD, askUSD } = computeBandDepthUSD({ bids: relay.bids, asks: relay.asks, bps });
+      const bids = (relay.bids ?? []) as [number, number][];
+      const asks = (relay.asks ?? []) as [number, number][];
+      const { bidUSD, askUSD } = computeBandDepthUSD({ bids, asks, bps });
 
       pushVenue({
         venue: "BINANCE",
@@ -378,7 +380,9 @@ router.get("/", async (req: Request, res: Response) => {
         return res.json(resp);
       }
 
-      const { bidUSD, askUSD } = computeBandDepthUSD({ bids: book.bids, asks: book.asks, bps });
+      const bids = (book.bids ?? []) as [number, number][];
+      const asks = (book.asks ?? []) as [number, number][];
+      const { bidUSD, askUSD } = computeBandDepthUSD({ bids, asks, bps });
 
       pushVenue({
         venue: "COINBASE",
@@ -408,7 +412,9 @@ router.get("/", async (req: Request, res: Response) => {
         return res.json(resp);
       }
 
-      const { bidUSD, askUSD } = computeBandDepthUSD({ bids: book.bids, asks: book.asks, bps });
+      const bids = (book.bids ?? []) as [number, number][];
+      const asks = (book.asks ?? []) as [number, number][];
+      const { bidUSD, askUSD } = computeBandDepthUSD({ bids, asks, bps });
 
       pushVenue({
         venue: "KRAKEN",
@@ -438,7 +444,9 @@ router.get("/", async (req: Request, res: Response) => {
         return res.json(resp);
       }
 
-      const { bidUSD, askUSD } = computeBandDepthUSD({ bids: book.bids, asks: book.asks, bps });
+      const bids = (book.bids ?? []) as [number, number][];
+      const asks = (book.asks ?? []) as [number, number][];
+      const { bidUSD, askUSD } = computeBandDepthUSD({ bids, asks, bps });
 
       pushVenue({
         venue: "OKX",
