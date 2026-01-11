@@ -1,5 +1,27 @@
 # StrataLink Labs - Institutional Liquidity Terminal
 
+## Version Milestone: Liquidity Tape v1.0 - Consolidated Liquidity Tape
+**Date**: January 11, 2026
+
+This milestone adds the Liquidity Tape system - a real-time event stream for liquidity data:
+
+**Architecture:**
+- In-memory ring buffer (10,000 events max)
+- Event types: DEPTH_UPDATE, TRADE, LIQUIDATION, FUNDING, SPREAD_CHANGE
+- Supported venues: binance, coinbase, kraken
+
+**API Endpoints:**
+- `GET /api/tape` - Query events with filters (symbol, venue, type, since, limit)
+- `GET /api/tape/latest?n=10` - Get latest N events
+- `POST /api/tape` - Push new event to the tape
+
+**Files:**
+- `shared/liquidityTape.ts` - Type definitions (LiquidityTapeEvent, TapeQuery)
+- `server/services/tapeStore.ts` - Ring buffer implementation
+- `server/routes/tape.ts` - REST API endpoints
+
+---
+
 ## Version Milestone: Liquidity Truth Console (LTC) v1.0 - Canonical Liquidity State
 **Date**: December 28, 2025
 

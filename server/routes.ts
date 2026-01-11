@@ -16,6 +16,7 @@ import lisRoutes from "./routes/lis";
 import poliRoutes from "./routes/poli";
 import poliEvidenceRoutes from "./routes/poliEvidence";
 import alertsRoutes from "./routes/alerts";
+import tapeRoutes from "./routes/tape";
 import dailyCommentaryRouter from "./api/dailyCommentary";
 import { startIngestionLoop } from "../analytics/engines/ingestionManager";
 import { 
@@ -406,6 +407,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mount stress alert routes
   app.use("/api/alerts", alertsRoutes);
+
+  app.use("/api/tape", tapeRoutes);
 
   // Download endpoint for LTC code archive
   app.get("/download/LTC-v1.0.zip", (_req, res) => {
