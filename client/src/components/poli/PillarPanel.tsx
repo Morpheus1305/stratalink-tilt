@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ChevronDown, ChevronUp } from "lucide-react";
-import type { PillarData, RagStatus, VerifyState } from "@shared/poli";
+import type { PillarData, PillarMetric, RagStatus, VerifyState } from "@shared/poli";
 import MetricRow from "./MetricRow";
 
 interface Props {
@@ -93,7 +93,7 @@ export default function PillarPanel({ title, pillarKey, data }: Props) {
 
                 {inputData.metrics && inputData.metrics.length > 0 && (
                   <div className="mt-2">
-                    {inputData.metrics.map(m => (
+                    {inputData.metrics.map((m: PillarMetric) => (
                       <MetricRow key={m.key} metric={m} />
                     ))}
                   </div>
