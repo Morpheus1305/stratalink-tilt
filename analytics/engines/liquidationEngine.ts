@@ -1,4 +1,11 @@
 import { PERP_SYMBOLS } from "../aggregator/config/symbols";
+import { tapeStore } from "../../server/services/tapeStore";
+
+function safePushToTape(evt: any) {
+  if (evt && tapeStore?.push) {
+    try { tapeStore.push(evt); } catch { }
+  }
+}
 
 /**
  * Liquidation Engine
@@ -68,6 +75,18 @@ export async function ingestLiquidations(): Promise<void> {
     const imbalanceStr = (data.imbalance * 100).toFixed(1);
     const skew = data.imbalance > 0.1 ? "LONG-HEAVY" : data.imbalance < -0.1 ? "SHORT-HEAVY" : "BALANCED";
     console.log(`[LiquidationEngine] ${key}: $${totalM}M total, ${imbalanceStr}% imbalance (${skew})`);
+
+    safePushToTape({
+      id: `imbalance-${key}-${Date.now()}`,
+      ts: Date.now(),
+      type: "IMBALANCE",
+      venue: "unknown" as any,
+      symbol: key,
+      payload: {
+        imbalancePct: data.imbalance,
+        totalUsd: data.totalLiquidationsUSD,
+      },
+    });
   }
 
   LIQUIDATION_CACHE = out;

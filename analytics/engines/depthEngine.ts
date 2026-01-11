@@ -2,6 +2,16 @@ import { DEPTH_TOKENS, SYMBOL_MAP } from "../aggregator/config/symbols";
 import { fetchCoinbaseDepth } from "../aggregator/exchanges/coinbase";
 import { fetchKrakenDepth } from "../aggregator/exchanges/kraken";
 import { fetchOKXDepth } from "../aggregator/exchanges/okx";
+import { tapeStore } from "../../server/services/tapeStore";
+
+function safePushToTape(evt: any) {
+  if (evt && tapeStore?.push) {
+    try {
+      tapeStore.push(evt);
+    } catch {
+    }
+  }
+}
 
 const BANDS = [0.001, 0.0025, 0.005, 0.01, 0.02];
 
@@ -186,6 +196,37 @@ export async function ingestDepth(): Promise<void> {
       };
 
       console.log(`[DepthEngine] ${symbol}: Mid $${mid.toFixed(2)}, Spread ${spreadBps.toFixed(2)}bps (${source})`);
+
+      safePushToTape({
+        id: `depth-${symbol}-${Date.now()}`,
+        ts: Date.now(),
+        type: "DEPTH_UPDATE",
+        venue: source as any,
+        symbol,
+        payload: {
+          side: "bid" as const,
+          price: bestBid,
+          size: bids[0] ? Number(bids[0][1]) : 0,
+          notionalUsd: depthBands["25bps"]?.bidUSD ?? 0,
+          spreadBps,
+          depthUsd: depthBands["25bps"]?.totalUSD ?? 0,
+          bps: 25,
+        },
+      });
+
+      safePushToTape({
+        id: `spread-${symbol}-${Date.now()}`,
+        ts: Date.now(),
+        type: "SPREAD_UPDATE",
+        venue: source as any,
+        symbol,
+        payload: {
+          spreadBps,
+          bid: bestBid,
+          ask: bestAsk,
+          mid,
+        },
+      });
     } catch (err: any) {
       console.error(`[DepthEngine] Error for ${symbol}:`, err.message);
     }

@@ -1,6 +1,13 @@
 import { fetchBybitPerpTicker } from "../aggregator/exchanges/bybit";
 import { fetchOKXFundingRate } from "../aggregator/exchanges/okx";
 import { PERP_SYMBOLS } from "../aggregator/config/symbols";
+import { tapeStore } from "../../server/services/tapeStore";
+
+function safePushToTape(evt: any) {
+  if (evt && tapeStore?.push) {
+    try { tapeStore.push(evt); } catch { }
+  }
+}
 
 export type FundingData = {
   fundingRate: number;
@@ -76,6 +83,18 @@ export async function ingestFunding(): Promise<void> {
       const frDisplay = (data.fundingRate * 100).toFixed(4);
       const annualized = data.fundingRateAnnualized.toFixed(2);
       console.log(`[FundingEngine] ${key}: Rate ${frDisplay}% (${annualized}% APR) via ${data.source}`);
+
+      safePushToTape({
+        id: `funding-${key}-${Date.now()}`,
+        ts: Date.now(),
+        type: "FUNDING_RATE",
+        venue: data.source as any,
+        symbol: key,
+        payload: {
+          fundingRate: data.fundingRate,
+          apr: data.fundingRateAnnualized,
+        },
+      });
     } else {
       console.debug(`[FundingEngine] No funding data for ${symbol}`);
     }
