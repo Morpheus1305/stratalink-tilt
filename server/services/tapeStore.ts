@@ -8,10 +8,17 @@ export type TapeQuery = {
   venue?: LiquidityVenue;
   type?: LiquidityTapeEventType;
   since?: number;
+  until?: number;
   limit?: number;
 };
 
 const DEFAULT_MAX_EVENTS = 10_000;
+
+function clamp(n: unknown, fallback: number, min: number, max: number): number {
+  const num = Number(n);
+  if (Number.isNaN(num)) return fallback;
+  return Math.max(min, Math.min(max, num));
+}
 
 class TapeStore {
   private buffer: LiquidityTapeEvent[] = [];
@@ -26,6 +33,11 @@ class TapeStore {
       this.buffer.shift();
     }
     this.buffer.push(event);
+  }
+
+  pushBatch(events: LiquidityTapeEvent[]): number {
+    for (const e of events) this.push(e);
+    return events.length;
   }
 
   query(q: TapeQuery): LiquidityTapeEvent[] {
@@ -43,6 +55,9 @@ class TapeStore {
     if (q.since) {
       results = results.filter((e) => e.ts >= q.since!);
     }
+    if (q.until) {
+      results = results.filter((e) => e.ts <= q.until!);
+    }
 
     results.sort((a, b) => b.ts - a.ts);
 
@@ -54,9 +69,19 @@ class TapeStore {
     return this.buffer.slice(-n).reverse();
   }
 
+  latestBy(number = DEFAULT_LATEST_LIMIT): LiquidityTapeEvent[] {
+    return this.latest(clamp(number, DEFAULT_LATEST_LIMIT, 1, 500));
+  }
+
   size(): number {
     return this.buffer.length;
   }
+
+  snapshot(): LiquidityTapeEvent[] {
+    return [...this.buffer];
+  }
 }
+
+const DEFAULT_LATEST_LIMIT = 100;
 
 export const tapeStore = new TapeStore();
