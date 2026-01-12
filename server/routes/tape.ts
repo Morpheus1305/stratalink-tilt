@@ -5,6 +5,7 @@ import { Router } from "express";
 import type { Request, Response } from "express";
 import type { LiquidityTapeEvent, LiquidityVenue, LiquidityTapeEventType } from "../../shared/liquidityTape";
 import { tapeStore, type TapeQuery } from "../services/tapeStore";
+import { resolveVenueSymbols, normalizeCanonicalSymbols } from "../services/symbols";
 
 const router = Router();
 
@@ -34,8 +35,11 @@ router.get("/stream", (_req: Request, _res: Response, next) => {
 router.get("/", (req: Request, res: Response) => {
   const { symbol, venue, type, since, until, limit } = req.query;
 
+  const canon = typeof symbol === "string" ? symbol : undefined;
+  const resolvedSymbols = canon ? resolveVenueSymbols(canon) : undefined;
+
   const q: TapeQuery = {};
-  if (symbol && typeof symbol === "string") q.symbol = symbol.toUpperCase();
+  if (resolvedSymbols) q.symbols = resolvedSymbols;
   if (venue) {
     const v = parseFilter(venue, ["binance", "coinbase", "kraken", "okx", "bybit", "dex", "unknown"] as LiquidityVenue[]);
     if (v) q.venue = v;
@@ -49,14 +53,17 @@ router.get("/", (req: Request, res: Response) => {
   if (limit) q.limit = Math.min(Number(limit) || 100, 1000);
 
   const events = tapeStore.query(q);
-  return res.json({ ok: true, count: events.length, events });
+  return res.json({ ok: true, count: events.length, events, resolvedSymbols: resolvedSymbols ?? [] });
 });
 
 router.get("/latest", (req: Request, res: Response) => {
   const { symbol, venue, type, since, limit } = req.query;
 
+  const canon = typeof symbol === "string" ? symbol : undefined;
+  const resolvedSymbols = canon ? resolveVenueSymbols(canon) : undefined;
+
   const q: TapeQuery = {
-    symbol: typeof symbol === "string" ? symbol : undefined,
+    symbols: resolvedSymbols,
     venue: typeof venue === "string" ? venue as LiquidityVenue : undefined,
     type: typeof type === "string" ? type as LiquidityTapeEventType : undefined,
     since: typeof since === "string" ? Number(since) : undefined,
@@ -64,7 +71,7 @@ router.get("/latest", (req: Request, res: Response) => {
   };
 
   const events = tapeStore.query(q);
-  res.json({ ok: true, count: events.length, events });
+  res.json({ ok: true, count: events.length, events, resolvedSymbols: resolvedSymbols ?? [] });
 });
 
 router.get("/snapshot", (_req: Request, res: Response) => {

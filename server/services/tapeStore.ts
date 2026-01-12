@@ -5,6 +5,7 @@ import type { LiquidityTapeEvent, LiquidityVenue, LiquidityTapeEventType } from 
 
 export type TapeQuery = {
   symbol?: string;
+  symbols?: string[];
   venue?: LiquidityVenue;
   type?: LiquidityTapeEventType;
   since?: number;
@@ -43,8 +44,15 @@ class TapeStore {
   query(q: TapeQuery): LiquidityTapeEvent[] {
     let results = [...this.buffer];
 
-    if (q.symbol) {
-      results = results.filter((e) => e.symbol === q.symbol);
+    const symbolsOK =
+      q.symbols && q.symbols.length > 0
+        ? new Set(q.symbols.map((s) => s.toUpperCase()))
+        : q.symbol
+          ? new Set([q.symbol.toUpperCase()])
+          : null;
+
+    if (symbolsOK) {
+      results = results.filter((e) => symbolsOK.has(e.symbol));
     }
     if (q.venue) {
       results = results.filter((e) => e.venue === q.venue);
