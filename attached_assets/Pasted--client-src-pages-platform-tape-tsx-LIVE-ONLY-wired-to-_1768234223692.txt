@@ -5,7 +5,7 @@
 //
 // Canonical schema comes from shared/liquidityTape.ts
 
-import { useEffect, useMemo, useRef, useState, Fragment } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import type {
@@ -18,7 +18,7 @@ import type {
   FundingPayload,
   ImbalancePayload,
   MarkPricePayload,
-} from "@shared/liquidityTape";
+} from "../../../shared/liquidityTape";
 
 type TapeHealthVenue = {
   status: "ok" | "degraded" | "down" | "unknown";
@@ -129,119 +129,6 @@ function summarize(ev: LiquidityTapeEvent): string {
   }
 }
 
-type SummaryStats = {
-  depthCount: number;
-  spreadCount: number;
-  fundingCount: number;
-  imbalanceCount: number;
-  markCount: number;
-  totalNotionalUsd: number;
-  avgSpreadBps: number | null;
-  latestMark: number | null;
-};
-
-function computeSummary(events: LiquidityTapeEvent[]): SummaryStats {
-  let depthCount = 0;
-  let spreadCount = 0;
-  let fundingCount = 0;
-  let imbalanceCount = 0;
-  let markCount = 0;
-  let totalNotionalUsd = 0;
-  let spreadSum = 0;
-  let spreadN = 0;
-  let latestMark: number | null = null;
-
-  for (const ev of events) {
-    const p = ev.payload as any;
-    switch (ev.type) {
-      case "DEPTH_UPDATE":
-        depthCount++;
-        if (isDepthPayload(p) && typeof p.notionalUsd === "number") {
-          totalNotionalUsd += p.notionalUsd;
-        }
-        break;
-      case "SPREAD_UPDATE":
-        spreadCount++;
-        if (isSpreadPayload(p)) {
-          spreadSum += p.spreadBps;
-          spreadN++;
-        }
-        break;
-      case "FUNDING_RATE":
-        fundingCount++;
-        break;
-      case "IMBALANCE":
-        imbalanceCount++;
-        break;
-      case "MARK_PRICE":
-        markCount++;
-        if (latestMark === null && isMarkPricePayload(p)) {
-          latestMark = p.price;
-        }
-        break;
-    }
-  }
-
-  return {
-    depthCount,
-    spreadCount,
-    fundingCount,
-    imbalanceCount,
-    markCount,
-    totalNotionalUsd,
-    avgSpreadBps: spreadN > 0 ? spreadSum / spreadN : null,
-    latestMark,
-  };
-}
-
-function SummaryStrip({ events }: { events: LiquidityTapeEvent[] }) {
-  const stats = useMemo(() => computeSummary(events), [events]);
-
-  return (
-    <div className="rounded border border-neutral-900 p-3">
-      <div className="text-xs opacity-70 mb-2">Summary (filtered window)</div>
-      <div className="flex flex-wrap gap-4 text-sm">
-        <div>
-          <span className="opacity-70">Depth:</span>{" "}
-          <span className="font-mono">{stats.depthCount}</span>
-        </div>
-        <div>
-          <span className="opacity-70">Spread:</span>{" "}
-          <span className="font-mono">{stats.spreadCount}</span>
-        </div>
-        <div>
-          <span className="opacity-70">Funding:</span>{" "}
-          <span className="font-mono">{stats.fundingCount}</span>
-        </div>
-        <div>
-          <span className="opacity-70">Imbalance:</span>{" "}
-          <span className="font-mono">{stats.imbalanceCount}</span>
-        </div>
-        <div>
-          <span className="opacity-70">Mark:</span>{" "}
-          <span className="font-mono">{stats.markCount}</span>
-        </div>
-        <div>
-          <span className="opacity-70">Notional:</span>{" "}
-          <span className="font-mono">{fmtUsd(stats.totalNotionalUsd)}</span>
-        </div>
-        <div>
-          <span className="opacity-70">Avg Spread:</span>{" "}
-          <span className="font-mono">
-            {stats.avgSpreadBps !== null ? `${fmtNum(stats.avgSpreadBps, 2)}bps` : "—"}
-          </span>
-        </div>
-        <div>
-          <span className="opacity-70">Mark Px:</span>{" "}
-          <span className="font-mono">
-            {stats.latestMark !== null ? fmtNum(stats.latestMark, 2) : "—"}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 async function fetchJson<T>(url: string): Promise<T> {
   const r = await fetch(url, { headers: { Accept: "application/json" } });
   if (!r.ok) {
@@ -260,8 +147,6 @@ export default function TapePage() {
   const [windowSec, setWindowSec] = useState(60);
   const [limit, setLimit] = useState(100);
   const [search, setSearch] = useState("");
-
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const [venueOn, setVenueOn] = useState<Record<LiquidityVenue, boolean>>({
     binance: true,
@@ -336,6 +221,7 @@ export default function TapePage() {
       .sort((a, b) => (b.ts ?? 0) - (a.ts ?? 0));
   }, [eventsRaw, selectedVenues, selectedTypes, search]);
 
+  // Autoscroll (newest-first)
   const listRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -388,7 +274,7 @@ export default function TapePage() {
   const showEmpty = !latestQuery.isLoading && events.length === 0;
 
   return (
-    <div className="p-4 space-y-4" data-testid="tape-page">
+    <div className="p-4 space-y-4">
       <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
         <div>
           <h1 className="text-xl font-semibold">Live Tape</h1>
@@ -401,7 +287,6 @@ export default function TapePage() {
           <button
             onClick={() => setPaused((p) => !p)}
             className="text-sm px-3 py-1.5 rounded border border-neutral-800 hover:opacity-90"
-            data-testid="button-pause"
           >
             {paused ? "Resume" : "Pause"}
           </button>
@@ -409,7 +294,6 @@ export default function TapePage() {
           <button
             onClick={() => setAdvanced((a) => !a)}
             className="text-sm px-3 py-1.5 rounded border border-neutral-800 hover:opacity-90"
-            data-testid="button-advanced"
           >
             {advanced ? "Advanced: On" : "Advanced: Off"}
           </button>
@@ -417,7 +301,6 @@ export default function TapePage() {
           <button
             onClick={exportJson}
             className="text-sm px-3 py-1.5 rounded border border-neutral-800 hover:opacity-90"
-            data-testid="button-export"
           >
             Export JSON
           </button>
@@ -432,7 +315,7 @@ export default function TapePage() {
           const ageSec = last ? Math.max(0, Math.round(((now - last) / 100)) / 10) : null;
           const status = h?.status ?? "unknown";
           return (
-            <div key={v} className={`rounded p-3 ${statusBoxClass(status)}`} data-testid={`health-${v}`}>
+            <div key={v} className={`rounded p-3 ${statusBoxClass(status)}`}>
               <div className="flex items-center justify-between">
                 <div className="font-medium">{v}</div>
                 <div className="text-xs opacity-80">{String(status).toUpperCase()}</div>
@@ -441,15 +324,12 @@ export default function TapePage() {
               <div className="mt-1 text-xs opacity-80 flex gap-3 flex-wrap">
                 <span>Rate(5s): {h?.msg_rate_5s ?? "—"}</span>
                 <span>Lag: {h?.lag_ms ?? "—"}ms</span>
-                <span>Err(5m): {h?.errors_5m ?? "—"}</span>
+                <span>IMB(5m): {h?.errors_5m ?? "—"}</span>
               </div>
             </div>
           );
         })}
       </div>
-
-      {/* Summary Strip */}
-      <SummaryStrip events={events} />
 
       {/* Controls */}
       <div className="rounded border border-neutral-900 p-3 space-y-3">
@@ -461,7 +341,6 @@ export default function TapePage() {
               onChange={(e) => setSymbol(e.target.value)}
               className="px-2 py-1.5 rounded border border-neutral-800 bg-transparent w-44"
               placeholder="BTC-USD"
-              data-testid="input-symbol"
             />
           </div>
 
@@ -474,7 +353,6 @@ export default function TapePage() {
                 className={`text-sm px-2.5 py-1.5 rounded border ${
                   venueOn[v] ? "border-neutral-700" : "border-neutral-900 opacity-60"
                 }`}
-                data-testid={`button-venue-${v}`}
               >
                 {v}
               </button>
@@ -490,7 +368,6 @@ export default function TapePage() {
                 className={`text-sm px-2.5 py-1.5 rounded border ${
                   typeOn[t] ? "border-neutral-700" : "border-neutral-900 opacity-60"
                 }`}
-                data-testid={`button-type-${t}`}
               >
                 {t}
               </button>
@@ -505,7 +382,6 @@ export default function TapePage() {
               value={windowSec}
               onChange={(e) => setWindowSec(Number(e.target.value))}
               className="px-2 py-1.5 rounded border border-neutral-800 bg-transparent"
-              data-testid="select-window"
             >
               <option value={30}>30s</option>
               <option value={60}>60s</option>
@@ -519,7 +395,6 @@ export default function TapePage() {
               value={limit}
               onChange={(e) => setLimit(clamp(Number(e.target.value), 10, 100))}
               className="px-2 py-1.5 rounded border border-neutral-800 bg-transparent"
-              data-testid="select-limit"
             >
               <option value={25}>25</option>
               <option value={50}>50</option>
@@ -534,7 +409,6 @@ export default function TapePage() {
               onChange={(e) => setSearch(e.target.value)}
               className="px-2 py-1.5 rounded border border-neutral-800 bg-transparent w-full"
               placeholder="id, venue, type…"
-              data-testid="input-search"
             />
           </div>
 
@@ -542,14 +416,12 @@ export default function TapePage() {
             <button
               onClick={() => setAutoScroll((a) => !a)}
               className="text-sm px-3 py-1.5 rounded border border-neutral-800 hover:opacity-90"
-              data-testid="button-autoscroll"
             >
               Auto-scroll: {autoScroll ? "On" : "Off"}
             </button>
             <button
               onClick={jumpToLatest}
               className="text-sm px-3 py-1.5 rounded border border-neutral-800 hover:opacity-90"
-              data-testid="button-jump"
             >
               Jump to latest
             </button>
@@ -574,7 +446,7 @@ export default function TapePage() {
         </div>
 
         {showEmpty ? (
-          <div className="p-6 text-sm opacity-80" data-testid="text-empty">
+          <div className="p-6 text-sm opacity-80">
             No events for current filters. Check /api/tape/health or widen window/types.
           </div>
         ) : (
@@ -596,19 +468,62 @@ export default function TapePage() {
                 {events.map((e) => {
                   const ageMs = now - e.ts;
                   const age = ageMs >= 0 ? `${(ageMs / 1000).toFixed(1)}s` : "—";
-                  const isOpen = !!expanded[e.id];
 
                   return (
-                    <Fragment key={e.id}>
-                      <tr className="border-b border-neutral-950 align-top" data-testid={`row-event-${e.id}`}>
+                    <React.Fragment key={e.id}>
+                      <tr className="border-b border-neutral-950 align-top">
                         <td className="p-2">
                           <button
                             onClick={() => setExpanded((p) => ({ ...p, [e.id]: !p[e.id] }))}
                             className="px-2 py-0.5 rounded border border-neutral-900 hover:opacity-90 text-xs"
                             aria-label="Toggle row"
-                            data-testid={`button-expand-${e.id}`}
                           >
-                            {isOpen ? "–" : "+"}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {/** */}
+                            {expanded[e.id] ? "–" : "+"}
                           </button>
                         </td>
 
@@ -622,7 +537,7 @@ export default function TapePage() {
                         </td>
                       </tr>
 
-                      {isOpen && (
+                      {expanded[e.id] && (
                         <tr className="border-b border-neutral-950">
                           <td className="p-2" />
                           <td className="p-2" colSpan={advanced ? 6 : 5}>
@@ -653,7 +568,7 @@ export default function TapePage() {
                           </td>
                         </tr>
                       )}
-                    </Fragment>
+                    </React.Fragment>
                   );
                 })}
               </tbody>
