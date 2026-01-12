@@ -4,6 +4,7 @@
 //   GET /api/tape/health
 //
 // Canonical schema comes from shared/liquidityTape.ts
+// Sticky per-venue state: persists the last known MARK/SPREAD/DEPTH/FUNDING/IMBALANCE per venue
 
 import { useEffect, useMemo, useRef, useState, Fragment } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -32,6 +33,88 @@ type HealthResponse = {
   server_ts: number;
   venues: Record<string, TapeHealthVenue>;
 };
+
+type VenueSummary = {
+  lastTs: number | null;
+  markPrice: number | null;
+  spreadBps: number | null;
+  bid: number | null;
+  ask: number | null;
+  mid: number | null;
+  depthCount: number;
+  lastDepthSide: "bid" | "ask" | null;
+  lastDepthPrice: number | null;
+  fundingRate: number | null;
+  imbalancePct: number | null;
+  imbalanceTotalUsd: number | null;
+};
+
+function emptyVenueSummary(): VenueSummary {
+  return {
+    lastTs: null,
+    markPrice: null,
+    spreadBps: null,
+    bid: null,
+    ask: null,
+    mid: null,
+    depthCount: 0,
+    lastDepthSide: null,
+    lastDepthPrice: null,
+    fundingRate: null,
+    imbalancePct: null,
+    imbalanceTotalUsd: null,
+  };
+}
+
+function mergeVenueSummaries(
+  prev: Record<string, VenueSummary>,
+  batch: LiquidityTapeEvent[],
+  next: Record<string, VenueSummary>,
+  venues: LiquidityVenue[]
+): Record<string, VenueSummary> {
+  const out: Record<string, VenueSummary> = {};
+  for (const v of venues) {
+    out[v] = { ...(prev[v] ?? emptyVenueSummary()) };
+  }
+
+  for (const ev of batch) {
+    if (!out[ev.venue]) continue;
+    const s = out[ev.venue];
+    const p = ev.payload as any;
+
+    if (s.lastTs === null || ev.ts > s.lastTs) {
+      s.lastTs = ev.ts;
+    }
+
+    if (ev.type === "MARK_PRICE" && isMarkPricePayload(p)) {
+      s.markPrice = p.price;
+    }
+    if (ev.type === "SPREAD_UPDATE" && isSpreadPayload(p)) {
+      s.spreadBps = p.spreadBps;
+      if (typeof p.bid === "number") s.bid = p.bid;
+      if (typeof p.ask === "number") s.ask = p.ask;
+      if (typeof p.mid === "number") s.mid = p.mid;
+    }
+    if (ev.type === "DEPTH_UPDATE" && isDepthPayload(p)) {
+      s.depthCount++;
+      s.lastDepthSide = p.side;
+      s.lastDepthPrice = p.price;
+    }
+    if (ev.type === "FUNDING_RATE" && isFundingPayload(p)) {
+      s.fundingRate = p.fundingRate;
+    }
+    if (ev.type === "IMBALANCE" && isImbalancePayload(p)) {
+      s.imbalancePct = p.imbalancePct;
+      if (typeof p.totalUsd === "number") s.imbalanceTotalUsd = p.totalUsd;
+    }
+  }
+
+  return out;
+}
+
+function computeVenueSummaries(events: LiquidityTapeEvent[], venues: LiquidityVenue[]): Record<string, VenueSummary> {
+  return mergeVenueSummaries({}, events, {}, venues);
+}
 
 function fmtTimeMs(ts: number | null | undefined) {
   if (!ts || Number.isNaN(ts)) return "—";
@@ -129,114 +212,36 @@ function summarize(ev: LiquidityTapeEvent): string {
   }
 }
 
-type SummaryStats = {
-  depthCount: number;
-  spreadCount: number;
-  fundingCount: number;
-  imbalanceCount: number;
-  markCount: number;
-  totalNotionalUsd: number;
-  avgSpreadBps: number | null;
-  latestMark: number | null;
-};
-
-function computeSummary(events: LiquidityTapeEvent[]): SummaryStats {
-  let depthCount = 0;
-  let spreadCount = 0;
-  let fundingCount = 0;
-  let imbalanceCount = 0;
-  let markCount = 0;
-  let totalNotionalUsd = 0;
-  let spreadSum = 0;
-  let spreadN = 0;
-  let latestMark: number | null = null;
-
-  for (const ev of events) {
-    const p = ev.payload as any;
-    switch (ev.type) {
-      case "DEPTH_UPDATE":
-        depthCount++;
-        if (isDepthPayload(p) && typeof p.notionalUsd === "number") {
-          totalNotionalUsd += p.notionalUsd;
-        }
-        break;
-      case "SPREAD_UPDATE":
-        spreadCount++;
-        if (isSpreadPayload(p)) {
-          spreadSum += p.spreadBps;
-          spreadN++;
-        }
-        break;
-      case "FUNDING_RATE":
-        fundingCount++;
-        break;
-      case "IMBALANCE":
-        imbalanceCount++;
-        break;
-      case "MARK_PRICE":
-        markCount++;
-        if (latestMark === null && isMarkPricePayload(p)) {
-          latestMark = p.price;
-        }
-        break;
-    }
+function SummaryStrip({ venueState }: { venueState: Record<string, VenueSummary> }) {
+  const venues = Object.keys(venueState);
+  if (venues.length === 0) {
+    return (
+      <div className="rounded border border-neutral-900 p-3">
+        <div className="text-xs opacity-70">Summary (sticky state) — no data yet</div>
+      </div>
+    );
   }
 
-  return {
-    depthCount,
-    spreadCount,
-    fundingCount,
-    imbalanceCount,
-    markCount,
-    totalNotionalUsd,
-    avgSpreadBps: spreadN > 0 ? spreadSum / spreadN : null,
-    latestMark,
-  };
-}
-
-function SummaryStrip({ events }: { events: LiquidityTapeEvent[] }) {
-  const stats = useMemo(() => computeSummary(events), [events]);
-
   return (
-    <div className="rounded border border-neutral-900 p-3">
-      <div className="text-xs opacity-70 mb-2">Summary (filtered window)</div>
-      <div className="flex flex-wrap gap-4 text-sm">
-        <div>
-          <span className="opacity-70">Depth:</span>{" "}
-          <span className="font-mono">{stats.depthCount}</span>
-        </div>
-        <div>
-          <span className="opacity-70">Spread:</span>{" "}
-          <span className="font-mono">{stats.spreadCount}</span>
-        </div>
-        <div>
-          <span className="opacity-70">Funding:</span>{" "}
-          <span className="font-mono">{stats.fundingCount}</span>
-        </div>
-        <div>
-          <span className="opacity-70">Imbalance:</span>{" "}
-          <span className="font-mono">{stats.imbalanceCount}</span>
-        </div>
-        <div>
-          <span className="opacity-70">Mark:</span>{" "}
-          <span className="font-mono">{stats.markCount}</span>
-        </div>
-        <div>
-          <span className="opacity-70">Notional:</span>{" "}
-          <span className="font-mono">{fmtUsd(stats.totalNotionalUsd)}</span>
-        </div>
-        <div>
-          <span className="opacity-70">Avg Spread:</span>{" "}
-          <span className="font-mono">
-            {stats.avgSpreadBps !== null ? `${fmtNum(stats.avgSpreadBps, 2)}bps` : "—"}
-          </span>
-        </div>
-        <div>
-          <span className="opacity-70">Mark Px:</span>{" "}
-          <span className="font-mono">
-            {stats.latestMark !== null ? fmtNum(stats.latestMark, 2) : "—"}
-          </span>
-        </div>
+    <div className="rounded border border-neutral-900 p-3 space-y-2">
+      <div className="text-xs opacity-70">Summary (sticky per-venue state)</div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {venues.map((v) => {
+          const s = venueState[v];
+          if (!s) return null;
+          return (
+            <div key={v} className="text-sm space-y-1">
+              <div className="font-medium opacity-90">{v}</div>
+              <div className="flex flex-wrap gap-3 text-xs opacity-80">
+                <span>Mark: <span className="font-mono">{s.markPrice !== null ? fmtNum(s.markPrice, 2) : "—"}</span></span>
+                <span>Spread: <span className="font-mono">{s.spreadBps !== null ? `${fmtNum(s.spreadBps, 2)}bps` : "—"}</span></span>
+                <span>Depth: <span className="font-mono">{s.depthCount}</span></span>
+                <span>Funding: <span className="font-mono">{s.fundingRate !== null ? fmtNum(s.fundingRate, 6) : "—"}</span></span>
+                <span>Imb: <span className="font-mono">{s.imbalancePct !== null ? `${fmtNum(s.imbalancePct, 2)}%` : "—"}</span></span>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -290,6 +295,11 @@ export default function TapePage() {
     [typeOn]
   );
 
+  // Sticky per-venue "current state" cache (derived only from live events)
+  const [venueState, setVenueState] = useState<Record<string, VenueSummary>>(() =>
+    computeVenueSummaries([], selectedVenues)
+  );
+
   const latestUrl = useMemo(() => {
     const s = symbol.trim();
     if (!s) return null;
@@ -336,6 +346,13 @@ export default function TapePage() {
       .sort((a, b) => (b.ts ?? 0) - (a.ts ?? 0));
   }, [eventsRaw, selectedVenues, selectedTypes, search]);
 
+  // Update sticky venueState from the latest batch of filtered events
+  useEffect(() => {
+    if (!events || events.length === 0) return;
+    const batch = events;
+    setVenueState((prev) => mergeVenueSummaries(prev, batch, {}, selectedVenues));
+  }, [events, selectedVenues]);
+
   const listRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -373,7 +390,7 @@ export default function TapePage() {
 
   async function exportJson() {
     const blob = new Blob(
-      [JSON.stringify({ symbol, filters: { venueOn, typeOn, search, windowSec, limit }, events }, null, 2)],
+      [JSON.stringify({ symbol, filters: { venueOn, typeOn, search, windowSec, limit }, events, venueState }, null, 2)],
       { type: "application/json" }
     );
     const a = document.createElement("a");
@@ -421,6 +438,14 @@ export default function TapePage() {
           >
             Export JSON
           </button>
+
+          <button
+            onClick={() => setVenueState(computeVenueSummaries([], selectedVenues))}
+            className="text-sm px-3 py-1.5 rounded border border-neutral-800 hover:opacity-90"
+            data-testid="button-reset-cache"
+          >
+            Reset cache
+          </button>
         </div>
       </div>
 
@@ -448,8 +473,8 @@ export default function TapePage() {
         })}
       </div>
 
-      {/* Summary Strip */}
-      <SummaryStrip events={events} />
+      {/* Summary Strip (sticky per-venue state) */}
+      <SummaryStrip venueState={venueState} />
 
       {/* Controls */}
       <div className="rounded border border-neutral-900 p-3 space-y-3">
