@@ -184,6 +184,11 @@ const KRAKEN_BASE = 'https://api.kraken.com/0/public';
 const BYBIT_BASE = 'https://api.bybit.com/v5';
 const OKX_BASE = 'https://www.okx.com/api/v5';
 const COINMARKETCAP_BASE = 'https://pro-api.coinmarketcap.com/v1';
+const RELAY_URL = 'https://relay.stratalink.ai';
+
+function getRelayKey(): string | null {
+  return process.env.VITE_LIS_RELAY_KEY || process.env.LIS_RELAY_KEY || null;
+}
 
 const axiosInstance = axios.create({
   timeout: 8000,
@@ -493,19 +498,48 @@ export class Web3DataService {
     if (cached) return cached;
 
     try {
-      const binanceSymbol = `${symbol.toUpperCase()}USDT`;
-      const response = await axiosInstance.get<BinanceOrderBook>(
-        `${BINANCE_SPOT_BASE}/depth`,
-        {
-          params: {
-            symbol: binanceSymbol,
-            limit: 100,
-          },
+      let bids: [string, string][] = [];
+      let asks: [string, string][] = [];
+      
+      // Try relay first (bypasses geo-blocking)
+      const relayKey = getRelayKey();
+      if (relayKey) {
+        try {
+          const response = await fetch(
+            `${RELAY_URL}/binance/depth?symbol=${encodeURIComponent(symbol.toUpperCase())}`,
+            { 
+              headers: { 'x-relay-key': relayKey },
+              signal: AbortSignal.timeout(5000),
+            }
+          );
+          
+          if (response.ok) {
+            const data = await response.json();
+            const rawBids = data.raw?.bids ?? data.bids ?? [];
+            const rawAsks = data.raw?.asks ?? data.asks ?? [];
+            bids = rawBids.map((b: any) => Array.isArray(b) ? [String(b[0]), String(b[1])] : [String(b.price), String(b.sizeBase)]);
+            asks = rawAsks.map((a: any) => Array.isArray(a) ? [String(a[0]), String(a[1])] : [String(a.price), String(a.sizeBase)]);
+          }
+        } catch {
+          // Relay failed, fall through to direct API
         }
-      );
-
-      const bids = response.data.bids;
-      const asks = response.data.asks;
+      }
+      
+      // Fallback to direct Binance API if relay didn't return data
+      if (!bids.length || !asks.length) {
+        const binanceSymbol = `${symbol.toUpperCase()}USDT`;
+        const response = await axiosInstance.get<BinanceOrderBook>(
+          `${BINANCE_SPOT_BASE}/depth`,
+          {
+            params: {
+              symbol: binanceSymbol,
+              limit: 100,
+            },
+          }
+        );
+        bids = response.data.bids;
+        asks = response.data.asks;
+      }
 
       // Calculate depth in USD by multiplying price * quantity
       const bidDepthUSD = bids.slice(0, 20).reduce((sum, [price, qty]) => 
