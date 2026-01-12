@@ -77,6 +77,66 @@ router.get("/snapshot", (_req: Request, res: Response) => {
   });
 });
 
+router.get("/health", (_req: Request, res: Response) => {
+  const now = Date.now();
+  const fiveSecAgo = now - 5000;
+  const fiveMinAgo = now - 5 * 60 * 1000;
+
+  const allEvents = tapeStore.snapshot();
+
+  const VENUES: LiquidityVenue[] = ["binance", "coinbase", "kraken", "okx", "bybit", "dex"];
+
+  const venues: Record<string, {
+    status: "ok" | "degraded" | "down" | "unknown";
+    last_ts_ingest: number | null;
+    msg_rate_5s: number | null;
+    lag_ms: number | null;
+    errors_5m: number | null;
+  }> = {};
+
+  for (const v of VENUES) {
+    const venueEvents = allEvents.filter((e) => e.venue === v);
+    const lastEvent = venueEvents[0];
+    const last_ts_ingest = lastEvent?.ts ?? null;
+
+    const recentEvents = venueEvents.filter((e) => e.ts >= fiveSecAgo);
+    const msg_rate_5s = recentEvents.length;
+
+    const errorsRecent = venueEvents.filter(
+      (e) => e.ts >= fiveMinAgo && e.type === "IMBALANCE"
+    ).length;
+
+    let lag_ms: number | null = null;
+    if (lastEvent?.payload && typeof lastEvent.payload === "object") {
+      const p = lastEvent.payload as Record<string, unknown>;
+      if (typeof p.event_ts === "number" && typeof lastEvent.ts === "number") {
+        lag_ms = lastEvent.ts - (p.event_ts as number);
+      }
+    }
+
+    let status: "ok" | "degraded" | "down" | "unknown" = "unknown";
+    if (last_ts_ingest !== null) {
+      const ageSec = (now - last_ts_ingest) / 1000;
+      if (ageSec < 10) status = "ok";
+      else if (ageSec < 60) status = "degraded";
+      else status = "down";
+    }
+
+    venues[v] = {
+      status,
+      last_ts_ingest,
+      msg_rate_5s,
+      lag_ms,
+      errors_5m: errorsRecent,
+    };
+  }
+
+  return res.json({
+    server_ts: now,
+    venues,
+  });
+});
+
 router.post("/", (req: Request, res: Response) => {
   const event = req.body as LiquidityTapeEvent;
 
