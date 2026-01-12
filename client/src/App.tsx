@@ -32,6 +32,7 @@ import AnalyticsPage from "@/pages/analytics/AnalyticsPage";
 import LisDebugPage from "@/pages/lis-debug";
 import AlertConfigPage from "@/pages/alert-config";
 import DownloadPage from "@/pages/download";
+import LiquidityTapePage from "@/pages/liquidity-tape";
 
 // ✅ IMPORTANT: this must point to your existing file:
 // client/src/pages/clt-evidence.tsx
@@ -156,6 +157,7 @@ function AppRouter() {
       <Route path="/lis" component={LisDebugPage} />
       <Route path="/alerts/config" component={AlertConfigPage} />
       <Route path="/download" component={DownloadPage} />
+      <Route path="/tape" component={LiquidityTapePage} />
 
       {/* Fallback */}
       <Route component={NotFound} />
