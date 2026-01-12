@@ -144,6 +144,35 @@ router.get("/health", (_req: Request, res: Response) => {
   });
 });
 
+router.get("/debug/summary", (_req: Request, res: Response) => {
+  const events = tapeStore.snapshot();
+
+  const byVenue: Record<string, { count: number; lastTs: number | null }> = {};
+  const bySymbol: Record<string, number> = {};
+
+  for (const e of events) {
+    // venue stats
+    if (!byVenue[e.venue]) byVenue[e.venue] = { count: 0, lastTs: null };
+    byVenue[e.venue].count += 1;
+    byVenue[e.venue].lastTs = byVenue[e.venue].lastTs === null ? e.ts : Math.max(byVenue[e.venue].lastTs!, e.ts);
+
+    // symbol stats
+    bySymbol[e.symbol] = (bySymbol[e.symbol] ?? 0) + 1;
+  }
+
+  const topSymbols = Object.entries(bySymbol)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 25)
+    .map(([symbol, count]) => ({ symbol, count }));
+
+  res.json({
+    ok: true,
+    bufferSize: tapeStore.size(),
+    venues: byVenue,
+    topSymbols,
+  });
+});
+
 router.post("/", (req: Request, res: Response) => {
   const event = req.body as LiquidityTapeEvent;
 

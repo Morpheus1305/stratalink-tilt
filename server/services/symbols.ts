@@ -15,18 +15,21 @@ export function normalizeCanonicalSymbol(input: string): string {
 
 export function resolveVenueSymbols(canonical: CanonicalSymbol): string[] {
   const c = normalizeCanonicalSymbol(canonical);
-  const m = CANONICAL_MAP[c];
+  const out = new Set<string>([c]);
 
+  // NEW: if canonical looks like XXX-YYY or XXX/YYY or XXX_YYY, include base XXX
+  const mPair = c.match(/^([A-Z0-9]+)[-_/]([A-Z0-9]+)$/);
+  if (mPair?.[1]) out.add(mPair[1]);
+
+  const m = CANONICAL_MAP[c];
   if (m) {
-    const out = new Set<string>([c]);
-    for (const k of Object.keys(m) as LiquidityVenue[]) {
-      const s = m[k];
+    for (const v of Object.keys(m) as LiquidityVenue[]) {
+      const s = m[v];
       if (s) out.add(String(s).toUpperCase());
     }
-    return Array.from(out);
   }
 
-  return [c];
+  return Array.from(out);
 }
 
 export function normalizeCanonicalSymbols(symbols: string | string[] | undefined): string[] | undefined {

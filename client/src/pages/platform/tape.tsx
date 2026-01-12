@@ -336,10 +336,9 @@ export default function TapePage() {
   );
 
   const latestUrl = useMemo(() => {
-    const s = symbol.trim();
-    if (!s) return null;
+    const s = symbol.trim(); // allow blank => query latest across all symbols
     const usp = new URLSearchParams();
-    usp.set("symbol", s.toUpperCase());
+    if (s) usp.set("symbol", s.toUpperCase());
     usp.set("limit", String(Math.min(Math.max(limit, 10), 100)));
     const until = Date.now();
     const since = until - windowSec * 1000;
@@ -549,7 +548,7 @@ export default function TapePage() {
               value={symbol}
               onChange={(e) => setSymbol(e.target.value)}
               className="px-2 py-1.5 rounded border border-neutral-800 bg-transparent w-44"
-              placeholder="BTC-USD"
+              placeholder="(blank = ALL)"
               data-testid="input-symbol"
             />
           </div>
