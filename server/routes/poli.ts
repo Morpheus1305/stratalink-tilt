@@ -50,7 +50,7 @@ const router = Router();
  * GET /api/poli/health
  */
 router.get("/health", (_req: Request, res: Response) => {
-  return res.json({ ok: true, contract: POLI_CONTRACT_VERSION });
+  return res.json({ ok: true, contract: POLI_CONTRACT_VERSION, impl: "PoLi-v0.1" });
 });
 
 /**
