@@ -6,7 +6,7 @@ import { fetchOKXDepth } from "../aggregator/exchanges/okx";
 import { tapeStore } from "../../server/services/tapeStore";
 
 type DepthSource = "coinbase" | "kraken" | "okx" | "binance";
-const DepthSourceOrder: DepthSource[] = ["coinbase", "kraken", "okx", "binance"];
+const DepthSourceOrder: DepthSource[] = ["binance", "coinbase", "kraken", "okx"];
 
 function canonicalizeSymbol(symbol: string): string {
   const s = symbol.toUpperCase();
@@ -197,22 +197,87 @@ async function fetchDepthWithFallback(symbol: string): Promise<{
   return null;
 }
 
+async function fetchDepthAllVenues(symbol: string): Promise<Array<{
+  bids: [string, string][];
+  asks: [string, string][];
+  source: DepthSource;
+}>> {
+  const results = await Promise.all(
+    (["binance", "coinbase", "kraken", "okx"] as DepthSource[]).map(async (src) => {
+      const r = await fetchDepthFromSource(src, symbol);
+      if (r && r.bids.length && r.asks.length) {
+        return { bids: r.bids, asks: r.asks, source: src };
+      }
+      return null;
+    })
+  );
+
+  return results.filter(Boolean) as any;
+}
+
 export async function ingestDepth(): Promise<void> {
   const out: Record<string, TokenDepth> = {};
 
   const promises = DEPTH_TOKENS.map(async (symbol) => {
     try {
-      const depthData = await fetchDepthWithFallback(symbol);
-      if (!depthData) {
+      const venueDepth = await fetchDepthAllVenues(symbol);
+      if (!venueDepth.length) {
         console.debug(`[DepthEngine] No depth data for ${symbol}`);
         return;
       }
 
-      const { bids, asks, source } = depthData;
-      if (!bids.length || !asks.length) return;
+      for (const vd of venueDepth) {
+        const { bids, asks, source } = vd;
 
-      const bestBid = Number(bids[0][0]);
-      const bestAsk = Number(asks[0][0]);
+        const bestBid = Number(bids[0][0]);
+        const bestAsk = Number(asks[0][0]);
+        const mid = (bestBid + bestAsk) / 2;
+        const spread = bestAsk - bestBid;
+        const spreadBps = (spread / mid) * 10000;
+
+        const depthBands: any = {};
+        for (const band of BANDS) {
+          const key = `${(band * 10000).toFixed(0)}bps`;
+          depthBands[key] = computeDepth(mid, bids, asks, band);
+        }
+
+        const canonSymbol = canonicalizeSymbol(symbol);
+
+        safePushToTape({
+          id: `depth-${canonSymbol}-${source}-${Date.now()}`,
+          ts: Date.now(),
+          type: "DEPTH_UPDATE",
+          venue: source as any,
+          symbol: canonSymbol,
+          payload: {
+            side: "bid" as const,
+            price: bestBid,
+            size: bids[0] ? Number(bids[0][1]) : 0,
+            notionalUsd: depthBands["25bps"]?.bidUSD ?? 0,
+            spreadBps,
+            depthUsd: depthBands["25bps"]?.totalUSD ?? 0,
+            bps: 25,
+          },
+        });
+
+        safePushToTape({
+          id: `spread-${canonSymbol}-${source}-${Date.now()}`,
+          ts: Date.now(),
+          type: "SPREAD_UPDATE",
+          venue: source as any,
+          symbol: canonSymbol,
+          payload: {
+            spreadBps,
+            bid: bestBid,
+            ask: bestAsk,
+            mid,
+          },
+        });
+      }
+
+      const first = venueDepth[0];
+      const bestBid = Number(first.bids[0][0]);
+      const bestAsk = Number(first.asks[0][0]);
       const mid = (bestBid + bestAsk) / 2;
       const spread = bestAsk - bestBid;
       const spreadBps = (spread / mid) * 10000;
@@ -220,7 +285,7 @@ export async function ingestDepth(): Promise<void> {
       const depthBands: any = {};
       for (const band of BANDS) {
         const key = `${(band * 10000).toFixed(0)}bps`;
-        depthBands[key] = computeDepth(mid, bids, asks, band);
+        depthBands[key] = computeDepth(mid, first.bids, first.asks, band);
       }
 
       out[symbol] = {
@@ -228,44 +293,11 @@ export async function ingestDepth(): Promise<void> {
         spread,
         spreadBps,
         bands: depthBands,
-        source,
+        source: first.source,
         ts: Date.now(),
       };
 
-      console.log(`[DepthEngine] ${symbol}: Mid $${mid.toFixed(2)}, Spread ${spreadBps.toFixed(2)}bps (${source})`);
-
-      const canonSymbol = canonicalizeSymbol(symbol);
-
-      safePushToTape({
-        id: `depth-${canonSymbol}-${Date.now()}`,
-        ts: Date.now(),
-        type: "DEPTH_UPDATE",
-        venue: source as any,
-        symbol: canonSymbol,
-        payload: {
-          side: "bid" as const,
-          price: bestBid,
-          size: bids[0] ? Number(bids[0][1]) : 0,
-          notionalUsd: depthBands["25bps"]?.bidUSD ?? 0,
-          spreadBps,
-          depthUsd: depthBands["25bps"]?.totalUSD ?? 0,
-          bps: 25,
-        },
-      });
-
-      safePushToTape({
-        id: `spread-${canonSymbol}-${Date.now()}`,
-        ts: Date.now(),
-        type: "SPREAD_UPDATE",
-        venue: source as any,
-        symbol: canonSymbol,
-        payload: {
-          spreadBps,
-          bid: bestBid,
-          ask: bestAsk,
-          mid,
-        },
-      });
+      console.log(`[DepthEngine] ${symbol}: Mid $${mid.toFixed(2)}, Spread ${spreadBps.toFixed(2)}bps (${first.source})`);
     } catch (err: any) {
       console.error(`[DepthEngine] Error for ${symbol}:`, err.message);
     }
