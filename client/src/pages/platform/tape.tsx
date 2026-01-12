@@ -212,21 +212,21 @@ function summarize(ev: LiquidityTapeEvent): string {
   }
 }
 
-function SummaryStrip({ venueState }: { venueState: Record<string, VenueSummary> }) {
-  const venues = Object.keys(venueState);
-  if (venues.length === 0) {
+function SummaryStrip({ venueState, selectedVenues }: { venueState: Record<string, VenueSummary>; selectedVenues: LiquidityVenue[] }) {
+  const displayVenues = selectedVenues.filter((v) => venueState[v]);
+  if (displayVenues.length === 0) {
     return (
       <div className="rounded border border-neutral-900 p-3">
-        <div className="text-xs opacity-70">Summary (sticky state) — no data yet</div>
+        <div className="text-xs opacity-70">Summary (canonical state) — no data yet</div>
       </div>
     );
   }
 
   return (
     <div className="rounded border border-neutral-900 p-3 space-y-2">
-      <div className="text-xs opacity-70">Summary (sticky per-venue state)</div>
+      <div className="text-xs opacity-70">Summary (canonical state, filtered visually)</div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        {venues.map((v) => {
+        {displayVenues.map((v) => {
           const s = venueState[v];
           if (!s) return null;
           return (
@@ -346,12 +346,13 @@ export default function TapePage() {
       .sort((a, b) => (b.ts ?? 0) - (a.ts ?? 0));
   }, [eventsRaw, selectedVenues, selectedTypes, search]);
 
-  // Update sticky venueState from the latest batch of filtered events
+  // Update sticky venueState from ALL ingest (eventsRaw), not filtered events
+  // This makes the top summary represent the true global tape state, independent of user filters
   useEffect(() => {
-    if (!events || events.length === 0) return;
-    const batch = events;
+    if (!eventsRaw || eventsRaw.length === 0) return;
+    const batch = eventsRaw;
     setVenueState((prev) => mergeVenueSummaries(prev, batch, {}, selectedVenues));
-  }, [events, selectedVenues]);
+  }, [eventsRaw, selectedVenues]);
 
   const listRef = useRef<HTMLDivElement | null>(null);
 
@@ -473,8 +474,8 @@ export default function TapePage() {
         })}
       </div>
 
-      {/* Summary Strip (sticky per-venue state) */}
-      <SummaryStrip venueState={venueState} />
+      {/* Summary Strip (canonical state, filtered visually) */}
+      <SummaryStrip venueState={venueState} selectedVenues={selectedVenues} />
 
       {/* Controls */}
       <div className="rounded border border-neutral-900 p-3 space-y-3">
