@@ -15,6 +15,7 @@ import tsleRoutes from "./routes/tsle";
 import lisRoutes from "./routes/lis";
 import poliRoutes from "./routes/poli";
 import poliEvidenceRoutes from "./routes/poliEvidence";
+import poliApiRoutes from "./routes/poliApi";
 import alertsRoutes from "./routes/alerts";
 import tapeRoutes from "./routes/tape";
 import dailyCommentaryRouter from "./api/dailyCommentary";
@@ -389,6 +390,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mount PoLi routes (Liquidity Ingress Service proxy)
   app.use("/api/poli/evidence", poliEvidenceRoutes);
+
+  // Mount PoLi DACT Engine routes (consumes DACT v0.1 events)
+  app.use("/api/poli/dact", poliApiRoutes);
 
   // Mount analytics routes
   app.use("/api/analytics", analyticsRoutes);
