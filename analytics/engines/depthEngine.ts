@@ -1,8 +1,18 @@
 import { DEPTH_TOKENS, SYMBOL_MAP } from "../aggregator/config/symbols";
+import { fetchBinanceDepth } from "../aggregator/exchanges/binance";
 import { fetchCoinbaseDepth } from "../aggregator/exchanges/coinbase";
 import { fetchKrakenDepth } from "../aggregator/exchanges/kraken";
 import { fetchOKXDepth } from "../aggregator/exchanges/okx";
 import { tapeStore } from "../../server/services/tapeStore";
+
+type DepthSource = "coinbase" | "kraken" | "okx" | "binance";
+const DepthSourceOrder: DepthSource[] = ["coinbase", "kraken", "okx", "binance"];
+
+function canonicalizeSymbol(symbol: string): string {
+  const s = symbol.toUpperCase();
+  if (s.includes("-") || s.includes("/") || s.includes("_")) return s;
+  return `${s}-USD`;
+}
 
 function safePushToTape(evt: any) {
   if (evt && tapeStore?.push) {
@@ -139,19 +149,46 @@ async function fetchDepthFromOKX(symbol: string): Promise<{
   }
 }
 
+async function fetchDepthFromBinance(symbol: string): Promise<{ 
+  bids: [string, string][]; 
+  asks: [string, string][]; 
+  source: string 
+} | null> {
+  const map = SYMBOL_MAP[symbol];
+  if (!map?.binance) return null;
+  
+  try {
+    const data = await fetchBinanceDepth(map.binance);
+    return {
+      bids: data.bids.map((b: any) => [b[0], b[1]]),
+      asks: data.asks.map((a: any) => [a[0], a[1]]),
+      source: "binance",
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function fetchDepthFromSource(source: DepthSource, symbol: string): Promise<{
+  bids: [string, string][];
+  asks: [string, string][];
+  source: string;
+} | null> {
+  switch (source) {
+    case "coinbase": return fetchDepthFromCoinbase(symbol);
+    case "kraken": return fetchDepthFromKraken(symbol);
+    case "okx": return fetchDepthFromOKX(symbol);
+    case "binance": return fetchDepthFromBinance(symbol);
+  }
+}
+
 async function fetchDepthWithFallback(symbol: string): Promise<{
   bids: [string, string][];
   asks: [string, string][];
   source: string;
 } | null> {
-  const sources = [
-    () => fetchDepthFromCoinbase(symbol),
-    () => fetchDepthFromKraken(symbol),
-    () => fetchDepthFromOKX(symbol),
-  ];
-
-  for (const fetchFn of sources) {
-    const result = await fetchFn();
+  for (const src of DepthSourceOrder) {
+    const result = await fetchDepthFromSource(src, symbol);
     if (result && result.bids.length && result.asks.length) {
       return result;
     }
@@ -197,12 +234,14 @@ export async function ingestDepth(): Promise<void> {
 
       console.log(`[DepthEngine] ${symbol}: Mid $${mid.toFixed(2)}, Spread ${spreadBps.toFixed(2)}bps (${source})`);
 
+      const canonSymbol = canonicalizeSymbol(symbol);
+
       safePushToTape({
-        id: `depth-${symbol}-${Date.now()}`,
+        id: `depth-${canonSymbol}-${Date.now()}`,
         ts: Date.now(),
         type: "DEPTH_UPDATE",
         venue: source as any,
-        symbol,
+        symbol: canonSymbol,
         payload: {
           side: "bid" as const,
           price: bestBid,
@@ -215,11 +254,11 @@ export async function ingestDepth(): Promise<void> {
       });
 
       safePushToTape({
-        id: `spread-${symbol}-${Date.now()}`,
+        id: `spread-${canonSymbol}-${Date.now()}`,
         ts: Date.now(),
         type: "SPREAD_UPDATE",
         venue: source as any,
-        symbol,
+        symbol: canonSymbol,
         payload: {
           spreadBps,
           bid: bestBid,
