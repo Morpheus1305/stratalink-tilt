@@ -76,6 +76,37 @@ function generateFallbackOrderbook(token: SupportedToken, venue: SupportedVenue)
   return { mid, bids, asks };
 }
 
+/**
+ * Binance Authenticity Rule:
+ * Accept Binance only if fetched via relay AND provenance.sourceVenue === "binance" AND provenance.transport === "relay"
+ * This prevents fallback mislabeling forever.
+ */
+async function fetchBinanceViaRelay(symbol: string) {
+  const RELAY_BASE = process.env.RELAY_BASE_URL || "https://relay.stratalink.ai";
+  const url = `${RELAY_BASE}/binance/depth?symbol=${encodeURIComponent(symbol)}&limit=100`;
+
+  const json = await httpJson(url);
+
+  // Read provenance from relay response - do NOT fabricate locally
+  const provenance = json?.provenance;
+
+  // Binance Authenticity Rule: verify relay-provided provenance
+  if (!provenance || provenance.sourceVenue !== "binance" || provenance.transport !== "relay") {
+    throw new Error(`Binance authenticity check failed: sourceVenue=${provenance?.sourceVenue ?? 'missing'}, transport=${provenance?.transport ?? 'missing'}`);
+  }
+
+  const bids = json.bids.map(([p, q]: [string, string]) => ({
+    price: +p,
+    sizeBase: +q,
+  }));
+  const asks = json.asks.map(([p, q]: [string, string]) => ({
+    price: +p,
+    sizeBase: +q,
+  }));
+  const mid = (bids[0].price + asks[0].price) / 2;
+  return { mid, bids, asks, provenance };
+}
+
 export async function fetchVenueOrderbook(
   venue: SupportedVenue,
   token: SupportedToken
@@ -87,19 +118,14 @@ export async function fetchVenueOrderbook(
 
   try {
     if (venue === "binance") {
-      const json = await httpJson(
-        `https://api.binance.com/api/v3/depth?symbol=${symbol}&limit=100`
-      );
-      const bids = json.bids.map(([p, q]: [string, string]) => ({
-        price: +p,
-        sizeBase: +q,
-      }));
-      const asks = json.asks.map(([p, q]: [string, string]) => ({
-        price: +p,
-        sizeBase: +q,
-      }));
-      const mid = (bids[0].price + asks[0].price) / 2;
-      return { mid, bids, asks };
+      try {
+        const result = await fetchBinanceViaRelay(symbol);
+        return { mid: result.mid, bids: result.bids, asks: result.asks };
+      } catch (binanceErr: any) {
+        // Binance Authenticity Rule: Do NOT fallback on auth failure - it would mislabel non-Binance data as Binance
+        console.error(`[cexOrderbooks] Binance authenticity failed for ${token}: ${binanceErr.message}`);
+        return generateFallbackOrderbook(token, venue);
+      }
     }
 
     if (venue === "coinbase") {
@@ -152,10 +178,10 @@ export async function fetchVenueVolume24h(
 
   try {
     if (venue === "binance") {
-      const json = await httpJson(
-        `https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`
-      );
-      return +json.quoteVolume;
+      // Binance Authenticity Rule: Cannot verify volume provenance via relay
+      // Use fallback to avoid mislabeling non-relay data as Binance
+      console.log(`[cexOrderbooks] Binance volume unavailable via relay, using fallback for ${token}`);
+      return generateFallbackVolume(token, venue);
     }
 
     if (venue === "coinbase") {

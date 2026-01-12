@@ -85,6 +85,29 @@ function mapRelayVenue(venue: string): string {
 }
 
 /**
+ * Binance Authenticity Rule:
+ * Accept Binance only if venue === "binance" AND provenance.sourceVenue === "binance" AND provenance.transport === "relay"
+ * This prevents fallback mislabeling forever.
+ */
+function validateBinanceProvenance(venue: string, rawData: any): { valid: boolean; error?: string } {
+  if (venue !== "binance") {
+    return { valid: true };
+  }
+
+  const provenance = rawData?.provenance;
+
+  if (provenance?.sourceVenue !== "binance") {
+    return { valid: false, error: `Wrong sourceVenue: ${provenance?.sourceVenue ?? 'missing'}` };
+  }
+
+  if (provenance?.transport !== "relay") {
+    return { valid: false, error: `Wrong transport: ${provenance?.transport ?? 'missing'}` };
+  }
+
+  return { valid: true };
+}
+
+/**
  * Normalize raw orderbook data into LISSnapshot format
  * Computes: mid_price, spread (absolute + bps), bands (10/25/50/100/200 bps)
  */
@@ -201,6 +224,15 @@ router.get("/:venue/depth", async (req: Request, res: Response) => {
       }
 
       const rawData = await response.json();
+
+      // ✅ Binance Authenticity Rule: verify provenance before accepting
+      const provenanceCheck = validateBinanceProvenance(venue, rawData);
+      if (!provenanceCheck.valid) {
+        console.error(`[LIS] Binance authenticity REJECTED: ${provenanceCheck.error}`);
+        return res.status(400).json({
+          error: `Binance authenticity check failed: ${provenanceCheck.error}`,
+        });
+      }
 
       // If already normalized, accept shape but still enforce canonical keys + bands.
       if (rawData?.bands && rawData?.mid_price !== undefined) {

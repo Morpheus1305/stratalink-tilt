@@ -173,6 +173,32 @@ router.get("/debug/summary", (_req: Request, res: Response) => {
   });
 });
 
+/**
+ * Binance Authenticity Rule:
+ * Accept Binance only if venue === "binance" AND payload.provenance.sourceVenue === "binance" AND payload.provenance.transport === "relay"
+ * This prevents fallback mislabeling forever.
+ */
+function validateBinanceAuthenticity(event: LiquidityTapeEvent): { valid: boolean; error?: string } {
+  if (event.venue !== "binance") {
+    return { valid: true };
+  }
+
+  const provenance = (event.payload as any)?.provenance;
+  if (!provenance) {
+    return { valid: false, error: "Binance event missing provenance" };
+  }
+
+  if (provenance.sourceVenue !== "binance") {
+    return { valid: false, error: `Binance event has wrong sourceVenue: ${provenance.sourceVenue}` };
+  }
+
+  if (provenance.transport !== "relay") {
+    return { valid: false, error: `Binance event has wrong transport: ${provenance.transport}` };
+  }
+
+  return { valid: true };
+}
+
 router.post("/", (req: Request, res: Response) => {
   const event = req.body as LiquidityTapeEvent;
 
@@ -180,6 +206,15 @@ router.post("/", (req: Request, res: Response) => {
     return res.status(400).json({
       ok: false,
       error: "Missing required fields: id, ts, type, venue, symbol, payload",
+    });
+  }
+
+  const binanceCheck = validateBinanceAuthenticity(event);
+  if (!binanceCheck.valid) {
+    console.error(`[Tape] Binance authenticity REJECTED: ${binanceCheck.error}`);
+    return res.status(400).json({
+      ok: false,
+      error: `Binance authenticity check failed: ${binanceCheck.error}`,
     });
   }
 
@@ -194,8 +229,26 @@ router.post("/batch", (req: Request, res: Response) => {
     return res.status(400).json({ ok: false, error: "Expected array of events" });
   }
 
-  const accepted = tapeStore.pushBatch(events);
-  return res.json({ ok: true, accepted });
+  const validEvents: LiquidityTapeEvent[] = [];
+  const rejected: { index: number; error: string }[] = [];
+
+  for (let i = 0; i < events.length; i++) {
+    const event = events[i];
+    const binanceCheck = validateBinanceAuthenticity(event);
+    if (!binanceCheck.valid) {
+      console.error(`[Tape] Batch index ${i}: Binance authenticity REJECTED: ${binanceCheck.error}`);
+      rejected.push({ index: i, error: binanceCheck.error! });
+    } else {
+      validEvents.push(event);
+    }
+  }
+
+  const accepted = tapeStore.pushBatch(validEvents);
+  return res.json({
+    ok: true,
+    accepted,
+    rejected: rejected.length > 0 ? rejected : undefined,
+  });
 });
 
 export default router;

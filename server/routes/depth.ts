@@ -190,12 +190,30 @@ function computeBandDepthUSD(args: {
 // Venue Fetchers
 // ----------------------------
 
-async function getBinanceDepthViaRelay(params: { symbol: string; limit: number }) {
+/**
+ * Binance Depth Provenance type for authenticity tracking
+ */
+type BinanceDepthProvenance = {
+  sourceVenue: string;
+  transport: string;
+  rawSymbol: string;
+  ts_fetch_start: number;
+  ts_fetch_end: number;
+};
+
+async function getBinanceDepthViaRelay(params: { symbol: string; limit: number }): Promise<{
+  ok: boolean;
+  error?: string;
+  bids?: Array<[number, number]>;
+  asks?: Array<[number, number]>;
+  provenance?: BinanceDepthProvenance;
+}> {
   const RELAY_BASE = process.env.RELAY_BASE_URL || "https://relay.stratalink.ai";
-  // Canonical relay endpoint (Option A)
   const url = `${RELAY_BASE}/binance/depth?symbol=${encodeURIComponent(params.symbol)}&limit=${params.limit}`;
 
+  const ts_fetch_start = Date.now();
   const out = await fetchJson(url, { timeoutMs: 7000 });
+  const ts_fetch_end = Date.now();
 
   if (!out.ok) {
     return { ok: false, error: `Relay HTTP error` };
@@ -203,7 +221,6 @@ async function getBinanceDepthViaRelay(params: { symbol: string; limit: number }
 
   const j = out.json as any;
 
-  // Expect Binance style: { lastUpdateId, bids:[[price,qty],...], asks:[[price,qty],...] }
   const bidsRaw = Array.isArray(j?.bids) ? j.bids : [];
   const asksRaw = Array.isArray(j?.asks) ? j.asks : [];
 
@@ -215,7 +232,50 @@ async function getBinanceDepthViaRelay(params: { symbol: string; limit: number }
     .map((r: any) => [num(r?.[0]), num(r?.[1])])
     .filter(([p, q]: [number, number]) => p > 0 && q > 0);
 
-  return { ok: true, bids, asks };
+  // Read provenance from relay response - do NOT fabricate locally
+  // The relay must provide provenance for authenticity verification
+  const relayProvenance = j?.provenance;
+
+  // Binance Authenticity Rule: REJECT immediately if provenance is missing or invalid
+  if (!relayProvenance ||
+      relayProvenance.sourceVenue !== "binance" ||
+      relayProvenance.transport !== "relay") {
+    return {
+      ok: false,
+      error: `Binance authenticity check failed at source: sourceVenue=${relayProvenance?.sourceVenue ?? 'missing'}, transport=${relayProvenance?.transport ?? 'missing'}`,
+    };
+  }
+
+  const provenance: BinanceDepthProvenance = {
+    sourceVenue: relayProvenance.sourceVenue,
+    transport: relayProvenance.transport,
+    rawSymbol: relayProvenance.rawSymbol ?? params.symbol,
+    ts_fetch_start,
+    ts_fetch_end,
+  };
+
+  return { ok: true, bids, asks, provenance };
+}
+
+/**
+ * Binance Authenticity Rule:
+ * Accept Binance only if venue === "binance" AND provenance.sourceVenue === "binance" AND provenance.transport === "relay"
+ * This prevents fallback mislabeling forever.
+ */
+function validateBinanceProvenance(provenance?: BinanceDepthProvenance): { valid: boolean; error?: string } {
+  if (!provenance) {
+    return { valid: false, error: "Binance data missing provenance" };
+  }
+
+  if (provenance.sourceVenue !== "binance") {
+    return { valid: false, error: `Wrong sourceVenue: ${provenance.sourceVenue}` };
+  }
+
+  if (provenance.transport !== "relay") {
+    return { valid: false, error: `Wrong transport: ${provenance.transport}` };
+  }
+
+  return { valid: true };
 }
 
 async function getCoinbaseDepthDirect(params: { productId: string; level: 2 | 3 }) {
@@ -343,6 +403,20 @@ router.get("/", async (req: Request, res: Response) => {
           ask: 0,
           ok: false,
           error: "Binance relay failed",
+        });
+        resp.source = "fallback";
+        return res.json(resp);
+      }
+
+      const provenanceCheck = validateBinanceProvenance(relay.provenance);
+      if (!provenanceCheck.valid) {
+        console.error(`[Depth] Binance authenticity REJECTED: ${provenanceCheck.error}`);
+        pushVenue({
+          venue: "BINANCE",
+          bid: 0,
+          ask: 0,
+          ok: false,
+          error: `Binance authenticity check failed: ${provenanceCheck.error}`,
         });
         resp.source = "fallback";
         return res.json(resp);
