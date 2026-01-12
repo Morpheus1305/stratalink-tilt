@@ -1,12 +1,21 @@
 import { DEPTH_TOKENS, SYMBOL_MAP } from "../aggregator/config/symbols";
-import { fetchBinanceDepth } from "../aggregator/exchanges/binance";
+import { fetchBinanceDepth, type BinanceDepthResult } from "../aggregator/exchanges/binance";
 import { fetchCoinbaseDepth } from "../aggregator/exchanges/coinbase";
 import { fetchKrakenDepth } from "../aggregator/exchanges/kraken";
 import { fetchOKXDepth } from "../aggregator/exchanges/okx";
 import { tapeStore } from "../../server/services/tapeStore";
 
 type DepthSource = "coinbase" | "kraken" | "okx" | "binance";
-const DepthSourceOrder: DepthSource[] = ["binance", "coinbase", "kraken", "okx"];
+type TransportType = "relay" | "direct";
+
+export type DepthProvenance = {
+  sourceVenue: DepthSource;
+  transport: TransportType;
+  rawSymbol: string;
+  engine: "DepthEngine";
+  ts_fetch_start?: number;
+  ts_fetch_end?: number;
+};
 
 function canonicalizeSymbol(symbol: string): string {
   const s = symbol.toUpperCase();
@@ -89,91 +98,125 @@ function computeDepth(
   return { bidUSD, askUSD, totalUSD, imbalance };
 }
 
-async function fetchDepthFromCoinbase(symbol: string): Promise<{ 
-  bids: [string, string][]; 
-  asks: [string, string][]; 
-  source: string 
-} | null> {
+type DepthFetchResult = {
+  bids: [string, string][];
+  asks: [string, string][];
+  provenance: DepthProvenance;
+};
+
+async function fetchDepthFromCoinbase(symbol: string): Promise<DepthFetchResult | null> {
   const map = SYMBOL_MAP[symbol];
   if (!map?.coinbase) return null;
   
+  const ts_fetch_start = Date.now();
   try {
     const data = await fetchCoinbaseDepth(map.coinbase, 2);
+    const ts_fetch_end = Date.now();
     return {
       bids: data.bids.map((b: any) => [b[0], b[1]]),
       asks: data.asks.map((a: any) => [a[0], a[1]]),
-      source: "coinbase",
+      provenance: {
+        sourceVenue: "coinbase",
+        transport: "direct",
+        rawSymbol: map.coinbase,
+        engine: "DepthEngine",
+        ts_fetch_start,
+        ts_fetch_end,
+      },
     };
   } catch {
     return null;
   }
 }
 
-async function fetchDepthFromKraken(symbol: string): Promise<{ 
-  bids: [string, string][]; 
-  asks: [string, string][]; 
-  source: string 
-} | null> {
+async function fetchDepthFromKraken(symbol: string): Promise<DepthFetchResult | null> {
   const map = SYMBOL_MAP[symbol];
   if (!map?.kraken) return null;
   
+  const ts_fetch_start = Date.now();
   try {
     const data = await fetchKrakenDepth(map.kraken, 500);
+    const ts_fetch_end = Date.now();
     return {
       bids: data.bids.map((b: any) => [b[0], b[1]]),
       asks: data.asks.map((a: any) => [a[0], a[1]]),
-      source: "kraken",
+      provenance: {
+        sourceVenue: "kraken",
+        transport: "direct",
+        rawSymbol: map.kraken,
+        engine: "DepthEngine",
+        ts_fetch_start,
+        ts_fetch_end,
+      },
     };
   } catch {
     return null;
   }
 }
 
-async function fetchDepthFromOKX(symbol: string): Promise<{ 
-  bids: [string, string][]; 
-  asks: [string, string][]; 
-  source: string 
-} | null> {
+async function fetchDepthFromOKX(symbol: string): Promise<DepthFetchResult | null> {
   const map = SYMBOL_MAP[symbol];
   if (!map?.okx) return null;
   
+  const ts_fetch_start = Date.now();
   try {
     const data = await fetchOKXDepth(map.okx, 400);
+    const ts_fetch_end = Date.now();
     return {
       bids: data.bids.map((b: any) => [b[0], b[1]]),
       asks: data.asks.map((a: any) => [a[0], a[1]]),
-      source: "okx",
+      provenance: {
+        sourceVenue: "okx",
+        transport: "direct",
+        rawSymbol: map.okx,
+        engine: "DepthEngine",
+        ts_fetch_start,
+        ts_fetch_end,
+      },
     };
   } catch {
     return null;
   }
 }
 
-async function fetchDepthFromBinance(symbol: string): Promise<{ 
-  bids: [string, string][]; 
-  asks: [string, string][]; 
-  source: string 
-} | null> {
+async function fetchDepthFromBinance(symbol: string): Promise<DepthFetchResult | null> {
   const map = SYMBOL_MAP[symbol];
-  if (!map?.binance) return null;
+  
+  // Binance authenticity check: require valid SYMBOL_MAP entry
+  if (!map?.binance) {
+    console.warn(`[DepthEngine] No Binance symbol mapping for ${symbol} - skipping Binance fetch`);
+    return null;
+  }
   
   try {
     const data = await fetchBinanceDepth(map.binance);
+    
+    // Verify the data came from Binance via relay (authenticity guarantee)
+    if (data.provenance.sourceVenue !== 'binance' || data.provenance.transport !== 'relay') {
+      console.error(`[DepthEngine] Binance authenticity check FAILED for ${symbol}: got venue=${data.provenance.sourceVenue}, transport=${data.provenance.transport}`);
+      return null;
+    }
+    
     return {
-      bids: data.bids.map((b: any) => [b[0], b[1]]),
-      asks: data.asks.map((a: any) => [a[0], a[1]]),
-      source: "binance",
+      bids: data.bids,
+      asks: data.asks,
+      provenance: {
+        sourceVenue: "binance",
+        transport: "relay",
+        rawSymbol: map.binance,
+        engine: "DepthEngine",
+        ts_fetch_start: data.provenance.ts_fetch_start,
+        ts_fetch_end: data.provenance.ts_fetch_end,
+      },
     };
-  } catch {
+  } catch (err: any) {
+    // Don't silently fall back - log why Binance fetch failed
+    console.debug(`[DepthEngine] Binance fetch failed for ${symbol}: ${err.message}`);
     return null;
   }
 }
 
-async function fetchDepthFromSource(source: DepthSource, symbol: string): Promise<{
-  bids: [string, string][];
-  asks: [string, string][];
-  source: string;
-} | null> {
+async function fetchDepthFromSource(source: DepthSource, symbol: string): Promise<DepthFetchResult | null> {
   switch (source) {
     case "coinbase": return fetchDepthFromCoinbase(symbol);
     case "kraken": return fetchDepthFromKraken(symbol);
@@ -182,37 +225,17 @@ async function fetchDepthFromSource(source: DepthSource, symbol: string): Promis
   }
 }
 
-async function fetchDepthWithFallback(symbol: string): Promise<{
-  bids: [string, string][];
-  asks: [string, string][];
-  source: string;
-} | null> {
-  for (const src of DepthSourceOrder) {
-    const result = await fetchDepthFromSource(src, symbol);
-    if (result && result.bids.length && result.asks.length) {
-      return result;
-    }
-  }
+async function fetchDepthAllVenues(symbol: string): Promise<DepthFetchResult[]> {
+  const results = await Promise.allSettled([
+    fetchDepthFromBinance(symbol),
+    fetchDepthFromCoinbase(symbol),
+    fetchDepthFromKraken(symbol),
+    fetchDepthFromOKX(symbol),
+  ]);
 
-  return null;
-}
-
-async function fetchDepthAllVenues(symbol: string): Promise<Array<{
-  bids: [string, string][];
-  asks: [string, string][];
-  source: DepthSource;
-}>> {
-  const results = await Promise.all(
-    (["binance", "coinbase", "kraken", "okx"] as DepthSource[]).map(async (src) => {
-      const r = await fetchDepthFromSource(src, symbol);
-      if (r && r.bids.length && r.asks.length) {
-        return { bids: r.bids, asks: r.asks, source: src };
-      }
-      return null;
-    })
-  );
-
-  return results.filter(Boolean) as any;
+  return results
+    .map(r => r.status === 'fulfilled' ? r.value : null)
+    .filter((r): r is DepthFetchResult => r !== null && r.bids.length > 0 && r.asks.length > 0);
 }
 
 export async function ingestDepth(): Promise<void> {
@@ -227,7 +250,8 @@ export async function ingestDepth(): Promise<void> {
       }
 
       for (const vd of venueDepth) {
-        const { bids, asks, source } = vd;
+        const { bids, asks, provenance } = vd;
+        const source = provenance.sourceVenue;
 
         const bestBid = Number(bids[0][0]);
         const bestAsk = Number(asks[0][0]);
@@ -257,6 +281,12 @@ export async function ingestDepth(): Promise<void> {
             spreadBps,
             depthUsd: depthBands["25bps"]?.totalUSD ?? 0,
             bps: 25,
+            provenance: {
+              sourceVenue: provenance.sourceVenue,
+              transport: provenance.transport,
+              rawSymbol: provenance.rawSymbol,
+              engine: provenance.engine,
+            },
           },
         });
 
@@ -271,6 +301,12 @@ export async function ingestDepth(): Promise<void> {
             bid: bestBid,
             ask: bestAsk,
             mid,
+            provenance: {
+              sourceVenue: provenance.sourceVenue,
+              transport: provenance.transport,
+              rawSymbol: provenance.rawSymbol,
+              engine: provenance.engine,
+            },
           },
         });
       }
@@ -293,11 +329,11 @@ export async function ingestDepth(): Promise<void> {
         spread,
         spreadBps,
         bands: depthBands,
-        source: first.source,
+        source: first.provenance.sourceVenue,
         ts: Date.now(),
       };
 
-      console.log(`[DepthEngine] ${symbol}: Mid $${mid.toFixed(2)}, Spread ${spreadBps.toFixed(2)}bps (${first.source})`);
+      console.log(`[DepthEngine] ${symbol}: Mid $${mid.toFixed(2)}, Spread ${spreadBps.toFixed(2)}bps (${first.provenance.sourceVenue} via ${first.provenance.transport})`);
     } catch (err: any) {
       console.error(`[DepthEngine] Error for ${symbol}:`, err.message);
     }

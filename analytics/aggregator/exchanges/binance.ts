@@ -19,50 +19,67 @@ export async function fetchBinancePrice(symbol: string): Promise<number> {
   return Number(data.price);
 }
 
-/**
- * Fetch Binance depth via relay to bypass geo-blocking.
- * Falls back to direct API call if relay unavailable.
- */
-export async function fetchBinanceDepth(symbol: string): Promise<{
+export type BinanceDepthResult = {
   bids: [string, string][];
   asks: [string, string][];
-}> {
+  provenance: {
+    sourceVenue: 'binance';
+    transport: 'relay';
+    rawSymbol: string;
+    ts_fetch_start: number;
+    ts_fetch_end: number;
+  };
+};
+
+/**
+ * Fetch Binance depth ONLY via relay to ensure authentic Binance data.
+ * No fallback to direct API - if relay fails, throw error.
+ * This ensures all Binance depth events are verifiably from Binance via our relay.
+ */
+export async function fetchBinanceDepth(symbol: string): Promise<BinanceDepthResult> {
+  const ts_fetch_start = Date.now();
+  
   // Extract base symbol from Binance symbol format (e.g., BTCUSDT -> BTC)
   const baseSymbol = symbol.replace(/USDT$/, '').replace(/USD$/, '');
   
-  // Try relay first (bypasses geo-blocking)
   const relayKey = getRelayKey();
-  if (relayKey) {
-    try {
-      const response = await fetch(
-        `${RELAY_URL}/binance/depth?symbol=${encodeURIComponent(baseSymbol)}`,
-        { 
-          headers: { "x-relay-key": relayKey },
-          signal: AbortSignal.timeout(5000),
-        }
-      );
-      
-      if (response.ok) {
-        const data = await response.json();
-        // Relay may return raw orderbook or normalized format
-        if (data?.raw?.bids || data?.bids) {
-          const bids = data.raw?.bids ?? data.bids ?? [];
-          const asks = data.raw?.asks ?? data.asks ?? [];
-          return {
-            bids: bids.map((b: any) => Array.isArray(b) ? [String(b[0]), String(b[1])] : [String(b.price), String(b.sizeBase)]),
-            asks: asks.map((a: any) => Array.isArray(a) ? [String(a[0]), String(a[1])] : [String(a.price), String(a.sizeBase)]),
-          };
-        }
-      }
-    } catch (err) {
-      // Relay failed, fall through to direct API
-    }
+  if (!relayKey) {
+    throw new Error(`[Binance] No relay key configured - cannot fetch authentic Binance data for ${symbol}`);
   }
   
-  // Fallback to direct Binance API (may fail with 451 in some regions)
-  const url = `${BINANCE_SPOT}/depth?symbol=${symbol}&limit=1000`;
-  const { data } = await axiosInstance.get(url);
-  return data;
+  const response = await fetch(
+    `${RELAY_URL}/binance/depth?symbol=${encodeURIComponent(baseSymbol)}`,
+    { 
+      headers: { "x-relay-key": relayKey },
+      signal: AbortSignal.timeout(5000),
+    }
+  );
+  
+  if (!response.ok) {
+    throw new Error(`[Binance] Relay returned ${response.status} for ${symbol}`);
+  }
+  
+  const data = await response.json();
+  
+  if (!data?.raw?.bids && !data?.bids) {
+    throw new Error(`[Binance] Relay returned invalid depth data for ${symbol}`);
+  }
+  
+  const bids = data.raw?.bids ?? data.bids ?? [];
+  const asks = data.raw?.asks ?? data.asks ?? [];
+  const ts_fetch_end = Date.now();
+  
+  return {
+    bids: bids.map((b: any) => Array.isArray(b) ? [String(b[0]), String(b[1])] : [String(b.price), String(b.sizeBase)]),
+    asks: asks.map((a: any) => Array.isArray(a) ? [String(a[0]), String(a[1])] : [String(a.price), String(a.sizeBase)]),
+    provenance: {
+      sourceVenue: 'binance',
+      transport: 'relay',
+      rawSymbol: symbol,
+      ts_fetch_start,
+      ts_fetch_end,
+    },
+  };
 }
 
 export async function fetchBinanceFunding(symbol: string): Promise<{
