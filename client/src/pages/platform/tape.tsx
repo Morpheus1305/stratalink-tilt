@@ -367,6 +367,7 @@ export default function TapePage() {
   });
 
   const eventsRaw: LiquidityTapeEvent[] = latestQuery.data?.events ?? [];
+  const resolvedSymbols = (latestQuery.data as { resolvedSymbols?: string[] })?.resolvedSymbols ?? [];
 
   const events = useMemo(() => {
     const s = search.trim().toLowerCase();
@@ -458,7 +459,14 @@ export default function TapePage() {
       <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
         <div>
           <h1 className="text-xl font-semibold">Live Tape</h1>
-          <div className="text-sm opacity-80">Canonical Tape events (no mocks) • /api/tape</div>
+          <div className="text-sm opacity-80">
+            Canonical Tape events (no mocks) • /api/tape
+            {resolvedSymbols.length > 0 && (
+              <span className="ml-2 text-xs opacity-70">
+                → {resolvedSymbols.join(", ")}
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2 items-center">
