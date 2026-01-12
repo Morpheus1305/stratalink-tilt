@@ -13,6 +13,7 @@ StrataLink Labs' Institutional Liquidity Terminal is a Web3 liquidity risk intel
 
 ### Core Design Principles
 - **Digital Asset Consolidated Tape (DACT)**: A read-only, formally verified, and cryptographically anchored source of raw venue truth for market events. It guarantees provenance and immutability.
+- **Binance Authenticity Rule**: Accept Binance data only if `venue === "binance" AND payload.provenance.sourceVenue === "binance" AND payload.provenance.transport === "relay"`. This single rule prevents fallback mislabeling forever. Enforced in: tape.ts, depth.ts, lis.ts, cexOrderbooks.ts.
 - **Liquidity Truth System (LTS)**: Formalizes liquidity state with unified objects and price-independent invariants (TSLE - "intensity, resilience, and continuity of executable liquidity across venues, independent of price").
 - **PoLi Formalization**: A numeric score (0-100) with rating bands (AAA-D) to quantify liquidity quality, including component breakdown and a `isReal` boolean.
 - **Liquidity Horizons**: Context-aware timeframes (NOW, SESSION, BASELINE) for liquidity analysis.
