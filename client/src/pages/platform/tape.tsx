@@ -116,6 +116,24 @@ function computeVenueSummaries(events: LiquidityTapeEvent[], venues: LiquidityVe
   return mergeVenueSummaries({}, events, {}, venues);
 }
 
+// Tape Status helpers
+type TapeFlag = "FRESH" | "AMBER" | "GREY";
+
+function tapeFlag(lastTs: number | null, now: number): TapeFlag {
+  if (lastTs === null) return "GREY";
+  const ageSec = (now - lastTs) / 1000;
+  if (ageSec < 5) return "FRESH";
+  if (ageSec < 30) return "AMBER";
+  return "GREY";
+}
+
+function flagEmoji(flag: TapeFlag): { label: string; color: string } {
+  // Note: Per design guidelines, we use styled labels instead of emoji
+  if (flag === "FRESH") return { label: "FRESH", color: "text-green-400" };
+  if (flag === "AMBER") return { label: "AMBER", color: "text-yellow-400" };
+  return { label: "STALE", color: "text-neutral-500" };
+}
+
 function fmtTimeMs(ts: number | null | undefined) {
   if (!ts || Number.isNaN(ts)) return "—";
   const d = new Date(ts);
@@ -212,7 +230,7 @@ function summarize(ev: LiquidityTapeEvent): string {
   }
 }
 
-function SummaryStrip({ venueState, selectedVenues }: { venueState: Record<string, VenueSummary>; selectedVenues: LiquidityVenue[] }) {
+function SummaryStrip({ venueState, selectedVenues, clockNow }: { venueState: Record<string, VenueSummary>; selectedVenues: LiquidityVenue[]; clockNow: number }) {
   const displayVenues = selectedVenues.filter((v) => venueState[v]);
   if (displayVenues.length === 0) {
     return (
@@ -229,9 +247,16 @@ function SummaryStrip({ venueState, selectedVenues }: { venueState: Record<strin
         {displayVenues.map((v) => {
           const s = venueState[v];
           if (!s) return null;
+          const ageSec = s.lastTs ? Math.max(0, Math.round((clockNow - s.lastTs) / 100) / 10) : null;
+          const flag = tapeFlag(s.lastTs, clockNow);
+          const { label: flagLabel, color: flagColor } = flagEmoji(flag);
           return (
             <div key={v} className="text-sm space-y-1">
-              <div className="font-medium opacity-90">{v}</div>
+              <div className="flex items-center gap-2">
+                <span className="font-medium opacity-90">{v}</span>
+                <span className={`text-xs ${flagColor}`}>{flagLabel}</span>
+                {ageSec !== null && <span className="text-xs opacity-60 font-mono">{ageSec}s ago</span>}
+              </div>
               <div className="flex flex-wrap gap-3 text-xs opacity-80">
                 <span>Mark: <span className="font-mono">{s.markPrice !== null ? fmtNum(s.markPrice, 2) : "—"}</span></span>
                 <span>Spread: <span className="font-mono">{s.spreadBps !== null ? `${fmtNum(s.spreadBps, 2)}bps` : "—"}</span></span>
@@ -265,6 +290,13 @@ export default function TapePage() {
   const [windowSec, setWindowSec] = useState(60);
   const [limit, setLimit] = useState(100);
   const [search, setSearch] = useState("");
+
+  // Clock ticker: ms/age updates continue even if paused
+  const [clockNow, setClockNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setClockNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
@@ -402,8 +434,22 @@ export default function TapePage() {
   }
 
   const hb = healthQuery.data?.venues ?? {};
-  const now = Date.now();
   const showEmpty = !latestQuery.isLoading && events.length === 0;
+
+  // Compute overall Tape Status from venueState
+  const tapeStatus = useMemo(() => {
+    const venues = ["binance", "coinbase", "kraken"];
+    let worstFlag: TapeFlag = "FRESH";
+    for (const v of venues) {
+      const s = venueState[v];
+      const flag = tapeFlag(s?.lastTs ?? null, clockNow);
+      if (flag === "GREY") worstFlag = "GREY";
+      else if (flag === "AMBER" && worstFlag !== "GREY") worstFlag = "AMBER";
+    }
+    return worstFlag;
+  }, [venueState, clockNow]);
+
+  const tapeStatusDisplay = flagEmoji(tapeStatus);
 
   return (
     <div className="p-4 space-y-4" data-testid="tape-page">
@@ -415,6 +461,13 @@ export default function TapePage() {
 
         <div className="flex flex-wrap gap-2 items-center">
           <span className="text-xs px-2 py-1 rounded border border-neutral-800 opacity-80">LIVE</span>
+
+          <span
+            className={`text-xs px-2 py-1 rounded border border-neutral-800 ${tapeStatusDisplay.color}`}
+            data-testid="badge-tape-status"
+          >
+            {tapeStatusDisplay.label}
+          </span>
 
           <button
             onClick={() => setPaused((p) => !p)}
@@ -455,7 +508,7 @@ export default function TapePage() {
         {(["binance", "coinbase", "kraken"] as LiquidityVenue[]).map((v) => {
           const h = hb[v];
           const last = h?.last_ts_ingest ?? null;
-          const ageSec = last ? Math.max(0, Math.round(((now - last) / 100)) / 10) : null;
+          const ageSec = last ? Math.max(0, Math.round(((clockNow - last) / 100)) / 10) : null;
           const status = h?.status ?? "unknown";
           return (
             <div key={v} className={`rounded p-3 ${statusBoxClass(status)}`} data-testid={`health-${v}`}>
@@ -475,7 +528,7 @@ export default function TapePage() {
       </div>
 
       {/* Summary Strip (canonical state, filtered visually) */}
-      <SummaryStrip venueState={venueState} selectedVenues={selectedVenues} />
+      <SummaryStrip venueState={venueState} selectedVenues={selectedVenues} clockNow={clockNow} />
 
       {/* Controls */}
       <div className="rounded border border-neutral-900 p-3 space-y-3">
@@ -620,7 +673,7 @@ export default function TapePage() {
 
               <tbody>
                 {events.map((e) => {
-                  const ageMs = now - e.ts;
+                  const ageMs = clockNow - e.ts;
                   const age = ageMs >= 0 ? `${(ageMs / 1000).toFixed(1)}s` : "—";
                   const isOpen = !!expanded[e.id];
 
