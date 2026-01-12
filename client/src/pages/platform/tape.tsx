@@ -21,6 +21,10 @@ import type {
   MarkPricePayload,
 } from "@shared/liquidityTape";
 
+const ALL_VENUES: LiquidityVenue[] = [
+  "binance", "coinbase", "kraken", "okx", "bybit", "dex", "unknown"
+];
+
 type TapeHealthVenue = {
   status: "ok" | "degraded" | "down" | "unknown";
   last_ts_ingest: number | null;
@@ -116,22 +120,21 @@ function computeVenueSummaries(events: LiquidityTapeEvent[], venues: LiquidityVe
   return mergeVenueSummaries({}, events, {}, venues);
 }
 
-// Tape Status helpers
-type TapeFlag = "FRESH" | "AMBER" | "GREY";
+// Tape Status helpers (RAG: GREEN|AMBER|RED)
+type TapeFlag = "GREEN" | "AMBER" | "RED";
 
 function tapeFlag(lastTs: number | null, now: number): TapeFlag {
-  if (lastTs === null) return "GREY";
+  if (lastTs === null) return "RED";
   const ageSec = (now - lastTs) / 1000;
-  if (ageSec < 5) return "FRESH";
+  if (ageSec < 5) return "GREEN";
   if (ageSec < 30) return "AMBER";
-  return "GREY";
+  return "RED";
 }
 
-function flagEmoji(flag: TapeFlag): { label: string; color: string } {
-  // Note: Per design guidelines, we use styled labels instead of emoji
-  if (flag === "FRESH") return { label: "FRESH", color: "text-green-400" };
+function mapFlagToDisplay(flag: TapeFlag): { label: string; color: string } {
+  if (flag === "GREEN") return { label: "FRESH", color: "text-green-400" };
   if (flag === "AMBER") return { label: "AMBER", color: "text-yellow-400" };
-  return { label: "STALE", color: "text-neutral-500" };
+  return { label: "STALE", color: "text-red-500" };
 }
 
 function fmtTimeMs(ts: number | null | undefined) {
@@ -249,7 +252,7 @@ function SummaryStrip({ venueState, selectedVenues, clockNow }: { venueState: Re
           if (!s) return null;
           const ageSec = s.lastTs ? Math.max(0, Math.round((clockNow - s.lastTs) / 100) / 10) : null;
           const flag = tapeFlag(s.lastTs, clockNow);
-          const { label: flagLabel, color: flagColor } = flagEmoji(flag);
+          const { label: flagLabel, color: flagColor } = mapFlagToDisplay(flag);
           return (
             <div key={v} className="text-sm space-y-1">
               <div className="flex items-center gap-2">
@@ -329,7 +332,7 @@ export default function TapePage() {
 
   // Sticky per-venue "current state" cache (derived only from live events)
   const [venueState, setVenueState] = useState<Record<string, VenueSummary>>(() =>
-    computeVenueSummaries([], selectedVenues)
+    computeVenueSummaries([], ALL_VENUES)
   );
 
   const latestUrl = useMemo(() => {
@@ -382,9 +385,8 @@ export default function TapePage() {
   // This makes the top summary represent the true global tape state, independent of user filters
   useEffect(() => {
     if (!eventsRaw || eventsRaw.length === 0) return;
-    const batch = eventsRaw;
-    setVenueState((prev) => mergeVenueSummaries(prev, batch, {}, selectedVenues));
-  }, [eventsRaw, selectedVenues]);
+    setVenueState((prev) => mergeVenueSummaries(prev, eventsRaw, {}, ALL_VENUES));
+  }, [eventsRaw]);
 
   const listRef = useRef<HTMLDivElement | null>(null);
 
@@ -438,18 +440,18 @@ export default function TapePage() {
 
   // Compute overall Tape Status from venueState
   const tapeStatus = useMemo(() => {
-    const venues = ["binance", "coinbase", "kraken"];
-    let worstFlag: TapeFlag = "FRESH";
-    for (const v of venues) {
+    const coreVenues = ["binance", "coinbase", "kraken"];
+    let worstFlag: TapeFlag = "GREEN";
+    for (const v of coreVenues) {
       const s = venueState[v];
       const flag = tapeFlag(s?.lastTs ?? null, clockNow);
-      if (flag === "GREY") worstFlag = "GREY";
-      else if (flag === "AMBER" && worstFlag !== "GREY") worstFlag = "AMBER";
+      if (flag === "RED") worstFlag = "RED";
+      else if (flag === "AMBER" && worstFlag !== "RED") worstFlag = "AMBER";
     }
     return worstFlag;
   }, [venueState, clockNow]);
 
-  const tapeStatusDisplay = flagEmoji(tapeStatus);
+  const tapeStatusDisplay = mapFlagToDisplay(tapeStatus);
 
   return (
     <div className="p-4 space-y-4" data-testid="tape-page">
@@ -494,7 +496,7 @@ export default function TapePage() {
           </button>
 
           <button
-            onClick={() => setVenueState(computeVenueSummaries([], selectedVenues))}
+            onClick={() => setVenueState(computeVenueSummaries([], ALL_VENUES))}
             className="text-sm px-3 py-1.5 rounded border border-neutral-800 hover:opacity-90"
             data-testid="button-reset-cache"
           >
