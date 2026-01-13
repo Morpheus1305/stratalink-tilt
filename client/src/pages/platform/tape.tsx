@@ -467,69 +467,81 @@ export default function TapePage() {
 
   return (
     <div className="p-4 space-y-4" data-testid="tape-page">
-      <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-        <div className="flex items-center gap-4">
-          <div>
-            <h1 className="text-xl font-semibold">Live Tape</h1>
-            <div className="text-sm opacity-80">
-              Canonical Tape events (no mocks) • /api/tape
-              {resolvedSymbols.length > 0 && (
-                <span className="ml-2 text-xs opacity-70">
-                  → {resolvedSymbols.join(", ")}
-                </span>
-              )}
-            </div>
-          </div>
-          {lastUpdate && (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground" data-testid="polling-indicator">
-              <PollingOrbital pollTick={pollTick} size={24} />
-              <span className="font-mono">Updated {lastUpdate.toLocaleTimeString()}</span>
-            </div>
+      {/* Global Header 1 - App Title */}
+      <div className="border-b border-border pb-2">
+        <h1 className="text-sm font-semibold tracking-tight text-foreground">
+          STRATALINK LABS LIQUIDITY INTELLIGENCE TERMINAL
+        </h1>
+      </div>
+
+      {/* Global Header 2 - Section Header */}
+      <div className="border-b border-border pb-3">
+        <h2 className="text-lg font-semibold text-foreground">Liquidity Truth Console</h2>
+        <p className="text-xs text-muted-foreground">
+          LIS — Liquidity Ingestion Service — Ground Truth View
+          {resolvedSymbols.length > 0 && (
+            <span className="ml-2 opacity-70">→ {resolvedSymbols.join(", ")}</span>
           )}
-        </div>
+        </p>
+      </div>
 
-        <div className="flex flex-wrap gap-2 items-center">
-          <span className="text-xs px-2 py-1 rounded border border-neutral-800 opacity-80">LIVE</span>
+      {/* Status Controls - Reduced visual weight */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span 
+          className="text-[10px] px-1.5 py-0.5 rounded border border-neutral-700/50 text-green-400/80 font-medium"
+          data-testid="badge-live"
+        >
+          LIVE
+        </span>
 
-          <span
-            className={`text-xs px-2 py-1 rounded border border-neutral-800 ${tapeStatusDisplay.color}`}
-            data-testid="badge-tape-status"
-          >
-            {tapeStatusDisplay.label}
-          </span>
+        <span
+          className={`text-[10px] px-1.5 py-0.5 rounded border border-neutral-700/50 font-medium ${tapeStatusDisplay.color}`}
+          style={{ opacity: 0.8 }}
+          data-testid="badge-tape-status"
+        >
+          {tapeStatusDisplay.label}
+        </span>
 
-          <button
-            onClick={() => setPaused((p) => !p)}
-            className="text-sm px-3 py-1.5 rounded border border-neutral-800 hover:opacity-90"
-            data-testid="button-pause"
-          >
-            {paused ? "Resume" : "Pause"}
-          </button>
+        <span className="text-neutral-600 mx-1">|</span>
 
-          <button
-            onClick={() => setAdvanced((a) => !a)}
-            className="text-sm px-3 py-1.5 rounded border border-neutral-800 hover:opacity-90"
-            data-testid="button-advanced"
-          >
-            {advanced ? "Advanced: On" : "Advanced: Off"}
-          </button>
+        <button
+          onClick={() => setPaused((p) => !p)}
+          className="text-[10px] px-1.5 py-0.5 rounded border border-neutral-700/50 text-muted-foreground hover:text-foreground transition-colors"
+          data-testid="button-pause"
+        >
+          {paused ? "Resume" : "Pause"}
+        </button>
 
-          <button
-            onClick={exportJson}
-            className="text-sm px-3 py-1.5 rounded border border-neutral-800 hover:opacity-90"
-            data-testid="button-export"
-          >
-            Export JSON
-          </button>
+        <button
+          onClick={() => setAdvanced((a) => !a)}
+          className="text-[10px] px-1.5 py-0.5 rounded border border-neutral-700/50 text-muted-foreground hover:text-foreground transition-colors"
+          data-testid="button-advanced"
+        >
+          Advanced
+        </button>
 
-          <button
-            onClick={() => setVenueState(computeVenueSummaries([], ALL_VENUES))}
-            className="text-sm px-3 py-1.5 rounded border border-neutral-800 hover:opacity-90"
-            data-testid="button-reset-cache"
-          >
-            Reset cache
-          </button>
-        </div>
+        <button
+          onClick={exportJson}
+          className="text-[10px] px-1.5 py-0.5 rounded border border-neutral-700/50 text-muted-foreground hover:text-foreground transition-colors"
+          data-testid="button-export"
+        >
+          Export JSON
+        </button>
+
+        <button
+          onClick={() => setVenueState(computeVenueSummaries([], ALL_VENUES))}
+          className="text-[10px] px-1.5 py-0.5 rounded border border-neutral-700/50 text-muted-foreground hover:text-foreground transition-colors"
+          data-testid="button-reset-cache"
+        >
+          Reset cache
+        </button>
+
+        {lastUpdate && (
+          <div className="flex items-center gap-1.5 ml-auto text-[10px] text-muted-foreground" data-testid="polling-indicator">
+            <PollingOrbital pollTick={pollTick} size={16} />
+            <span className="font-mono">{lastUpdate.toLocaleTimeString()}</span>
+          </div>
+        )}
       </div>
 
       {/* Heartbeat */}
