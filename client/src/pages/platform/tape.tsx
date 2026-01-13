@@ -8,6 +8,7 @@
 
 import { useEffect, useMemo, useRef, useState, Fragment } from "react";
 import { useQuery } from "@tanstack/react-query";
+import PollingOrbital from "@/components/polling-orbital";
 
 import type {
   LiquidityTapeEvent,
@@ -294,6 +295,9 @@ export default function TapePage() {
   const [limit, setLimit] = useState(100);
   const [search, setSearch] = useState("");
 
+  const [pollTick, setPollTick] = useState(0);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+
   // Clock ticker: ms/age updates continue even if paused
   const [clockNow, setClockNow] = useState(() => Date.now());
   useEffect(() => {
@@ -388,6 +392,14 @@ export default function TapePage() {
     setVenueState((prev) => mergeVenueSummaries(prev, eventsRaw, {}, ALL_VENUES));
   }, [eventsRaw]);
 
+  // Update pollTick and lastUpdate on successful query fetch
+  useEffect(() => {
+    if (latestQuery.isSuccess && latestQuery.data) {
+      setPollTick((t) => t + 1);
+      setLastUpdate(new Date());
+    }
+  }, [latestQuery.dataUpdatedAt]);
+
   const listRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -456,16 +468,24 @@ export default function TapePage() {
   return (
     <div className="p-4 space-y-4" data-testid="tape-page">
       <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">Live Tape</h1>
-          <div className="text-sm opacity-80">
-            Canonical Tape events (no mocks) • /api/tape
-            {resolvedSymbols.length > 0 && (
-              <span className="ml-2 text-xs opacity-70">
-                → {resolvedSymbols.join(", ")}
-              </span>
-            )}
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-xl font-semibold">Live Tape</h1>
+            <div className="text-sm opacity-80">
+              Canonical Tape events (no mocks) • /api/tape
+              {resolvedSymbols.length > 0 && (
+                <span className="ml-2 text-xs opacity-70">
+                  → {resolvedSymbols.join(", ")}
+                </span>
+              )}
+            </div>
           </div>
+          {lastUpdate && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground" data-testid="polling-indicator">
+              <PollingOrbital pollTick={pollTick} size={24} />
+              <span className="font-mono">Updated {lastUpdate.toLocaleTimeString()}</span>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-wrap gap-2 items-center">
