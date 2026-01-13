@@ -8,7 +8,7 @@
 
 import { useEffect, useMemo, useRef, useState, Fragment, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useLocation, useSearch } from "wouter";
+import { useLocation } from "wouter";
 import PollingOrbital from "@/components/polling-orbital";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { PlatformTabs } from "@/components/platform-tabs";
@@ -314,7 +314,6 @@ function getInitialToken(): TokenId {
 
 export default function TapePage() {
   const [, setLocation] = useLocation();
-  const searchParams = useSearch();
   
   const [selectedToken, setSelectedToken] = useState<TokenId>(getInitialToken);
   const [paused, setPaused] = useState(false);
