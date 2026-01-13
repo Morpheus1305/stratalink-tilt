@@ -1,3 +1,4 @@
+import type { ChangeEvent } from "react";
 import { TOKEN_LIST, type TokenId } from "@shared/venueSymbols";
 
 interface TapeTokenSelectorProps {
@@ -22,7 +23,7 @@ const TOKEN_GROUPS: { label: string; tokens: TokenId[] }[] = [
 ];
 
 export function TapeTokenSelector({ value, onChange, className = "" }: TapeTokenSelectorProps) {
-  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleChange = (e: ChangeEvent<HTMLSelectElement>) => {
     const token = e.target.value as TokenId;
     if (TOKEN_LIST.includes(token)) {
       onChange(token);
