@@ -57,10 +57,15 @@ router.get("/", (req: Request, res: Response) => {
 });
 
 router.get("/latest", (req: Request, res: Response) => {
-  const { symbol, venue, type, since, limit } = req.query;
+  const { symbol, symbols, venue, type, since, limit } = req.query;
 
-  const canon = typeof symbol === "string" ? symbol : undefined;
-  const resolvedSymbols = canon ? resolveVenueSymbols(canon) : undefined;
+  let resolvedSymbols: string[] | undefined;
+  
+  if (typeof symbols === "string" && symbols.trim()) {
+    resolvedSymbols = symbols.split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
+  } else if (typeof symbol === "string" && symbol.trim()) {
+    resolvedSymbols = resolveVenueSymbols(symbol);
+  }
 
   const q: TapeQuery = {
     symbols: resolvedSymbols,

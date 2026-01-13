@@ -6,11 +6,19 @@
 // Canonical schema comes from shared/liquidityTape.ts
 // Sticky per-venue state: persists the last known MARK/SPREAD/DEPTH/FUNDING/IMBALANCE per venue
 
-import { useEffect, useMemo, useRef, useState, Fragment } from "react";
+import { useEffect, useMemo, useRef, useState, Fragment, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation, useSearch } from "wouter";
 import PollingOrbital from "@/components/polling-orbital";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { PlatformTabs } from "@/components/platform-tabs";
+import { TapeTokenSelector } from "@/components/tape-token-selector";
+import { 
+  TOKEN_LIST, 
+  resolveSymbolsForToken, 
+  isValidToken,
+  type TokenId 
+} from "@shared/venueSymbols";
 
 import type {
   LiquidityTapeEvent,
@@ -287,8 +295,28 @@ async function fetchJson<T>(url: string): Promise<T> {
   return (await r.json()) as T;
 }
 
+const STORAGE_KEY = "tape_selected_token";
+
+function getInitialToken(): TokenId {
+  if (typeof window !== "undefined") {
+    const params = new URLSearchParams(window.location.search);
+    const urlToken = params.get("token")?.toUpperCase();
+    if (urlToken && isValidToken(urlToken)) {
+      return urlToken as TokenId;
+    }
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored && isValidToken(stored)) {
+      return stored as TokenId;
+    }
+  }
+  return "BTC";
+}
+
 export default function TapePage() {
-  const [symbol, setSymbol] = useState("BTC-USD");
+  const [, setLocation] = useLocation();
+  const searchParams = useSearch();
+  
+  const [selectedToken, setSelectedToken] = useState<TokenId>(getInitialToken);
   const [paused, setPaused] = useState(false);
   const [advanced, setAdvanced] = useState(false);
   const [autoScroll, setAutoScroll] = useState(true);
@@ -296,6 +324,14 @@ export default function TapePage() {
   const [windowSec, setWindowSec] = useState(60);
   const [limit, setLimit] = useState(100);
   const [search, setSearch] = useState("");
+  
+  const handleTokenChange = useCallback((token: TokenId) => {
+    setSelectedToken(token);
+    localStorage.setItem(STORAGE_KEY, token);
+    const params = new URLSearchParams(window.location.search);
+    params.set("token", token);
+    setLocation(`/platform/tape?${params.toString()}`, { replace: true });
+  }, [setLocation]);
 
   const [pollTick, setPollTick] = useState(0);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
@@ -341,16 +377,22 @@ export default function TapePage() {
     computeVenueSummaries([], ALL_VENUES)
   );
 
+  const resolvedVenueSymbols = useMemo(() => {
+    return resolveSymbolsForToken(selectedToken, selectedVenues);
+  }, [selectedToken, selectedVenues]);
+
   const latestUrl = useMemo(() => {
-    const s = symbol.trim(); // allow blank => query latest across all symbols
+    const symbolList = resolvedVenueSymbols.map(vs => vs.symbol);
     const usp = new URLSearchParams();
-    if (s) usp.set("symbol", s.toUpperCase());
+    if (symbolList.length > 0) {
+      usp.set("symbols", symbolList.join(","));
+    }
     usp.set("limit", String(Math.min(Math.max(limit, 10), 100)));
     const until = Date.now();
     const since = until - windowSec * 1000;
     usp.set("since", String(since));
     return `/api/tape/latest?${usp.toString()}`;
-  }, [symbol, limit, windowSec]);
+  }, [resolvedVenueSymbols, limit, windowSec]);
 
   const latestQuery = useQuery({
     queryKey: ["tape-latest", latestUrl],
@@ -372,7 +414,6 @@ export default function TapePage() {
   });
 
   const eventsRaw: LiquidityTapeEvent[] = latestQuery.data?.events ?? [];
-  const resolvedSymbols = (latestQuery.data as { resolvedSymbols?: string[] })?.resolvedSymbols ?? [];
 
   const events = useMemo(() => {
     const s = search.trim().toLowerCase();
@@ -439,12 +480,12 @@ export default function TapePage() {
 
   async function exportJson() {
     const blob = new Blob(
-      [JSON.stringify({ symbol, filters: { venueOn, typeOn, search, windowSec, limit }, events, venueState }, null, 2)],
+      [JSON.stringify({ token: selectedToken, resolvedVenueSymbols, filters: { venueOn, typeOn, search, windowSec, limit }, events, venueState }, null, 2)],
       { type: "application/json" }
     );
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `tape_${symbol}_${Date.now()}.json`;
+    a.download = `tape_${selectedToken}_${Date.now()}.json`;
     a.click();
     URL.revokeObjectURL(a.href);
   }
@@ -526,12 +567,6 @@ export default function TapePage() {
             Reset cache
           </button>
 
-          {resolvedSymbols.length > 0 && (
-            <span className="text-[10px] text-muted-foreground ml-2">
-              → {resolvedSymbols.join(", ")}
-            </span>
-          )}
-
           {lastUpdate && (
             <div className="flex items-center gap-1.5 ml-auto text-[10px] text-muted-foreground" data-testid="polling-indicator">
               <PollingOrbital pollTick={pollTick} size={16} />
@@ -570,16 +605,22 @@ export default function TapePage() {
         {/* Controls */}
         <div className="rounded border border-neutral-900 p-3 space-y-3">
           <div className="flex flex-col md:flex-row md:items-center gap-3">
-            <div className="flex items-center gap-2">
-              <div className="text-sm opacity-80 w-16">Symbol</div>
-              <input
-                value={symbol}
-                onChange={(e) => setSymbol(e.target.value)}
-                className="px-2 py-1.5 rounded border border-neutral-800 bg-transparent w-44"
-                placeholder="(blank = ALL)"
-                data-testid="input-symbol"
-              />
-            </div>
+            <TapeTokenSelector 
+              value={selectedToken} 
+              onChange={handleTokenChange} 
+            />
+            
+            {resolvedVenueSymbols.length > 0 && (
+              <div className="text-xs text-muted-foreground flex items-center gap-1">
+                <span className="opacity-60">→</span>
+                {resolvedVenueSymbols.map((vs, i) => (
+                  <span key={vs.venue} className="font-mono">
+                    {i > 0 && ", "}
+                    {vs.venue}:{vs.symbol}
+                  </span>
+                ))}
+              </div>
+            )}
 
             <div className="flex items-center gap-2 flex-wrap">
               <div className="text-sm opacity-80 w-16">Venues</div>
