@@ -566,6 +566,18 @@ export default function TapePage() {
             Reset cache
           </button>
 
+          {resolvedVenueSymbols.length > 0 && (
+            <div className="text-[10px] text-muted-foreground flex items-center gap-1 ml-2" data-testid="resolved-symbols">
+              <span className="opacity-60">→</span>
+              {resolvedVenueSymbols.map((vs, i) => (
+                <span key={vs.venue} className="font-mono">
+                  {i > 0 && " "}
+                  {vs.venue}:{vs.symbol}
+                </span>
+              ))}
+            </div>
+          )}
+
           {lastUpdate && (
             <div className="flex items-center gap-1.5 ml-auto text-[10px] text-muted-foreground" data-testid="polling-indicator">
               <PollingOrbital pollTick={pollTick} size={16} />
@@ -608,18 +620,6 @@ export default function TapePage() {
               value={selectedToken} 
               onChange={handleTokenChange} 
             />
-            
-            {resolvedVenueSymbols.length > 0 && (
-              <div className="text-xs text-muted-foreground flex items-center gap-1">
-                <span className="opacity-60">→</span>
-                {resolvedVenueSymbols.map((vs, i) => (
-                  <span key={vs.venue} className="font-mono">
-                    {i > 0 && ", "}
-                    {vs.venue}:{vs.symbol}
-                  </span>
-                ))}
-              </div>
-            )}
 
             <div className="flex items-center gap-2 flex-wrap">
               <div className="text-sm opacity-80 w-16">Venues</div>
