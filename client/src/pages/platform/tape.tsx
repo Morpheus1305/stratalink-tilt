@@ -9,6 +9,8 @@
 import { useEffect, useMemo, useRef, useState, Fragment } from "react";
 import { useQuery } from "@tanstack/react-query";
 import PollingOrbital from "@/components/polling-orbital";
+import { DashboardHeader } from "@/components/dashboard-header";
+import { PlatformTabs } from "@/components/platform-tabs";
 
 import type {
   LiquidityTapeEvent,
@@ -466,324 +468,319 @@ export default function TapePage() {
   const tapeStatusDisplay = mapFlagToDisplay(tapeStatus);
 
   return (
-    <div className="p-4 space-y-4" data-testid="tape-page">
-      {/* Global Header 1 - App Title */}
-      <div className="border-b border-border pb-2">
-        <h1 className="text-sm font-semibold tracking-tight text-foreground">
-          STRATALINK LABS LIQUIDITY INTELLIGENCE TERMINAL
-        </h1>
-      </div>
+    <div className="min-h-screen bg-background flex flex-col" data-testid="tape-page">
+      {/* Global Header - Same as other terminal pages */}
+      <DashboardHeader />
+      <PlatformTabs />
 
-      {/* Global Header 2 - Section Header */}
-      <div className="border-b border-border pb-3">
-        <h2 className="text-lg font-semibold text-foreground">Liquidity Truth Console</h2>
-        <p className="text-xs text-muted-foreground">
-          LIS — Liquidity Ingestion Service — Ground Truth View
+      {/* Tape Page Content */}
+      <div className="flex-1 p-4 space-y-4">
+        {/* Status Controls - Reduced visual weight (status indicators, not primary CTAs) */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span 
+            className="text-[10px] px-1.5 py-0.5 rounded border border-neutral-700/50 text-green-400/80 font-medium"
+            data-testid="badge-live"
+          >
+            LIVE
+          </span>
+
+          <span
+            className={`text-[10px] px-1.5 py-0.5 rounded border border-neutral-700/50 font-medium ${tapeStatusDisplay.color}`}
+            style={{ opacity: 0.8 }}
+            data-testid="badge-tape-status"
+          >
+            {tapeStatusDisplay.label}
+          </span>
+
+          <span className="text-neutral-600 mx-1">|</span>
+
+          <button
+            onClick={() => setPaused((p) => !p)}
+            className="text-[10px] px-1.5 py-0.5 rounded border border-neutral-700/50 text-muted-foreground hover:text-foreground transition-colors"
+            data-testid="button-pause"
+          >
+            {paused ? "Resume" : "Pause"}
+          </button>
+
+          <button
+            onClick={() => setAdvanced((a) => !a)}
+            className="text-[10px] px-1.5 py-0.5 rounded border border-neutral-700/50 text-muted-foreground hover:text-foreground transition-colors"
+            data-testid="button-advanced"
+          >
+            Advanced
+          </button>
+
+          <button
+            onClick={exportJson}
+            className="text-[10px] px-1.5 py-0.5 rounded border border-neutral-700/50 text-muted-foreground hover:text-foreground transition-colors"
+            data-testid="button-export"
+          >
+            Export JSON
+          </button>
+
+          <button
+            onClick={() => setVenueState(computeVenueSummaries([], ALL_VENUES))}
+            className="text-[10px] px-1.5 py-0.5 rounded border border-neutral-700/50 text-muted-foreground hover:text-foreground transition-colors"
+            data-testid="button-reset-cache"
+          >
+            Reset cache
+          </button>
+
           {resolvedSymbols.length > 0 && (
-            <span className="ml-2 opacity-70">→ {resolvedSymbols.join(", ")}</span>
+            <span className="text-[10px] text-muted-foreground ml-2">
+              → {resolvedSymbols.join(", ")}
+            </span>
           )}
-        </p>
-      </div>
 
-      {/* Status Controls - Reduced visual weight */}
-      <div className="flex flex-wrap items-center gap-1.5">
-        <span 
-          className="text-[10px] px-1.5 py-0.5 rounded border border-neutral-700/50 text-green-400/80 font-medium"
-          data-testid="badge-live"
-        >
-          LIVE
-        </span>
-
-        <span
-          className={`text-[10px] px-1.5 py-0.5 rounded border border-neutral-700/50 font-medium ${tapeStatusDisplay.color}`}
-          style={{ opacity: 0.8 }}
-          data-testid="badge-tape-status"
-        >
-          {tapeStatusDisplay.label}
-        </span>
-
-        <span className="text-neutral-600 mx-1">|</span>
-
-        <button
-          onClick={() => setPaused((p) => !p)}
-          className="text-[10px] px-1.5 py-0.5 rounded border border-neutral-700/50 text-muted-foreground hover:text-foreground transition-colors"
-          data-testid="button-pause"
-        >
-          {paused ? "Resume" : "Pause"}
-        </button>
-
-        <button
-          onClick={() => setAdvanced((a) => !a)}
-          className="text-[10px] px-1.5 py-0.5 rounded border border-neutral-700/50 text-muted-foreground hover:text-foreground transition-colors"
-          data-testid="button-advanced"
-        >
-          Advanced
-        </button>
-
-        <button
-          onClick={exportJson}
-          className="text-[10px] px-1.5 py-0.5 rounded border border-neutral-700/50 text-muted-foreground hover:text-foreground transition-colors"
-          data-testid="button-export"
-        >
-          Export JSON
-        </button>
-
-        <button
-          onClick={() => setVenueState(computeVenueSummaries([], ALL_VENUES))}
-          className="text-[10px] px-1.5 py-0.5 rounded border border-neutral-700/50 text-muted-foreground hover:text-foreground transition-colors"
-          data-testid="button-reset-cache"
-        >
-          Reset cache
-        </button>
-
-        {lastUpdate && (
-          <div className="flex items-center gap-1.5 ml-auto text-[10px] text-muted-foreground" data-testid="polling-indicator">
-            <PollingOrbital pollTick={pollTick} size={16} />
-            <span className="font-mono">{lastUpdate.toLocaleTimeString()}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Heartbeat */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-        {(["binance", "coinbase", "kraken"] as LiquidityVenue[]).map((v) => {
-          const h = hb[v];
-          const last = h?.last_ts_ingest ?? null;
-          const ageSec = last ? Math.max(0, Math.round(((clockNow - last) / 100)) / 10) : null;
-          const status = h?.status ?? "unknown";
-          return (
-            <div key={v} className={`rounded p-3 ${statusBoxClass(status)}`} data-testid={`health-${v}`}>
-              <div className="flex items-center justify-between">
-                <div className="font-medium">{v}</div>
-                <div className="text-xs opacity-80">{String(status).toUpperCase()}</div>
-              </div>
-              <div className="mt-1 text-sm opacity-90">Last msg: {ageSec != null ? `${ageSec}s ago` : "—"}</div>
-              <div className="mt-1 text-xs opacity-80 flex gap-3 flex-wrap">
-                <span>Rate(5s): {h?.msg_rate_5s ?? "—"}</span>
-                <span>Lag: {h?.lag_ms ?? "—"}ms</span>
-                <span>Err(5m): {h?.errors_5m ?? "—"}</span>
-              </div>
+          {lastUpdate && (
+            <div className="flex items-center gap-1.5 ml-auto text-[10px] text-muted-foreground" data-testid="polling-indicator">
+              <PollingOrbital pollTick={pollTick} size={16} />
+              <span className="font-mono">{lastUpdate.toLocaleTimeString()}</span>
             </div>
-          );
-        })}
-      </div>
+          )}
+        </div>
 
-      {/* Summary Strip (canonical state, filtered visually) */}
-      <SummaryStrip venueState={venueState} selectedVenues={selectedVenues} clockNow={clockNow} />
+        {/* Heartbeat */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+          {(["binance", "coinbase", "kraken"] as LiquidityVenue[]).map((v) => {
+            const h = hb[v];
+            const last = h?.last_ts_ingest ?? null;
+            const ageSec = last ? Math.max(0, Math.round(((clockNow - last) / 100)) / 10) : null;
+            const status = h?.status ?? "unknown";
+            return (
+              <div key={v} className={`rounded p-3 ${statusBoxClass(status)}`} data-testid={`health-${v}`}>
+                <div className="flex items-center justify-between">
+                  <div className="font-medium">{v}</div>
+                  <div className="text-xs opacity-80">{String(status).toUpperCase()}</div>
+                </div>
+                <div className="mt-1 text-sm opacity-90">Last msg: {ageSec != null ? `${ageSec}s ago` : "—"}</div>
+                <div className="mt-1 text-xs opacity-80 flex gap-3 flex-wrap">
+                  <span>Rate(5s): {h?.msg_rate_5s ?? "—"}</span>
+                  <span>Lag: {h?.lag_ms ?? "—"}ms</span>
+                  <span>Err(5m): {h?.errors_5m ?? "—"}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
 
-      {/* Controls */}
-      <div className="rounded border border-neutral-900 p-3 space-y-3">
-        <div className="flex flex-col md:flex-row md:items-center gap-3">
-          <div className="flex items-center gap-2">
-            <div className="text-sm opacity-80 w-16">Symbol</div>
-            <input
-              value={symbol}
-              onChange={(e) => setSymbol(e.target.value)}
-              className="px-2 py-1.5 rounded border border-neutral-800 bg-transparent w-44"
-              placeholder="(blank = ALL)"
-              data-testid="input-symbol"
-            />
+        {/* Summary Strip (canonical state, filtered visually) */}
+        <SummaryStrip venueState={venueState} selectedVenues={selectedVenues} clockNow={clockNow} />
+
+        {/* Controls */}
+        <div className="rounded border border-neutral-900 p-3 space-y-3">
+          <div className="flex flex-col md:flex-row md:items-center gap-3">
+            <div className="flex items-center gap-2">
+              <div className="text-sm opacity-80 w-16">Symbol</div>
+              <input
+                value={symbol}
+                onChange={(e) => setSymbol(e.target.value)}
+                className="px-2 py-1.5 rounded border border-neutral-800 bg-transparent w-44"
+                placeholder="(blank = ALL)"
+                data-testid="input-symbol"
+              />
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="text-sm opacity-80 w-16">Venues</div>
+              {(["binance", "coinbase", "kraken"] as LiquidityVenue[]).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setVenueOn((p) => ({ ...p, [v]: !p[v] }))}
+                  className={`text-sm px-2.5 py-1.5 rounded border ${
+                    venueOn[v] ? "border-neutral-700" : "border-neutral-900 opacity-60"
+                  }`}
+                  data-testid={`button-venue-${v}`}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="text-sm opacity-80 w-16">Types</div>
+              {(Object.keys(typeOn) as LiquidityTapeEventType[]).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setTypeOn((p) => ({ ...p, [t]: !p[t] }))}
+                  className={`text-sm px-2.5 py-1.5 rounded border ${
+                    typeOn[t] ? "border-neutral-700" : "border-neutral-900 opacity-60"
+                  }`}
+                  data-testid={`button-type-${t}`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="text-sm opacity-80 w-16">Venues</div>
-            {(["binance", "coinbase", "kraken"] as LiquidityVenue[]).map((v) => (
-              <button
-                key={v}
-                onClick={() => setVenueOn((p) => ({ ...p, [v]: !p[v] }))}
-                className={`text-sm px-2.5 py-1.5 rounded border ${
-                  venueOn[v] ? "border-neutral-700" : "border-neutral-900 opacity-60"
-                }`}
-                data-testid={`button-venue-${v}`}
+          <div className="flex flex-col md:flex-row md:items-center gap-3">
+            <div className="flex items-center gap-2">
+              <div className="text-sm opacity-80 w-16">Window</div>
+              <select
+                value={windowSec}
+                onChange={(e) => setWindowSec(Number(e.target.value))}
+                className="px-2 py-1.5 rounded border border-neutral-800 bg-transparent"
+                data-testid="select-window"
               >
-                {v}
-              </button>
-            ))}
-          </div>
+                <option value={30}>30s</option>
+                <option value={60}>60s</option>
+                <option value={300}>5m</option>
+              </select>
+            </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="text-sm opacity-80 w-16">Types</div>
-            {(Object.keys(typeOn) as LiquidityTapeEventType[]).map((t) => (
-              <button
-                key={t}
-                onClick={() => setTypeOn((p) => ({ ...p, [t]: !p[t] }))}
-                className={`text-sm px-2.5 py-1.5 rounded border ${
-                  typeOn[t] ? "border-neutral-700" : "border-neutral-900 opacity-60"
-                }`}
-                data-testid={`button-type-${t}`}
+            <div className="flex items-center gap-2">
+              <div className="text-sm opacity-80 w-16">Limit</div>
+              <select
+                value={limit}
+                onChange={(e) => setLimit(clamp(Number(e.target.value), 10, 100))}
+                className="px-2 py-1.5 rounded border border-neutral-800 bg-transparent"
+                data-testid="select-limit"
               >
-                {t}
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2 flex-1">
+              <div className="text-sm opacity-80 w-16">Search</div>
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="px-2 py-1.5 rounded border border-neutral-800 bg-transparent w-full"
+                placeholder="id, venue, type…"
+                data-testid="input-search"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setAutoScroll((a) => !a)}
+                className="text-sm px-3 py-1.5 rounded border border-neutral-800 hover:opacity-90"
+                data-testid="button-autoscroll"
+              >
+                Auto-scroll: {autoScroll ? "On" : "Off"}
               </button>
-            ))}
+              <button
+                onClick={jumpToLatest}
+                className="text-sm px-3 py-1.5 rounded border border-neutral-800 hover:opacity-90"
+                data-testid="button-jump"
+              >
+                Jump to latest
+              </button>
+            </div>
+          </div>
+
+          <div className="text-xs opacity-80 flex flex-wrap gap-3">
+            <span>Latest: {latestQuery.isLoading ? "loading…" : latestQuery.isError ? "error" : "ok"}</span>
+            <span>Health: {healthQuery.isLoading ? "loading…" : healthQuery.isError ? "error" : "ok"}</span>
+            {latestQuery.isError && <span className="opacity-90">({(latestQuery.error as Error)?.message})</span>}
+            {healthQuery.isError && <span className="opacity-90">({(healthQuery.error as Error)?.message})</span>}
           </div>
         </div>
 
-        <div className="flex flex-col md:flex-row md:items-center gap-3">
-          <div className="flex items-center gap-2">
-            <div className="text-sm opacity-80 w-16">Window</div>
-            <select
-              value={windowSec}
-              onChange={(e) => setWindowSec(Number(e.target.value))}
-              className="px-2 py-1.5 rounded border border-neutral-800 bg-transparent"
-              data-testid="select-window"
-            >
-              <option value={30}>30s</option>
-              <option value={60}>60s</option>
-              <option value={300}>5m</option>
-            </select>
+        {/* Events table */}
+        <div className="rounded border border-neutral-900 overflow-hidden">
+          <div className="px-3 py-2 border-b border-neutral-900 flex items-center justify-between">
+            <div className="text-sm opacity-80">
+              Showing <span className="opacity-100">{events.length}</span> events (filtered)
+            </div>
+            <div className="text-xs opacity-70">Newest first</div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="text-sm opacity-80 w-16">Limit</div>
-            <select
-              value={limit}
-              onChange={(e) => setLimit(clamp(Number(e.target.value), 10, 100))}
-              className="px-2 py-1.5 rounded border border-neutral-800 bg-transparent"
-              data-testid="select-limit"
-            >
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-            </select>
-          </div>
+          {showEmpty ? (
+            <div className="p-6 text-sm opacity-80" data-testid="text-empty">
+              No events for current filters. Check /api/tape/health or widen window/types.
+            </div>
+          ) : (
+            <div ref={listRef} className="max-h-[70vh] overflow-auto">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-neutral-950">
+                  <tr className="text-left border-b border-neutral-900">
+                    <th className="p-2 w-8"></th>
+                    <th className="p-2">Time</th>
+                    {advanced && <th className="p-2">Age</th>}
+                    <th className="p-2">Venue</th>
+                    <th className="p-2">Symbol</th>
+                    <th className="p-2">Type</th>
+                    <th className="p-2">Summary</th>
+                  </tr>
+                </thead>
 
-          <div className="flex items-center gap-2 flex-1">
-            <div className="text-sm opacity-80 w-16">Search</div>
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="px-2 py-1.5 rounded border border-neutral-800 bg-transparent w-full"
-              placeholder="id, venue, type…"
-              data-testid="input-search"
-            />
-          </div>
+                <tbody>
+                  {events.map((e) => {
+                    const ageMs = clockNow - e.ts;
+                    const age = ageMs >= 0 ? `${(ageMs / 1000).toFixed(1)}s` : "—";
+                    const isOpen = !!expanded[e.id];
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setAutoScroll((a) => !a)}
-              className="text-sm px-3 py-1.5 rounded border border-neutral-800 hover:opacity-90"
-              data-testid="button-autoscroll"
-            >
-              Auto-scroll: {autoScroll ? "On" : "Off"}
-            </button>
-            <button
-              onClick={jumpToLatest}
-              className="text-sm px-3 py-1.5 rounded border border-neutral-800 hover:opacity-90"
-              data-testid="button-jump"
-            >
-              Jump to latest
-            </button>
-          </div>
-        </div>
+                    return (
+                      <Fragment key={e.id}>
+                        <tr className="border-b border-neutral-950 align-top" data-testid={`row-event-${e.id}`}>
+                          <td className="p-2">
+                            <button
+                              onClick={() => setExpanded((p) => ({ ...p, [e.id]: !p[e.id] }))}
+                              className="px-2 py-0.5 rounded border border-neutral-900 hover:opacity-90 text-xs"
+                              aria-label="Toggle row"
+                              data-testid={`button-expand-${e.id}`}
+                            >
+                              {isOpen ? "–" : "+"}
+                            </button>
+                          </td>
 
-        <div className="text-xs opacity-80 flex flex-wrap gap-3">
-          <span>Latest: {latestQuery.isLoading ? "loading…" : latestQuery.isError ? "error" : "ok"}</span>
-          <span>Health: {healthQuery.isLoading ? "loading…" : healthQuery.isError ? "error" : "ok"}</span>
-          {latestQuery.isError && <span className="opacity-90">({(latestQuery.error as Error)?.message})</span>}
-          {healthQuery.isError && <span className="opacity-90">({(healthQuery.error as Error)?.message})</span>}
-        </div>
-      </div>
-
-      {/* Events table */}
-      <div className="rounded border border-neutral-900 overflow-hidden">
-        <div className="px-3 py-2 border-b border-neutral-900 flex items-center justify-between">
-          <div className="text-sm opacity-80">
-            Showing <span className="opacity-100">{events.length}</span> events (filtered)
-          </div>
-          <div className="text-xs opacity-70">Newest first</div>
-        </div>
-
-        {showEmpty ? (
-          <div className="p-6 text-sm opacity-80" data-testid="text-empty">
-            No events for current filters. Check /api/tape/health or widen window/types.
-          </div>
-        ) : (
-          <div ref={listRef} className="max-h-[70vh] overflow-auto">
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-neutral-950">
-                <tr className="text-left border-b border-neutral-900">
-                  <th className="p-2 w-8"></th>
-                  <th className="p-2">Time</th>
-                  {advanced && <th className="p-2">Age</th>}
-                  <th className="p-2">Venue</th>
-                  <th className="p-2">Symbol</th>
-                  <th className="p-2">Type</th>
-                  <th className="p-2">Summary</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {events.map((e) => {
-                  const ageMs = clockNow - e.ts;
-                  const age = ageMs >= 0 ? `${(ageMs / 1000).toFixed(1)}s` : "—";
-                  const isOpen = !!expanded[e.id];
-
-                  return (
-                    <Fragment key={e.id}>
-                      <tr className="border-b border-neutral-950 align-top" data-testid={`row-event-${e.id}`}>
-                        <td className="p-2">
-                          <button
-                            onClick={() => setExpanded((p) => ({ ...p, [e.id]: !p[e.id] }))}
-                            className="px-2 py-0.5 rounded border border-neutral-900 hover:opacity-90 text-xs"
-                            aria-label="Toggle row"
-                            data-testid={`button-expand-${e.id}`}
-                          >
-                            {isOpen ? "–" : "+"}
-                          </button>
-                        </td>
-
-                        <td className="p-2 font-mono text-xs">{fmtTimeMs(e.ts)}</td>
-                        {advanced && <td className="p-2 font-mono text-xs">{age}</td>}
-                        <td className="p-2">{e.venue}</td>
-                        <td className="p-2">{e.symbol}</td>
-                        <td className="p-2">{e.type}</td>
-                        <td className="p-2 font-mono text-xs whitespace-pre-wrap break-words">
-                          {summarize(e)}
-                        </td>
-                      </tr>
-
-                      {isOpen && (
-                        <tr className="border-b border-neutral-950">
-                          <td className="p-2" />
-                          <td className="p-2" colSpan={advanced ? 6 : 5}>
-                            <div className="rounded border border-neutral-900 p-3">
-                              <div className="text-xs opacity-80 mb-2">
-                                id: <span className="opacity-100 font-mono">{e.id}</span>
-                              </div>
-                              <pre className="text-xs overflow-auto max-h-[260px] whitespace-pre-wrap break-words">
-                                {JSON.stringify(e, null, 2)}
-                              </pre>
-                              {advanced && (
-                                <div className="mt-3 text-xs opacity-80 flex flex-wrap gap-3">
-                                  <a
-                                    className="underline opacity-80 hover:opacity-100"
-                                    href={`/lis?venue=${encodeURIComponent(String(e.venue))}&symbol=${encodeURIComponent(e.symbol)}`}
-                                  >
-                                    Open in LIS debug
-                                  </a>
-                                  <a
-                                    className="underline opacity-80 hover:opacity-100"
-                                    href={`/clt/evidence?event_id=${encodeURIComponent(String(e.id))}`}
-                                  >
-                                    Open evidence
-                                  </a>
-                                </div>
-                              )}
-                            </div>
+                          <td className="p-2 font-mono text-xs">{fmtTimeMs(e.ts)}</td>
+                          {advanced && <td className="p-2 font-mono text-xs">{age}</td>}
+                          <td className="p-2">{e.venue}</td>
+                          <td className="p-2">{e.symbol}</td>
+                          <td className="p-2">{e.type}</td>
+                          <td className="p-2 font-mono text-xs whitespace-pre-wrap break-words">
+                            {summarize(e)}
                           </td>
                         </tr>
-                      )}
-                    </Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
 
-        <div className="px-3 py-2 border-t border-neutral-900 flex items-center justify-between">
-          <div className="text-xs opacity-70">LIVE DATA ONLY • /api/tape/latest • /api/tape/health</div>
-          <div className="text-xs opacity-70">Advanced shows Age (now - ts)</div>
+                        {isOpen && (
+                          <tr className="border-b border-neutral-950">
+                            <td className="p-2" />
+                            <td className="p-2" colSpan={advanced ? 6 : 5}>
+                              <div className="rounded border border-neutral-900 p-3">
+                                <div className="text-xs opacity-80 mb-2">
+                                  id: <span className="opacity-100 font-mono">{e.id}</span>
+                                </div>
+                                <pre className="text-xs overflow-auto max-h-[260px] whitespace-pre-wrap break-words">
+                                  {JSON.stringify(e, null, 2)}
+                                </pre>
+                                {advanced && (
+                                  <div className="mt-3 text-xs opacity-80 flex flex-wrap gap-3">
+                                    <a
+                                      className="underline opacity-80 hover:opacity-100"
+                                      href={`/lis?venue=${encodeURIComponent(String(e.venue))}&symbol=${encodeURIComponent(e.symbol)}`}
+                                    >
+                                      Open in LIS debug
+                                    </a>
+                                    <a
+                                      className="underline opacity-80 hover:opacity-100"
+                                      href={`/clt/evidence?event_id=${encodeURIComponent(String(e.id))}`}
+                                    >
+                                      Open evidence
+                                    </a>
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <div className="px-3 py-2 border-t border-neutral-900 flex items-center justify-between">
+            <div className="text-xs opacity-70">LIVE DATA ONLY • /api/tape/latest • /api/tape/health</div>
+            <div className="text-xs opacity-70">Advanced shows Age (now - ts)</div>
+          </div>
         </div>
       </div>
     </div>
