@@ -9,6 +9,7 @@ const tabs = [
   { id: "scorecard", label: "SCORECARD", path: "/platform/scorecard" },
   { id: "analytics", label: "ANALYTICS", path: "/platform/analytics" },
   { id: "tape", label: "TAPE", path: "/platform/tape" },
+  { id: "rcl", label: "RCL", path: "/regulatory/adgm" },
 ];
 
 export function PlatformTabs() {
@@ -17,6 +18,9 @@ export function PlatformTabs() {
   const isActive = (path: string) => {
     if (path === "/platform") {
       return location === "/platform" || location === "/platform/overview";
+    }
+    if (path === "/regulatory/adgm") {
+      return location.startsWith("/regulatory");
     }
     return location === path;
   };
