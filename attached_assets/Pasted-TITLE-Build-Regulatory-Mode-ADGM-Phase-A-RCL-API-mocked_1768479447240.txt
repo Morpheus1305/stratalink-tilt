@@ -1,0 +1,137 @@
+TITLE: Build “Regulatory Mode (ADGM)” Phase A — RCL API (mocked) + Single Canonical Screen in TILT
+
+CONTEXT / NON-NEGOTIABLES
+We are implementing Phase A of Stratalink’s Regulatory Consumption Layer (RCL): a read-only, regulator-safe UI/UX view for ADGM inside TILT.
+This is NOT a trading UI. This is NOT a dashboard with knobs. This is an evidence browser / market integrity observatory.
+
+You MUST:
+- Implement the RCL API contract exactly (shape-first)
+- Build one single-screen UI (“Liquidity Truth — Regulatory View”) with three panes
+- Use mocked data behind the API for now (no dependency on live PoLi/DACT/LIS wiring)
+- Keep everything read-only and calm; no live tickers, no charts, no order book ladders
+- Include Export buttons (PDF + JSON) even if PDF is placeholder for now
+- Keep code clean, minimal, and ready to swap mock providers for real services later
+
+DO NOT:
+- Add any write endpoints
+- Add any features beyond what is specified
+- Add trading/strategy features or “alerts optimized for response”
+- Show prices, depth ladders, or anything that resembles execution
+
+TARGET ARCHITECTURE
+- Add server routes under: /api/rcl/v0.1/*
+- Add UI page/route in TILT for: /regulatory/adgm (or similar)
+- The UI should fetch from GET /api/rcl/v0.1/screen/adgm?instrument=BTC-USD (instrument is selectable from a dropdown)
+- Use /api/rcl/v0.1/instruments to populate the dropdown
+- All payloads must include: meta, access_context, header, coverage, truth, provenance, export (exact keys)
+
+PHASE A ACCEPTANCE CRITERIA (PASS/FAIL)
+PASS if:
+1) GET /api/rcl/v0.1/screen/adgm returns a JSON payload matching the agreed contract keys:
+   meta, access_context, header, coverage, truth, provenance, export
+2) GET /api/rcl/v0.1/instruments returns list items with instrument, asset_class, status
+3) UI renders a single screen with:
+   - Header section: jurisdiction=ADGM, market scope, time window label, non-authoritative notice
+   - Left pane (Coverage): venue_count, liquidity_types, coverage_pct, last_successful_ingest_at, coverage_flags
+   - Center pane (Truth): PoLi status, evidence_level, verified_at, valid_until, integrity summary
+   - Right pane (Provenance): venue list, each with lis_modules, ingestion_method, normalization_status, last_event_at, evidence_hooks, refs
+   - Footer: Export buttons for PDF/JSON + snapshot reference IDs
+4) No charts, no tickers, no orderbook depth, no trading language
+5) Export JSON works (downloads or opens the JSON)
+6) Export PDF endpoint exists and returns a placeholder PDF (simple “RCL Snapshot Placeholder” is ok)
+
+FAIL if:
+- Any data mutation endpoints exist
+- UI shows prices or anything resembling a trading terminal
+- Contract keys differ or fields are renamed/omitted
+
+IMPLEMENTATION TASKS
+
+A) SERVER: Add RCL Routes (TypeScript / Express)
+1) Create server/routes/rcl.ts (or equivalent pattern in repo)
+2) Register router at /api/rcl/v0.1 in server/app.ts (or wherever routes are mounted)
+3) Implement these endpoints:
+   - GET /screen/adgm
+     Query params: market, asset_class, instrument, time_mode, at
+     Return mocked payload in the exact shape below.
+   - GET /instruments
+     Query params: q, limit, cursor
+     Return mocked list (BTC-USD, ETH-USD, SOL-USD etc).
+   - GET /exports/:snapshot_ref/json
+     Return the same frozen payload as /screen/adgm for that snapshot_ref (mock ok)
+   - GET /exports/:snapshot_ref/pdf
+     Return application/pdf with a tiny placeholder PDF document
+   - GET /meta (optional but helpful)
+4) Add a simple auth guard middleware stub:
+   - requireBearerToken() that accepts any token in dev mode, but structures access_context as role=regulator, jurisdiction=ADGM, scopes=["rcl:read"]
+   NOTE: do not build full auth; keep minimal.
+
+B) MOCK DATA PROVIDER
+Create a small module: server/services/rclMock.ts (or similar)
+- Expose function getAdgmScreenPayload(instrument: string, timeMode: string, at?: string)
+- Generate:
+  - meta.contract_version="rcl_v0.1"
+  - meta.authoritative_record=false
+  - meta.authoritative_refs (poli_snapshot, dact_window, lis_manifest)
+  - header.notice fixed string: "Read-only regulatory view. Non-authoritative rendering."
+  - coverage: includes coverage_completeness with coverage_pct number
+  - truth.poli.status in ["verified","insufficient","degraded"]
+  - truth.integrity overall state ok/amber/red
+  - provenance.venues[] with at least Binance/Coinbase/Kraken mocked
+  - export.formats ["pdf","json"] and endpoints built from snapshot_ref
+Keep mock values realistic and stable. Include timestamps.
+
+C) CLIENT/UI: Single Canonical ADGM Screen
+1) Add a route/page: /regulatory/adgm
+2) Build a single screen component: RegulatoryAdgmView
+3) Layout:
+   - Header (context + notice)
+   - 3 panes: Coverage (left), Truth (center), Provenance (right)
+   - Footer with export buttons + reference IDs
+4) Add an instrument selector dropdown at top-left (small, non-dominant)
+   - Load instruments from GET /api/rcl/v0.1/instruments
+   - Default instrument: BTC-USD
+   - On change: refetch /screen/adgm?instrument=...
+5) Styling rules:
+   - Calm, sparse, black/white, evidence-oriented
+   - No animated numbers, no charts, no “live”
+   - Use compact cards with labels + values
+   - Severity indicators can be simple text “GREEN/AMBER/RED” (no flashy icons)
+6) Export buttons:
+   - “Export JSON” hits export.endpoints.json and triggers download/open
+   - “Export PDF” hits export.endpoints.pdf
+
+D) TESTING / VALIDATION
+- Add a minimal smoke test or manual instructions:
+  1) curl /api/rcl/v0.1/screen/adgm?instrument=BTC-USD
+  2) curl /api/rcl/v0.1/instruments
+  3) Navigate to /regulatory/adgm and confirm it renders
+
+CONTRACT SHAPE (MUST MATCH KEYS EXACTLY)
+The /screen/adgm response MUST include these top-level keys:
+- meta
+- access_context
+- header
+- coverage
+- truth
+- provenance
+- export
+
+Within them, keep the same nested keys as below (you may add extra fields only if they do not change/rename these):
+
+meta: {
+  contract_version, generated_at, time_mode, authoritative_record, authoritative_refs[]
+}
+access_context: { role, jurisdiction, scopes[] }
+header: { jurisdiction, market_scope, instrument, snapshot_label, notice }
+coverage: { instrument, venue_count, liquidity_types[], coverage_completeness{known_venues,covered_venues,coverage_pct}, last_successful_ingest_at, coverage_flags[] }
+truth: { poli{status,evidence_level,verified_at,valid_until,status_reason}, integrity{data_gaps{present,gap_count}, latency{within_bounds,p95_ms}, normalization{complete,failed_venues}, overall{state,severity}} }
+provenance: { venues[], reference_ids{snapshot_ref,poli_ref,dact_ref,lis_ref} }
+export: { available, formats[], endpoints{pdf,json} }
+
+DELIVERABLES
+- Code changes implementing the above
+- A short README snippet in repo describing how to run and test the regulatory view
+- Ensure lint/build passes
+
+START NOW: Build Phase A exactly as specified. No extra scope.
