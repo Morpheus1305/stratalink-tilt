@@ -7,6 +7,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { DashboardHeader } from "@/components/dashboard-header";
+import { PlatformTabs } from "@/components/platform-tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FileJson, FileText, RefreshCw, AlertCircle, CheckCircle, AlertTriangle } from "lucide-react";
@@ -195,6 +196,7 @@ export default function RegulatoryAdgmView() {
   return (
     <div className="min-h-screen bg-background flex flex-col" data-testid="regulatory-adgm-page">
       <DashboardHeader />
+      <PlatformTabs />
 
       <div className="flex-1 p-6 space-y-4 max-w-7xl mx-auto w-full">
         {/* Header Section */}
