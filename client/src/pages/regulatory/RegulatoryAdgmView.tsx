@@ -229,14 +229,15 @@ export default function RegulatoryAdgmView() {
               </select>
 
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={handleRefresh}
                 disabled={screenQuery.isFetching}
+                className="text-muted-foreground"
                 data-testid="button-refresh"
               >
                 <RefreshCw className={`w-3.5 h-3.5 mr-1 ${screenQuery.isFetching ? "animate-spin" : ""}`} />
-                Fetch latest snapshot
+                Load latest snapshot
               </Button>
             </div>
           </div>
@@ -272,32 +273,34 @@ export default function RegulatoryAdgmView() {
                 <CardTitle className="text-sm font-medium">Coverage</CardTitle>
               </CardHeader>
               <CardContent className="space-y-1">
-                <LabelValue label="instrument" value={data.coverage.instrument} mono />
-                <LabelValue label="venue_count" value={data.coverage.venue_count} />
+                <LabelValue label="Instrument" value={data.coverage.instrument} mono />
+                <LabelValue label="Venue Count" value={data.coverage.venue_count} />
                 <LabelValue
-                  label="liquidity_types"
-                  value={data.coverage.liquidity_types.join(", ")}
+                  label="Liquidity Types"
+                  value={data.coverage.liquidity_types.map(t => 
+                    t === "lit" ? "Lit" : t === "rfq" ? "RFQ" : t === "amm_derived" ? "AMM-Derived" : t
+                  ).join(" / ")}
                 />
                 <LabelValue
-                  label="coverage_pct"
+                  label="Coverage"
                   value={`${data.coverage.coverage_completeness.coverage_pct}%`}
                   mono
                 />
                 <LabelValue
-                  label="known_venues"
+                  label="Known Venues"
                   value={data.coverage.coverage_completeness.known_venues}
                 />
                 <LabelValue
-                  label="covered_venues"
+                  label="Covered Venues"
                   value={data.coverage.coverage_completeness.covered_venues}
                 />
                 <LabelValue
-                  label="last_successful_ingest_at"
+                  label="Last Ingest"
                   value={formatTime(data.coverage.last_successful_ingest_at)}
                 />
                 {data.coverage.coverage_flags.length > 0 && (
                   <div className="pt-2">
-                    <span className="text-xs text-muted-foreground">coverage_flags:</span>
+                    <span className="text-xs text-muted-foreground">Coverage Flags</span>
                     <div className="flex flex-wrap gap-1 mt-1">
                       {data.coverage.coverage_flags.map((flag) => (
                         <span
@@ -322,15 +325,15 @@ export default function RegulatoryAdgmView() {
                 {/* PoLi Status */}
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">status</span>
+                    <span className="text-xs text-muted-foreground">Status</span>
                     <StatusBadge status={data.truth.poli.status} />
                   </div>
-                  <LabelValue label="evidence_level" value={data.truth.poli.evidence_level} mono />
+                  <LabelValue label="Evidence Level" value={data.truth.poli.evidence_level} mono />
                   <div className="pt-2">
                     <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Validity Window</span>
                   </div>
-                  <LabelValue label="verified_at" value={formatTime(data.truth.poli.verified_at)} />
-                  <LabelValue label="valid_until" value={formatTime(data.truth.poli.valid_until)} />
+                  <LabelValue label="Verified At" value={formatTime(data.truth.poli.verified_at)} />
+                  <LabelValue label="Valid Until" value={formatTime(data.truth.poli.valid_until)} />
                   <div className="text-[10px] text-muted-foreground pt-1">
                     {data.truth.poli.status_reason}
                   </div>
@@ -341,26 +344,31 @@ export default function RegulatoryAdgmView() {
                 {/* Integrity */}
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">integrity.overall</span>
-                    <SeverityIndicator severity={data.truth.integrity.overall.severity} />
+                    <span className="text-xs text-muted-foreground">Integrity</span>
+                    <span className={`text-xs font-medium ${
+                      data.truth.integrity.overall.severity === "ok" ? "text-green-500" :
+                      data.truth.integrity.overall.severity === "amber" ? "text-amber-500" : "text-red-500"
+                    }`}>
+                      {data.truth.integrity.overall.state === "within_controls" ? "OK" : 
+                       data.truth.integrity.overall.state === "elevated_risk" ? "Elevated Risk" : "Control Breach"}
+                    </span>
                   </div>
-                  <LabelValue label="state" value={data.truth.integrity.overall.state} />
                   <LabelValue
-                    label="data_gaps.present"
-                    value={data.truth.integrity.data_gaps.present ? `true (${data.truth.integrity.data_gaps.gap_count})` : "false"}
+                    label="Data Gaps"
+                    value={data.truth.integrity.data_gaps.present ? `Present (${data.truth.integrity.data_gaps.gap_count})` : "None"}
                   />
                   <LabelValue
-                    label="latency.p95_ms"
-                    value={`${data.truth.integrity.latency.p95_ms}`}
+                    label="Latency (p95)"
+                    value={`${data.truth.integrity.latency.p95_ms} ms`}
                     mono
                   />
                   <LabelValue
-                    label="latency.within_bounds"
-                    value={data.truth.integrity.latency.within_bounds ? "true" : "false"}
+                    label="Within Bounds"
+                    value={data.truth.integrity.latency.within_bounds ? "Yes" : "No"}
                   />
                   <LabelValue
-                    label="normalization.complete"
-                    value={data.truth.integrity.normalization.complete ? "true" : "false"}
+                    label="Normalization"
+                    value={data.truth.integrity.normalization.complete ? "Complete" : "Incomplete"}
                   />
                 </div>
               </CardContent>
@@ -375,26 +383,26 @@ export default function RegulatoryAdgmView() {
                 {data.provenance.venues.map((venue) => (
                   <div key={venue.venue} className="border border-neutral-800 rounded p-2 space-y-1">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium">{venue.venue}</span>
+                      <span className="text-xs font-medium capitalize">{venue.venue}</span>
                       <span className="text-[10px] text-muted-foreground">{venue.ingestion_method}</span>
                     </div>
                     <div className="text-[10px] text-muted-foreground">
-                      lis_modules: {venue.lis_modules.join(", ")}
+                      Modules: {venue.lis_modules.join(", ")}
                     </div>
                     <div className="text-[10px] text-muted-foreground">
-                      normalization_status: {venue.normalization_status}
+                      Normalization: {venue.normalization_status}
                     </div>
                     <div className="text-[10px] text-muted-foreground">
-                      last_event_at: {formatTime(venue.last_event_at)}
+                      Last Event: {formatTime(venue.last_event_at)}
                     </div>
                     <div className="text-[10px] font-mono text-muted-foreground/70 truncate">
-                      refs.lis_ref: {venue.refs.lis_ref}
+                      LIS Ref: {venue.refs.lis_ref}
                     </div>
                   </div>
                 ))}
 
                 <div className="border-t border-neutral-800 pt-2 space-y-1">
-                  <span className="text-xs text-muted-foreground">reference_ids</span>
+                  <span className="text-xs text-muted-foreground">Reference IDs</span>
                   <div className="text-[10px] font-mono space-y-0.5">
                     <div className="truncate">snapshot_ref: {data.provenance.reference_ids.snapshot_ref}</div>
                     <div className="truncate">poli_ref: {data.provenance.reference_ids.poli_ref}</div>
@@ -404,7 +412,7 @@ export default function RegulatoryAdgmView() {
                 </div>
 
                 <div className="border-t border-neutral-800 pt-2 space-y-1">
-                  <span className="text-xs text-muted-foreground">authoritative_refs</span>
+                  <span className="text-xs text-muted-foreground">Authoritative references (official records)</span>
                   <div className="text-[10px] font-mono space-y-0.5">
                     <div className="truncate">poli_snapshot: {data.meta.authoritative_refs.poli_snapshot}</div>
                     <div className="truncate">dact_window: {data.meta.authoritative_refs.dact_window}</div>

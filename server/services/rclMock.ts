@@ -176,7 +176,7 @@ export function getInstruments(
 
 export function getAdgmScreenPayload(
   instrument: string = "BTC-USD",
-  timeMode: string = "realtime",
+  timeMode: string = "latest_snapshot",
   _at?: string
 ): RclScreenPayload {
   const now = new Date();
@@ -282,10 +282,10 @@ export function getAdgmScreenPayload(
         overall: {
           state:
             poliStatus === "verified"
-              ? "healthy"
+              ? "within_controls"
               : poliStatus === "degraded"
-              ? "degraded"
-              : "impaired",
+              ? "elevated_risk"
+              : "control_breach",
           severity: overallSeverity,
         },
       },
