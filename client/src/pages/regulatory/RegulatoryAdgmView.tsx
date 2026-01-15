@@ -239,15 +239,9 @@ export default function RegulatoryAdgmView() {
           </div>
 
           {/* Notice Banner */}
-          <div className="bg-neutral-900/50 border border-neutral-800 rounded px-3 py-2 space-y-1">
+          <div className="bg-neutral-900/50 border border-neutral-800 rounded px-3 py-2">
             <p className="text-xs text-muted-foreground">
-              Read-only regulatory view derived from live venue ingestion.
-            </p>
-            <p className="text-xs text-muted-foreground">
-              This interface renders time-bounded supervisory snapshots.
-            </p>
-            <p className="text-xs text-muted-foreground">
-              For official records, refer to authoritative references below.
+              Read-only regulatory view derived from live venue ingestion. This interface renders time-bounded supervisory snapshots. For official records, refer to authoritative references below.
             </p>
           </div>
         </div>
