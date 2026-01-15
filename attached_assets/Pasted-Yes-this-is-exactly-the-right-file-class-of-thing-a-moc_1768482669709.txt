@@ -1,0 +1,245 @@
+Yes — this is exactly the right file/class of thing (a mock provider + payload typing). And it’s very close to the contract we want.
+
+But there are 7 precise changes I’d make so it’s fully aligned with the RCL v0.1 contract + regulator semantics (and avoids later refactors).
+
+⸻
+
+✅ What’s already good
+	•	Mock provider pattern is right (getAdgmScreenPayload, cache, instruments list)
+	•	Core blocks are present: meta, access_context, header, coverage, truth, provenance, export
+	•	Evidence ladder is L1–L3 (good)
+	•	Integrity fields exist (good)
+	•	Exports use snapshotRef (good)
+
+⸻
+
+🔧 Changes I recommend (high confidence)
+
+1) meta.time_mode → meta.time_mode values must NOT include “realtime”
+
+You’ve already defaulted to "latest_snapshot" (good), but enforce enum:
+	•	latest_snapshot
+	•	at_time
+
+Do not allow "realtime" anywhere (this was the earlier issue in your JSON screenshot).
+
+Fix: type it.
+
+time_mode: "latest_snapshot" | "at_time";
+
+And in the function signature:
+
+timeMode: "latest_snapshot" | "at_time" = "latest_snapshot"
+
+
+⸻
+
+2) authoritative_refs should be an array, not an object (recommended)
+
+In my original contract I modelled it as an array of {type, ref} because it scales cleanly (more references later) and is closer to audit idioms.
+
+Right now you have:
+
+authoritative_refs: { poli_snapshot, dact_window, lis_manifest }
+
+This is workable, but less future-proof.
+
+Best fix (recommended):
+
+authoritative_refs: Array<{ type: "poli_snapshot" | "dact_window" | "lis_manifest"; ref: string }>
+
+If you keep object-form, it’s not fatal — but I’d change it now while Phase A is still light.
+
+⸻
+
+3) coverage.coverage_flags should be structured objects, not strings
+
+Right now it’s string[]. Better to match severity and message:
+
+coverage_flags: Array<{ code: string; severity: "green" | "amber" | "red"; message: string }>;
+
+Why this matters: regulators need “what + severity + why”, and the UI can render cleanly.
+
+⸻
+
+4) Provenance venue objects: use venue_id not venue
+
+Small but important for standardisation (IDs vs display names).
+
+Change:
+
+venue: string;
+
+to:
+
+venue_id: string;
+venue_name?: string;
+
+(You can set venue_name same as title-case name for now.)
+
+⸻
+
+5) truth.integrity.normalization.failed_venues should be number or array of venue_ids
+
+Your type says string[] and you populate []. That’s fine, but if you want to align with the earlier contract:
+	•	either failed_venues: number
+	•	or failed_venues: string[] (venue IDs)
+
+Pick one and stick to it. I’d keep string[] for specificity.
+
+⸻
+
+6) Severity enum: use green|amber|red, not ok|amber|red
+
+In your interface:
+
+severity: "ok" | "amber" | "red"
+
+But the UI is already showing “OK” etc. For consistency with RAG language, prefer:
+	•	green | amber | red
+
+And keep overall.state as ok/within_controls/... if you want.
+
+Fix:
+
+severity: "green" | "amber" | "red";
+
+
+⸻
+
+7) /instruments response should be items, not instruments (contract consistency)
+
+Your getInstruments() returns:
+
+{ instruments: RclInstrument[]; next_cursor: string | null }
+
+My contract earlier used:
+
+{ items: [...], next_cursor: null }
+
+This matters because the UI/SDK contract should be consistent.
+
+Fix:
+Return { items, next_cursor } and update the route accordingly.
+
+⸻
+
+Suggested “patched” types (drop-in)
+
+Here’s a tightened version of your interfaces with minimal disruption:
+
+export type RclTimeMode = "latest_snapshot" | "at_time";
+export type RclPoLiStatus = "verified" | "insufficient" | "degraded";
+export type RclSeverity = "green" | "amber" | "red";
+
+export interface RclAuthoritativeRef {
+  type: "poli_snapshot" | "dact_window" | "lis_manifest";
+  ref: string;
+}
+
+export interface RclFlag {
+  code: string;
+  severity: RclSeverity;
+  message: string;
+}
+
+export interface RclInstrument {
+  instrument: string;
+  asset_class: string;
+  status: "active" | "inactive";
+}
+
+export interface RclScreenPayload {
+  meta: {
+    contract_version: "rcl_v0.1";
+    generated_at: string;
+    time_mode: RclTimeMode;
+    authoritative_record: false;
+    authoritative_refs: RclAuthoritativeRef[];
+  };
+  access_context: {
+    role: "regulator";
+    jurisdiction: "ADGM";
+    scopes: string[];
+  };
+  header: {
+    jurisdiction: "ADGM";
+    market_scope: string;
+    instrument: string;
+    snapshot_label: string;
+    notice: string;
+  };
+  coverage: {
+    instrument: string;
+    venue_count: number;
+    liquidity_types: Array<"lit" | "rfq" | "amm_derived">;
+    coverage_completeness: {
+      known_venues: number;
+      covered_venues: number;
+      coverage_pct: number;
+    };
+    last_successful_ingest_at: string;
+    coverage_flags: RclFlag[];
+  };
+  truth: {
+    poli: {
+      status: RclPoLiStatus;
+      evidence_level: "L1" | "L2" | "L3" | "L4" | "L5";
+      verified_at: string;
+      valid_until: string;
+      status_reason: string;
+    };
+    integrity: {
+      data_gaps: { present: boolean; gap_count: number };
+      latency: { within_bounds: boolean; p95_ms: number };
+      normalization: { complete: boolean; failed_venues: string[] };
+      overall: { state: string; severity: RclSeverity };
+    };
+  };
+  provenance: {
+    venues: Array<{
+      venue_id: string;
+      venue_name?: string;
+      lis_modules: string[];
+      ingestion_method: string;
+      normalization_status: string;
+      last_event_at: string;
+      evidence_hooks: string[];
+      refs: { lis_ref: string; dact_ref: string };
+    }>;
+    reference_ids: {
+      snapshot_ref: string;
+      poli_ref: string;
+      dact_ref: string;
+      lis_ref: string;
+    };
+  };
+  export: {
+    available: boolean;
+    formats: Array<"pdf" | "json">;
+    endpoints: { pdf: string; json: string };
+  };
+}
+
+And in return.meta.authoritative_refs, switch to:
+
+authoritative_refs: [
+  { type: "poli_snapshot", ref: poliRef },
+  { type: "dact_window", ref: dactRef },
+  { type: "lis_manifest", ref: lisRef },
+]
+
+
+⸻
+
+Bottom line
+
+✅ Yes — you’re holding the right thing.
+To make it “locked” as RCL v0.1, I’d implement the 7 fixes above, especially:
+	•	ban “realtime”
+	•	structured flags
+	•	authoritative_refs as array
+	•	severity green/amber/red
+	•	/instruments → items
+
+If you want, paste the Express route for /api/rcl/v0.1/screen/adgm and /instruments and I’ll tell you exactly what to change so the wire + types + UI are perfectly consistent.

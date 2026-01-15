@@ -13,6 +13,7 @@ import {
   cacheSnapshot,
   getSnapshot,
   type RclScreenPayload,
+  type RclTimeMode,
 } from "../services/rclMock";
 
 const router = Router();
@@ -82,7 +83,7 @@ router.get("/instruments", requireBearerToken, (req: Request, res: Response) => 
   const result = getInstruments(q, limit, cursor);
 
   res.json({
-    instruments: result.instruments,
+    items: result.items,
     pagination: {
       limit,
       next_cursor: result.next_cursor,
@@ -92,7 +93,8 @@ router.get("/instruments", requireBearerToken, (req: Request, res: Response) => 
 
 router.get("/screen/adgm", requireBearerToken, (req: Request, res: Response) => {
   const instrument = (req.query.instrument as string) || "BTC-USD";
-  const timeMode = (req.query.time_mode as string) || "latest_snapshot";
+  const timeModeParam = req.query.time_mode as string | undefined;
+  const timeMode: RclTimeMode = timeModeParam === "at_time" ? "at_time" : "latest_snapshot";
   const at = req.query.at as string | undefined;
 
   const payload = getAdgmScreenPayload(instrument, timeMode, at);
@@ -108,7 +110,7 @@ router.get("/exports/:snapshot_ref/json", requireBearerToken, (req: Request, res
   let payload = getSnapshot(snapshot_ref);
 
   if (!payload) {
-    payload = getAdgmScreenPayload("BTC-USD", "snapshot");
+    payload = getAdgmScreenPayload("BTC-USD", "latest_snapshot");
     (payload.provenance.reference_ids as { snapshot_ref: string }).snapshot_ref = snapshot_ref;
     cacheSnapshot(payload);
   }

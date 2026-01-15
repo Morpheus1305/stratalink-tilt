@@ -4,31 +4,45 @@
  * Contract version: rcl_v0.1
  */
 
+export type RclTimeMode = "latest_snapshot" | "at_time";
+export type RclPoLiStatus = "verified" | "insufficient" | "degraded";
+export type RclSeverity = "green" | "amber" | "red";
+export type RclEvidenceLevel = "L1" | "L2" | "L3" | "L4" | "L5";
+export type RclLiquidityType = "lit" | "rfq" | "amm_derived";
+export type RclAuthRefType = "poli_snapshot" | "dact_window" | "lis_manifest";
+
+export interface RclAuthoritativeRef {
+  type: RclAuthRefType;
+  ref: string;
+}
+
+export interface RclFlag {
+  code: string;
+  severity: RclSeverity;
+  message: string;
+}
+
 export interface RclInstrument {
   instrument: string;
   asset_class: string;
-  status: string;
+  status: "active" | "inactive";
 }
 
 export interface RclScreenPayload {
   meta: {
-    contract_version: string;
+    contract_version: "rcl_v0.1";
     generated_at: string;
-    time_mode: string;
-    authoritative_record: boolean;
-    authoritative_refs: {
-      poli_snapshot: string;
-      dact_window: string;
-      lis_manifest: string;
-    };
+    time_mode: RclTimeMode;
+    authoritative_record: false;
+    authoritative_refs: RclAuthoritativeRef[];
   };
   access_context: {
-    role: string;
-    jurisdiction: string;
+    role: "regulator";
+    jurisdiction: "ADGM";
     scopes: string[];
   };
   header: {
-    jurisdiction: string;
+    jurisdiction: "ADGM";
     market_scope: string;
     instrument: string;
     snapshot_label: string;
@@ -37,55 +51,41 @@ export interface RclScreenPayload {
   coverage: {
     instrument: string;
     venue_count: number;
-    liquidity_types: string[];
+    liquidity_types: RclLiquidityType[];
     coverage_completeness: {
       known_venues: number;
       covered_venues: number;
       coverage_pct: number;
     };
     last_successful_ingest_at: string;
-    coverage_flags: string[];
+    coverage_flags: RclFlag[];
   };
   truth: {
     poli: {
-      status: "verified" | "insufficient" | "degraded";
-      evidence_level: string;
+      status: RclPoLiStatus;
+      evidence_level: RclEvidenceLevel;
       verified_at: string;
       valid_until: string;
       status_reason: string;
     };
     integrity: {
-      data_gaps: {
-        present: boolean;
-        gap_count: number;
-      };
-      latency: {
-        within_bounds: boolean;
-        p95_ms: number;
-      };
-      normalization: {
-        complete: boolean;
-        failed_venues: string[];
-      };
-      overall: {
-        state: string;
-        severity: "ok" | "amber" | "red";
-      };
+      data_gaps: { present: boolean; gap_count: number };
+      latency: { within_bounds: boolean; p95_ms: number };
+      normalization: { complete: boolean; failed_venues: string[] };
+      overall: { state: string; severity: RclSeverity };
     };
   };
   provenance: {
-    venues: {
-      venue: string;
+    venues: Array<{
+      venue_id: string;
+      venue_name?: string;
       lis_modules: string[];
       ingestion_method: string;
       normalization_status: string;
       last_event_at: string;
       evidence_hooks: string[];
-      refs: {
-        lis_ref: string;
-        dact_ref: string;
-      };
-    }[];
+      refs: { lis_ref: string; dact_ref: string };
+    }>;
     reference_ids: {
       snapshot_ref: string;
       poli_ref: string;
@@ -95,11 +95,8 @@ export interface RclScreenPayload {
   };
   export: {
     available: boolean;
-    formats: string[];
-    endpoints: {
-      pdf: string;
-      json: string;
-    };
+    formats: Array<"pdf" | "json">;
+    endpoints: { pdf: string; json: string };
   };
 }
 
@@ -116,19 +113,22 @@ const MOCK_INSTRUMENTS: RclInstrument[] = [
 
 const VENUE_CONFIGS = [
   {
-    venue: "binance",
+    venue_id: "binance",
+    venue_name: "Binance",
     lis_modules: ["depth", "trades", "funding"],
     ingestion_method: "relay",
     normalization_status: "complete",
   },
   {
-    venue: "coinbase",
+    venue_id: "coinbase",
+    venue_name: "Coinbase",
     lis_modules: ["depth", "trades"],
     ingestion_method: "rest",
     normalization_status: "complete",
   },
   {
-    venue: "kraken",
+    venue_id: "kraken",
+    venue_name: "Kraken",
     lis_modules: ["depth", "trades"],
     ingestion_method: "rest",
     normalization_status: "complete",
@@ -157,7 +157,7 @@ export function getInstruments(
   q?: string,
   limit: number = 50,
   _cursor?: string
-): { instruments: RclInstrument[]; next_cursor: string | null } {
+): { items: RclInstrument[]; next_cursor: string | null } {
   let filtered = MOCK_INSTRUMENTS;
   if (q) {
     const query = q.toLowerCase();
@@ -169,14 +169,14 @@ export function getInstruments(
   }
   const limited = filtered.slice(0, limit);
   return {
-    instruments: limited,
+    items: limited,
     next_cursor: limited.length < filtered.length ? "next" : null,
   };
 }
 
 export function getAdgmScreenPayload(
   instrument: string = "BTC-USD",
-  timeMode: string = "latest_snapshot",
+  timeMode: RclTimeMode = "latest_snapshot",
   _at?: string
 ): RclScreenPayload {
   const now = new Date();
@@ -187,7 +187,7 @@ export function getAdgmScreenPayload(
 
   const validUntil = new Date(now.getTime() + 5 * 60 * 1000);
 
-  const poliStatuses: Array<"verified" | "insufficient" | "degraded"> = [
+  const poliStatuses: RclPoLiStatus[] = [
     "verified",
     "verified",
     "verified",
@@ -195,21 +195,30 @@ export function getAdgmScreenPayload(
   ];
   const poliStatus = poliStatuses[Math.floor(Math.random() * poliStatuses.length)];
 
-  const overallSeverity: "ok" | "amber" | "red" =
-    poliStatus === "verified" ? "ok" : poliStatus === "degraded" ? "amber" : "red";
+  const overallSeverity: RclSeverity =
+    poliStatus === "verified" ? "green" : poliStatus === "degraded" ? "amber" : "red";
 
   const venues = VENUE_CONFIGS.map((vc) => ({
-    venue: vc.venue,
+    venue_id: vc.venue_id,
+    venue_name: vc.venue_name,
     lis_modules: vc.lis_modules,
     ingestion_method: vc.ingestion_method,
     normalization_status: vc.normalization_status,
     last_event_at: new Date(now.getTime() - Math.random() * 5000).toISOString(),
-    evidence_hooks: [`${vc.venue}_depth_hook`, `${vc.venue}_trade_hook`],
+    evidence_hooks: [`${vc.venue_id}_depth_hook`, `${vc.venue_id}_trade_hook`],
     refs: {
-      lis_ref: `${vc.venue}-${lisRef}`,
-      dact_ref: `${vc.venue}-${dactRef}`,
+      lis_ref: `${vc.venue_id}-${lisRef}`,
+      dact_ref: `${vc.venue_id}-${dactRef}`,
     },
   }));
+
+  const coverageFlags: RclFlag[] =
+    poliStatus === "verified"
+      ? []
+      : [
+          { code: "partial_venue_coverage", severity: "amber", message: "Not all known venues are reporting" },
+          { code: "okx_unavailable", severity: "amber", message: "OKX venue is not responding" },
+        ];
 
   return {
     meta: {
@@ -217,11 +226,11 @@ export function getAdgmScreenPayload(
       generated_at: now.toISOString(),
       time_mode: timeMode,
       authoritative_record: false,
-      authoritative_refs: {
-        poli_snapshot: poliRef,
-        dact_window: dactRef,
-        lis_manifest: lisRef,
-      },
+      authoritative_refs: [
+        { type: "poli_snapshot", ref: poliRef },
+        { type: "dact_window", ref: dactRef },
+        { type: "lis_manifest", ref: lisRef },
+      ],
     },
     access_context: {
       role: "regulator",
@@ -248,10 +257,7 @@ export function getAdgmScreenPayload(
       last_successful_ingest_at: new Date(
         now.getTime() - Math.random() * 3000
       ).toISOString(),
-      coverage_flags:
-        poliStatus === "verified"
-          ? []
-          : ["partial_venue_coverage", "okx_unavailable"],
+      coverage_flags: coverageFlags,
     },
     truth: {
       poli: {
