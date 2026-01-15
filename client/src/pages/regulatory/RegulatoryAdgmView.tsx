@@ -166,12 +166,7 @@ export default function RegulatoryAdgmView() {
   });
 
   const screenQuery = useQuery<RclScreenPayload>({
-    queryKey: ["/api/rcl/v0.1/screen/adgm", selectedInstrument],
-    queryFn: async () => {
-      const res = await fetch(`/api/rcl/v0.1/screen/adgm?instrument=${encodeURIComponent(selectedInstrument)}`);
-      if (!res.ok) throw new Error("Failed to fetch screen data");
-      return res.json();
-    },
+    queryKey: [`/api/rcl/v0.1/screen/adgm?instrument=${encodeURIComponent(selectedInstrument)}`],
     refetchInterval: false,
     staleTime: 30000,
   });
