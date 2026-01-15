@@ -239,7 +239,7 @@ export function getAdgmScreenPayload(
     coverage: {
       instrument,
       venue_count: venues.length,
-      liquidity_types: ["spot_depth", "trades", "funding_rates"],
+      liquidity_types: ["lit", "rfq", "amm_derived"],
       coverage_completeness: {
         known_venues: 5,
         covered_venues: venues.length,
@@ -256,7 +256,7 @@ export function getAdgmScreenPayload(
     truth: {
       poli: {
         status: poliStatus,
-        evidence_level: poliStatus === "verified" ? "high" : "medium",
+        evidence_level: poliStatus === "verified" ? "L3" : poliStatus === "degraded" ? "L2" : "L1",
         verified_at: now.toISOString(),
         valid_until: validUntil.toISOString(),
         status_reason:
