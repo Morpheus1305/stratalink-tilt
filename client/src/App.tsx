@@ -33,6 +33,7 @@ import LisDebugPage from "@/pages/lis-debug";
 import AlertConfigPage from "@/pages/alert-config";
 import DownloadPage from "@/pages/download";
 import TapePage from "@/pages/platform/tape";
+import RegulatoryAdgmView from "@/pages/regulatory/RegulatoryAdgmView";
 
 // ✅ IMPORTANT: this must point to your existing file:
 // client/src/pages/clt-evidence.tsx
@@ -157,6 +158,15 @@ function AppRouter() {
         {() => (
           <RequireAuth>
             <RegSurveillancePage />
+          </RequireAuth>
+        )}
+      </Route>
+
+      {/* Regulatory (auth-gated) */}
+      <Route path="/regulatory/adgm">
+        {() => (
+          <RequireAuth>
+            <RegulatoryAdgmView />
           </RequireAuth>
         )}
       </Route>

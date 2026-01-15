@@ -18,6 +18,7 @@ import poliEvidenceRoutes from "./routes/poliEvidence";
 import poliApiRoutes from "./routes/poliApi";
 import alertsRoutes from "./routes/alerts";
 import tapeRoutes from "./routes/tape";
+import rclRoutes from "./routes/rcl";
 import dailyCommentaryRouter from "./api/dailyCommentary";
 import { startIngestionLoop } from "../analytics/engines/ingestionManager";
 import { 
@@ -413,6 +414,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/alerts", alertsRoutes);
 
   app.use("/api/tape", tapeRoutes);
+
+  // Mount RCL routes (Regulatory Consumption Layer - ADGM)
+  app.use("/api/rcl/v0.1", rclRoutes);
 
   // Download endpoint for LTC code archive
   app.get("/download/LTC-v1.0.zip", (_req, res) => {
