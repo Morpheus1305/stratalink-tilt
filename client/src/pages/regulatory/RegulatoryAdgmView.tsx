@@ -310,7 +310,7 @@ export default function RegulatoryAdgmView() {
                             className={`text-[10px] px-1.5 py-0.5 rounded border ${severityColors[flag.severity]}`}
                           >
                             <span className="font-medium">{flag.code}</span>
-                            <span className="text-muted-foreground ml-1">— {flag.message}</span>
+                            <span className="opacity-80 ml-1">— {flag.message}</span>
                           </div>
                         );
                       })}
