@@ -92,7 +92,7 @@ router.get("/instruments", requireBearerToken, (req: Request, res: Response) => 
 
 router.get("/screen/adgm", requireBearerToken, (req: Request, res: Response) => {
   const instrument = (req.query.instrument as string) || "BTC-USD";
-  const timeMode = (req.query.time_mode as string) || "realtime";
+  const timeMode = (req.query.time_mode as string) || "latest_snapshot";
   const at = req.query.at as string | undefined;
 
   const payload = getAdgmScreenPayload(instrument, timeMode, at);

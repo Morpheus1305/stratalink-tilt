@@ -110,12 +110,16 @@ interface RclScreenPayload {
   };
 }
 
-function SeverityIndicator({ severity }: { severity: "ok" | "amber" | "red" }) {
+function IntegrityIndicator({ severity, state }: { severity: "ok" | "amber" | "red"; state: string }) {
+  const label = state === "within_controls" ? "OK" : 
+                state === "elevated_risk" ? "Elevated Risk" : 
+                state === "control_breach" ? "Control Breach" : state;
+  
   if (severity === "ok") {
     return (
       <span className="inline-flex items-center gap-1 text-green-500">
         <CheckCircle className="w-3.5 h-3.5" />
-        <span className="text-xs font-medium">OK</span>
+        <span className="text-xs font-medium">{label}</span>
       </span>
     );
   }
@@ -123,14 +127,14 @@ function SeverityIndicator({ severity }: { severity: "ok" | "amber" | "red" }) {
     return (
       <span className="inline-flex items-center gap-1 text-amber-500">
         <AlertTriangle className="w-3.5 h-3.5" />
-        <span className="text-xs font-medium">AMBER</span>
+        <span className="text-xs font-medium">{label}</span>
       </span>
     );
   }
   return (
     <span className="inline-flex items-center gap-1 text-red-500">
       <AlertCircle className="w-3.5 h-3.5" />
-      <span className="text-xs font-medium">RED</span>
+      <span className="text-xs font-medium">{label}</span>
     </span>
   );
 }
@@ -345,13 +349,10 @@ export default function RegulatoryAdgmView() {
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">Integrity</span>
-                    <span className={`text-xs font-medium ${
-                      data.truth.integrity.overall.severity === "ok" ? "text-green-500" :
-                      data.truth.integrity.overall.severity === "amber" ? "text-amber-500" : "text-red-500"
-                    }`}>
-                      {data.truth.integrity.overall.state === "within_controls" ? "OK" : 
-                       data.truth.integrity.overall.state === "elevated_risk" ? "Elevated Risk" : "Control Breach"}
-                    </span>
+                    <IntegrityIndicator 
+                      severity={data.truth.integrity.overall.severity} 
+                      state={data.truth.integrity.overall.state} 
+                    />
                   </div>
                   <LabelValue
                     label="Data Gaps"
@@ -404,19 +405,19 @@ export default function RegulatoryAdgmView() {
                 <div className="border-t border-neutral-800 pt-2 space-y-1">
                   <span className="text-xs text-muted-foreground">Reference IDs</span>
                   <div className="text-[10px] font-mono space-y-0.5">
-                    <div className="truncate">snapshot_ref: {data.provenance.reference_ids.snapshot_ref}</div>
-                    <div className="truncate">poli_ref: {data.provenance.reference_ids.poli_ref}</div>
-                    <div className="truncate">dact_ref: {data.provenance.reference_ids.dact_ref}</div>
-                    <div className="truncate">lis_ref: {data.provenance.reference_ids.lis_ref}</div>
+                    <div className="truncate">Snapshot: {data.provenance.reference_ids.snapshot_ref}</div>
+                    <div className="truncate">PoLi: {data.provenance.reference_ids.poli_ref}</div>
+                    <div className="truncate">DACT: {data.provenance.reference_ids.dact_ref}</div>
+                    <div className="truncate">LIS: {data.provenance.reference_ids.lis_ref}</div>
                   </div>
                 </div>
 
                 <div className="border-t border-neutral-800 pt-2 space-y-1">
                   <span className="text-xs text-muted-foreground">Authoritative references (official records)</span>
                   <div className="text-[10px] font-mono space-y-0.5">
-                    <div className="truncate">poli_snapshot: {data.meta.authoritative_refs.poli_snapshot}</div>
-                    <div className="truncate">dact_window: {data.meta.authoritative_refs.dact_window}</div>
-                    <div className="truncate">lis_manifest: {data.meta.authoritative_refs.lis_manifest}</div>
+                    <div className="truncate">PoLi Snapshot: {data.meta.authoritative_refs.poli_snapshot}</div>
+                    <div className="truncate">DACT Window: {data.meta.authoritative_refs.dact_window}</div>
+                    <div className="truncate">LIS Manifest: {data.meta.authoritative_refs.lis_manifest}</div>
                   </div>
                 </div>
               </CardContent>
@@ -428,11 +429,11 @@ export default function RegulatoryAdgmView() {
         {data && (
           <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-neutral-800">
             <div className="text-[10px] font-mono text-muted-foreground space-y-0.5">
-              <div>contract_version: {data.meta.contract_version}</div>
-              <div>generated_at: {formatTime(data.meta.generated_at)}</div>
-              <div>snapshot_ref: {data.provenance.reference_ids.snapshot_ref}</div>
+              <div>Contract Version: {data.meta.contract_version}</div>
+              <div>Generated At: {formatTime(data.meta.generated_at)}</div>
+              <div>Snapshot Ref: {data.provenance.reference_ids.snapshot_ref}</div>
               <div className="pt-1 text-muted-foreground/70">
-                access_context: role={data.access_context.role}, jurisdiction={data.access_context.jurisdiction}, scopes=[{data.access_context.scopes.join(", ")}]
+                Access: {data.access_context.role} ({data.access_context.jurisdiction}) — Scopes: {data.access_context.scopes.join(", ")}
               </div>
             </div>
 
