@@ -111,6 +111,13 @@ const MOCK_INSTRUMENTS: RclInstrument[] = [
   { instrument: "AVAX-USD", asset_class: "cryptocurrency", status: "active" },
 ];
 
+/**
+ * Declared Supervisory Venue Set - Phase A
+ * Only these venues are in scope for RCL v0.1 ADGM jurisdiction.
+ * Do NOT add global market venues (e.g., OKX, Bybit) to RCL-v0.1.
+ */
+const DECLARED_SUPERVISORY_VENUES = ["binance", "coinbase", "kraken"] as const;
+
 const VENUE_CONFIGS = [
   {
     venue_id: "binance",
@@ -212,12 +219,17 @@ export function getAdgmScreenPayload(
     },
   }));
 
+  // Coverage flags derived ONLY from declared supervisory venue set
+  // Never reference venues outside DECLARED_SUPERVISORY_VENUES
   const coverageFlags: RclFlag[] =
     poliStatus === "verified"
       ? []
       : [
-          { code: "partial_venue_coverage", severity: "amber", message: "Not all known venues are reporting" },
-          { code: "okx_unavailable", severity: "amber", message: "OKX venue is not responding" },
+          { 
+            code: "elevated_latency", 
+            severity: "amber", 
+            message: "One or more declared supervisory venues reporting with elevated latency" 
+          },
         ];
 
   return {
@@ -247,12 +259,12 @@ export function getAdgmScreenPayload(
     },
     coverage: {
       instrument,
-      venue_count: venues.length,
+      venue_count: DECLARED_SUPERVISORY_VENUES.length,
       liquidity_types: ["lit", "rfq", "amm_derived"],
       coverage_completeness: {
-        known_venues: 5,
+        known_venues: DECLARED_SUPERVISORY_VENUES.length,
         covered_venues: venues.length,
-        coverage_pct: Math.round((venues.length / 5) * 100),
+        coverage_pct: Math.round((venues.length / DECLARED_SUPERVISORY_VENUES.length) * 100),
       },
       last_successful_ingest_at: new Date(
         now.getTime() - Math.random() * 3000
