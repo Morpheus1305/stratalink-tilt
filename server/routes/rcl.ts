@@ -107,24 +107,44 @@ router.get("/screen/adgm", requireBearerToken, (req: Request, res: Response) => 
 router.get("/exports/:snapshot_ref/json", requireBearerToken, (req: Request, res: Response) => {
   const { snapshot_ref } = req.params;
 
-  let payload = getSnapshot(snapshot_ref);
+  const payload = getSnapshot(snapshot_ref);
 
   if (!payload) {
-    payload = getAdgmScreenPayload("BTC-USD", "latest_snapshot");
-    (payload.provenance.reference_ids as { snapshot_ref: string }).snapshot_ref = snapshot_ref;
-    cacheSnapshot(payload);
+    return res.status(404).json({
+      error: {
+        code: "SNAPSHOT_NOT_FOUND",
+        message: "Snapshot reference not found or expired",
+        generated_at: new Date().toISOString(),
+      },
+    });
   }
 
+  const instrument = payload.header.instrument.replace(/[^a-zA-Z0-9-]/g, "_");
+  
   res.setHeader("Content-Type", "application/json");
   res.setHeader(
     "Content-Disposition",
-    `attachment; filename="rcl-snapshot-${snapshot_ref}.json"`
+    `attachment; filename="rcl_adgm_${instrument}_${snapshot_ref}.json"`
   );
   res.json(payload);
 });
 
 router.get("/exports/:snapshot_ref/pdf", requireBearerToken, (req: Request, res: Response) => {
   const { snapshot_ref } = req.params;
+
+  const payload = getSnapshot(snapshot_ref);
+
+  if (!payload) {
+    return res.status(404).json({
+      error: {
+        code: "SNAPSHOT_NOT_FOUND",
+        message: "Snapshot reference not found or expired",
+        generated_at: new Date().toISOString(),
+      },
+    });
+  }
+
+  const instrument = payload.header.instrument.replace(/[^a-zA-Z0-9-]/g, "_");
 
   const pdfContent = `%PDF-1.4
 1 0 obj
@@ -137,23 +157,28 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
 endobj
 4 0 obj
-<< /Length 200 >>
+<< /Length 350 >>
 stream
 BT
-/F1 24 Tf
-50 700 Td
-(RCL Regulatory Snapshot) Tj
-/F1 12 Tf
+/F1 18 Tf
+50 720 Td
+(ADGM Regulatory Liquidity Snapshot) Tj
+/F1 10 Tf
 0 -30 Td
-(Snapshot Reference: ${snapshot_ref}) Tj
-0 -20 Td
+(Type: Regulatory Liquidity Snapshot) Tj
+0 -18 Td
 (Jurisdiction: ADGM) Tj
-0 -20 Td
+0 -18 Td
 (Contract Version: rcl_v0.1) Tj
-0 -40 Td
-(This is a placeholder PDF document.) Tj
-0 -20 Td
-(Full PDF rendering will be implemented in Phase B.) Tj
+0 -18 Td
+(Instrument: ${instrument}) Tj
+0 -18 Td
+(Snapshot Reference: ${snapshot_ref}) Tj
+0 -30 Td
+(Generated At: ${payload.meta.generated_at}) Tj
+0 -30 Td
+/F1 8 Tf
+(This document is a placeholder. Full PDF rendering in Phase B.) Tj
 ET
 endstream
 endobj
@@ -167,17 +192,17 @@ xref
 0000000058 00000 n 
 0000000115 00000 n 
 0000000266 00000 n 
-0000000516 00000 n 
+0000000666 00000 n 
 trailer
 << /Size 6 /Root 1 0 R >>
 startxref
-595
+745
 %%EOF`;
 
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader(
     "Content-Disposition",
-    `attachment; filename="rcl-snapshot-${snapshot_ref}.pdf"`
+    `attachment; filename="rcl_adgm_${instrument}_${snapshot_ref}.pdf"`
   );
   res.send(pdfContent);
 });

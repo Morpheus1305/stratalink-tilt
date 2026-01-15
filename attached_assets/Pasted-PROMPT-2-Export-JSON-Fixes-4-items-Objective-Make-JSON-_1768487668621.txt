@@ -1,0 +1,49 @@
+PROMPT 2 — Export JSON Fixes (4 items)
+
+Objective: Make JSON/PDF exports audit-safe and contract-pure. Exports must never generate new truth. They must only export an existing frozen snapshot (or return 404). Keep the placeholder PDF approach for Phase A.
+
+Apply these 4 fixes:
+
+1) Stop regenerating snapshots in JSON export
+- In GET /api/rcl/v0.1/exports/:snapshot_ref/json:
+  - Remove any fallback logic that generates a new payload if getSnapshot(snapshot_ref) returns null.
+  - If snapshot not found, return HTTP 404 with:
+    {
+      "error": {
+        "code": "SNAPSHOT_NOT_FOUND",
+        "message": "Snapshot reference not found or expired",
+        "request_id": "<generate or omit>",
+        "generated_at": "<ISO timestamp>"
+      }
+    }
+  - Do not call getAdgmScreenPayload inside export routes.
+
+2) Enforce snapshot existence for PDF export
+- In GET /api/rcl/v0.1/exports/:snapshot_ref/pdf:
+  - First call getSnapshot(snapshot_ref).
+  - If not found, return the same 404 error shape as JSON export (code/message/etc).
+  - If found, return the placeholder PDF as before.
+
+3) Improve Content-Disposition filenames (self-describing)
+- For JSON export, set:
+  filename="rcl_adgm_<instrument>_<snapshot_ref>.json"
+- For PDF export, set:
+  filename="rcl_adgm_<instrument>_<snapshot_ref>.pdf"
+- The instrument value should come from the cached payload.header.instrument.
+
+4) Minor PDF text tweaks (regulator-grade phrasing)
+- In the placeholder PDF content, update lines to:
+  - "Type: Regulatory Liquidity Snapshot"
+  - "Jurisdiction: ADGM"
+  - Include "Contract Version: rcl_v0.1"
+  - Include "Snapshot Reference: <snapshot_ref>"
+- Keep the rest minimal. This is still a placeholder.
+
+Deliverable:
+- Provide minimal code diffs implementing the above.
+- Confirm with a quick manual test:
+  - Call /screen/adgm (get snapshot_ref)
+  - Call /exports/{snapshot_ref}/json => 200, returns identical payload
+  - Call /exports/{snapshot_ref}/pdf => 200, returns pdf
+  - Call /exports/{fake_ref}/json => 404
+  - Call /exports/{fake_ref}/pdf => 404
