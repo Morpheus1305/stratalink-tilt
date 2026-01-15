@@ -103,7 +103,7 @@ interface RclScreenPayload {
 }
 
 function IntegrityIndicator({ severity, state }: { severity: RclSeverity; state: string }) {
-  const label = state === "within_controls" ? "OK" : 
+  const label = state === "within_controls" ? "Within controls" : 
                 state === "elevated_risk" ? "Elevated Risk" : 
                 state === "control_breach" ? "Control Breach" : state;
   
@@ -239,9 +239,15 @@ export default function RegulatoryAdgmView() {
           </div>
 
           {/* Notice Banner */}
-          <div className="bg-neutral-900/50 border border-neutral-800 rounded px-3 py-2">
+          <div className="bg-neutral-900/50 border border-neutral-800 rounded px-3 py-2 space-y-1">
             <p className="text-xs text-muted-foreground">
-              {data?.header?.notice ?? "Read-only regulatory view. Non-authoritative rendering."}
+              Read-only regulatory view derived from live venue ingestion.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              This interface renders time-bounded supervisory snapshots.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              For official records, refer to authoritative references below.
             </p>
           </div>
         </div>
@@ -332,7 +338,13 @@ export default function RegulatoryAdgmView() {
                     <span className="text-xs text-muted-foreground">Status</span>
                     <StatusBadge status={data.truth.poli.status} />
                   </div>
-                  <LabelValue label="Evidence Level" value={data.truth.poli.evidence_level} mono />
+                  <LabelValue 
+                    label="Evidence Level" 
+                    value={data.truth.poli.evidence_level === "L3" 
+                      ? "L3 (Supervisory sufficiency)" 
+                      : data.truth.poli.evidence_level} 
+                    mono 
+                  />
                   <div className="pt-2">
                     <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Validity Window</span>
                   </div>
@@ -359,7 +371,7 @@ export default function RegulatoryAdgmView() {
                     value={data.truth.integrity.data_gaps.present ? `Present (${data.truth.integrity.data_gaps.gap_count})` : "None"}
                   />
                   <LabelValue
-                    label="Latency (p95)"
+                    label="Ingestion Latency (p95)"
                     value={`${data.truth.integrity.latency.p95_ms} ms`}
                     mono
                   />
@@ -437,7 +449,10 @@ export default function RegulatoryAdgmView() {
               <div>Contract Version: {data.meta.contract_version}</div>
               <div>Generated At: {formatTime(data.meta.generated_at)}</div>
               <div>Snapshot Ref: {data.provenance.reference_ids.snapshot_ref}</div>
-              <div className="pt-1 text-muted-foreground/70">
+              <div className="pt-1 text-green-500/80">
+                Data status: Live ingestion · Limited venue pilot ({data.coverage.venue_count} venues)
+              </div>
+              <div className="text-muted-foreground/70">
                 Access: {data.access_context.role} ({data.access_context.jurisdiction}) — Scopes: {data.access_context.scopes.join(", ")}
               </div>
             </div>
