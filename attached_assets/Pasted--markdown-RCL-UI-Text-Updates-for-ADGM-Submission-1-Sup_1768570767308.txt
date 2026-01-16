@@ -1,0 +1,269 @@
+```markdown
+# RCL UI Text Updates for ADGM Submission
+
+## 1. Supervisory Scope Declaration (Add to Header Area)
+
+**Location:** Directly below the existing "ADGM Jurisdiction • Digital Assets — Spot" line
+
+**Text:**
+```
+Supervisory Scope (RCL-v0.1): Binance, Coinbase, Kraken
+```
+
+**Styling suggestion:**
+- Font size: slightly smaller than main title, same as jurisdiction line
+- Color: muted gray/secondary text color
+- Could use a subtle icon: 🔍 or a scope indicator
+
+
+---
+
+## 2. Enhanced Footer Text (Replace Current Footer)
+
+**Location:** Bottom of page, replace existing footer section
+
+**Current footer:**
+```
+Contract Version: rcl_v0.1
+Generated At: 16/01/2026, 12:42:00
+Snapshot Ref: rcl-adgm-1768567328454-m6xp9j
+
+Data status: Live ingestion — Limited venue pilot (3 venues)
+Access: regulator (ADGM) — Scopes: rcl.read
+```
+
+**New footer:**
+```
+Contract Version: rcl_v0.1
+Generated At: 16/01/2026, 12:42:00
+Snapshot Ref: rcl-adgm-1768567328454-m6xp9j
+
+Supervisory Scope: Limited pilot — DSU = {Binance, Coinbase, Kraken}
+Data Status: Live ingestion — RCL-v0.1
+Access: Regulator (ADGM) — Permissions: rcl.read (observation only)
+Compliance: Annex A (Declared Supervisory Universe) • Annex B (Expansion Governance)
+```
+
+**What changed:**
+- "Limited venue pilot (3 venues)" → "Limited pilot — DSU = {Binance, Coinbase, Kraken}"
+- "Scopes: rcl.read" → "Permissions: rcl.read (observation only)"
+- Added compliance reference line linking to your formal annexes
+
+
+---
+
+## 3. Evidence Level Tooltip (Optional Enhancement)
+
+**Location:** Add info icon next to "Evidence Level L3 (Supervisory sufficiency)"
+
+**Tooltip text:**
+```
+Evidence Ladder — Level 3: Supervisory Sufficiency
+
+L3 indicates:
+✓ Order book depth data available
+✓ Trade execution history confirmed
+✓ Funding and settlement flows tracked
+
+This evidence level meets regulatory standards for 
+supervisory observation and market surveillance.
+
+Higher levels (L4-L5) provide enhanced granularity 
+for specialized investigations.
+```
+
+---
+
+## 4. Read-Only Banner Enhancement (Optional)
+
+**Current banner:**
+```
+Read-only regulatory view derived from live venue ingestion. This interface renders time-bounded supervisory snapshots. For official records, refer to authoritative references below.
+```
+
+**Enhanced version (if you want to make the non-authoritative stance even clearer):**
+```
+Read-only regulatory view derived from live venue ingestion. This interface renders time-bounded supervisory snapshots. 
+
+UI Status: Non-authoritative (display only)
+Official Records: PoLi snapshots, DACT artifacts, LIS manifests (see references below)
+```
+
+---
+
+## Implementation Notes
+
+### Priority 1 (Critical for ADGM):
+- ✅ Add supervisory scope declaration to header
+- ✅ Update footer with DSU language and compliance references
+
+### Priority 2 (Recommended):
+- Evidence level tooltip
+- Read-only banner enhancement
+
+### Priority 3 (Nice-to-have):
+- Validity window countdown/progress indicator
+- Visual distinction between "snapshot time" and "current time"
+
+---
+
+## Copy-Paste Ready Snippets
+
+### Header Scope Declaration (HTML/React):
+```jsx
+<div className="regulatory-scope">
+  Supervisory Scope (RCL-v0.1): Binance, Coinbase, Kraken
+</div>
+```
+
+### Footer (HTML/React):
+```jsx
+<div className="footer-metadata">
+  <div className="footer-line">
+    <span className="label">Contract Version:</span> rcl_v0.1
+  </div>
+  <div className="footer-line">
+    <span className="label">Generated At:</span> 16/01/2026, 12:42:00
+  </div>
+  <div className="footer-line">
+    <span className="label">Snapshot Ref:</span> rcl-adgm-1768567328454-m6xp9j
+  </div>
+  
+  <div className="footer-separator"></div>
+  
+  <div className="footer-line">
+    <span className="label">Supervisory Scope:</span> Limited pilot — DSU = {"{Binance, Coinbase, Kraken}"}
+  </div>
+  <div className="footer-line">
+    <span className="label">Data Status:</span> Live ingestion — RCL-v0.1
+  </div>
+  <div className="footer-line">
+    <span className="label">Access:</span> Regulator (ADGM) — Permissions: rcl.read (observation only)
+  </div>
+  <div className="footer-line">
+    <span className="label">Compliance:</span> Annex A (Declared Supervisory Universe) • Annex B (Expansion Governance)
+  </div>
+</div>
+```
+
+### Evidence Level Tooltip (React):
+```jsx
+<div className="evidence-level">
+  <span>L3 (Supervisory sufficiency)</span>
+  <Tooltip content={
+    <div className="evidence-tooltip">
+      <div className="tooltip-title">Evidence Ladder — Level 3</div>
+      <div className="tooltip-subtitle">Supervisory Sufficiency</div>
+      
+      <div className="tooltip-checks">
+        <div>✓ Order book depth data available</div>
+        <div>✓ Trade execution history confirmed</div>
+        <div>✓ Funding and settlement flows tracked</div>
+      </div>
+      
+      <div className="tooltip-note">
+        This evidence level meets regulatory standards for 
+        supervisory observation and market surveillance.
+      </div>
+    </div>
+  }>
+    <InfoIcon />
+  </Tooltip>
+</div>
+```
+
+---
+
+## Styling Suggestions (CSS)
+
+```css
+/* Supervisory Scope Declaration */
+.regulatory-scope {
+  font-size: 0.875rem;
+  color: #9ca3af; /* gray-400 */
+  font-weight: 500;
+  margin-top: 0.25rem;
+}
+
+/* Footer Updates */
+.footer-metadata {
+  font-size: 0.75rem;
+  color: #6b7280; /* gray-500 */
+  line-height: 1.5;
+}
+
+.footer-line {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.footer-line .label {
+  font-weight: 600;
+  color: #9ca3af; /* gray-400 */
+}
+
+.footer-separator {
+  height: 1px;
+  background: #374151; /* gray-700 */
+  margin: 0.75rem 0;
+}
+
+/* Evidence Tooltip */
+.evidence-tooltip {
+  max-width: 300px;
+  padding: 1rem;
+}
+
+.tooltip-title {
+  font-weight: 600;
+  font-size: 0.875rem;
+  margin-bottom: 0.25rem;
+}
+
+.tooltip-subtitle {
+  color: #10b981; /* green-500 */
+  font-weight: 500;
+  margin-bottom: 0.75rem;
+}
+
+.tooltip-checks {
+  margin: 0.75rem 0;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+.tooltip-note {
+  margin-top: 0.75rem;
+  font-size: 0.75rem;
+  color: #9ca3af;
+  font-style: italic;
+}
+```
+
+---
+
+## Testing Checklist
+
+After implementing these changes:
+
+- [ ] Supervisory scope appears in header
+- [ ] Footer includes DSU language and formal compliance references
+- [ ] Footer clearly states "observation only" permissions
+- [ ] Text wraps properly on smaller screens
+- [ ] Colors/styling match existing dark theme
+- [ ] Evidence tooltip (if implemented) appears on hover/click
+- [ ] No broken links or references
+- [ ] Screenshot updated for ADGM documentation
+
+---
+
+## Screenshot for ADGM Submission
+
+After implementing Priority 1 changes:
+1. Load the RCL page with BTC-USD
+2. Take full-page screenshot
+3. Include in ADGM submission document as "Figure 1: RCL Regulatory Interface (v0.1)"
+4. Caption: "Production regulatory interface showing declared supervisory universe (Binance, Coinbase, Kraken) with verified liquidity truth status and evidence-grade provenance tracking."
+```
+
+Copy this entire markdown into Replit and you'll have everything you need to update the UI for ADGM readiness. The changes are minimal but make the regulatory principles from your document visible and explicit in the interface itself.

@@ -10,7 +10,8 @@ import { DashboardHeader } from "@/components/dashboard-header";
 import { PlatformTabs } from "@/components/platform-tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileJson, FileText, RefreshCw, AlertCircle, CheckCircle, AlertTriangle } from "lucide-react";
+import { FileJson, FileText, RefreshCw, AlertCircle, CheckCircle, AlertTriangle, Info } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 type RclSeverity = "green" | "amber" | "red";
 
@@ -207,6 +208,9 @@ export default function RegulatoryAdgmView() {
               <p className="text-xs text-muted-foreground">
                 ADGM Jurisdiction • Digital Assets — Spot
               </p>
+              <p className="text-xs text-muted-foreground/80 font-medium">
+                Supervisory Scope (RCL-v0.1): Binance, Coinbase, Kraken
+              </p>
             </div>
 
             <div className="flex items-center gap-2">
@@ -241,10 +245,14 @@ export default function RegulatoryAdgmView() {
           </div>
 
           {/* Notice Banner */}
-          <div className="bg-neutral-900/50 border border-neutral-800 rounded px-3 py-2">
+          <div className="bg-neutral-900/50 border border-neutral-800 rounded px-3 py-2 space-y-1">
             <p className="text-xs text-muted-foreground">
-              Read-only regulatory view derived from live venue ingestion. This interface renders time-bounded supervisory snapshots. For official records, refer to authoritative references below.
+              Read-only regulatory view derived from live venue ingestion. This interface renders time-bounded supervisory snapshots.
             </p>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-muted-foreground/70">
+              <span><span className="font-medium">UI Status:</span> Non-authoritative (display only)</span>
+              <span><span className="font-medium">Official Records:</span> PoLi snapshots, DACT artifacts, LIS manifests (see references below)</span>
+            </div>
           </div>
         </div>
 
@@ -334,13 +342,33 @@ export default function RegulatoryAdgmView() {
                     <span className="text-xs text-muted-foreground">Status</span>
                     <StatusBadge status={data.truth.poli.status} />
                   </div>
-                  <LabelValue 
-                    label="Evidence Level" 
-                    value={data.truth.poli.evidence_level === "L3" 
-                      ? "L3 (Supervisory sufficiency)" 
-                      : data.truth.poli.evidence_level} 
-                    mono 
-                  />
+                  <div className="flex justify-between items-center py-1.5 border-b border-neutral-800/50">
+                    <span className="text-xs text-muted-foreground">Evidence Level</span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs font-mono">
+                        {data.truth.poli.evidence_level === "L3" 
+                          ? "L3 (Supervisory sufficiency)" 
+                          : data.truth.poli.evidence_level}
+                      </span>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="w-3 h-3 text-muted-foreground/60 cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="left" className="max-w-xs p-3 space-y-2">
+                          <div className="font-semibold text-sm">Evidence Ladder — Level 3</div>
+                          <div className="text-green-500 font-medium text-xs">Supervisory Sufficiency</div>
+                          <div className="text-xs space-y-1 pt-1">
+                            <div className="flex items-center gap-1.5"><CheckCircle className="w-3 h-3 text-green-500" /> Order book depth data available</div>
+                            <div className="flex items-center gap-1.5"><CheckCircle className="w-3 h-3 text-green-500" /> Trade execution history confirmed</div>
+                            <div className="flex items-center gap-1.5"><CheckCircle className="w-3 h-3 text-green-500" /> Funding and settlement flows tracked</div>
+                          </div>
+                          <div className="text-[10px] text-muted-foreground pt-1 italic">
+                            This evidence level meets regulatory standards for supervisory observation and market surveillance.
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                  </div>
                   <div className="pt-2">
                     <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Validity Window</span>
                   </div>
@@ -445,12 +473,11 @@ export default function RegulatoryAdgmView() {
               <div>Contract Version: {data.meta.contract_version}</div>
               <div>Generated At: {formatTime(data.meta.generated_at)}</div>
               <div>Snapshot Ref: {data.provenance.reference_ids.snapshot_ref}</div>
-              <div className="pt-1 text-green-500/80">
-                Data status: Live ingestion · Limited venue pilot ({data.coverage.venue_count} venues)
-              </div>
-              <div className="text-muted-foreground/70">
-                Access: {data.access_context.role} ({data.access_context.jurisdiction}) — Scopes: {data.access_context.scopes.join(", ")}
-              </div>
+              <div className="border-t border-neutral-800 my-1.5" />
+              <div>Supervisory Scope: <span className="text-green-500/80">Limited pilot — DSU = {"{Binance, Coinbase, Kraken}"}</span></div>
+              <div>Data Status: <span className="text-green-500/80">Live ingestion — RCL-v0.1</span></div>
+              <div>Access: Regulator ({data.access_context.jurisdiction}) — Permissions: {data.access_context.scopes.join(", ")} (observation only)</div>
+              <div className="text-muted-foreground/60">Compliance: Annex A (Declared Supervisory Universe) • Annex B (Expansion Governance)</div>
             </div>
 
             <div className="flex items-center gap-2">
