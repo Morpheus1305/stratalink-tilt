@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FileJson, FileText, RefreshCw, AlertCircle, CheckCircle, AlertTriangle, Info } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { generateRCLPDF } from "@/lib/pdfExport";
 
 type RclSeverity = "green" | "amber" | "red";
 
@@ -295,8 +296,8 @@ export default function RegulatoryAdgmView() {
   };
 
   const handleExportPdf = () => {
-    if (!data?.export?.endpoints?.pdf) return;
-    window.open(data.export.endpoints.pdf, "_blank");
+    if (!data) return;
+    generateRCLPDF(data as any);
   };
 
   const handleRefresh = () => {
