@@ -126,7 +126,7 @@ router.get("/exports/:snapshot_ref/json", requireBearerToken, (req: Request, res
     "Content-Disposition",
     `attachment; filename="rcl_adgm_${instrument}_${snapshot_ref}.json"`
   );
-  res.json(payload);
+  res.send(JSON.stringify(payload, null, 2));
 });
 
 router.get("/exports/:snapshot_ref/pdf", requireBearerToken, (req: Request, res: Response) => {

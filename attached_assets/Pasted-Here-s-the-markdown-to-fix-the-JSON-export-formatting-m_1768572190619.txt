@@ -1,0 +1,356 @@
+Here's the markdown to fix the JSON export formatting:
+
+```markdown
+# Fix JSON Export Formatting
+
+## Problem
+The exported JSON is currently displaying as a single line running horizontally across the page, making it unreadable.
+
+## Solution
+Format the JSON with proper indentation and line breaks for vertical readability.
+
+---
+
+## Implementation Options
+
+### Option 1: Pretty Print JSON (Recommended)
+
+When generating the JSON export, use `JSON.stringify()` with indentation:
+
+```typescript
+// In your JSON export handler
+const exportJSON = () => {
+  const snapshotData = {
+    meta: {
+      contract_version: "rcl_v0.1",
+      generated_at: "2026-01-15T13:06:10.287Z",
+      time_mode: "latest_snapshot",
+      authoritative_records: {
+        poli_snapshot: "poli-1768571803130-ykwk",
+        dact_window: "dact-1768571803130-7u3i",
+        lis_manifest: "lis-1768571803130-1jwq"
+      }
+    },
+    supervisory_scope: {
+      jurisdiction: "ADGM",
+      asset_class: "Digital Assets",
+      market_type: "Spot",
+      dsu: ["Binance", "Coinbase", "Kraken"],
+      version: "RCL-v0.1"
+    },
+    coverage: {
+      instrument: "BTC-USD",
+      venue_count: 3,
+      liquidity_types: ["Lit", "RFQ", "AMM-Derived"],
+      coverage_pct: 100,
+      known_venues: 3,
+      covered_venues: 3,
+      last_ingest: "2026-01-15T13:56:40Z"
+    },
+    truth: {
+      status: "DEGRADED",
+      evidence_level: "L2",
+      evidence_description: "Partial Sufficiency",
+      validity_window: {
+        verified_at: "2026-01-15T13:56:43Z",
+        valid_until: "2026-01-15T14:01:43Z"
+      },
+      integrity: {
+        status: "Elevated Risk",
+        data_gaps: 1,
+        ingestion_latency_p95_ms: 120,
+        within_bounds: true,
+        normalization: "Complete"
+      },
+      degradation_reason: "Some venues reporting with elevated latency"
+    },
+    provenance: {
+      binance: {
+        status: "relay",
+        modules: ["depth", "trades", "funding"],
+        normalization: "complete",
+        last_event: "2026-01-15T13:56:39Z",
+        lis_ref: "binance-lis-1768571803130-1jwq"
+      },
+      coinbase: {
+        status: "rest",
+        modules: ["depth", "trades"],
+        normalization: "complete",
+        last_event: "2026-01-15T13:56:38Z",
+        lis_ref: "coinbase-lis-1768571803130-1jwq"
+      },
+      kraken: {
+        status: "rest",
+        modules: ["depth", "trades"],
+        normalization: "complete",
+        last_event: "2026-01-15T13:56:40Z",
+        lis_ref: "kraken-lis-1768571803130-1jwq"
+      }
+    },
+    references: {
+      snapshot_ref: "rcl-adgm-1768571803130-7f3yw9",
+      poli_ref: "poli-1768571803130-ykwk",
+      dact_ref: "dact-1768571803130-7u3i",
+      lis_ref: "lis-1768571803130-1jwq"
+    },
+    compliance: {
+      annex_a: "Declared Supervisory Universe",
+      annex_b: "Expansion Governance",
+      access_scope: "rcl.read (observation only)",
+      ui_status: "Non-authoritative (display only)"
+    }
+  };
+
+  // Pretty print with 2-space indentation
+  const jsonString = JSON.stringify(snapshotData, null, 2);
+  
+  // Create blob and download
+  const blob = new Blob([jsonString], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `rcl-snapshot-${Date.now()}.json`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+};
+```
+
+**Key change:** `JSON.stringify(snapshotData, null, 2)` 
+- First argument: the data object
+- Second argument: `null` (no replacer function)
+- Third argument: `2` (indent with 2 spaces)
+
+---
+
+### Option 2: Open in New Browser Tab (Alternative)
+
+If you want users to see the formatted JSON before downloading:
+
+```typescript
+const exportJSON = () => {
+  const snapshotData = { /* ... your data ... */ };
+  
+  const jsonString = JSON.stringify(snapshotData, null, 2);
+  
+  // Open in new tab
+  const newWindow = window.open('', '_blank');
+  if (newWindow) {
+    newWindow.document.write('<pre>' + jsonString + '</pre>');
+    newWindow.document.title = 'RCL Snapshot JSON';
+  }
+};
+```
+
+---
+
+### Option 3: Copy to Clipboard (Additional Feature)
+
+Add a "Copy JSON" button alongside "Export JSON":
+
+```typescript
+const copyJSONToClipboard = async () => {
+  const snapshotData = { /* ... your data ... */ };
+  
+  const jsonString = JSON.stringify(snapshotData, null, 2);
+  
+  try {
+    await navigator.clipboard.writeText(jsonString);
+    // Show success toast/notification
+    showNotification('JSON copied to clipboard');
+  } catch (err) {
+    console.error('Failed to copy:', err);
+    showNotification('Failed to copy JSON', 'error');
+  }
+};
+```
+
+---
+
+## Complete Export Handler Example
+
+```typescript
+interface RCLSnapshot {
+  meta: {
+    contract_version: string;
+    generated_at: string;
+    time_mode: string;
+    authoritative_records: {
+      poli_snapshot: string;
+      dact_window: string;
+      lis_manifest: string;
+    };
+  };
+  supervisory_scope: {
+    jurisdiction: string;
+    asset_class: string;
+    market_type: string;
+    dsu: string[];
+    version: string;
+  };
+  coverage: {
+    instrument: string;
+    venue_count: number;
+    liquidity_types: string[];
+    coverage_pct: number;
+    known_venues: number;
+    covered_venues: number;
+    last_ingest: string;
+  };
+  truth: {
+    status: string;
+    evidence_level: string;
+    evidence_description: string;
+    validity_window: {
+      verified_at: string;
+      valid_until: string;
+    };
+    integrity: {
+      status: string;
+      data_gaps: number;
+      ingestion_latency_p95_ms: number;
+      within_bounds: boolean;
+      normalization: string;
+    };
+    degradation_reason?: string;
+  };
+  provenance: Record<string, any>;
+  references: Record<string, string>;
+  compliance: {
+    annex_a: string;
+    annex_b: string;
+    access_scope: string;
+    ui_status: string;
+  };
+}
+
+const handleExportJSON = () => {
+  // Build your snapshot data from current state
+  const snapshot: RCLSnapshot = buildSnapshotData();
+  
+  // Format with indentation
+  const formattedJSON = JSON.stringify(snapshot, null, 2);
+  
+  // Create filename with timestamp
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const filename = `rcl-snapshot-${timestamp}.json`;
+  
+  // Download
+  downloadFile(formattedJSON, filename, 'application/json');
+};
+
+const downloadFile = (content: string, filename: string, mimeType: string) => {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+};
+```
+
+---
+
+## Example Output Format
+
+After implementing, your exported JSON should look like this:
+
+```json
+{
+  "meta": {
+    "contract_version": "rcl_v0.1",
+    "generated_at": "2026-01-15T13:06:10.287Z",
+    "time_mode": "latest_snapshot",
+    "authoritative_records": {
+      "poli_snapshot": "poli-1768571803130-ykwk",
+      "dact_window": "dact-1768571803130-7u3i",
+      "lis_manifest": "lis-1768571803130-1jwq"
+    }
+  },
+  "supervisory_scope": {
+    "jurisdiction": "ADGM",
+    "asset_class": "Digital Assets",
+    "market_type": "Spot",
+    "dsu": [
+      "Binance",
+      "Coinbase",
+      "Kraken"
+    ],
+    "version": "RCL-v0.1"
+  },
+  "coverage": {
+    "instrument": "BTC-USD",
+    "venue_count": 3,
+    "liquidity_types": [
+      "Lit",
+      "RFQ",
+      "AMM-Derived"
+    ],
+    "coverage_pct": 100,
+    "known_venues": 3,
+    "covered_venues": 3,
+    "last_ingest": "2026-01-15T13:56:40Z"
+  },
+  "truth": {
+    "status": "DEGRADED",
+    "evidence_level": "L2",
+    "evidence_description": "Partial Sufficiency",
+    "validity_window": {
+      "verified_at": "2026-01-15T13:56:43Z",
+      "valid_until": "2026-01-15T14:01:43Z"
+    },
+    "integrity": {
+      "status": "Elevated Risk",
+      "data_gaps": 1,
+      "ingestion_latency_p95_ms": 120,
+      "within_bounds": true,
+      "normalization": "Complete"
+    },
+    "degradation_reason": "Some venues reporting with elevated latency"
+  }
+}
+```
+
+**Clean, readable, vertical format** ✓
+
+---
+
+## Testing Checklist
+
+After implementation:
+
+- [ ] Export JSON button downloads a file
+- [ ] Downloaded JSON file opens in text editor with proper formatting
+- [ ] JSON has proper indentation (2 or 4 spaces)
+- [ ] Arrays display vertically (one item per line for readability)
+- [ ] Nested objects are properly indented
+- [ ] File naming includes timestamp for uniqueness
+- [ ] JSON is valid (can be parsed by JSON validators)
+- [ ] All fields from UI are present in export
+
+---
+
+## Quick Fix Location
+
+In your current code, find where you're calling:
+
+```typescript
+// WRONG - produces single-line output
+JSON.stringify(data)
+```
+
+Replace with:
+
+```typescript
+// RIGHT - produces formatted output
+JSON.stringify(data, null, 2)
+```
+
+That single change should fix the formatting issue immediately.
+```
+
+The key fix is just adding the third parameter `2` to `JSON.stringify()` for 2-space indentation. This will make your exported JSON readable and properly formatted vertically instead of running across the page.
