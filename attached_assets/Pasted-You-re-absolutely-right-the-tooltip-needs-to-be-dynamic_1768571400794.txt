@@ -1,0 +1,386 @@
+You're absolutely right - the tooltip needs to be dynamic based on the actual evidence level. Here's the markdown for implementing level-specific tooltips:
+
+```markdown
+# Evidence Level Dynamic Tooltip Implementation
+
+## Tooltip Content by Level
+
+### L1: Minimal Evidence
+```
+Evidence Ladder — Level 1: Minimal Evidence
+
+L1 indicates:
+⚠ Basic venue connectivity confirmed
+⚠ Limited depth data available
+⚠ Incomplete trade history
+
+This evidence level provides basic awareness but does not 
+meet regulatory standards for supervisory conclusions.
+
+Status: Insufficient for regulatory reliance
+```
+
+### L2: Partial Sufficiency
+```
+Evidence Ladder — Level 2: Partial Sufficiency
+
+L2 indicates:
+◐ Order book snapshots available
+◐ Recent trade data confirmed
+⚠ Funding/settlement flows incomplete
+
+This evidence level provides partial market visibility but 
+lacks comprehensive coverage for full supervisory assessment.
+
+Status: Limited regulatory applicability
+```
+
+### L3: Supervisory Sufficiency
+```
+Evidence Ladder — Level 3: Supervisory Sufficiency
+
+L3 indicates:
+✓ Order book depth data available
+✓ Trade execution history confirmed
+✓ Funding and settlement flows tracked
+
+This evidence level meets regulatory standards for 
+supervisory observation and market surveillance.
+
+Status: Suitable for regulatory oversight
+```
+
+### L4: Enhanced Verification
+```
+Evidence Ladder — Level 4: Enhanced Verification
+
+L4 indicates:
+✓ Real-time order book depth (full LOB)
+✓ Complete trade and settlement audit trail
+✓ Cross-venue liquidity correlation confirmed
+✓ Sub-second timestamp precision
+
+This evidence level supports detailed forensic analysis 
+and enhanced supervisory investigations.
+
+Status: Enhanced regulatory capabilities
+```
+
+### L5: Forensic Grade
+```
+Evidence Ladder — Level 5: Forensic Grade
+
+L5 indicates:
+✓ Microsecond-precision event sequencing
+✓ Complete order lifecycle tracking (placement → execution → settlement)
+✓ Cross-venue arbitrage detection capable
+✓ Smart order router (SOR) pathway reconstruction
+✓ Cryptographic verification of all artifacts
+
+This evidence level supports formal proceedings, 
+enforcement actions, and expert testimony.
+
+Status: Court-admissible evidence grade
+```
+
+---
+
+## React/TypeScript Implementation
+
+### Type Definition
+```typescript
+type EvidenceLevel = 'L1' | 'L2' | 'L3' | 'L4' | 'L5';
+
+interface EvidenceLevelInfo {
+  title: string;
+  subtitle: string;
+  indicators: Array<{
+    text: string;
+    status: 'complete' | 'partial' | 'warning';
+  }>;
+  description: string;
+  statusLabel: string;
+  statusColor: 'red' | 'yellow' | 'green' | 'blue' | 'purple';
+}
+```
+
+### Evidence Level Configuration
+```typescript
+const EVIDENCE_LEVELS: Record<EvidenceLevel, EvidenceLevelInfo> = {
+  L1: {
+    title: 'Level 1: Minimal Evidence',
+    subtitle: 'Minimal Evidence',
+    indicators: [
+      { text: 'Basic venue connectivity confirmed', status: 'warning' },
+      { text: 'Limited depth data available', status: 'warning' },
+      { text: 'Incomplete trade history', status: 'warning' }
+    ],
+    description: 'This evidence level provides basic awareness but does not meet regulatory standards for supervisory conclusions.',
+    statusLabel: 'Insufficient for regulatory reliance',
+    statusColor: 'red'
+  },
+  
+  L2: {
+    title: 'Level 2: Partial Sufficiency',
+    subtitle: 'Partial Sufficiency',
+    indicators: [
+      { text: 'Order book snapshots available', status: 'partial' },
+      { text: 'Recent trade data confirmed', status: 'partial' },
+      { text: 'Funding/settlement flows incomplete', status: 'warning' }
+    ],
+    description: 'This evidence level provides partial market visibility but lacks comprehensive coverage for full supervisory assessment.',
+    statusLabel: 'Limited regulatory applicability',
+    statusColor: 'yellow'
+  },
+  
+  L3: {
+    title: 'Level 3: Supervisory Sufficiency',
+    subtitle: 'Supervisory Sufficiency',
+    indicators: [
+      { text: 'Order book depth data available', status: 'complete' },
+      { text: 'Trade execution history confirmed', status: 'complete' },
+      { text: 'Funding and settlement flows tracked', status: 'complete' }
+    ],
+    description: 'This evidence level meets regulatory standards for supervisory observation and market surveillance.',
+    statusLabel: 'Suitable for regulatory oversight',
+    statusColor: 'green'
+  },
+  
+  L4: {
+    title: 'Level 4: Enhanced Verification',
+    subtitle: 'Enhanced Verification',
+    indicators: [
+      { text: 'Real-time order book depth (full LOB)', status: 'complete' },
+      { text: 'Complete trade and settlement audit trail', status: 'complete' },
+      { text: 'Cross-venue liquidity correlation confirmed', status: 'complete' },
+      { text: 'Sub-second timestamp precision', status: 'complete' }
+    ],
+    description: 'This evidence level supports detailed forensic analysis and enhanced supervisory investigations.',
+    statusLabel: 'Enhanced regulatory capabilities',
+    statusColor: 'blue'
+  },
+  
+  L5: {
+    title: 'Level 5: Forensic Grade',
+    subtitle: 'Forensic Grade',
+    indicators: [
+      { text: 'Microsecond-precision event sequencing', status: 'complete' },
+      { text: 'Complete order lifecycle tracking', status: 'complete' },
+      { text: 'Cross-venue arbitrage detection capable', status: 'complete' },
+      { text: 'Smart order router pathway reconstruction', status: 'complete' },
+      { text: 'Cryptographic verification of all artifacts', status: 'complete' }
+    ],
+    description: 'This evidence level supports formal proceedings, enforcement actions, and expert testimony.',
+    statusLabel: 'Court-admissible evidence grade',
+    statusColor: 'purple'
+  }
+};
+```
+
+### React Component
+```tsx
+interface EvidenceLevelTooltipProps {
+  level: EvidenceLevel;
+}
+
+const EvidenceLevelTooltip: React.FC<EvidenceLevelTooltipProps> = ({ level }) => {
+  const info = EVIDENCE_LEVELS[level];
+  
+  const getIndicatorIcon = (status: 'complete' | 'partial' | 'warning') => {
+    switch (status) {
+      case 'complete': return '✓';
+      case 'partial': return '◐';
+      case 'warning': return '⚠';
+    }
+  };
+  
+  const getIndicatorColor = (status: 'complete' | 'partial' | 'warning') => {
+    switch (status) {
+      case 'complete': return 'text-green-400';
+      case 'partial': return 'text-yellow-400';
+      case 'warning': return 'text-orange-400';
+    }
+  };
+  
+  const getStatusColor = (color: string) => {
+    const colors = {
+      red: 'text-red-400',
+      yellow: 'text-yellow-400',
+      green: 'text-green-400',
+      blue: 'text-blue-400',
+      purple: 'text-purple-400'
+    };
+    return colors[color as keyof typeof colors];
+  };
+  
+  return (
+    <div className="evidence-tooltip max-w-sm p-4 bg-gray-800 rounded-lg shadow-xl">
+      <div className="tooltip-header mb-3">
+        <div className="font-semibold text-sm text-gray-200 mb-1">
+          Evidence Ladder — {info.title}
+        </div>
+      </div>
+      
+      <div className="tooltip-indicators space-y-2 mb-3">
+        {info.indicators.map((indicator, idx) => (
+          <div 
+            key={idx}
+            className={`flex items-start gap-2 text-xs ${getIndicatorColor(indicator.status)}`}
+          >
+            <span className="flex-shrink-0">{getIndicatorIcon(indicator.status)}</span>
+            <span>{indicator.text}</span>
+          </div>
+        ))}
+      </div>
+      
+      <div className="tooltip-description text-xs text-gray-400 mb-3 leading-relaxed">
+        {info.description}
+      </div>
+      
+      <div className="tooltip-status pt-2 border-t border-gray-700">
+        <div className="text-xs">
+          <span className="text-gray-500">Status: </span>
+          <span className={`font-medium ${getStatusColor(info.statusColor)}`}>
+            {info.statusLabel}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};
+```
+
+### Usage in Main Component
+```tsx
+// In your Truth panel component
+<div className="evidence-level-row">
+  <span className="label">Evidence Level</span>
+  <span className="value">
+    {currentLevel} {/* e.g., "L2" or "L3" */}
+    <Tooltip content={<EvidenceLevelTooltip level={currentLevel} />}>
+      <InfoIcon className="inline ml-1 cursor-help" />
+    </Tooltip>
+  </span>
+</div>
+```
+
+---
+
+## Alternative: Simple Function Approach
+
+If you prefer a simpler approach without the full component:
+
+```typescript
+function getEvidenceLevelTooltip(level: EvidenceLevel): string {
+  const tooltips = {
+    L1: `Evidence Ladder — Level 1: Minimal Evidence
+
+L1 indicates:
+⚠ Basic venue connectivity confirmed
+⚠ Limited depth data available
+⚠ Incomplete trade history
+
+This evidence level provides basic awareness but does not 
+meet regulatory standards for supervisory conclusions.
+
+Status: Insufficient for regulatory reliance`,
+
+    L2: `Evidence Ladder — Level 2: Partial Sufficiency
+
+L2 indicates:
+◐ Order book snapshots available
+◐ Recent trade data confirmed
+⚠ Funding/settlement flows incomplete
+
+This evidence level provides partial market visibility but 
+lacks comprehensive coverage for full supervisory assessment.
+
+Status: Limited regulatory applicability`,
+
+    L3: `Evidence Ladder — Level 3: Supervisory Sufficiency
+
+L3 indicates:
+✓ Order book depth data available
+✓ Trade execution history confirmed
+✓ Funding and settlement flows tracked
+
+This evidence level meets regulatory standards for 
+supervisory observation and market surveillance.
+
+Status: Suitable for regulatory oversight`,
+
+    L4: `Evidence Ladder — Level 4: Enhanced Verification
+
+L4 indicates:
+✓ Real-time order book depth (full LOB)
+✓ Complete trade and settlement audit trail
+✓ Cross-venue liquidity correlation confirmed
+✓ Sub-second timestamp precision
+
+This evidence level supports detailed forensic analysis 
+and enhanced supervisory investigations.
+
+Status: Enhanced regulatory capabilities`,
+
+    L5: `Evidence Ladder — Level 5: Forensic Grade
+
+L5 indicates:
+✓ Microsecond-precision event sequencing
+✓ Complete order lifecycle tracking
+✓ Cross-venue arbitrage detection capable
+✓ Smart order router pathway reconstruction
+✓ Cryptographic verification of all artifacts
+
+This evidence level supports formal proceedings, 
+enforcement actions, and expert testimony.
+
+Status: Court-admissible evidence grade`
+  };
+  
+  return tooltips[level];
+}
+
+// Usage:
+<Tooltip content={getEvidenceLevelTooltip(currentLevel)}>
+  <InfoIcon />
+</Tooltip>
+```
+
+---
+
+## Critical Implementation Note
+
+When PoLi status degrades from L3 → L2 (as shown in your screenshot):
+
+1. **The "DEGRADED" status appears** (yellow/orange badge)
+2. **The evidence level changes** to L2
+3. **The tooltip MUST update** to show L2 content
+4. **Coverage flags appear** explaining WHY it degraded ("elevated_latency")
+
+This creates a coherent narrative:
+- Status: DEGRADED
+- Evidence Level: L2 (down from L3)
+- Reason: "One or more declared supervisory venues reporting with elevated latency"
+- Tooltip: Shows L2 indicators with partial sufficiency warnings
+
+---
+
+## Testing Checklist
+
+After implementing dynamic tooltips:
+
+- [ ] L1 tooltip shows warning indicators (⚠)
+- [ ] L2 tooltip shows partial indicators (◐) and warnings
+- [ ] L3 tooltip shows complete indicators (✓)
+- [ ] L4 tooltip shows enhanced capabilities
+- [ ] L5 tooltip shows forensic-grade capabilities
+- [ ] Tooltip updates when evidence level changes
+- [ ] Status colors match evidence level (L1=red, L2=yellow, L3=green, etc.)
+- [ ] Icons render correctly (✓, ◐, ⚠)
+
+---
+
+This implementation ensures that regulators always see accurate, level-specific information about what the evidence can and cannot support.
+```
+
+Copy this into Replit and implement the dynamic tooltip logic. The key is making sure the tooltip content is driven by the actual `currentLevel` variable, not hardcoded to L3.

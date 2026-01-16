@@ -155,6 +155,123 @@ function LabelValue({ label, value, mono = false }: { label: string; value: stri
   );
 }
 
+type EvidenceLevel = "L1" | "L2" | "L3" | "L4" | "L5";
+
+interface EvidenceLevelInfo {
+  title: string;
+  subtitle: string;
+  indicators: Array<{ text: string; status: "complete" | "partial" | "warning" }>;
+  description: string;
+  statusLabel: string;
+  statusColor: "red" | "yellow" | "green" | "blue" | "purple";
+}
+
+const EVIDENCE_LEVELS: Record<EvidenceLevel, EvidenceLevelInfo> = {
+  L1: {
+    title: "Level 1: Minimal Evidence",
+    subtitle: "Minimal Evidence",
+    indicators: [
+      { text: "Basic venue connectivity confirmed", status: "warning" },
+      { text: "Limited depth data available", status: "warning" },
+      { text: "Incomplete trade history", status: "warning" },
+    ],
+    description: "This evidence level provides basic awareness but does not meet regulatory standards for supervisory conclusions.",
+    statusLabel: "Insufficient for regulatory reliance",
+    statusColor: "red",
+  },
+  L2: {
+    title: "Level 2: Partial Sufficiency",
+    subtitle: "Partial Sufficiency",
+    indicators: [
+      { text: "Order book snapshots available", status: "partial" },
+      { text: "Recent trade data confirmed", status: "partial" },
+      { text: "Funding/settlement flows incomplete", status: "warning" },
+    ],
+    description: "This evidence level provides partial market visibility but lacks comprehensive coverage for full supervisory assessment.",
+    statusLabel: "Limited regulatory applicability",
+    statusColor: "yellow",
+  },
+  L3: {
+    title: "Level 3: Supervisory Sufficiency",
+    subtitle: "Supervisory Sufficiency",
+    indicators: [
+      { text: "Order book depth data available", status: "complete" },
+      { text: "Trade execution history confirmed", status: "complete" },
+      { text: "Funding and settlement flows tracked", status: "complete" },
+    ],
+    description: "This evidence level meets regulatory standards for supervisory observation and market surveillance.",
+    statusLabel: "Suitable for regulatory oversight",
+    statusColor: "green",
+  },
+  L4: {
+    title: "Level 4: Enhanced Verification",
+    subtitle: "Enhanced Verification",
+    indicators: [
+      { text: "Real-time order book depth (full LOB)", status: "complete" },
+      { text: "Complete trade and settlement audit trail", status: "complete" },
+      { text: "Cross-venue liquidity correlation confirmed", status: "complete" },
+      { text: "Sub-second timestamp precision", status: "complete" },
+    ],
+    description: "This evidence level supports detailed forensic analysis and enhanced supervisory investigations.",
+    statusLabel: "Enhanced regulatory capabilities",
+    statusColor: "blue",
+  },
+  L5: {
+    title: "Level 5: Forensic Grade",
+    subtitle: "Forensic Grade",
+    indicators: [
+      { text: "Microsecond-precision event sequencing", status: "complete" },
+      { text: "Complete order lifecycle tracking", status: "complete" },
+      { text: "Cross-venue arbitrage detection capable", status: "complete" },
+      { text: "Smart order router pathway reconstruction", status: "complete" },
+      { text: "Cryptographic verification of all artifacts", status: "complete" },
+    ],
+    description: "This evidence level supports formal proceedings, enforcement actions, and expert testimony.",
+    statusLabel: "Court-admissible evidence grade",
+    statusColor: "purple",
+  },
+};
+
+function EvidenceLevelTooltipContent({ level }: { level: EvidenceLevel }) {
+  const info = EVIDENCE_LEVELS[level];
+
+  const getIndicatorIcon = (status: "complete" | "partial" | "warning") => {
+    switch (status) {
+      case "complete": return <CheckCircle className="w-3 h-3 text-green-500 flex-shrink-0" />;
+      case "partial": return <span className="w-3 h-3 flex items-center justify-center text-yellow-500 flex-shrink-0 text-xs">◐</span>;
+      case "warning": return <AlertTriangle className="w-3 h-3 text-orange-500 flex-shrink-0" />;
+    }
+  };
+
+  const statusColors = {
+    red: "text-red-400",
+    yellow: "text-yellow-400",
+    green: "text-green-400",
+    blue: "text-blue-400",
+    purple: "text-purple-400",
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="font-semibold text-sm">Evidence Ladder — {info.title}</div>
+      <div className={`font-medium text-xs ${statusColors[info.statusColor]}`}>{info.subtitle}</div>
+      <div className="text-xs space-y-1.5 pt-1">
+        {info.indicators.map((ind, idx) => (
+          <div key={idx} className="flex items-center gap-1.5">
+            {getIndicatorIcon(ind.status)}
+            <span>{ind.text}</span>
+          </div>
+        ))}
+      </div>
+      <div className="text-[10px] text-muted-foreground pt-1 italic">{info.description}</div>
+      <div className="text-[10px] pt-1 border-t border-neutral-700">
+        <span className="text-muted-foreground">Status: </span>
+        <span className={`font-medium ${statusColors[info.statusColor]}`}>{info.statusLabel}</span>
+      </div>
+    </div>
+  );
+}
+
 export default function RegulatoryAdgmView() {
   const [selectedInstrument, setSelectedInstrument] = useState("BTC-USD");
 
@@ -346,25 +463,14 @@ export default function RegulatoryAdgmView() {
                     <span className="text-xs text-muted-foreground">Evidence Level</span>
                     <div className="flex items-center gap-1">
                       <span className="text-xs font-mono">
-                        {data.truth.poli.evidence_level === "L3" 
-                          ? "L3 (Supervisory sufficiency)" 
-                          : data.truth.poli.evidence_level}
+                        {data.truth.poli.evidence_level} ({EVIDENCE_LEVELS[data.truth.poli.evidence_level as EvidenceLevel]?.subtitle || data.truth.poli.evidence_level})
                       </span>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Info className="w-3 h-3 text-muted-foreground/60 cursor-help" />
                         </TooltipTrigger>
-                        <TooltipContent side="left" className="max-w-xs p-3 space-y-2">
-                          <div className="font-semibold text-sm">Evidence Ladder — Level 3</div>
-                          <div className="text-green-500 font-medium text-xs">Supervisory Sufficiency</div>
-                          <div className="text-xs space-y-1 pt-1">
-                            <div className="flex items-center gap-1.5"><CheckCircle className="w-3 h-3 text-green-500" /> Order book depth data available</div>
-                            <div className="flex items-center gap-1.5"><CheckCircle className="w-3 h-3 text-green-500" /> Trade execution history confirmed</div>
-                            <div className="flex items-center gap-1.5"><CheckCircle className="w-3 h-3 text-green-500" /> Funding and settlement flows tracked</div>
-                          </div>
-                          <div className="text-[10px] text-muted-foreground pt-1 italic">
-                            This evidence level meets regulatory standards for supervisory observation and market surveillance.
-                          </div>
+                        <TooltipContent side="left" className="max-w-sm p-3">
+                          <EvidenceLevelTooltipContent level={data.truth.poli.evidence_level as EvidenceLevel} />
                         </TooltipContent>
                       </Tooltip>
                     </div>
