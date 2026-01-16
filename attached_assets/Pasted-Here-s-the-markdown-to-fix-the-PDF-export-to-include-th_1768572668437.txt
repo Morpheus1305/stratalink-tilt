@@ -1,0 +1,537 @@
+Here's the markdown to fix the PDF export to include the complete JSON snapshot data:
+
+```markdown
+# Fix PDF Export to Include Complete JSON Data
+
+## Problem
+The PDF export is currently showing only a placeholder message instead of the complete RCL snapshot data.
+
+## Solution
+Generate a comprehensive, regulatory-grade PDF with all snapshot data formatted professionally.
+
+---
+
+## Implementation
+
+### Option 1: Using jsPDF with Structured Layout (Recommended)
+
+```typescript
+import jsPDF from 'jspdf';
+import 'jspdf-autotable'; // For table support
+
+interface PDFExportData {
+  meta: any;
+  supervisoryScope: any;
+  coverage: any;
+  truth: any;
+  provenance: any;
+  references: any;
+  compliance: any;
+}
+
+const exportToPDF = (snapshotData: PDFExportData) => {
+  const doc = new jsPDF();
+  let yPosition = 20;
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const margin = 20;
+  const contentWidth = pageWidth - (2 * margin);
+  
+  // Helper function to add text with line wrapping
+  const addText = (text: string, fontSize: number = 10, isBold: boolean = false) => {
+    doc.setFontSize(fontSize);
+    doc.setFont('helvetica', isBold ? 'bold' : 'normal');
+    
+    const lines = doc.splitTextToSize(text, contentWidth);
+    
+    // Check if we need a new page
+    if (yPosition + (lines.length * fontSize * 0.5) > doc.internal.pageSize.getHeight() - 20) {
+      doc.addPage();
+      yPosition = 20;
+    }
+    
+    doc.text(lines, margin, yPosition);
+    yPosition += lines.length * fontSize * 0.5 + 3;
+  };
+  
+  const addSection = (title: string) => {
+    yPosition += 5;
+    addText(title, 12, true);
+    yPosition += 2;
+  };
+  
+  const addKeyValue = (key: string, value: string) => {
+    const text = `${key}: ${value}`;
+    addText(text, 10, false);
+  };
+  
+  // Header
+  addText('ADGM Regulatory Liquidity Snapshot', 16, true);
+  yPosition += 5;
+  
+  // Metadata Section
+  addSection('Document Metadata');
+  addKeyValue('Type', 'Regulatory Liquidity Snapshot');
+  addKeyValue('Jurisdiction', 'ADGM');
+  addKeyValue('Contract Version', snapshotData.meta.contract_version);
+  addKeyValue('Instrument', snapshotData.coverage.instrument);
+  addKeyValue('Snapshot Reference', snapshotData.references.snapshot_ref);
+  addKeyValue('Generated At', snapshotData.meta.generated_at);
+  
+  // Supervisory Scope Section
+  addSection('Supervisory Scope (RCL-v0.1)');
+  addKeyValue('Jurisdiction', snapshotData.supervisoryScope.jurisdiction);
+  addKeyValue('Asset Class', snapshotData.supervisoryScope.asset_class);
+  addKeyValue('Market Type', snapshotData.supervisoryScope.market_type);
+  addKeyValue('Declared Supervisory Universe (DSU)', 
+    snapshotData.supervisoryScope.dsu.join(', '));
+  addKeyValue('Version', snapshotData.supervisoryScope.version);
+  
+  // Coverage Section
+  addSection('Coverage Analysis');
+  addKeyValue('Instrument', snapshotData.coverage.instrument);
+  addKeyValue('Venue Count', snapshotData.coverage.venue_count.toString());
+  addKeyValue('Liquidity Types', snapshotData.coverage.liquidity_types.join(', '));
+  addKeyValue('Coverage Percentage', `${snapshotData.coverage.coverage_pct}%`);
+  addKeyValue('Known Venues', snapshotData.coverage.known_venues.toString());
+  addKeyValue('Covered Venues', snapshotData.coverage.covered_venues.toString());
+  addKeyValue('Last Ingest', snapshotData.coverage.last_ingest);
+  
+  // Truth Status Section
+  addSection('Liquidity Truth Status');
+  addKeyValue('Status', snapshotData.truth.status);
+  addKeyValue('Evidence Level', 
+    `${snapshotData.truth.evidence_level} (${snapshotData.truth.evidence_description})`);
+  addKeyValue('Verified At', snapshotData.truth.validity_window.verified_at);
+  addKeyValue('Valid Until', snapshotData.truth.validity_window.valid_until);
+  
+  if (snapshotData.truth.degradation_reason) {
+    addKeyValue('Degradation Reason', snapshotData.truth.degradation_reason);
+  }
+  
+  // Integrity Section
+  addSection('Integrity Metrics');
+  addKeyValue('Integrity Status', snapshotData.truth.integrity.status);
+  addKeyValue('Data Gaps', snapshotData.truth.integrity.data_gaps.toString());
+  addKeyValue('Ingestion Latency (p95)', 
+    `${snapshotData.truth.integrity.ingestion_latency_p95_ms}ms`);
+  addKeyValue('Within Bounds', snapshotData.truth.integrity.within_bounds ? 'Yes' : 'No');
+  addKeyValue('Normalization', snapshotData.truth.integrity.normalization);
+  
+  // Provenance Section
+  addSection('Venue Provenance');
+  
+  Object.entries(snapshotData.provenance).forEach(([venue, data]: [string, any]) => {
+    yPosition += 3;
+    addText(`${venue.toUpperCase()}:`, 10, true);
+    addKeyValue('  Connection Status', data.status);
+    addKeyValue('  Modules', data.modules.join(', '));
+    addKeyValue('  Normalization', data.normalization);
+    addKeyValue('  Last Event', data.last_event);
+    addKeyValue('  LIS Reference', data.lis_ref);
+  });
+  
+  // Reference IDs Section
+  addSection('Reference Identifiers');
+  addKeyValue('Snapshot Reference', snapshotData.references.snapshot_ref);
+  addKeyValue('PoLi Reference', snapshotData.references.poli_ref);
+  addKeyValue('DACT Reference', snapshotData.references.dact_ref);
+  addKeyValue('LIS Reference', snapshotData.references.lis_ref);
+  
+  // Authoritative Records Section
+  addSection('Authoritative Records (Official)');
+  addKeyValue('PoLi Snapshot', snapshotData.meta.authoritative_records.poli_snapshot);
+  addKeyValue('DACT Window', snapshotData.meta.authoritative_records.dact_window);
+  addKeyValue('LIS Manifest', snapshotData.meta.authoritative_records.lis_manifest);
+  
+  // Compliance Section
+  addSection('Regulatory Compliance');
+  addKeyValue('Annex A', snapshotData.compliance.annex_a);
+  addKeyValue('Annex B', snapshotData.compliance.annex_b);
+  addKeyValue('Access Scope', snapshotData.compliance.access_scope);
+  addKeyValue('UI Status', snapshotData.compliance.ui_status);
+  
+  // Footer - Non-authoritative Notice
+  doc.addPage();
+  yPosition = 20;
+  addSection('Important Notice');
+  addText('This PDF is a rendered view of the RCL regulatory snapshot. For official records and authoritative evidence, refer to the machine-verifiable artifacts referenced above (PoLi snapshots, DACT artifacts, LIS manifests).', 10, false);
+  
+  yPosition += 5;
+  addText('UI Status: Non-authoritative (display only)', 9, true);
+  addText('Official Records: Machine-verifiable PoLi, DACT, and LIS artifacts', 9, false);
+  
+  yPosition += 10;
+  addText('This document was generated from RCL-v0.1 in accordance with:', 9, false);
+  addText('• Annex A: Declared Supervisory Universe', 9, false);
+  addText('• Annex B: Venue Expansion Playbook', 9, false);
+  
+  // Generate filename
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+  const filename = `rcl-snapshot-${timestamp}.pdf`;
+  
+  // Save PDF
+  doc.save(filename);
+};
+```
+
+---
+
+### Option 2: Using jsPDF with Raw JSON Appendix
+
+If you want the PDF to also include the raw JSON:
+
+```typescript
+const exportToPDFWithJSON = (snapshotData: any) => {
+  const doc = new jsPDF();
+  
+  // ... [Include all the structured sections from Option 1] ...
+  
+  // Add JSON Appendix
+  doc.addPage();
+  let yPos = 20;
+  
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Appendix: Raw JSON Data', 20, yPos);
+  yPos += 10;
+  
+  doc.setFontSize(8);
+  doc.setFont('courier', 'normal');
+  
+  const jsonString = JSON.stringify(snapshotData, null, 2);
+  const lines = jsonString.split('\n');
+  
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const lineHeight = 3;
+  
+  lines.forEach(line => {
+    if (yPos + lineHeight > pageHeight - 20) {
+      doc.addPage();
+      yPos = 20;
+    }
+    
+    // Truncate very long lines
+    const displayLine = line.length > 100 ? line.substring(0, 100) + '...' : line;
+    doc.text(displayLine, 15, yPos);
+    yPos += lineHeight;
+  });
+  
+  doc.save(`rcl-snapshot-${Date.now()}.pdf`);
+};
+```
+
+---
+
+### Option 3: Using pdfmake (Alternative Library)
+
+If you prefer a different PDF library:
+
+```typescript
+import pdfMake from 'pdfmake/build/pdfmake';
+import pdfFonts from 'pdfmake/build/vfs_fonts';
+
+pdfMake.vfs = pdfFonts.pdfMake.vfs;
+
+const exportToPDFMake = (snapshotData: any) => {
+  const docDefinition = {
+    pageSize: 'A4',
+    pageMargins: [40, 60, 40, 60],
+    
+    header: {
+      text: 'ADGM Regulatory Liquidity Snapshot',
+      style: 'header',
+      margin: [40, 20, 40, 20]
+    },
+    
+    footer: (currentPage: number, pageCount: number) => ({
+      text: `Page ${currentPage} of ${pageCount}`,
+      alignment: 'center',
+      margin: [0, 20, 0, 0]
+    }),
+    
+    content: [
+      { text: 'Document Metadata', style: 'sectionHeader' },
+      {
+        table: {
+          widths: ['30%', '70%'],
+          body: [
+            ['Type:', 'Regulatory Liquidity Snapshot'],
+            ['Jurisdiction:', 'ADGM'],
+            ['Contract Version:', snapshotData.meta.contract_version],
+            ['Instrument:', snapshotData.coverage.instrument],
+            ['Snapshot Reference:', snapshotData.references.snapshot_ref],
+            ['Generated At:', snapshotData.meta.generated_at]
+          ]
+        },
+        layout: 'lightHorizontalLines',
+        margin: [0, 0, 0, 15]
+      },
+      
+      { text: 'Supervisory Scope (RCL-v0.1)', style: 'sectionHeader' },
+      {
+        table: {
+          widths: ['30%', '70%'],
+          body: [
+            ['Jurisdiction:', snapshotData.supervisoryScope.jurisdiction],
+            ['Asset Class:', snapshotData.supervisoryScope.asset_class],
+            ['Market Type:', snapshotData.supervisoryScope.market_type],
+            ['DSU:', snapshotData.supervisoryScope.dsu.join(', ')],
+            ['Version:', snapshotData.supervisoryScope.version]
+          ]
+        },
+        layout: 'lightHorizontalLines',
+        margin: [0, 0, 0, 15]
+      },
+      
+      { text: 'Coverage Analysis', style: 'sectionHeader' },
+      {
+        table: {
+          widths: ['30%', '70%'],
+          body: [
+            ['Instrument:', snapshotData.coverage.instrument],
+            ['Venue Count:', snapshotData.coverage.venue_count.toString()],
+            ['Coverage:', `${snapshotData.coverage.coverage_pct}%`],
+            ['Known Venues:', snapshotData.coverage.known_venues.toString()],
+            ['Covered Venues:', snapshotData.coverage.covered_venues.toString()]
+          ]
+        },
+        layout: 'lightHorizontalLines',
+        margin: [0, 0, 0, 15]
+      },
+      
+      { text: 'Liquidity Truth Status', style: 'sectionHeader' },
+      {
+        table: {
+          widths: ['30%', '70%'],
+          body: [
+            ['Status:', { text: snapshotData.truth.status, bold: true }],
+            ['Evidence Level:', `${snapshotData.truth.evidence_level} (${snapshotData.truth.evidence_description})`],
+            ['Verified At:', snapshotData.truth.validity_window.verified_at],
+            ['Valid Until:', snapshotData.truth.validity_window.valid_until]
+          ]
+        },
+        layout: 'lightHorizontalLines',
+        margin: [0, 0, 0, 15]
+      },
+      
+      { text: 'Raw JSON Data', style: 'sectionHeader', pageBreak: 'before' },
+      {
+        text: JSON.stringify(snapshotData, null, 2),
+        style: 'jsonCode'
+      }
+    ],
+    
+    styles: {
+      header: {
+        fontSize: 18,
+        bold: true,
+        alignment: 'center'
+      },
+      sectionHeader: {
+        fontSize: 14,
+        bold: true,
+        margin: [0, 15, 0, 10]
+      },
+      jsonCode: {
+        fontSize: 7,
+        font: 'Courier',
+        margin: [0, 5, 0, 5]
+      }
+    }
+  };
+  
+  pdfMake.createPdf(docDefinition).download(`rcl-snapshot-${Date.now()}.pdf`);
+};
+```
+
+---
+
+## Quick Install Commands
+
+```bash
+# For jsPDF approach
+npm install jspdf jspdf-autotable
+
+# For pdfmake approach
+npm install pdfmake
+```
+
+---
+
+## Recommended Structure for Complete PDF
+
+Your PDF should include these sections in order:
+
+1. **Cover Page**
+   - Title: "ADGM Regulatory Liquidity Snapshot"
+   - Key metadata (snapshot ref, timestamp, instrument)
+
+2. **Supervisory Scope Declaration**
+   - DSU explicitly listed
+   - RCL version
+   - Jurisdiction details
+
+3. **Coverage Analysis**
+   - Venue counts
+   - Liquidity types
+   - Coverage percentage
+
+4. **Truth Status**
+   - Current status (VERIFIED/DEGRADED/INSUFFICIENT)
+   - Evidence level with description
+   - Validity window
+
+5. **Integrity Metrics**
+   - Data gaps
+   - Latency measurements
+   - Normalization status
+
+6. **Venue Provenance** (Per venue)
+   - Connection status
+   - Active modules
+   - Last event timestamp
+   - LIS references
+
+7. **Reference Identifiers**
+   - All snapshot, PoLi, DACT, LIS refs
+
+8. **Authoritative Records**
+   - Official artifact references
+
+9. **Compliance Statement**
+   - Annex A and B references
+   - Access scope
+   - Non-authoritative UI notice
+
+10. **Appendix: Raw JSON** (Optional)
+    - Complete JSON for machine processing
+
+---
+
+## Complete Working Example
+
+```typescript
+import { jsPDF } from 'jspdf';
+
+export const generateRCLSnapshotPDF = (data: any) => {
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const margin = 20;
+  let y = 20;
+  
+  const addHeading = (text: string, size: number = 14) => {
+    doc.setFontSize(size);
+    doc.setFont('helvetica', 'bold');
+    doc.text(text, margin, y);
+    y += size * 0.6;
+  };
+  
+  const addLine = (label: string, value: string) => {
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`${label}:`, margin, y);
+    doc.setFont('helvetica', 'normal');
+    const labelWidth = doc.getTextWidth(`${label}: `);
+    doc.text(value, margin + labelWidth, y);
+    y += 6;
+  };
+  
+  const checkPage = () => {
+    if (y > 270) {
+      doc.addPage();
+      y = 20;
+    }
+  };
+  
+  // Title
+  addHeading('ADGM Regulatory Liquidity Snapshot', 18);
+  y += 10;
+  
+  // Metadata
+  addHeading('Document Metadata', 12);
+  addLine('Type', 'Regulatory Liquidity Snapshot');
+  addLine('Jurisdiction', data.supervisoryScope.jurisdiction);
+  addLine('Contract Version', data.meta.contract_version);
+  addLine('Instrument', data.coverage.instrument);
+  addLine('Snapshot Reference', data.references.snapshot_ref);
+  addLine('Generated At', data.meta.generated_at);
+  y += 10;
+  checkPage();
+  
+  // Supervisory Scope
+  addHeading('Supervisory Scope (RCL-v0.1)', 12);
+  addLine('DSU', data.supervisoryScope.dsu.join(', '));
+  addLine('Asset Class', data.supervisoryScope.asset_class);
+  addLine('Market Type', data.supervisoryScope.market_type);
+  y += 10;
+  checkPage();
+  
+  // Coverage
+  addHeading('Coverage Analysis', 12);
+  addLine('Coverage', `${data.coverage.coverage_pct}%`);
+  addLine('Known Venues', data.coverage.known_venues.toString());
+  addLine('Covered Venues', data.coverage.covered_venues.toString());
+  addLine('Liquidity Types', data.coverage.liquidity_types.join(', '));
+  y += 10;
+  checkPage();
+  
+  // Truth Status
+  addHeading('Liquidity Truth Status', 12);
+  addLine('Status', data.truth.status);
+  addLine('Evidence Level', `${data.truth.evidence_level} (${data.truth.evidence_description})`);
+  addLine('Verified At', data.truth.validity_window.verified_at);
+  addLine('Valid Until', data.truth.validity_window.valid_until);
+  if (data.truth.degradation_reason) {
+    addLine('Reason', data.truth.degradation_reason);
+  }
+  y += 10;
+  checkPage();
+  
+  // Integrity
+  addHeading('Integrity Metrics', 12);
+  addLine('Status', data.truth.integrity.status);
+  addLine('Data Gaps', data.truth.integrity.data_gaps.toString());
+  addLine('Latency (p95)', `${data.truth.integrity.ingestion_latency_p95_ms}ms`);
+  addLine('Normalization', data.truth.integrity.normalization);
+  y += 10;
+  checkPage();
+  
+  // Provenance
+  addHeading('Venue Provenance', 12);
+  Object.entries(data.provenance).forEach(([venue, info]: [string, any]) => {
+    checkPage();
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text(venue.toUpperCase(), margin, y);
+    y += 6;
+    addLine('  Status', info.status);
+    addLine('  Modules', info.modules.join(', '));
+    addLine('  Normalization', info.normalization);
+    addLine('  Last Event', info.last_event);
+    y += 4;
+  });
+  
+  // Save
+  doc.save(`rcl-snapshot-${Date.now()}.pdf`);
+};
+```
+
+---
+
+## Testing Checklist
+
+- [ ] PDF includes all metadata
+- [ ] DSU is clearly declared
+- [ ] Coverage metrics present
+- [ ] Truth status with evidence level
+- [ ] Integrity metrics included
+- [ ] All venue provenance details
+- [ ] Reference IDs listed
+- [ ] Compliance statement included
+- [ ] Non-authoritative notice present
+- [ ] Multi-page support works
+- [ ] Filename includes timestamp
+- [ ] PDF is readable when opened
+
+This will give you a complete, professional regulatory PDF export that ADGM can use as evidence-grade documentation.
+```
