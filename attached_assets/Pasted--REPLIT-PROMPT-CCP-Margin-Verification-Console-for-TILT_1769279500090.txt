@@ -1,0 +1,706 @@
+# REPLIT PROMPT: CCP Margin Verification Console for TILT
+
+## Overview
+
+Add a new "CCP Margin" menu item to TILT's second navigation bar (after "Overview", before "Trends"). When selected, this renders a fully operational CCP Margin Verification Console - a dashboard designed for Clearing House and CCP risk officers to verify collateral liquidity using Stratalink's STRATA, PoLi, TSLE, and DACT infrastructure.
+
+This is a **simulation/demo environment** using synthetic data based on proxy instruments, designed to demonstrate pre-trade liquidity verification for tokenized securities (Russell 1000, US Treasuries, ETFs) ahead of DTCC's tokenization service launch in H2 2026.
+
+---
+
+## Navigation Integration
+
+### Menu Structure
+```
+[HOME] [OVERVIEW] [ANALYTICS] [SIGNALS] [REPORTS] [IDENTITY] [LIS]  ⚡LIVE
+─────────────────────────────────────────────────────────────────────────
+[OVERVIEW] [CCP MARGIN] [TRENDS] [PORTFOLIO] [ALERTS] [SCORECARD] [ANALYTICS] [TAPE] [RCL]
+```
+
+- Add "CCP MARGIN" as second item in the sub-navigation bar
+- When selected, render the CCP Margin Verification Console as the main content area
+- Maintain TILT's existing header, navigation, and footer structure
+
+---
+
+## Design System
+
+### Colors (Bloomberg Terminal Style - Pure Black Background)
+```css
+--bg-primary: #000000;           /* Pure black background */
+--bg-secondary: #0a0a0a;         /* Slightly lighter panels */
+--bg-tertiary: #111111;          /* Card backgrounds */
+--bg-elevated: #1a1a1a;          /* Elevated elements */
+--border-primary: rgba(255, 255, 255, 0.1);
+--border-secondary: rgba(255, 255, 255, 0.05);
+
+--text-primary: #e2e8f0;         /* Primary text */
+--text-secondary: #94a3b8;       /* Secondary text */
+--text-muted: #64748b;           /* Muted text */
+
+--accent-blue: #3b82f6;          /* Primary accent */
+--accent-purple: #8b5cf6;        /* Secondary accent */
+--accent-green: #10b981;         /* Positive/healthy */
+--accent-amber: #f59e0b;         /* Warning/caution */
+--accent-red: #ef4444;           /* Alert/negative */
+--accent-yellow: #fbbf24;        /* Stratalink brand yellow */
+```
+
+### Typography
+```css
+font-family: 'IBM Plex Sans', 'SF Pro Display', -apple-system, sans-serif;
+```
+
+### Component Patterns
+- Cards: `background: #111111; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px;`
+- Badges: `padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.05em;`
+- Score displays: Large numeric with color coding (green ≥85, amber ≥70, red <70)
+
+---
+
+## Data Model
+
+### Clearing Members
+```javascript
+const members = {
+  'acme-capital': {
+    name: 'Acme Capital LLC',
+    memberId: 'ACMECAPITAL',
+    riskTier: 'Standard',
+    strataScore: 73,
+    strataStatus: 'caution', // 'healthy' | 'caution' | 'alert'
+    totalPosted: 847500000,
+    traditionalValue: 805125000,  // After standard 5% haircut
+    strataAdjusted: 731250000,    // After PoLi liquidity verification
+    marginGap: 73875000,          // traditionalValue - strataAdjusted
+    collateral: [
+      {
+        id: 'tsry-10y',
+        asset: 'UST 10Y Token',
+        type: 'Treasury',
+        nominal: 250000000,
+        haircut: 237500000,
+        strataValue: 228750000,
+        poliScore: 91,
+        tsleStatus: 'clear',
+        venues: 4,
+        depth: 'Strong',
+        liquidityProfile: { '24h': 1.0, '12h': 0.97, '4h': 0.91, '1h': 0.82 },
+        proxySource: 'US Treasury 10Y + OTC depth',
+        dataConfidence: 'high'
+      },
+      {
+        id: 'russ-etf',
+        asset: 'Russell 1000 ETF Token',
+        type: 'Equity ETF',
+        nominal: 350000000,
+        haircut: 315000000,
+        strataValue: 267750000,
+        poliScore: 68,
+        tsleStatus: 'anomaly',
+        venues: 3,
+        depth: 'Fragmented',
+        liquidityProfile: { '24h': 1.0, '12h': 0.88, '4h': 0.65, '1h': 0.42 },
+        proxySource: 'IWB ETF + DEX patterns',
+        dataConfidence: 'medium'
+      },
+      {
+        id: 'aapl-tok',
+        asset: 'AAPL Token',
+        type: 'Equity',
+        nominal: 150000000,
+        haircut: 142500000,
+        strataValue: 138000000,
+        poliScore: 84,
+        tsleStatus: 'clear',
+        venues: 5,
+        depth: 'Good',
+        liquidityProfile: { '24h': 1.0, '12h': 0.94, '4h': 0.85, '1h': 0.71 },
+        proxySource: 'AAPL microstructure + RWA data',
+        dataConfidence: 'medium'
+      },
+      {
+        id: 'tsry-2y',
+        asset: 'UST 2Y Token',
+        type: 'Treasury',
+        nominal: 97500000,
+        haircut: 95062500,
+        strataValue: 96750000,
+        poliScore: 96,
+        tsleStatus: 'clear',
+        venues: 4,
+        depth: 'Deep',
+        liquidityProfile: { '24h': 1.0, '12h': 0.98, '4h': 0.94, '1h': 0.88 },
+        proxySource: 'US Treasury 2Y + stablecoin correlation',
+        dataConfidence: 'high'
+      }
+    ]
+  },
+  'meridian-fund': {
+    name: 'Meridian Fund Services',
+    memberId: 'MERIDIANFUND',
+    riskTier: 'Standard',
+    strataScore: 89,
+    strataStatus: 'healthy',
+    totalPosted: 1250000000,
+    traditionalValue: 1187500000,
+    strataAdjusted: 1143750000,
+    marginGap: 43750000,
+    collateral: [] // Simplified for demo - expand as needed
+  },
+  'vertex-trading': {
+    name: 'Vertex Trading Corp',
+    memberId: 'VERTEXTRADING',
+    riskTier: 'Enhanced',
+    strataScore: 52,
+    strataStatus: 'alert',
+    totalPosted: 425000000,
+    traditionalValue: 403750000,
+    strataAdjusted: 318750000,
+    marginGap: 85000000,
+    collateral: []
+  }
+};
+```
+
+### Stress Scenarios
+```javascript
+const stressMultipliers = {
+  normal: { label: 'Normal Market', factor: 1.0, timeframe: '24h+', color: '#10b981' },
+  moderate: { label: '12h Liquidation', factor: 0.92, timeframe: '12h', color: '#f59e0b' },
+  stressed: { label: '4h Liquidation', factor: 0.78, timeframe: '4h', color: '#ef4444' },
+  extreme: { label: '1h Fire Sale', factor: 0.61, timeframe: '1h', color: '#dc2626' }
+};
+```
+
+### TSLE Alerts
+```javascript
+const tsleAlerts = [
+  { 
+    id: 1, 
+    time: '14:32:07', 
+    severity: 'high', // 'high' | 'medium' | 'low'
+    asset: 'Russell 1000 ETF Token', 
+    member: 'Acme Capital', 
+    message: 'Volume spike inconsistent with order book depth on Venue B', 
+    type: 'wash_trading' 
+  },
+  { 
+    id: 2, 
+    time: '14:28:45', 
+    severity: 'medium', 
+    asset: 'ETH Token', 
+    member: 'Vertex Trading', 
+    message: 'Bid-ask spread widening beyond 2σ threshold', 
+    type: 'spread_anomaly' 
+  },
+  // ... more alerts
+];
+```
+
+### Historical Data (30 days)
+```javascript
+const historicalData = [
+  { day: 1, strata: 82, traditional: 95, gap: 13 },
+  { day: 5, strata: 79, traditional: 95, gap: 16 },
+  { day: 10, strata: 75, traditional: 95, gap: 20 },
+  { day: 15, strata: 78, traditional: 95, gap: 17 },
+  { day: 20, strata: 71, traditional: 95, gap: 24 },
+  { day: 25, strata: 74, traditional: 95, gap: 21 },
+  { day: 30, strata: 73, traditional: 95, gap: 22 }
+];
+```
+
+### Replacement Collateral Options (for Simulator)
+```javascript
+const replacementOptions = [
+  { id: 'usdc-tok', asset: 'USDC Token', type: 'Stablecoin', poliScore: 98, improvement: 12 },
+  { id: 'tsry-5y', asset: 'UST 5Y Token', type: 'Treasury', poliScore: 94, improvement: 8 },
+  { id: 'spx-etf', asset: 'S&P 500 ETF Token', type: 'Equity ETF', poliScore: 87, improvement: 5 },
+  { id: 'msft-tok', asset: 'MSFT Token', type: 'Equity', poliScore: 86, improvement: 4 }
+];
+```
+
+### Data Provenance
+```javascript
+const dataProvenance = {
+  modelVersion: 'Synthetic Model v1.2',
+  lastUpdated: '2025-01-24',
+  methodology: 'LTF-conformant simulation using historical TradFi + DeFi liquidity patterns',
+  proxies: [
+    { token: 'UST 10Y Token', proxy: 'US Treasury 10Y yields + institutional OTC depth estimates', source: 'Bloomberg, Refinitiv' },
+    { token: 'Russell 1000 ETF Token', proxy: 'IWB ETF liquidity profile + DEX fragmentation patterns', source: 'NYSE, Uniswap, Curve' },
+    { token: 'AAPL Token', proxy: 'AAPL equity microstructure + tokenized equity venue patterns', source: 'NASDAQ, historical RWA data' },
+    { token: 'UST 2Y Token', proxy: 'US Treasury 2Y yields + stablecoin liquidity correlations', source: 'Bloomberg, on-chain analytics' }
+  ],
+  disclaimer: 'Simulated environment using proxy instruments. Production deployment pending Canton Network venue integration and DTC tokenization service launch (H2 2026).'
+};
+```
+
+---
+
+## Page Layout Structure
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│ HEADER: STRATALINK branding + Data Provenance Badge + Canton Network status + Time  │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│ DATA PROVENANCE PANEL (expandable - shows when badge clicked)                       │
+├────────────┬────────────────────────────────────────────────────────┬───────────────┤
+│            │                                                        │               │
+│  SIDEBAR   │                    MAIN CONTENT                        │  RIGHT PANEL  │
+│            │                                                        │               │
+│  Clearing  │  ┌─────────────────────────────────────────────────┐  │  TSLE ALERTS  │
+│  Members   │  │ Member Header + Margin Call Simulator Toggle    │  │      or       │
+│  List      │  └─────────────────────────────────────────────────┘  │  STRATA       │
+│            │  ┌─────────────────────────────────────────────────┐  │  TRENDS       │
+│  - Acme    │  │ Stress Scenario Toggle Bar                      │  │               │
+│  - Meridian│  └─────────────────────────────────────────────────┘  │  (tabbed)     │
+│  - Vertex  │  ┌─────────────────────────────────────────────────┐  │               │
+│            │  │ Margin Call Simulator (when expanded)           │  │               │
+│  Search    │  └─────────────────────────────────────────────────┘  │               │
+│            │  ┌────────┬────────┬────────┬────────┐                │               │
+│            │  │ STRATA │HAIRCUT │ STRATA │ MARGIN │                │               │
+│            │  │ SCORE  │ VALUE  │ADJUSTED│  GAP   │                │               │
+│            │  └────────┴────────┴────────┴────────┘                │               │
+│            │  ┌─────────────────────────────────────────────────┐  │               │
+│            │  │ COLLATERAL TABLE                                │  │               │
+│            │  │ (expandable rows with PoLi/TSLE/DACT detail)    │  │               │
+│            │  └─────────────────────────────────────────────────┘  │               │
+│            │  ┌─────────────────────────────────────────────────┐  │               │
+│            │  │ ACTION FOOTER: Margin Call Recommended          │  │               │
+│            │  └─────────────────────────────────────────────────┘  │               │
+│  280px     │                      flex: 1                          │     340px     │
+├────────────┴────────────────────────────────────────────────────┴───────────────┤
+│ FOOTER: SIMULATION badge + Disclaimer + Production timeline + LTF version       │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Component Specifications
+
+### 1. Header Bar
+
+**Left section:**
+- Stratalink logo (S in gradient box) + "STRATALINK" + "LIQUIDITY TRUTH LAYER" subtitle
+- Divider
+- "CCP Margin Verification Console" label
+
+**Right section:**
+- **Data Provenance Badge** (clickable):
+  - Amber background: `rgba(251, 191, 36, 0.1)`
+  - Amber border: `rgba(251, 191, 36, 0.3)`
+  - Content: `[amber dot] SYNTHETIC DATA | Proxy Model v1.2 [chevron]`
+  - Clicking toggles Data Provenance Panel
+- **Network Status Badge**:
+  - Green pulsing dot + "LIVE" + "Canton Network"
+- **Timestamp**: Current UTC time, updating every second
+
+### 2. Data Provenance Panel (Expandable)
+
+When expanded, shows below header:
+- Amber-tinted background: `rgba(251, 191, 36, 0.05)`
+- Left side:
+  - "SIMULATION MODE" badge
+  - Model version + last updated date
+  - Methodology description
+  - 2x2 grid of proxy mappings (token → proxy → sources)
+- Right side:
+  - "⚠ IMPORTANT DISCLAIMER" box
+  - Disclaimer text
+  - Production data sources note
+
+### 3. Left Sidebar - Clearing Members (280px)
+
+**Header:**
+- "CLEARING MEMBERS" label (11px, muted, letter-spacing)
+- Search input
+
+**Member Cards:**
+For each member:
+```
+┌─────────────────────────────────────┐
+│ Member Name               [STATUS]  │
+│ Posted: $XXX.XM                  73 │ ← STRATA score, color-coded
+└─────────────────────────────────────┘
+```
+- Selected state: blue left border + blue tinted background
+- Status badge colors: healthy=green, caution=amber, alert=red
+
+### 4. Main Content Area
+
+#### 4.1 Member Header
+- Large member name (28px, bold)
+- Member ID + Risk Tier subtitle
+- Right side: Margin Call Simulator toggle button (purple) + Status badge
+
+#### 4.2 Stress Scenario Toggle Bar
+Card with:
+- Left: "STRESS SCENARIO" label + description
+- Right: 4 toggle buttons:
+  - Normal Market (24h+) - green when selected
+  - 12h Liquidation - amber when selected
+  - 4h Liquidation - red when selected
+  - 1h Fire Sale - dark red when selected
+- When non-normal selected: Warning banner showing recovery rate
+
+**Stress calculation logic:**
+```javascript
+const getStressedValue = (baseValue, collateral) => {
+  if (stressScenario === 'normal') return baseValue;
+  const timeframeMap = { 'moderate': '12h', 'stressed': '4h', 'extreme': '1h' };
+  const timeframe = timeframeMap[stressScenario];
+  if (collateral?.liquidityProfile) {
+    return Math.round(baseValue * collateral.liquidityProfile[timeframe]);
+  }
+  return Math.round(baseValue * stressMultipliers[stressScenario].factor);
+};
+```
+
+#### 4.3 Margin Call Simulator (Expandable Panel)
+
+Purple gradient background when expanded:
+```css
+background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(59, 130, 246, 0.1) 100%);
+border: 1px solid rgba(139, 92, 246, 0.3);
+```
+
+**Left column:** "SELECT COLLATERAL TO REPLACE"
+- Lists collateral with PoLi score < 85
+- Clicking removes from swap list
+
+**Right column:** "AVAILABLE REPLACEMENTS"
+- Lists replacement options with PoLi scores and improvement values
+- Clicking adds to swap (replaces first available low-score collateral)
+
+**Header right:** Projected score display
+```
+Current Score → Projected Score [+improvement badge]
+      73      →       85            +12
+```
+
+**Footer:** Reset button + "Generate Margin Call with Recommendations" button
+
+**Score calculation:**
+```javascript
+const simulatedScore = useMemo(() => {
+  if (Object.keys(simulatorSwaps).length === 0) return member.strataScore;
+  let improvement = 0;
+  Object.entries(simulatorSwaps).forEach(([collateralId, replacementId]) => {
+    const replacement = replacementOptions.find(r => r.id === replacementId);
+    if (replacement) improvement += replacement.improvement;
+  });
+  return Math.min(100, member.strataScore + improvement);
+}, [simulatorSwaps, member.strataScore]);
+```
+
+#### 4.4 Key Metrics Row (4 cards)
+
+**Card 1: STRATA Score**
+- Gradient background (blue → purple)
+- Large score number (48px) with color coding
+- "Collateral Confidence Index" subtitle
+
+**Card 2: Traditional Haircut**
+- Standard 5% haircut value
+- "Standard 5% haircut applied" subtitle
+
+**Card 3: STRATA-Adjusted Value**
+- Shows stressed value when stress scenario active
+- Color matches stress scenario
+- "Real-time liquidity verified" subtitle
+
+**Card 4: Margin Gap Detected**
+- Red gradient background
+- Gap amount (traditionalValue - stressedStrataValue)
+- Percentage below traditional estimate
+
+#### 4.5 Collateral Table
+
+**Header bar:**
+- Title: "Posted Collateral"
+- Subtitle: "Real-time liquidity verification via DACT consolidated tape"
+- View toggle buttons: OVERVIEW | POLI | TSLE | DACT
+
+**Table columns:**
+| ASSET | NOMINAL | HAIRCUT VALUE | STRATA VALUE | DELTA | PoLi | TSLE | VENUES |
+
+**Row content:**
+- Asset name + type + proxy source badge (color-coded by confidence)
+- All currency values formatted (M/B suffixes)
+- STRATA value colored by stress scenario
+- Delta shows difference (red if negative)
+- PoLi score in colored badge
+- TSLE status badge (CLEAR/ANOMALY)
+- Venue count
+
+**Expanded row detail (3 columns):**
+
+**Column 1: PoLi Verification**
+- Large PoLi score
+- "Proof of Liquidity Score" subtitle
+- Component breakdown:
+  - Market Depth (30%)
+  - Bid-Ask Spread (25%)
+  - Volume Consistency (20%)
+  - CEX/DEX Balance (15%)
+  - Volatility Score (10%)
+- Each with progress bar
+
+**Column 2: TSLE Analysis**
+- Status badge
+- If anomaly: amber alert box with description
+- If clear: green success box
+- Liquidation Stress Profile chart (4 bars for 24h/12h/4h/1h)
+
+**Column 3: DACT Venue Distribution**
+- Fragmentation description
+- Venue breakdown bars (Canton DEX, Venue B, Venue C, OTC Pool)
+- Executable Depth box (with 10% slippage)
+
+**Row footer:**
+- LTF conformance badge: "LTF-CONFORMANT VERIFICATION • EVIDENCE LEVEL L4"
+- "View Full Audit Trail →" button
+
+#### 4.6 Action Footer
+
+Red-tinted alert bar:
+```css
+background: rgba(239, 68, 68, 0.1);
+border: 1px solid rgba(239, 68, 68, 0.2);
+```
+
+- Left: "Action Required: Margin Call Recommended" + detail text
+- Right: "Export Report" button + "Initiate Margin Call" button (red)
+
+### 5. Right Panel - TSLE Alerts & STRATA Trends (340px)
+
+**Tab bar:** TSLE ALERTS | STRATA TRENDS
+
+#### 5.1 TSLE Alerts Tab
+
+**Header:** "LIVE MANIPULATION FEED" + green "MONITORING" badge
+
+**Stats row (3 cards):**
+- HIGH count (red)
+- MEDIUM count (amber)
+- LOW count (blue)
+
+**Alert cards:**
+For each alert:
+```
+┌─────────────────────────────────────┐
+│ [severity dot] Asset Name    14:32  │
+│ Alert message text here...          │
+│ Member Name           [alert_type]  │
+└─────────────────────────────────────┘
+```
+- Background color varies by severity
+
+#### 5.2 STRATA Trends Tab
+
+**Header:** "30-DAY MARGIN GAP TREND"
+
+**Summary card:**
+- Current Gap: 22% (red)
+- 30D Change: +9% (red)
+- Mini sparkline chart
+
+**Alert box:** "⚠ Widening Gap Detected" with analysis
+
+**Key Insights list:**
+- Peak Gap: 24% (Day 20)
+- Minimum Gap: 13% (Day 1)
+- Average Gap: 19% (30D Avg)
+- Volatility: High (σ = 4.2%)
+
+**Peer Comparison:**
+- Bar chart comparing members' gaps
+- Current member highlighted
+
+### 6. Fixed Footer
+
+```css
+position: fixed;
+bottom: 0;
+background: rgba(0, 0, 0, 0.9);
+border-top: 1px solid rgba(251, 191, 36, 0.2);
+```
+
+- Left: "SIMULATION" badge + disclaimer text
+- Right: Production timeline + "LTF v2.1 Methodology" badge
+
+---
+
+## State Management
+
+```javascript
+const [selectedMember, setSelectedMember] = useState('acme-capital');
+const [selectedCollateral, setSelectedCollateral] = useState(null);
+const [activeView, setActiveView] = useState('overview');
+const [stressScenario, setStressScenario] = useState('normal');
+const [showSimulator, setShowSimulator] = useState(false);
+const [simulatorSwaps, setSimulatorSwaps] = useState({});
+const [rightPanel, setRightPanel] = useState('alerts');
+const [showDataProvenance, setShowDataProvenance] = useState(false);
+```
+
+---
+
+## Utility Functions
+
+### Currency Formatting
+```javascript
+const formatCurrency = (value) => {
+  if (value >= 1000000000) return `$${(value / 1000000000).toFixed(2)}B`;
+  if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
+  return `$${value.toLocaleString()}`;
+};
+```
+
+### Score Color
+```javascript
+const getScoreColor = (score) => {
+  if (score >= 85) return '#10b981';
+  if (score >= 70) return '#f59e0b';
+  return '#ef4444';
+};
+```
+
+### Status Badge
+```javascript
+const getStatusBadge = (status) => {
+  const styles = {
+    healthy: { bg: '#064e3b', color: '#34d399', label: 'HEALTHY' },
+    caution: { bg: '#78350f', color: '#fbbf24', label: 'CAUTION' },
+    alert: { bg: '#7f1d1d', color: '#f87171', label: 'ALERT' },
+    clear: { bg: '#064e3b', color: '#34d399', label: 'CLEAR' },
+    anomaly: { bg: '#78350f', color: '#fbbf24', label: 'ANOMALY' }
+  };
+  return styles[status];
+};
+```
+
+### Severity Styling
+```javascript
+const getSeverityStyle = (severity) => {
+  const styles = {
+    high: { bg: 'rgba(239, 68, 68, 0.15)', border: 'rgba(239, 68, 68, 0.4)', dot: '#ef4444' },
+    medium: { bg: 'rgba(245, 158, 11, 0.15)', border: 'rgba(245, 158, 11, 0.4)', dot: '#f59e0b' },
+    low: { bg: 'rgba(59, 130, 246, 0.15)', border: 'rgba(59, 130, 246, 0.4)', dot: '#3b82f6' }
+  };
+  return styles[severity];
+};
+```
+
+---
+
+## Animations
+
+```css
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+```
+
+Apply to live status indicators.
+
+---
+
+## Responsive Considerations
+
+- Minimum width: 1400px (institutional terminal use case)
+- Sidebar: fixed 280px
+- Right panel: fixed 340px
+- Main content: flex: 1, min-width: 0
+- Footer: fixed position, full width
+
+---
+
+## Key User Flows
+
+### Flow 1: Identify Margin Shortfall
+1. User sees member list with STRATA scores
+2. Selects member showing "CAUTION" status
+3. Views margin gap in top metrics
+4. Expands Russell 1000 ETF row to see low PoLi (68) and TSLE anomaly
+5. Sees "Margin Call Recommended" action
+
+### Flow 2: Stress Test Collateral
+1. User toggles to "4h Liquidation" stress scenario
+2. Watches STRATA-adjusted values drop (especially fragmented assets)
+3. Margin gap increases dramatically
+4. Understands liquidation risk under time pressure
+
+### Flow 3: Model Collateral Substitution
+1. User opens Margin Call Simulator
+2. Selects low-scoring collateral (Russell 1000 ETF)
+3. Chooses high-scoring replacement (UST 5Y Token)
+4. Watches projected STRATA score improve
+5. Generates margin call with recommendations
+
+### Flow 4: Monitor for Manipulation
+1. User switches to TSLE Alerts panel
+2. Sees real-time manipulation alerts across all members
+3. Identifies high-severity wash trading alert
+4. Drills into affected collateral for detail
+
+### Flow 5: Verify Data Provenance
+1. User clicks "SYNTHETIC DATA" badge
+2. Reviews proxy methodology for each instrument
+3. Understands this is simulation pending production deployment
+4. Satisfied with rigorous, transparent approach
+
+---
+
+## Production Notes
+
+This dashboard demonstrates Stratalink's capability for pre-trade liquidity verification in the context of DTCC's upcoming tokenization service. Key points:
+
+1. **Synthetic data**: All values derived from proxy instruments (existing ETFs, Treasuries, equity microstructure)
+2. **Production readiness**: Architecture is ready for real data when Canton Network venues go live
+3. **H2 2026 timeline**: Aligned with DTC's tokenization service rollout
+4. **LTF conformance**: All methodology follows Liquidity Truth Framework standards
+
+---
+
+## File Structure Suggestion
+
+```
+/components/ccp-margin/
+  ├── CCPMarginDashboard.jsx    # Main container
+  ├── MemberSidebar.jsx         # Left sidebar
+  ├── MetricsRow.jsx            # 4 key metric cards
+  ├── CollateralTable.jsx       # Main table with expandable rows
+  ├── CollateralDetail.jsx      # Expanded row content
+  ├── StressScenarioBar.jsx     # Stress toggle component
+  ├── MarginCallSimulator.jsx   # Simulator panel
+  ├── TSLEAlertsPanel.jsx       # Right panel alerts
+  ├── STRATATrendsPanel.jsx     # Right panel trends
+  ├── DataProvenancePanel.jsx   # Expandable provenance info
+  ├── ActionFooter.jsx          # Bottom action bar
+  └── utils/
+      ├── calculations.js       # Stress calculations, score derivation
+      ├── formatters.js         # Currency, percentage formatters
+      └── mockData.js           # All mock data constants
+```
+
+---
+
+## Final Checklist
+
+- [ ] Pure black (#000000) background throughout
+- [ ] Amber "SYNTHETIC DATA" badge always visible in header
+- [ ] Data provenance panel expandable with full proxy mapping
+- [ ] Proxy source shown inline on each collateral row
+- [ ] Stress scenario dynamically updates all values
+- [ ] Margin Call Simulator calculates projected scores
+- [ ] TSLE Alerts panel with severity-coded cards
+- [ ] Historical trends with sparkline chart
+- [ ] Peer comparison in trends panel
+- [ ] Fixed footer with simulation disclaimer
+- [ ] LTF conformance badges on detail views
+- [ ] All interactions smooth with appropriate transitions
+- [ ] Matches TILT visual language (see existing platform screenshots)

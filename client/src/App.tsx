@@ -33,6 +33,7 @@ import LisDebugPage from "@/pages/lis-debug";
 import AlertConfigPage from "@/pages/alert-config";
 import DownloadPage from "@/pages/download";
 import TapePage from "@/pages/platform/tape";
+import CCPMarginPage from "@/pages/platform/ccp-margin";
 import RegulatoryAdgmView from "@/pages/regulatory/RegulatoryAdgmView";
 
 // ✅ IMPORTANT: this must point to your existing file:
@@ -69,6 +70,14 @@ function AppRouter() {
         {() => (
           <RequireAuth>
             <TapePage />
+          </RequireAuth>
+        )}
+      </Route>
+
+      <Route path="/platform/ccp-margin">
+        {() => (
+          <RequireAuth>
+            <CCPMarginPage />
           </RequireAuth>
         )}
       </Route>

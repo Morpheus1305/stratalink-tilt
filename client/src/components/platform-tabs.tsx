@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 
 const tabs = [
   { id: "overview", label: "OVERVIEW", path: "/platform" },
+  { id: "ccp-margin", label: "CCP MARGIN", path: "/platform/ccp-margin" },
   { id: "trends", label: "TRENDS", path: "/platform/trends" },
   { id: "portfolio", label: "PORTFOLIO", path: "/platform/portfolio" },
   { id: "alerts", label: "ALERTS", path: "/platform/alerts" },
@@ -35,8 +36,8 @@ export function PlatformTabs() {
               className={cn(
                 "px-4 py-2.5 text-xs font-semibold transition-colors relative",
                 isActive(tab.path)
-                  ? "text-primary"
-                  : "text-muted-foreground hover-elevate"
+                  ? "text-yellow-400"
+                  : "text-muted-foreground"
               )}
             >
               {tab.label}

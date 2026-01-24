@@ -32,6 +32,15 @@ Built with React, TypeScript, and Vite, using Wouter for routing and TanStack Qu
 -   **Liquidity Tape**: Real-time event stream (DEPTH_UPDATE, TRADE, LIQUIDATION, FUNDING, SPREAD_CHANGE) with in-memory ring buffer and query API.
 -   **Yesterday vs Today Comparison Panel**: Synthetic comparative analysis against simulated prior-session values.
 -   **Token Liquidity League Table**: Sortable summary of tracked tokens.
+-   **CCP Margin Verification Console**: Dashboard for Clearing House and CCP risk officers to verify collateral liquidity using STRATA, PoLi, TSLE, and DACT infrastructure. Features:
+    - Left sidebar with clearing members list (search, selection, status badges)
+    - Stress scenario toggles (Normal, 12h, 4h, 1h liquidation windows)
+    - Four key metrics cards (STRATA Score, Traditional Haircut, STRATA-Adjusted Value, Margin Gap)
+    - Collateral table with expandable rows showing PoLi verification, TSLE analysis, DACT venue distribution
+    - Margin Call Simulator for what-if collateral replacement scenarios
+    - Right panel with TSLE Alerts feed and STRATA Trends (30-day margin gap analysis)
+    - Data Provenance panel with simulation mode indicators and disclaimers
+    - Synthetic data based on proxy instruments for tokenized securities (Russell 1000, US Treasuries, ETFs)
 
 ### Backend
 Uses Express.js with in-memory storage (MemStorage) to provide API endpoints for dashboard data, historical trends, portfolio risk, alerts, and token scorecard metrics. It dynamically generates asset-specific data for BTC, ETH, and SOL.
