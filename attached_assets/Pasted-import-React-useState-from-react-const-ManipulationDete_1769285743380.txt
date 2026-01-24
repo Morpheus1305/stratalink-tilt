@@ -1,0 +1,795 @@
+import React, { useState } from 'react';
+
+const ManipulationDetection = () => {
+  const [selectedAsset, setSelectedAsset] = useState('russ-etf');
+  const [assetFilter, setAssetFilter] = useState('all');
+  const [showDataProvenance, setShowDataProvenance] = useState(false);
+
+  // Manipulation summary
+  const summary = {
+    monitoredAssets: 47,
+    activeAlerts: 12,
+    confirmedManipulation: 3,
+    marketIntegrity: 91
+  };
+
+  // Asset watchlist
+  const assets = [
+    { id: 'russ-etf', name: 'Russell 1000 ETF Token', type: 'Equity ETF', tsleState: 'elevated', integrity: 72, alerts: 3 },
+    { id: 'eth-tok', name: 'ETH Token', type: 'Crypto', tsleState: 'watch', integrity: 81, alerts: 1 },
+    { id: 'sol-tok', name: 'SOL Token', type: 'Crypto', tsleState: 'elevated', integrity: 68, alerts: 2 },
+    { id: 'aapl-tok', name: 'AAPL Token', type: 'Equity', tsleState: 'clear', integrity: 94, alerts: 0 },
+    { id: 'ust-10y', name: 'UST 10Y Token', type: 'Treasury', tsleState: 'clear', integrity: 97, alerts: 0 },
+    { id: 'btc-tok', name: 'BTC Token', type: 'Crypto', tsleState: 'watch', integrity: 79, alerts: 2 },
+    { id: 'ust-2y', name: 'UST 2Y Token', type: 'Treasury', tsleState: 'clear', integrity: 98, alerts: 0 },
+    { id: 'msft-tok', name: 'MSFT Token', type: 'Equity', tsleState: 'clear', integrity: 92, alerts: 0 }
+  ];
+
+  // Detailed asset data
+  const assetData = {
+    'russ-etf': {
+      name: 'Russell 1000 ETF Token',
+      type: 'Equity ETF',
+      tsleState: 'elevated',
+      overallIntegrity: 72,
+      venues: [
+        { name: 'Canton DEX', status: 'clear', integrity: 96, volume: 45 },
+        { name: 'Venue B (CEX)', status: 'anomaly', integrity: 61, volume: 34 },
+        { name: 'Venue C (RFQ)', status: 'clear', integrity: 89, volume: 21 }
+      ],
+      detectedPatterns: [
+        {
+          type: 'wash_trading',
+          severity: 'high',
+          venue: 'Venue B',
+          description: 'Circular order flow between 3 wallets',
+          artificialVolume: 12400000,
+          volumePct: 34,
+          confidence: 94,
+          firstDetected: '14:32:07'
+        },
+        {
+          type: 'depth_imbalance',
+          severity: 'medium',
+          venue: 'Venue B',
+          description: 'Bid-side depth 4.2x ask-side',
+          duration: '2.3 hours',
+          confidence: 78,
+          firstDetected: '12:15:33'
+        },
+        {
+          type: 'price_divergence',
+          severity: 'medium',
+          venue: 'Venue B vs Canton',
+          description: 'Price spread exceeds 0.8% for sustained period',
+          duration: '45 mins',
+          confidence: 82,
+          firstDetected: '15:22:18'
+        }
+      ],
+      anomalyTimeline: [
+        { time: '06:00', events: [] },
+        { time: '09:00', events: ['volume_spike'] },
+        { time: '12:00', events: ['depth_imbalance'] },
+        { time: '15:00', events: ['price_divergence', 'wash_trading'] },
+        { time: '18:00', events: ['depth_imbalance'] }
+      ],
+      collateralImpact: {
+        nominalValue: 350000000,
+        adjustedValue: 267800000,
+        discount: 82200000,
+        discountPct: 23.5,
+        affectedMembers: ['Acme Capital', 'Vertex Trading']
+      }
+    },
+    'sol-tok': {
+      name: 'SOL Token',
+      type: 'Crypto',
+      tsleState: 'elevated',
+      overallIntegrity: 68,
+      venues: [
+        { name: 'Canton DEX', status: 'clear', integrity: 91, volume: 38 },
+        { name: 'Venue B (CEX)', status: 'anomaly', integrity: 52, volume: 47 },
+        { name: 'OTC Pool', status: 'watch', integrity: 74, volume: 15 }
+      ],
+      detectedPatterns: [
+        {
+          type: 'venue_concentration',
+          severity: 'high',
+          venue: 'Venue B',
+          description: 'Concentrated selling pressure from single venue',
+          confidence: 88,
+          firstDetected: '14:25:12'
+        },
+        {
+          type: 'spoofing',
+          severity: 'medium',
+          venue: 'Venue B',
+          description: 'Large orders cancelled within 2 seconds of placement',
+          orderCancelRate: '87%',
+          confidence: 71,
+          firstDetected: '13:45:33'
+        }
+      ],
+      anomalyTimeline: [
+        { time: '06:00', events: [] },
+        { time: '09:00', events: [] },
+        { time: '12:00', events: ['spoofing'] },
+        { time: '15:00', events: ['venue_concentration'] },
+        { time: '18:00', events: [] }
+      ],
+      collateralImpact: {
+        nominalValue: 89000000,
+        adjustedValue: 62300000,
+        discount: 26700000,
+        discountPct: 30.0,
+        affectedMembers: ['Vertex Trading']
+      }
+    }
+  };
+
+  // Pattern library
+  const patternLibrary = [
+    {
+      id: 'wash_trading',
+      name: 'Wash Trading',
+      icon: '🔄',
+      description: 'Simultaneous buying and selling to create artificial volume',
+      indicators: ['Circular wallet flows', 'Volume without depth consumption', 'Matching buy/sell patterns'],
+      color: '#ef4444'
+    },
+    {
+      id: 'spoofing',
+      name: 'Spoofing',
+      icon: '👻',
+      description: 'Placing orders with intent to cancel before execution',
+      indicators: ['Large orders cancelled within seconds', 'Order-to-trade ratio > 10:1', 'Price movement following cancellation'],
+      color: '#f59e0b'
+    },
+    {
+      id: 'layering',
+      name: 'Layering',
+      icon: '📚',
+      description: 'Multiple non-bona fide orders to create false impression of demand',
+      indicators: ['Stacked limit orders', 'Sequential cancellations', 'One-sided depth inflation'],
+      color: '#8b5cf6'
+    },
+    {
+      id: 'circular_orders',
+      name: 'Circular Orders',
+      icon: '🔁',
+      description: 'Orders routed through multiple venues to obscure origin',
+      indicators: ['Cross-venue matching', 'Timing correlation', 'Common counterparty clusters'],
+      color: '#3b82f6'
+    }
+  ];
+
+  const asset = assetData[selectedAsset] || assetData['russ-etf'];
+  const filteredAssets = assetFilter === 'all' ? assets : assets.filter(a => a.tsleState !== 'clear');
+
+  const formatCurrency = (value) => {
+    if (value >= 1000000000) return `$${(value / 1000000000).toFixed(2)}B`;
+    if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
+    return `$${value.toLocaleString()}`;
+  };
+
+  const getIntegrityColor = (score) => {
+    if (score >= 90) return '#10b981';
+    if (score >= 75) return '#f59e0b';
+    return '#ef4444';
+  };
+
+  const getTsleStateBadge = (state) => {
+    const styles = {
+      clear: { bg: '#064e3b', color: '#34d399', label: 'CLEAR' },
+      watch: { bg: '#1e3a5f', color: '#60a5fa', label: 'WATCH' },
+      elevated: { bg: '#78350f', color: '#fbbf24', label: 'ELEVATED' },
+      critical: { bg: '#7f1d1d', color: '#f87171', label: 'CRITICAL' }
+    };
+    const s = styles[state] || styles.watch;
+    return (
+      <span style={{
+        background: s.bg,
+        color: s.color,
+        padding: '4px 10px',
+        borderRadius: '4px',
+        fontSize: '11px',
+        fontWeight: '700',
+        letterSpacing: '0.05em'
+      }}>
+        {s.label}
+      </span>
+    );
+  };
+
+  const getSeverityColor = (severity) => {
+    const colors = { high: '#ef4444', medium: '#f59e0b', low: '#3b82f6' };
+    return colors[severity] || colors.medium;
+  };
+
+  const getVenueStatusIcon = (status) => {
+    if (status === 'clear') return { icon: '✓', color: '#10b981' };
+    if (status === 'anomaly') return { icon: '⚠', color: '#f59e0b' };
+    return { icon: '○', color: '#60a5fa' };
+  };
+
+  return (
+    <div style={{
+      minHeight: '100vh',
+      background: '#000000',
+      color: '#e2e8f0',
+      fontFamily: "'IBM Plex Sans', -apple-system, sans-serif",
+      padding: '0'
+    }}>
+      {/* Header */}
+      <header style={{
+        background: 'rgba(0, 0, 0, 0.9)',
+        backdropFilter: 'blur(12px)',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+        padding: '16px 32px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        position: 'sticky',
+        top: 0,
+        zIndex: 100
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{
+              width: '36px',
+              height: '36px',
+              background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: '800',
+              fontSize: '16px'
+            }}>
+              S
+            </div>
+            <div>
+              <div style={{ fontWeight: '700', fontSize: '16px', letterSpacing: '-0.02em' }}>STRATALINK</div>
+              <div style={{ fontSize: '10px', color: '#64748b', letterSpacing: '0.1em' }}>LIQUIDITY TRUTH LAYER</div>
+            </div>
+          </div>
+          <div style={{ height: '24px', width: '1px', background: '#333' }} />
+          <div style={{ fontSize: '14px', color: '#94a3b8' }}>Manipulation Detection Console</div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{
+            background: 'rgba(251, 191, 36, 0.1)',
+            border: '1px solid rgba(251, 191, 36, 0.3)',
+            padding: '8px 16px',
+            borderRadius: '6px',
+            fontSize: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            cursor: 'pointer'
+          }}>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#fbbf24' }} />
+            <span style={{ color: '#fbbf24', fontWeight: '600' }}>SYNTHETIC DATA</span>
+            <span style={{ color: '#94a3b8' }}>|</span>
+            <span style={{ color: '#d97706' }}>Proxy Model v1.2</span>
+          </div>
+          <div style={{
+            background: '#111111',
+            padding: '8px 16px',
+            borderRadius: '6px',
+            fontSize: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', animation: 'pulse 2s infinite' }} />
+            <span style={{ color: '#94a3b8' }}>LIVE</span>
+            <span style={{ color: '#e2e8f0' }}>Canton Network</span>
+          </div>
+          <div style={{ fontSize: '12px', color: '#64748b' }}>
+            {new Date().toLocaleString('en-US', { 
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+              hour12: false
+            })} UTC
+          </div>
+        </div>
+      </header>
+
+      <div style={{ display: 'flex' }}>
+        {/* Sidebar - Asset Watchlist */}
+        <aside style={{
+          width: '280px',
+          background: 'rgba(10, 10, 10, 0.8)',
+          borderRight: '1px solid rgba(255, 255, 255, 0.1)',
+          padding: '24px 0',
+          minHeight: 'calc(100vh - 69px)',
+          flexShrink: 0
+        }}>
+          <div style={{ padding: '0 20px', marginBottom: '20px' }}>
+            <div style={{ fontSize: '11px', color: '#64748b', letterSpacing: '0.1em', marginBottom: '12px' }}>
+              ASSET WATCHLIST
+            </div>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+              <button
+                onClick={() => setAssetFilter('all')}
+                style={{
+                  flex: 1,
+                  padding: '8px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: assetFilter === 'all' ? '#3b82f6' : '#111111',
+                  color: assetFilter === 'all' ? '#fff' : '#94a3b8',
+                  fontSize: '11px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                ALL ({assets.length})
+              </button>
+              <button
+                onClick={() => setAssetFilter('flagged')}
+                style={{
+                  flex: 1,
+                  padding: '8px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: assetFilter === 'flagged' ? '#f59e0b' : '#111111',
+                  color: assetFilter === 'flagged' ? '#000' : '#94a3b8',
+                  fontSize: '11px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                FLAGGED ({assets.filter(a => a.tsleState !== 'clear').length})
+              </button>
+            </div>
+          </div>
+          
+          {filteredAssets.map((a) => (
+            <div
+              key={a.id}
+              onClick={() => setSelectedAsset(a.id)}
+              style={{
+                padding: '16px 20px',
+                cursor: 'pointer',
+                background: selectedAsset === a.id ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+                borderLeft: selectedAsset === a.id ? '3px solid #3b82f6' : '3px solid transparent',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                <div style={{ fontWeight: '600', fontSize: '14px' }}>{a.name}</div>
+                {getTsleStateBadge(a.tsleState)}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ fontSize: '12px', color: '#94a3b8' }}>{a.type}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {a.alerts > 0 && (
+                    <span style={{
+                      background: 'rgba(239, 68, 68, 0.2)',
+                      color: '#ef4444',
+                      padding: '2px 6px',
+                      borderRadius: '4px',
+                      fontSize: '11px',
+                      fontWeight: '600'
+                    }}>
+                      {a.alerts}
+                    </span>
+                  )}
+                  <span style={{
+                    fontSize: '16px',
+                    fontWeight: '700',
+                    color: getIntegrityColor(a.integrity)
+                  }}>
+                    {a.integrity}%
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </aside>
+
+        {/* Main Content */}
+        <main style={{ flex: 1, padding: '24px 32px', minWidth: 0 }}>
+          {/* Market Integrity Summary */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(4, 1fr)',
+            gap: '20px',
+            marginBottom: '24px'
+          }}>
+            <div style={{
+              background: 'rgba(17, 17, 17, 0.9)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: '12px',
+              padding: '20px'
+            }}>
+              <div style={{ fontSize: '11px', color: '#64748b', letterSpacing: '0.1em', marginBottom: '8px' }}>
+                MONITORED ASSETS
+              </div>
+              <div style={{ fontSize: '32px', fontWeight: '700' }}>{summary.monitoredAssets}</div>
+              <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>Across all venues</div>
+            </div>
+
+            <div style={{
+              background: 'rgba(17, 17, 17, 0.9)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: '12px',
+              padding: '20px'
+            }}>
+              <div style={{ fontSize: '11px', color: '#f59e0b', letterSpacing: '0.1em', marginBottom: '8px' }}>
+                ACTIVE ALERTS
+              </div>
+              <div style={{ fontSize: '32px', fontWeight: '700', color: '#f59e0b' }}>{summary.activeAlerts}</div>
+              <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>Requiring review</div>
+            </div>
+
+            <div style={{
+              background: 'rgba(17, 17, 17, 0.9)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: '12px',
+              padding: '20px'
+            }}>
+              <div style={{ fontSize: '11px', color: '#ef4444', letterSpacing: '0.1em', marginBottom: '8px' }}>
+                CONFIRMED MANIPULATION
+              </div>
+              <div style={{ fontSize: '32px', fontWeight: '700', color: '#ef4444' }}>{summary.confirmedManipulation}</div>
+              <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>Last 24 hours</div>
+            </div>
+
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.15) 100%)',
+              border: '1px solid rgba(16, 185, 129, 0.3)',
+              borderRadius: '12px',
+              padding: '20px'
+            }}>
+              <div style={{ fontSize: '11px', color: '#34d399', letterSpacing: '0.1em', marginBottom: '8px' }}>
+                MARKET INTEGRITY
+              </div>
+              <div style={{ fontSize: '32px', fontWeight: '700', color: '#10b981' }}>{summary.marketIntegrity}%</div>
+              <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>Portfolio-wide</div>
+            </div>
+          </div>
+
+          {/* Selected Asset Detail */}
+          <div style={{
+            background: 'rgba(17, 17, 17, 0.9)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            borderRadius: '12px',
+            padding: '24px',
+            marginBottom: '24px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+              <div>
+                <div style={{ fontSize: '11px', color: '#64748b', letterSpacing: '0.1em', marginBottom: '8px' }}>
+                  SELECTED ASSET
+                </div>
+                <div style={{ fontSize: '24px', fontWeight: '700', marginBottom: '4px' }}>{asset.name}</div>
+                <div style={{ fontSize: '14px', color: '#94a3b8' }}>{asset.type}</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ marginBottom: '8px' }}>{getTsleStateBadge(asset.tsleState)}</div>
+                <div style={{ fontSize: '11px', color: '#64748b' }}>Integrity Score</div>
+                <div style={{ fontSize: '32px', fontWeight: '700', color: getIntegrityColor(asset.overallIntegrity) }}>
+                  {asset.overallIntegrity}%
+                </div>
+              </div>
+            </div>
+
+            {/* Anomaly Timeline */}
+            <div style={{ marginBottom: '24px' }}>
+              <div style={{ fontSize: '11px', color: '#64748b', letterSpacing: '0.1em', marginBottom: '16px' }}>
+                ANOMALY TIMELINE (24H)
+              </div>
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'flex-end', 
+                height: '80px',
+                background: '#111111',
+                borderRadius: '8px',
+                padding: '16px',
+                gap: '8px'
+              }}>
+                {asset.anomalyTimeline.map((point, i) => (
+                  <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <div style={{ 
+                      flex: 1, 
+                      width: '100%', 
+                      display: 'flex', 
+                      flexDirection: 'column', 
+                      justifyContent: 'flex-end',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}>
+                      {point.events.map((event, j) => (
+                        <div key={j} style={{
+                          width: '12px',
+                          height: '12px',
+                          borderRadius: '50%',
+                          background: event.includes('wash') ? '#ef4444' : event.includes('price') ? '#f59e0b' : '#3b82f6',
+                          cursor: 'pointer',
+                          title: event
+                        }} />
+                      ))}
+                    </div>
+                    <div style={{ fontSize: '10px', color: '#64748b', marginTop: '8px' }}>{point.time}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Venue Analysis */}
+            <div style={{ marginBottom: '24px' }}>
+              <div style={{ fontSize: '11px', color: '#64748b', letterSpacing: '0.1em', marginBottom: '16px' }}>
+                VENUE ANALYSIS
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {asset.venues.map((venue, i) => {
+                  const statusIcon = getVenueStatusIcon(venue.status);
+                  return (
+                    <div key={i} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: '16px',
+                      background: '#111111',
+                      borderRadius: '8px',
+                      border: venue.status === 'anomaly' ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid rgba(255, 255, 255, 0.05)'
+                    }}>
+                      <div style={{ 
+                        width: '32px', 
+                        height: '32px', 
+                        borderRadius: '8px',
+                        background: statusIcon.color + '20',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginRight: '16px',
+                        color: statusIcon.color,
+                        fontWeight: '700'
+                      }}>
+                        {statusIcon.icon}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: '600', marginBottom: '2px' }}>{venue.name}</div>
+                        <div style={{ fontSize: '12px', color: '#64748b' }}>{venue.volume}% of volume</div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '2px' }}>Integrity</div>
+                        <div style={{ fontSize: '18px', fontWeight: '700', color: getIntegrityColor(venue.integrity) }}>
+                          {venue.integrity}%
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Detected Patterns */}
+            <div style={{ marginBottom: '24px' }}>
+              <div style={{ fontSize: '11px', color: '#64748b', letterSpacing: '0.1em', marginBottom: '16px' }}>
+                DETECTED PATTERNS
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {asset.detectedPatterns.map((pattern, i) => (
+                  <div key={i} style={{
+                    background: pattern.severity === 'high' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+                    border: `1px solid ${pattern.severity === 'high' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`,
+                    borderRadius: '8px',
+                    padding: '16px'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{
+                          width: '8px',
+                          height: '8px',
+                          borderRadius: '50%',
+                          background: getSeverityColor(pattern.severity)
+                        }} />
+                        <span style={{ 
+                          fontWeight: '700', 
+                          color: getSeverityColor(pattern.severity),
+                          textTransform: 'uppercase',
+                          fontSize: '13px'
+                        }}>
+                          {pattern.type.replace('_', ' ')}
+                        </span>
+                        <span style={{ fontSize: '12px', color: '#64748b' }}>({pattern.venue})</span>
+                      </div>
+                      <span style={{
+                        background: '#000',
+                        padding: '4px 10px',
+                        borderRadius: '4px',
+                        fontSize: '11px',
+                        color: '#94a3b8'
+                      }}>
+                        {pattern.confidence}% confidence
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '13px', color: '#e2e8f0', marginBottom: '8px' }}>
+                      {pattern.description}
+                    </div>
+                    <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: '#64748b' }}>
+                      {pattern.artificialVolume && (
+                        <span>Est. artificial volume: {formatCurrency(pattern.artificialVolume)} ({pattern.volumePct}%)</span>
+                      )}
+                      {pattern.duration && <span>Duration: {pattern.duration}</span>}
+                      <span>First detected: {pattern.firstDetected}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Collateral Impact */}
+            <div style={{
+              background: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              borderRadius: '8px',
+              padding: '20px'
+            }}>
+              <div style={{ fontSize: '11px', color: '#fca5a5', letterSpacing: '0.1em', marginBottom: '16px' }}>
+                IMPACT ON COLLATERAL VALUATION
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', marginBottom: '16px' }}>
+                <div>
+                  <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '4px' }}>Nominal Market Value</div>
+                  <div style={{ fontSize: '24px', fontWeight: '700' }}>{formatCurrency(asset.collateralImpact.nominalValue)}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '4px' }}>TSLE-Adjusted Value</div>
+                  <div style={{ fontSize: '24px', fontWeight: '700', color: '#f59e0b' }}>{formatCurrency(asset.collateralImpact.adjustedValue)}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '4px' }}>Manipulation Discount</div>
+                  <div style={{ fontSize: '24px', fontWeight: '700', color: '#ef4444' }}>
+                    -{formatCurrency(asset.collateralImpact.discount)} (-{asset.collateralImpact.discountPct}%)
+                  </div>
+                </div>
+              </div>
+              <div style={{ fontSize: '13px', color: '#94a3b8', marginBottom: '16px' }}>
+                Members Affected: {asset.collateralImpact.affectedMembers.join(', ')}
+              </div>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button style={{
+                  padding: '12px 24px',
+                  background: '#ef4444',
+                  border: 'none',
+                  borderRadius: '8px',
+                  color: '#fff',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}>
+                  Generate Manipulation Report
+                </button>
+                <button style={{
+                  padding: '12px 24px',
+                  background: 'transparent',
+                  border: '1px solid #475569',
+                  borderRadius: '8px',
+                  color: '#e2e8f0',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}>
+                  Notify Compliance
+                </button>
+              </div>
+            </div>
+          </div>
+        </main>
+
+        {/* Right Panel - Pattern Library */}
+        <aside style={{
+          width: '300px',
+          background: 'rgba(10, 10, 10, 0.8)',
+          borderLeft: '1px solid rgba(255, 255, 255, 0.1)',
+          minHeight: 'calc(100vh - 69px)',
+          flexShrink: 0,
+          padding: '20px'
+        }}>
+          <div style={{ fontSize: '11px', color: '#64748b', letterSpacing: '0.1em', marginBottom: '20px' }}>
+            PATTERN LIBRARY
+          </div>
+          <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '20px' }}>
+            Reference patterns detected by TSLE analysis engine
+          </div>
+
+          {patternLibrary.map((pattern, i) => (
+            <div key={i} style={{
+              background: '#111111',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: '8px',
+              padding: '16px',
+              marginBottom: '12px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                <span style={{ fontSize: '20px' }}>{pattern.icon}</span>
+                <span style={{ fontWeight: '600', color: pattern.color }}>{pattern.name}</span>
+              </div>
+              <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '12px' }}>
+                {pattern.description}
+              </div>
+              <div style={{ fontSize: '11px', color: '#64748b' }}>
+                <div style={{ marginBottom: '4px', fontWeight: '600' }}>Indicators:</div>
+                {pattern.indicators.map((ind, j) => (
+                  <div key={j} style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
+                    <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: pattern.color }} />
+                    {ind}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </aside>
+      </div>
+
+      {/* Footer */}
+      <footer style={{
+        background: 'rgba(0, 0, 0, 0.95)',
+        borderTop: '1px solid rgba(251, 191, 36, 0.2)',
+        padding: '12px 32px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        zIndex: 100
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{
+            background: 'rgba(251, 191, 36, 0.1)',
+            border: '1px solid rgba(251, 191, 36, 0.3)',
+            padding: '4px 12px',
+            borderRadius: '4px',
+            fontSize: '11px',
+            fontWeight: '600',
+            color: '#fbbf24'
+          }}>
+            SIMULATION
+          </div>
+          <span style={{ fontSize: '12px', color: '#94a3b8' }}>
+            Manipulation patterns derived from historical analysis. Not representative of live market conditions.
+          </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <span style={{ fontSize: '11px', color: '#64748b' }}>
+            TSLE Engine v3.2 • Pattern Library v1.4
+          </span>
+          <div style={{ 
+            fontSize: '11px', 
+            color: '#64748b',
+            padding: '4px 12px',
+            background: '#111111',
+            borderRadius: '4px'
+          }}>
+            LTF v2.1 Methodology
+          </div>
+        </div>
+      </footer>
+
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+        button:hover {
+          filter: brightness(1.1);
+        }
+      `}</style>
+    </div>
+  );
+};
+
+export default ManipulationDetection;

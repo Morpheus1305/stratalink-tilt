@@ -1,0 +1,644 @@
+# REPLIT PROMPT UPDATE: Complete CCP Margin Suite - All 4 Value Propositions
+
+## Overview
+
+Extend the existing CCP Margin Verification Console to include all four core value propositions for Clearing Houses and CCPs. The current "Margin Calculation Accuracy" view is complete. This update adds three additional views accessible via a new view switcher.
+
+---
+
+## Navigation Update
+
+### Add View Switcher Below Sub-Navigation
+
+Below the existing TILT sub-navigation bar, add a CCP-specific view switcher:
+
+```
+[OVERVIEW] [CCP MARGIN] [TRENDS] [PORTFOLIO] [ALERTS] [SCORECARD] [ANALYTICS] [TAPE] [RCL]
+─────────────────────────────────────────────────────────────────────────────────────────────
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│  📊 PRE-TRADE        💰 MARGIN           🔍 MANIPULATION      👥 MEMBER RISK              │
+│     VERIFICATION        ACCURACY ✓          DETECTION            ASSESSMENT               │
+└─────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+**View Switcher Styling:**
+```css
+.view-switcher {
+  background: rgba(17, 17, 17, 0.9);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 12px 32px;
+  display: flex;
+  gap: 8px;
+}
+
+.view-tab {
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.view-tab.active {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(139, 92, 246, 0.2) 100%);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  color: #e2e8f0;
+}
+
+.view-tab.inactive {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #64748b;
+}
+```
+
+---
+
+## State Management Update
+
+```javascript
+const [activeValueProp, setActiveValueProp] = useState('margin'); // 'pretrade' | 'margin' | 'manipulation' | 'member-risk'
+```
+
+---
+
+## VALUE PROPOSITION 1: Pre-Trade Liquidity Verification
+
+**Question answered:** "Can this counterparty actually settle?"
+
+### Purpose
+Before a trade executes, verify that the counterparty has sufficient liquid assets to meet settlement obligations. This prevents failed trades and reduces systemic risk.
+
+### Layout Structure
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│ PRE-TRADE VERIFICATION CONSOLE                                                          │
+│ Real-time settlement capability assessment for pending trades                           │
+├────────────┬────────────────────────────────────────────────────────────┬───────────────┤
+│            │                                                            │               │
+│  PENDING   │  ┌──────────────────────────────────────────────────────┐ │  SETTLEMENT   │
+│  TRADES    │  │ TRADE DETAIL PANEL                                   │ │  RISK FEED    │
+│  QUEUE     │  │                                                       │ │               │
+│            │  │  Trade ID: TRD-2026-0124-0847                        │ │  Real-time    │
+│  Filter:   │  │  Counterparty: Acme Capital LLC                      │ │  alerts on    │
+│  [All]     │  │  Direction: BUY                                      │ │  settlement   │
+│  [Flagged] │  │  Asset: Russell 1000 ETF Token                       │ │  failures     │
+│            │  │  Notional: $45,000,000                               │ │               │
+│  TRD-0847  │  │  Settlement: T+1 (2026-01-25)                        │ │               │
+│  TRD-0846  │  └──────────────────────────────────────────────────────┘ │               │
+│  TRD-0845  │                                                            │               │
+│  TRD-0844  │  ┌──────────────────────────────────────────────────────┐ │               │
+│  ...       │  │ SETTLEMENT CAPABILITY ASSESSMENT                     │ │               │
+│            │  │                                                       │ │               │
+│            │  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐    │ │               │
+│            │  │  │AVAILABLE│ │REQUIRED │ │COVERAGE │ │LIQUIDITY│    │ │               │
+│            │  │  │BALANCE  │ │MARGIN   │ │ RATIO   │ │ SCORE   │    │ │               │
+│            │  │  │$127.3M  │ │$47.2M   │ │  269%   │ │   73    │    │ │               │
+│            │  │  └─────────┘ └─────────┘ └─────────┘ └─────────┘    │ │               │
+│            │  │                                                       │ │               │
+│            │  │  SETTLEMENT PROBABILITY                              │ │               │
+│            │  │  ████████████████████░░░░  87% LIKELY                │ │               │
+│            │  │                                                       │ │               │
+│            │  └──────────────────────────────────────────────────────┘ │               │
+│            │                                                            │               │
+│            │  ┌──────────────────────────────────────────────────────┐ │               │
+│            │  │ LIQUIDITY SOURCE BREAKDOWN                           │ │               │
+│            │  │                                                       │ │               │
+│            │  │  Cash & Stablecoins     $52.1M  ████████████  41%   │ │               │
+│            │  │  Treasury Tokens        $48.7M  ███████████   38%   │ │               │
+│            │  │  Equity Tokens          $26.5M  ██████        21%   │ │               │
+│            │  │                                                       │ │               │
+│            │  │  ⚠ Warning: 21% in equity tokens with PoLi < 80     │ │               │
+│            │  └──────────────────────────────────────────────────────┘ │               │
+│            │                                                            │               │
+│            │  ┌──────────────────────────────────────────────────────┐ │               │
+│            │  │ VERIFICATION DECISION                                │ │               │
+│            │  │                                                       │ │               │
+│            │  │  [✓ APPROVE TRADE]  [⚠ FLAG FOR REVIEW]  [✗ REJECT] │ │               │
+│            │  └──────────────────────────────────────────────────────┘ │               │
+└────────────┴────────────────────────────────────────────────────────┴───────────────┘
+```
+
+### Data Model
+
+```javascript
+const pendingTrades = [
+  {
+    id: 'TRD-2026-0124-0847',
+    counterparty: 'acme-capital',
+    direction: 'BUY',
+    asset: 'Russell 1000 ETF Token',
+    notional: 45000000,
+    settlementDate: '2026-01-25',
+    settlementType: 'T+1',
+    status: 'pending_verification', // 'pending_verification' | 'approved' | 'flagged' | 'rejected'
+    riskFlags: ['low_liquidity_asset', 'large_notional']
+  },
+  {
+    id: 'TRD-2026-0124-0846',
+    counterparty: 'meridian-fund',
+    direction: 'SELL',
+    asset: 'UST 10Y Token',
+    notional: 125000000,
+    settlementDate: '2026-01-25',
+    settlementType: 'T+1',
+    status: 'approved',
+    riskFlags: []
+  },
+  {
+    id: 'TRD-2026-0124-0845',
+    counterparty: 'vertex-trading',
+    direction: 'BUY',
+    asset: 'AAPL Token',
+    notional: 28000000,
+    settlementDate: '2026-01-25',
+    settlementType: 'T+1',
+    status: 'flagged',
+    riskFlags: ['counterparty_alert_status', 'concentration_risk']
+  }
+];
+
+const settlementCapability = {
+  'acme-capital': {
+    availableBalance: 127300000,
+    requiredMargin: 47200000,
+    coverageRatio: 2.69,
+    liquidityScore: 73,
+    settlementProbability: 0.87,
+    sources: [
+      { type: 'Cash & Stablecoins', amount: 52100000, pct: 41, poliAvg: 97 },
+      { type: 'Treasury Tokens', amount: 48700000, pct: 38, poliAvg: 93 },
+      { type: 'Equity Tokens', amount: 26500000, pct: 21, poliAvg: 74 }
+    ],
+    warnings: ['21% in equity tokens with PoLi < 80']
+  }
+};
+```
+
+### Settlement Risk Feed (Right Panel)
+
+```javascript
+const settlementAlerts = [
+  {
+    id: 1,
+    time: '19:41:33',
+    severity: 'high',
+    tradeId: 'TRD-2026-0124-0842',
+    counterparty: 'Vertex Trading',
+    message: 'Settlement probability dropped below 60% threshold',
+    type: 'settlement_risk'
+  },
+  {
+    id: 2,
+    time: '19:38:17',
+    severity: 'medium',
+    tradeId: 'TRD-2026-0124-0839',
+    counterparty: 'Acme Capital',
+    message: 'Collateral rebalancing detected - monitoring coverage ratio',
+    type: 'collateral_movement'
+  },
+  {
+    id: 3,
+    time: '19:35:02',
+    severity: 'low',
+    tradeId: 'TRD-2026-0124-0836',
+    counterparty: 'Meridian Fund',
+    message: 'Large incoming transfer verified - coverage improved',
+    type: 'positive_signal'
+  }
+];
+```
+
+### Key Metrics Cards
+
+| Metric | Description | Color Logic |
+|--------|-------------|-------------|
+| Available Balance | Total liquid assets held by counterparty | White |
+| Required Margin | Margin needed to cover this trade | White |
+| Coverage Ratio | Available / Required (>2x green, >1.5x amber, <1.5x red) | Dynamic |
+| Liquidity Score | Weighted PoLi score of holdings | Dynamic (standard thresholds) |
+| Settlement Probability | ML-derived probability of successful settlement | Dynamic |
+
+### Verification Decision Actions
+
+- **Approve Trade**: Green button, clears trade for settlement
+- **Flag for Review**: Amber button, escalates to senior risk officer
+- **Reject**: Red button, blocks trade from proceeding
+
+---
+
+## VALUE PROPOSITION 3: Manipulation Detection (TSLE)
+
+**Question answered:** "Is reported liquidity being gamed?"
+
+### Purpose
+Comprehensive view of TSLE (Truth-Scaled Liquidity Engine) analysis across all monitored assets and venues. Identify wash trading, spoofing, layering, and other manipulation patterns that could distort collateral valuations.
+
+### Layout Structure
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│ MANIPULATION DETECTION CONSOLE                                                          │
+│ TSLE-powered analysis of market integrity across tokenized securities venues            │
+├────────────┬────────────────────────────────────────────────────────────┬───────────────┤
+│            │                                                            │               │
+│  ASSET     │  ┌──────────────────────────────────────────────────────┐ │  PATTERN      │
+│  WATCHLIST │  │ MARKET INTEGRITY SUMMARY                             │ │  LIBRARY      │
+│            │  │                                                       │ │               │
+│  Filter:   │  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐    │ │  Reference    │
+│  [All]     │  │  │MONITORED│ │ ACTIVE  │ │CONFIRMED│ │ MARKET  │    │ │  patterns     │
+│  [Flagged] │  │  │ ASSETS  │ │ ALERTS  │ │ MANIP.  │ │INTEGRITY│    │ │  detected     │
+│            │  │  │   47    │ │   12    │ │    3    │ │   91%   │    │ │  by TSLE      │
+│  RUSS1000  │  │  └─────────┘ └─────────┘ └─────────┘ └─────────┘    │ │               │
+│  AAPL      │  │                                                       │ │  ┌─────────┐ │
+│  UST10Y    │  └──────────────────────────────────────────────────────┘ │  │  Wash   │ │
+│  BTC       │                                                            │  │  Trading│ │
+│  ETH       │  ┌──────────────────────────────────────────────────────┐ │  └─────────┘ │
+│  SOL       │  │ SELECTED ASSET: Russell 1000 ETF Token               │ │  ┌─────────┐ │
+│  ...       │  │                                                       │ │  │Spoofing │ │
+│            │  │  TSLE STATE: ⚠ ELEVATED RISK                         │ │  └─────────┘ │
+│            │  │                                                       │ │  ┌─────────┐ │
+│            │  │  ┌─────────────────────────────────────────────────┐ │ │  │Layering │ │
+│            │  │  │ ANOMALY TIMELINE (24H)                          │ │ │  └─────────┘ │
+│            │  │  │                                                   │ │ │  ┌─────────┐ │
+│            │  │  │  ▲ Volume Spike                                  │ │ │  │Circular │ │
+│            │  │  │  │    ▲ Depth Imbalance                         │ │ │  │ Orders  │ │
+│            │  │  │  │    │         ▲ Price Divergence              │ │ │  └─────────┘ │
+│            │  │  │  ─────────────────────────────────────────────   │ │ │               │
+│            │  │  │  06:00   09:00   12:00   15:00   18:00          │ │ │               │
+│            │  │  └─────────────────────────────────────────────────┘ │ │               │
+│            │  │                                                       │ │               │
+│            │  │  ┌─────────────────────────────────────────────────┐ │ │               │
+│            │  │  │ VENUE ANALYSIS                                   │ │ │               │
+│            │  │  │                                                   │ │ │               │
+│            │  │  │  Canton DEX     ✓ CLEAR       Integrity: 96%    │ │ │               │
+│            │  │  │  Venue B (CEX)  ⚠ ANOMALY    Integrity: 61%    │ │ │               │
+│            │  │  │  Venue C (RFQ)  ✓ CLEAR       Integrity: 89%    │ │ │               │
+│            │  │  │                                                   │ │ │               │
+│            │  │  └─────────────────────────────────────────────────┘ │ │               │
+│            │  │                                                       │ │               │
+│            │  │  ┌─────────────────────────────────────────────────┐ │ │               │
+│            │  │  │ DETECTED PATTERNS                                │ │ │               │
+│            │  │  │                                                   │ │ │               │
+│            │  │  │  🔴 WASH TRADING (Venue B)                       │ │ │               │
+│            │  │  │     Circular order flow between 3 wallets        │ │ │               │
+│            │  │  │     Est. artificial volume: $12.4M (34%)         │ │ │               │
+│            │  │  │     Confidence: 94%                              │ │ │               │
+│            │  │  │                                                   │ │ │               │
+│            │  │  │  🟡 DEPTH IMBALANCE (Venue B)                    │ │ │               │
+│            │  │  │     Bid-side depth 4.2x ask-side                 │ │ │               │
+│            │  │  │     Sustained for 2.3 hours                      │ │ │               │
+│            │  │  │     Confidence: 78%                              │ │ │               │
+│            │  │  │                                                   │ │ │               │
+│            │  │  └─────────────────────────────────────────────────┘ │ │               │
+│            │  │                                                       │ │               │
+│            │  └──────────────────────────────────────────────────────┘ │               │
+│            │                                                            │               │
+│            │  ┌──────────────────────────────────────────────────────┐ │               │
+│            │  │ IMPACT ON COLLATERAL VALUATION                       │ │               │
+│            │  │                                                       │ │               │
+│            │  │  Nominal Market Value:     $350.0M                   │ │               │
+│            │  │  TSLE-Adjusted Value:      $267.8M                   │ │               │
+│            │  │  Manipulation Discount:    -$82.2M (-23.5%)          │ │               │
+│            │  │                                                       │ │               │
+│            │  │  Members Affected: Acme Capital, Vertex Trading      │ │               │
+│            │  │  [Generate Manipulation Report]  [Notify Compliance] │ │               │
+│            │  └──────────────────────────────────────────────────────┘ │               │
+└────────────┴────────────────────────────────────────────────────────┴───────────────┘
+```
+
+### Data Model
+
+```javascript
+const manipulationData = {
+  summary: {
+    monitoredAssets: 47,
+    activeAlerts: 12,
+    confirmedManipulation: 3,
+    marketIntegrity: 91 // percentage
+  },
+  assets: {
+    'russ-etf': {
+      name: 'Russell 1000 ETF Token',
+      tsleState: 'elevated', // 'clear' | 'watch' | 'elevated' | 'critical'
+      overallIntegrity: 72,
+      venues: [
+        { name: 'Canton DEX', status: 'clear', integrity: 96 },
+        { name: 'Venue B (CEX)', status: 'anomaly', integrity: 61 },
+        { name: 'Venue C (RFQ)', status: 'clear', integrity: 89 }
+      ],
+      detectedPatterns: [
+        {
+          type: 'wash_trading',
+          severity: 'high',
+          venue: 'Venue B',
+          description: 'Circular order flow between 3 wallets',
+          artificialVolume: 12400000,
+          volumePct: 34,
+          confidence: 94,
+          firstDetected: '2026-01-24T14:32:07Z'
+        },
+        {
+          type: 'depth_imbalance',
+          severity: 'medium',
+          venue: 'Venue B',
+          description: 'Bid-side depth 4.2x ask-side',
+          duration: '2.3 hours',
+          confidence: 78,
+          firstDetected: '2026-01-24T12:15:33Z'
+        }
+      ],
+      anomalyTimeline: [
+        { time: '06:00', event: null },
+        { time: '09:00', event: 'volume_spike' },
+        { time: '12:00', event: 'depth_imbalance' },
+        { time: '15:00', event: 'price_divergence' },
+        { time: '18:00', event: null }
+      ],
+      collateralImpact: {
+        nominalValue: 350000000,
+        adjustedValue: 267800000,
+        discount: 82200000,
+        discountPct: 23.5,
+        affectedMembers: ['Acme Capital', 'Vertex Trading']
+      }
+    }
+  }
+};
+
+const manipulationPatterns = [
+  {
+    id: 'wash_trading',
+    name: 'Wash Trading',
+    description: 'Simultaneous buying and selling to create artificial volume',
+    indicators: ['Circular wallet flows', 'Volume without depth consumption', 'Matching buy/sell patterns'],
+    icon: '🔄'
+  },
+  {
+    id: 'spoofing',
+    name: 'Spoofing',
+    description: 'Placing orders with intent to cancel before execution',
+    indicators: ['Large orders cancelled within seconds', 'Order-to-trade ratio > 10:1', 'Price movement following cancellation'],
+    icon: '👻'
+  },
+  {
+    id: 'layering',
+    name: 'Layering',
+    description: 'Multiple non-bona fide orders to create false impression of demand',
+    indicators: ['Stacked limit orders', 'Sequential cancellations', 'One-sided depth inflation'],
+    icon: '📚'
+  },
+  {
+    id: 'circular_orders',
+    name: 'Circular Orders',
+    description: 'Orders routed through multiple venues to obscure origin',
+    indicators: ['Cross-venue matching', 'Timing correlation', 'Common counterparty clusters'],
+    icon: '🔁'
+  }
+];
+```
+
+### TSLE State Badge Colors
+```javascript
+const tsleStateStyles = {
+  clear: { bg: '#064e3b', color: '#34d399', label: 'CLEAR' },
+  watch: { bg: '#1e3a5f', color: '#60a5fa', label: 'WATCH' },
+  elevated: { bg: '#78350f', color: '#fbbf24', label: 'ELEVATED RISK' },
+  critical: { bg: '#7f1d1d', color: '#f87171', label: 'CRITICAL' }
+};
+```
+
+---
+
+## VALUE PROPOSITION 4: Member Risk Assessment
+
+**Question answered:** "What's this member's aggregate exposure across fragmented venues?"
+
+### Purpose
+Holistic view of a clearing member's risk profile across all their positions, venues, and collateral types. Identifies concentration risks, venue dependencies, and overall portfolio health.
+
+### Layout Structure
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│ MEMBER RISK ASSESSMENT CONSOLE                                                          │
+│ Aggregate exposure analysis across fragmented venues and asset classes                  │
+├────────────┬────────────────────────────────────────────────────────────┬───────────────┤
+│            │                                                            │               │
+│  MEMBERS   │  ┌──────────────────────────────────────────────────────┐ │  RISK         │
+│            │  │ RISK PROFILE: Acme Capital LLC                       │ │  FACTORS      │
+│  Sort by:  │  │                                                       │ │               │
+│  [Risk ▼]  │  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐    │ │  Breakdown    │
+│            │  │  │ OVERALL │ │  VENUE  │ │  ASSET  │ │LIQUIDITY│    │ │  of risk      │
+│  Vertex    │  │  │  RISK   │ │CONCENTR.│ │CONCENTR.│ │  RISK   │    │ │  contributors │
+│  52 ████   │  │  │MODERATE │ │  HIGH   │ │ MEDIUM  │ │  HIGH   │    │ │               │
+│            │  │  │   67    │ │   43    │ │   71    │ │   58    │    │ │  ┌─────────┐ │
+│  Acme      │  │  └─────────┘ └─────────┘ └─────────┘ └─────────┘    │ │  │ Venue   │ │
+│  73 ██████ │  │                                                       │ │  │Concentr.│ │
+│            │  └──────────────────────────────────────────────────────┘ │  │  35%    │ │
+│  Meridian  │                                                            │  └─────────┘ │
+│  89 ███████│  ┌──────────────────────────────────────────────────────┐ │  ┌─────────┐ │
+│            │  │ VENUE EXPOSURE MAP                                    │ │  │ Asset   │ │
+│            │  │                                                       │ │  │Concentr.│ │
+│            │  │  Canton DEX                                          │ │  │  25%    │ │
+│            │  │  ████████████████████████████████████  67% ($568M)   │ │  └─────────┘ │
+│            │  │  ✓ Primary venue - healthy diversification           │ │  ┌─────────┐ │
+│            │  │                                                       │ │  │Liquidity│ │
+│            │  │  Venue B (CEX)                                       │ │  │  Risk   │ │
+│            │  │  ████████████████  31% ($263M)                       │ │  │  28%    │ │
+│            │  │  ⚠ TSLE anomalies detected - elevated risk           │ │  └─────────┘ │
+│            │  │                                                       │ │  ┌─────────┐ │
+│            │  │  Venue C (RFQ)                                       │ │  │Counter- │ │
+│            │  │  ██  2% ($17M)                                       │ │  │ party   │ │
+│            │  │  ✓ Minimal exposure                                  │ │  │  12%    │ │
+│            │  │                                                       │ │  └─────────┘ │
+│            │  └──────────────────────────────────────────────────────┘ │               │
+│            │                                                            │               │
+│            │  ┌──────────────────────────────────────────────────────┐ │               │
+│            │  │ ASSET CLASS BREAKDOWN                                │ │               │
+│            │  │                                                       │ │               │
+│            │  │  Asset Class       Exposure    PoLi Avg   Risk Adj.  │ │               │
+│            │  │  ─────────────────────────────────────────────────── │ │               │
+│            │  │  Treasuries        $347.5M     93         $338.2M    │ │               │
+│            │  │  Equity ETFs       $350.0M     68    ⚠    $267.8M    │ │               │
+│            │  │  Single Equities   $150.0M     84         $138.0M    │ │               │
+│            │  │  ─────────────────────────────────────────────────── │ │               │
+│            │  │  TOTAL             $847.5M     78         $744.0M    │ │               │
+│            │  │                                                       │ │               │
+│            │  └──────────────────────────────────────────────────────┘ │               │
+│            │                                                            │               │
+│            │  ┌──────────────────────────────────────────────────────┐ │               │
+│            │  │ CONCENTRATION RISK MATRIX                            │ │               │
+│            │  │                                                       │ │               │
+│            │  │           Low Liquidity  Med Liquidity  High Liquid. │ │               │
+│            │  │  Single   ██             ██████         ███████████  │ │               │
+│            │  │  Venue    (12%)          (28%)          (60%)        │ │               │
+│            │  │                                                       │ │               │
+│            │  │  Multi    ███            █████████      ████████████ │ │               │
+│            │  │  Venue    (8%)           (35%)          (57%)        │ │               │
+│            │  │                                                       │ │               │
+│            │  │  ⚠ 12% of exposure in low-liquidity single-venue    │ │               │
+│            │  │    positions - recommend diversification             │ │               │
+│            │  │                                                       │ │               │
+│            │  └──────────────────────────────────────────────────────┘ │               │
+│            │                                                            │               │
+│            │  ┌──────────────────────────────────────────────────────┐ │               │
+│            │  │ STRESS TEST COMPARISON                               │ │               │
+│            │  │                                                       │ │               │
+│            │  │  Scenario          Portfolio Value    vs. Haircut    │ │               │
+│            │  │  Normal Market     $744.0M            -7.6%          │ │               │
+│            │  │  12h Liquidation   $685.3M            -14.9%         │ │               │
+│            │  │  4h Liquidation    $580.1M            -27.9%         │ │               │
+│            │  │  1h Fire Sale      $453.8M            -43.6%         │ │               │
+│            │  │                                                       │ │               │
+│            │  │  [View Full Stress Analysis]  [Export Risk Report]   │ │               │
+│            │  └──────────────────────────────────────────────────────┘ │               │
+│            │                                                            │               │
+│            │  ┌──────────────────────────────────────────────────────┐ │               │
+│            │  │ RECOMMENDATIONS                                      │ │               │
+│            │  │                                                       │ │               │
+│            │  │  1. Reduce Venue B exposure (TSLE anomalies)         │ │               │
+│            │  │  2. Diversify Russell 1000 ETF across more venues    │ │               │
+│            │  │  3. Increase Treasury allocation for stability       │ │               │
+│            │  │                                                       │ │               │
+│            │  │  [Generate Rebalancing Proposal]                     │ │               │
+│            │  └──────────────────────────────────────────────────────┘ │               │
+└────────────┴────────────────────────────────────────────────────────┴───────────────┘
+```
+
+### Data Model
+
+```javascript
+const memberRiskData = {
+  'acme-capital': {
+    overallRisk: {
+      score: 67,
+      label: 'MODERATE', // 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL'
+      trend: 'worsening' // 'improving' | 'stable' | 'worsening'
+    },
+    riskFactors: {
+      venueConcentration: { score: 43, weight: 35, label: 'HIGH' },
+      assetConcentration: { score: 71, weight: 25, label: 'MEDIUM' },
+      liquidityRisk: { score: 58, weight: 28, label: 'HIGH' },
+      counterpartyRisk: { score: 85, weight: 12, label: 'LOW' }
+    },
+    venueExposure: [
+      { 
+        venue: 'Canton DEX', 
+        amount: 568000000, 
+        pct: 67, 
+        status: 'healthy',
+        note: 'Primary venue - healthy diversification'
+      },
+      { 
+        venue: 'Venue B (CEX)', 
+        amount: 263000000, 
+        pct: 31, 
+        status: 'warning',
+        note: 'TSLE anomalies detected - elevated risk'
+      },
+      { 
+        venue: 'Venue C (RFQ)', 
+        amount: 17000000, 
+        pct: 2, 
+        status: 'healthy',
+        note: 'Minimal exposure'
+      }
+    ],
+    assetClassBreakdown: [
+      { class: 'Treasuries', exposure: 347500000, poliAvg: 93, riskAdjusted: 338200000 },
+      { class: 'Equity ETFs', exposure: 350000000, poliAvg: 68, riskAdjusted: 267800000, warning: true },
+      { class: 'Single Equities', exposure: 150000000, poliAvg: 84, riskAdjusted: 138000000 }
+    ],
+    concentrationMatrix: {
+      singleVenue: { lowLiq: 12, medLiq: 28, highLiq: 60 },
+      multiVenue: { lowLiq: 8, medLiq: 35, highLiq: 57 }
+    },
+    stressComparison: [
+      { scenario: 'Normal Market', value: 744000000, vsHaircut: -7.6 },
+      { scenario: '12h Liquidation', value: 685300000, vsHaircut: -14.9 },
+      { scenario: '4h Liquidation', value: 580100000, vsHaircut: -27.9 },
+      { scenario: '1h Fire Sale', value: 453800000, vsHaircut: -43.6 }
+    ],
+    recommendations: [
+      { priority: 1, action: 'Reduce Venue B exposure (TSLE anomalies)', impact: 'HIGH' },
+      { priority: 2, action: 'Diversify Russell 1000 ETF across more venues', impact: 'MEDIUM' },
+      { priority: 3, action: 'Increase Treasury allocation for stability', impact: 'MEDIUM' }
+    ]
+  }
+};
+```
+
+### Risk Score Color Coding
+```javascript
+const riskLabelStyles = {
+  LOW: { bg: '#064e3b', color: '#34d399' },
+  MODERATE: { bg: '#78350f', color: '#fbbf24' },
+  HIGH: { bg: '#7f1d1d', color: '#f87171' },
+  CRITICAL: { bg: '#450a0a', color: '#fca5a5' }
+};
+```
+
+---
+
+## Component Summary
+
+| View | Primary Question | Key Metrics | Actions |
+|------|------------------|-------------|---------|
+| Pre-Trade Verification | Can they settle? | Coverage ratio, Settlement probability | Approve/Flag/Reject trade |
+| Margin Accuracy | Is collateral liquid? | STRATA score, Margin gap | Initiate margin call |
+| Manipulation Detection | Is liquidity gamed? | Market integrity, Pattern confidence | Generate report, Notify compliance |
+| Member Risk Assessment | Aggregate exposure? | Risk scores, Concentration metrics | Rebalancing proposal |
+
+---
+
+## View Switcher State
+
+```javascript
+const valuePropTabs = [
+  { id: 'pretrade', label: 'Pre-Trade Verification', icon: '📊', description: 'Settlement capability' },
+  { id: 'margin', label: 'Margin Accuracy', icon: '💰', description: 'Collateral liquidity', complete: true },
+  { id: 'manipulation', label: 'Manipulation Detection', icon: '🔍', description: 'TSLE analysis' },
+  { id: 'member-risk', label: 'Member Risk', icon: '👥', description: 'Aggregate exposure' }
+];
+```
+
+---
+
+## Cross-View Data Relationships
+
+The four views share underlying data:
+
+1. **Member data** flows across all views
+2. **TSLE alerts** from Manipulation Detection appear in Margin Accuracy's right panel
+3. **PoLi scores** from Margin Accuracy feed into Pre-Trade settlement probability
+4. **Stress scenarios** apply to both Margin Accuracy and Member Risk views
+5. **Venue exposure** from Member Risk contextualizes Manipulation Detection findings
+
+---
+
+## Implementation Priority
+
+1. **Phase 1 (Complete)**: Margin Accuracy view
+2. **Phase 2**: Pre-Trade Verification - most immediately actionable for trade flow
+3. **Phase 3**: Member Risk Assessment - portfolio-level view
+4. **Phase 4**: Manipulation Detection - deepest analytical view
+
+---
+
+## Final Checklist
+
+- [ ] View switcher with 4 tabs below sub-navigation
+- [ ] Active tab has gradient background with blue/purple border
+- [ ] All views maintain consistent sidebar pattern (member/asset list on left)
+- [ ] All views maintain consistent right panel pattern (alerts/context)
+- [ ] Cross-view navigation (e.g., clicking member in one view shows them in another)
+- [ ] Shared stress scenario state across relevant views
+- [ ] Data provenance badge persists across all views
+- [ ] Footer disclaimer persists across all views
+- [ ] Pure black (#000000) background throughout

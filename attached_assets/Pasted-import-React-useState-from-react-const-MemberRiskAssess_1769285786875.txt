@@ -1,0 +1,603 @@
+import React, { useState } from 'react';
+
+const MemberRiskAssessment = () => {
+  const [selectedMember, setSelectedMember] = useState('acme-capital');
+  const [sortBy, setSortBy] = useState('risk');
+
+  // Member risk data
+  const memberRiskData = {
+    'vertex-trading': {
+      name: 'Vertex Trading Corp',
+      memberId: 'VERTEXTRADING',
+      overallRisk: { score: 52, label: 'HIGH', trend: 'worsening' },
+      riskFactors: {
+        venueConcentration: { score: 38, weight: 35, label: 'CRITICAL' },
+        assetConcentration: { score: 45, weight: 25, label: 'HIGH' },
+        liquidityRisk: { score: 42, weight: 28, label: 'HIGH' },
+        counterpartyRisk: { score: 71, weight: 12, label: 'MEDIUM' }
+      },
+      venueExposure: [
+        { venue: 'Venue B (CEX)', amount: 298000000, pct: 70, status: 'critical', note: 'Excessive concentration - TSLE anomalies active' },
+        { venue: 'Canton DEX', amount: 102000000, pct: 24, status: 'healthy', note: 'Secondary venue - adequate' },
+        { venue: 'OTC Pool', amount: 25000000, pct: 6, status: 'healthy', note: 'Minimal exposure' }
+      ],
+      assetClassBreakdown: [
+        { class: 'Crypto', exposure: 215000000, poliAvg: 58, riskAdjusted: 142900000, warning: true },
+        { class: 'Equity Tokens', exposure: 125000000, poliAvg: 64, riskAdjusted: 93750000, warning: true },
+        { class: 'Treasuries', exposure: 85000000, poliAvg: 92, riskAdjusted: 80750000 }
+      ],
+      concentrationMatrix: {
+        singleVenue: { lowLiq: 28, medLiq: 32, highLiq: 40 },
+        multiVenue: { lowLiq: 15, medLiq: 25, highLiq: 60 }
+      },
+      stressComparison: [
+        { scenario: 'Normal Market', value: 317400000, vsHaircut: -21.2 },
+        { scenario: '12h Liquidation', value: 268700000, vsHaircut: -33.3 },
+        { scenario: '4h Liquidation', value: 203500000, vsHaircut: -49.5 },
+        { scenario: '1h Fire Sale', value: 147200000, vsHaircut: -63.5 }
+      ],
+      recommendations: [
+        { priority: 1, action: 'Immediately reduce Venue B exposure below 50%', impact: 'CRITICAL' },
+        { priority: 2, action: 'Diversify crypto holdings across multiple venues', impact: 'HIGH' },
+        { priority: 3, action: 'Increase Treasury allocation to minimum 30%', impact: 'HIGH' }
+      ]
+    },
+    'acme-capital': {
+      name: 'Acme Capital LLC',
+      memberId: 'ACMECAPITAL',
+      overallRisk: { score: 67, label: 'MODERATE', trend: 'stable' },
+      riskFactors: {
+        venueConcentration: { score: 43, weight: 35, label: 'HIGH' },
+        assetConcentration: { score: 71, weight: 25, label: 'MEDIUM' },
+        liquidityRisk: { score: 58, weight: 28, label: 'HIGH' },
+        counterpartyRisk: { score: 85, weight: 12, label: 'LOW' }
+      },
+      venueExposure: [
+        { venue: 'Canton DEX', amount: 568000000, pct: 67, status: 'healthy', note: 'Primary venue - healthy diversification' },
+        { venue: 'Venue B (CEX)', amount: 263000000, pct: 31, status: 'warning', note: 'TSLE anomalies detected - elevated risk' },
+        { venue: 'Venue C (RFQ)', amount: 17000000, pct: 2, status: 'healthy', note: 'Minimal exposure' }
+      ],
+      assetClassBreakdown: [
+        { class: 'Treasuries', exposure: 347500000, poliAvg: 93, riskAdjusted: 338200000 },
+        { class: 'Equity ETFs', exposure: 350000000, poliAvg: 68, riskAdjusted: 267800000, warning: true },
+        { class: 'Single Equities', exposure: 150000000, poliAvg: 84, riskAdjusted: 138000000 }
+      ],
+      concentrationMatrix: {
+        singleVenue: { lowLiq: 12, medLiq: 28, highLiq: 60 },
+        multiVenue: { lowLiq: 8, medLiq: 35, highLiq: 57 }
+      },
+      stressComparison: [
+        { scenario: 'Normal Market', value: 744000000, vsHaircut: -7.6 },
+        { scenario: '12h Liquidation', value: 685300000, vsHaircut: -14.9 },
+        { scenario: '4h Liquidation', value: 580100000, vsHaircut: -27.9 },
+        { scenario: '1h Fire Sale', value: 453800000, vsHaircut: -43.6 }
+      ],
+      recommendations: [
+        { priority: 1, action: 'Reduce Venue B exposure (TSLE anomalies)', impact: 'HIGH' },
+        { priority: 2, action: 'Diversify Russell 1000 ETF across more venues', impact: 'MEDIUM' },
+        { priority: 3, action: 'Increase Treasury allocation for stability', impact: 'MEDIUM' }
+      ]
+    },
+    'meridian-fund': {
+      name: 'Meridian Fund Services',
+      memberId: 'MERIDIANFUND',
+      overallRisk: { score: 89, label: 'LOW', trend: 'improving' },
+      riskFactors: {
+        venueConcentration: { score: 82, weight: 35, label: 'LOW' },
+        assetConcentration: { score: 88, weight: 25, label: 'LOW' },
+        liquidityRisk: { score: 91, weight: 28, label: 'LOW' },
+        counterpartyRisk: { score: 94, weight: 12, label: 'LOW' }
+      },
+      venueExposure: [
+        { venue: 'Canton DEX', amount: 625000000, pct: 50, status: 'healthy', note: 'Well-balanced primary venue' },
+        { venue: 'Venue B (CEX)', amount: 375000000, pct: 30, status: 'healthy', note: 'Diversified secondary exposure' },
+        { venue: 'Venue C (RFQ)', amount: 187500000, pct: 15, status: 'healthy', note: 'Institutional RFQ access' },
+        { venue: 'OTC Pool', amount: 62500000, pct: 5, status: 'healthy', note: 'Strategic OTC relationships' }
+      ],
+      assetClassBreakdown: [
+        { class: 'Treasuries', exposure: 625000000, poliAvg: 95, riskAdjusted: 609375000 },
+        { class: 'Investment Grade', exposure: 312500000, poliAvg: 91, riskAdjusted: 296875000 },
+        { class: 'Equity ETFs', exposure: 187500000, poliAvg: 86, riskAdjusted: 171875000 },
+        { class: 'Single Equities', exposure: 125000000, poliAvg: 83, riskAdjusted: 112500000 }
+      ],
+      concentrationMatrix: {
+        singleVenue: { lowLiq: 5, medLiq: 18, highLiq: 77 },
+        multiVenue: { lowLiq: 3, medLiq: 12, highLiq: 85 }
+      },
+      stressComparison: [
+        { scenario: 'Normal Market', value: 1190625000, vsHaircut: -4.8 },
+        { scenario: '12h Liquidation', value: 1130093750, vsHaircut: -9.6 },
+        { scenario: '4h Liquidation', value: 1011531250, vsHaircut: -19.1 },
+        { scenario: '1h Fire Sale', value: 869156250, vsHaircut: -30.5 }
+      ],
+      recommendations: [
+        { priority: 1, action: 'Maintain current diversification strategy', impact: 'LOW' },
+        { priority: 2, action: 'Consider expanding RFQ relationships', impact: 'LOW' }
+      ]
+    }
+  };
+
+  const sortedMembers = Object.entries(memberRiskData).sort((a, b) => {
+    if (sortBy === 'risk') return a[1].overallRisk.score - b[1].overallRisk.score;
+    return b[1].overallRisk.score - a[1].overallRisk.score;
+  });
+
+  const member = memberRiskData[selectedMember];
+
+  const formatCurrency = (value) => {
+    if (value >= 1000000000) return `$${(value / 1000000000).toFixed(2)}B`;
+    if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
+    return `$${value.toLocaleString()}`;
+  };
+
+  const getRiskColor = (score) => {
+    if (score >= 80) return '#10b981';
+    if (score >= 60) return '#f59e0b';
+    return '#ef4444';
+  };
+
+  const getRiskLabelStyle = (label) => {
+    const styles = {
+      LOW: { bg: '#064e3b', color: '#34d399' },
+      MODERATE: { bg: '#78350f', color: '#fbbf24' },
+      HIGH: { bg: '#7f1d1d', color: '#f87171' },
+      CRITICAL: { bg: '#450a0a', color: '#fca5a5' },
+      MEDIUM: { bg: '#78350f', color: '#fbbf24' }
+    };
+    return styles[label] || styles.MODERATE;
+  };
+
+  const getTrendIcon = (trend) => {
+    if (trend === 'improving') return { icon: '↑', color: '#10b981' };
+    if (trend === 'worsening') return { icon: '↓', color: '#ef4444' };
+    return { icon: '→', color: '#64748b' };
+  };
+
+  const getVenueStatusColor = (status) => {
+    const colors = { healthy: '#10b981', warning: '#f59e0b', critical: '#ef4444' };
+    return colors[status] || colors.warning;
+  };
+
+  const getImpactStyle = (impact) => {
+    const styles = {
+      CRITICAL: { bg: 'rgba(239, 68, 68, 0.2)', color: '#ef4444' },
+      HIGH: { bg: 'rgba(245, 158, 11, 0.2)', color: '#f59e0b' },
+      MEDIUM: { bg: 'rgba(59, 130, 246, 0.2)', color: '#60a5fa' },
+      LOW: { bg: 'rgba(16, 185, 129, 0.2)', color: '#34d399' }
+    };
+    return styles[impact] || styles.MEDIUM;
+  };
+
+  return (
+    <div style={{
+      minHeight: '100vh',
+      background: '#000000',
+      color: '#e2e8f0',
+      fontFamily: "'IBM Plex Sans', -apple-system, sans-serif"
+    }}>
+      {/* Header */}
+      <header style={{
+        background: 'rgba(0, 0, 0, 0.9)',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+        padding: '16px 32px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        position: 'sticky',
+        top: 0,
+        zIndex: 100
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{
+              width: '36px',
+              height: '36px',
+              background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: '800',
+              fontSize: '16px'
+            }}>S</div>
+            <div>
+              <div style={{ fontWeight: '700', fontSize: '16px' }}>STRATALINK</div>
+              <div style={{ fontSize: '10px', color: '#64748b', letterSpacing: '0.1em' }}>LIQUIDITY TRUTH LAYER</div>
+            </div>
+          </div>
+          <div style={{ height: '24px', width: '1px', background: '#333' }} />
+          <div style={{ fontSize: '14px', color: '#94a3b8' }}>Member Risk Assessment Console</div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{
+            background: 'rgba(251, 191, 36, 0.1)',
+            border: '1px solid rgba(251, 191, 36, 0.3)',
+            padding: '8px 16px',
+            borderRadius: '6px',
+            fontSize: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#fbbf24' }} />
+            <span style={{ color: '#fbbf24', fontWeight: '600' }}>SYNTHETIC DATA</span>
+          </div>
+          <div style={{
+            background: '#111111',
+            padding: '8px 16px',
+            borderRadius: '6px',
+            fontSize: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', animation: 'pulse 2s infinite' }} />
+            <span style={{ color: '#e2e8f0' }}>Canton Network</span>
+          </div>
+        </div>
+      </header>
+
+      <div style={{ display: 'flex' }}>
+        {/* Sidebar */}
+        <aside style={{
+          width: '280px',
+          background: 'rgba(10, 10, 10, 0.8)',
+          borderRight: '1px solid rgba(255, 255, 255, 0.1)',
+          padding: '24px 0',
+          minHeight: 'calc(100vh - 69px)'
+        }}>
+          <div style={{ padding: '0 20px', marginBottom: '20px' }}>
+            <div style={{ fontSize: '11px', color: '#64748b', letterSpacing: '0.1em', marginBottom: '12px' }}>MEMBERS BY RISK</div>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              style={{
+                width: '100%',
+                background: '#111111',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                borderRadius: '6px',
+                padding: '10px 12px',
+                color: '#e2e8f0',
+                fontSize: '13px'
+              }}
+            >
+              <option value="risk">Highest Risk First</option>
+              <option value="score">Lowest Risk First</option>
+            </select>
+          </div>
+          
+          {sortedMembers.map(([key, m]) => {
+            const trend = getTrendIcon(m.overallRisk.trend);
+            const riskStyle = getRiskLabelStyle(m.overallRisk.label);
+            return (
+              <div
+                key={key}
+                onClick={() => setSelectedMember(key)}
+                style={{
+                  padding: '16px 20px',
+                  cursor: 'pointer',
+                  background: selectedMember === key ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+                  borderLeft: selectedMember === key ? '3px solid #3b82f6' : '3px solid transparent'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <div style={{ fontWeight: '600', fontSize: '14px' }}>{m.name}</div>
+                  <span style={{
+                    background: riskStyle.bg,
+                    color: riskStyle.color,
+                    padding: '4px 8px',
+                    borderRadius: '4px',
+                    fontSize: '10px',
+                    fontWeight: '700'
+                  }}>{m.overallRisk.label}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ flex: 1, background: '#111111', borderRadius: '4px', height: '8px', overflow: 'hidden' }}>
+                    <div style={{ width: `${m.overallRisk.score}%`, height: '100%', background: getRiskColor(m.overallRisk.score) }} />
+                  </div>
+                  <span style={{ fontSize: '18px', fontWeight: '700', color: getRiskColor(m.overallRisk.score) }}>{m.overallRisk.score}</span>
+                  <span style={{ color: trend.color }}>{trend.icon}</span>
+                </div>
+              </div>
+            );
+          })}
+        </aside>
+
+        {/* Main Content */}
+        <main style={{ flex: 1, padding: '24px 32px', minWidth: 0 }}>
+          {/* Risk Profile Header */}
+          <div style={{
+            background: 'rgba(17, 17, 17, 0.9)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            borderRadius: '12px',
+            padding: '24px',
+            marginBottom: '24px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px' }}>
+              <div>
+                <div style={{ fontSize: '11px', color: '#64748b', letterSpacing: '0.1em', marginBottom: '8px' }}>RISK PROFILE</div>
+                <div style={{ fontSize: '24px', fontWeight: '700', marginBottom: '4px' }}>{member.name}</div>
+                <div style={{ fontSize: '14px', color: '#94a3b8' }}>Member ID: {member.memberId}</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <span style={{
+                  background: getRiskLabelStyle(member.overallRisk.label).bg,
+                  color: getRiskLabelStyle(member.overallRisk.label).color,
+                  padding: '6px 12px',
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                  fontWeight: '700'
+                }}>{member.overallRisk.label} RISK</span>
+                <div style={{ fontSize: '48px', fontWeight: '800', color: getRiskColor(member.overallRisk.score), marginTop: '8px' }}>
+                  {member.overallRisk.score}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
+              {Object.entries(member.riskFactors).map(([key, factor]) => {
+                const style = getRiskLabelStyle(factor.label);
+                return (
+                  <div key={key} style={{ background: '#111111', borderRadius: '8px', padding: '16px' }}>
+                    <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '8px', textTransform: 'uppercase' }}>
+                      {key.replace(/([A-Z])/g, ' $1').trim()}
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                      <div style={{ fontSize: '28px', fontWeight: '700', color: getRiskColor(factor.score) }}>{factor.score}</div>
+                      <span style={{ background: style.bg, color: style.color, padding: '3px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '700' }}>{factor.label}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Venue Exposure */}
+          <div style={{
+            background: 'rgba(17, 17, 17, 0.9)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            borderRadius: '12px',
+            padding: '24px',
+            marginBottom: '24px'
+          }}>
+            <div style={{ fontSize: '11px', color: '#64748b', letterSpacing: '0.1em', marginBottom: '20px' }}>VENUE EXPOSURE MAP</div>
+            {member.venueExposure.map((venue, i) => (
+              <div key={i} style={{ marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontWeight: '600' }}>{venue.venue}</span>
+                    {venue.status !== 'healthy' && (
+                      <span style={{
+                        background: venue.status === 'critical' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(245, 158, 11, 0.2)',
+                        color: getVenueStatusColor(venue.status),
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        fontSize: '10px',
+                        fontWeight: '600'
+                      }}>{venue.status.toUpperCase()}</span>
+                    )}
+                  </div>
+                  <span style={{ color: '#94a3b8' }}>{venue.pct}% ({formatCurrency(venue.amount)})</span>
+                </div>
+                <div style={{ background: '#111111', borderRadius: '4px', height: '24px', overflow: 'hidden', marginBottom: '4px' }}>
+                  <div style={{ width: `${venue.pct}%`, height: '100%', background: getVenueStatusColor(venue.status) }} />
+                </div>
+                <div style={{ fontSize: '12px', color: '#64748b' }}>{venue.status === 'healthy' ? '✓' : '⚠'} {venue.note}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Asset Class & Stress Test Row */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
+            {/* Asset Class Breakdown */}
+            <div style={{
+              background: 'rgba(17, 17, 17, 0.9)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: '12px',
+              padding: '24px'
+            }}>
+              <div style={{ fontSize: '11px', color: '#64748b', letterSpacing: '0.1em', marginBottom: '20px' }}>ASSET CLASS BREAKDOWN</div>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                    <th style={{ textAlign: 'left', padding: '8px 0', fontSize: '11px', color: '#64748b' }}>CLASS</th>
+                    <th style={{ textAlign: 'right', padding: '8px 0', fontSize: '11px', color: '#64748b' }}>EXPOSURE</th>
+                    <th style={{ textAlign: 'right', padding: '8px 0', fontSize: '11px', color: '#64748b' }}>PoLi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {member.assetClassBreakdown.map((asset, i) => (
+                    <tr key={i} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                      <td style={{ padding: '12px 0' }}>
+                        {asset.class} {asset.warning && <span style={{ color: '#f59e0b' }}>⚠</span>}
+                      </td>
+                      <td style={{ textAlign: 'right', padding: '12px 0' }}>{formatCurrency(asset.exposure)}</td>
+                      <td style={{ textAlign: 'right', padding: '12px 0' }}>
+                        <span style={{
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          background: getRiskColor(asset.poliAvg) + '20',
+                          color: getRiskColor(asset.poliAvg),
+                          fontWeight: '600'
+                        }}>{asset.poliAvg}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Stress Test */}
+            <div style={{
+              background: 'rgba(17, 17, 17, 0.9)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: '12px',
+              padding: '24px'
+            }}>
+              <div style={{ fontSize: '11px', color: '#64748b', letterSpacing: '0.1em', marginBottom: '20px' }}>STRESS TEST COMPARISON</div>
+              {member.stressComparison.map((scenario, i) => (
+                <div key={i} style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '12px 0',
+                  borderBottom: i < member.stressComparison.length - 1 ? '1px solid rgba(255, 255, 255, 0.05)' : 'none'
+                }}>
+                  <div style={{ fontSize: '13px' }}>{scenario.scenario}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ fontWeight: '600' }}>{formatCurrency(scenario.value)}</span>
+                    <span style={{
+                      padding: '4px 8px',
+                      borderRadius: '4px',
+                      fontSize: '11px',
+                      fontWeight: '600',
+                      background: scenario.vsHaircut < -20 ? 'rgba(239, 68, 68, 0.2)' : scenario.vsHaircut < -10 ? 'rgba(245, 158, 11, 0.2)' : 'rgba(16, 185, 129, 0.2)',
+                      color: scenario.vsHaircut < -20 ? '#ef4444' : scenario.vsHaircut < -10 ? '#f59e0b' : '#10b981'
+                    }}>{scenario.vsHaircut}%</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Recommendations */}
+          <div style={{
+            background: 'rgba(17, 17, 17, 0.9)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            borderRadius: '12px',
+            padding: '24px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <div style={{ fontSize: '11px', color: '#64748b', letterSpacing: '0.1em' }}>RECOMMENDATIONS</div>
+              <button style={{
+                padding: '8px 16px',
+                background: '#8b5cf6',
+                border: 'none',
+                borderRadius: '6px',
+                color: '#fff',
+                fontSize: '12px',
+                fontWeight: '600',
+                cursor: 'pointer'
+              }}>Generate Rebalancing Proposal</button>
+            </div>
+            {member.recommendations.map((rec, i) => {
+              const impactStyle = getImpactStyle(rec.impact);
+              return (
+                <div key={i} style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '16px',
+                  background: '#111111',
+                  borderRadius: '8px',
+                  marginBottom: i < member.recommendations.length - 1 ? '12px' : 0
+                }}>
+                  <div style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '50%',
+                    background: impactStyle.bg,
+                    color: impactStyle.color,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: '700',
+                    marginRight: '16px'
+                  }}>{rec.priority}</div>
+                  <div style={{ flex: 1, fontSize: '14px' }}>{rec.action}</div>
+                  <span style={{
+                    background: impactStyle.bg,
+                    color: impactStyle.color,
+                    padding: '4px 10px',
+                    borderRadius: '4px',
+                    fontSize: '11px',
+                    fontWeight: '600'
+                  }}>{rec.impact}</span>
+                </div>
+              );
+            })}
+          </div>
+        </main>
+
+        {/* Right Panel */}
+        <aside style={{
+          width: '260px',
+          background: 'rgba(10, 10, 10, 0.8)',
+          borderLeft: '1px solid rgba(255, 255, 255, 0.1)',
+          padding: '20px',
+          minHeight: 'calc(100vh - 69px)'
+        }}>
+          <div style={{ fontSize: '11px', color: '#64748b', letterSpacing: '0.1em', marginBottom: '20px' }}>RISK FACTORS</div>
+          {Object.entries(member.riskFactors).map(([key, factor], i) => {
+            const style = getRiskLabelStyle(factor.label);
+            return (
+              <div key={i} style={{
+                background: '#111111',
+                borderRadius: '8px',
+                padding: '16px',
+                marginBottom: '12px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <div style={{ fontSize: '12px', color: '#94a3b8', textTransform: 'capitalize' }}>
+                    {key.replace(/([A-Z])/g, ' $1').trim()}
+                  </div>
+                  <span style={{
+                    background: style.bg,
+                    color: style.color,
+                    padding: '2px 6px',
+                    borderRadius: '4px',
+                    fontSize: '10px',
+                    fontWeight: '600'
+                  }}>{factor.label}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ flex: 1, background: '#000', borderRadius: '4px', height: '6px', overflow: 'hidden' }}>
+                    <div style={{ width: `${factor.score}%`, height: '100%', background: getRiskColor(factor.score) }} />
+                  </div>
+                  <span style={{ fontSize: '16px', fontWeight: '700', color: getRiskColor(factor.score) }}>{factor.score}</span>
+                </div>
+                <div style={{ fontSize: '11px', color: '#64748b', marginTop: '8px' }}>Weight: {factor.weight}%</div>
+              </div>
+            );
+          })}
+        </aside>
+      </div>
+
+      {/* Footer */}
+      <footer style={{
+        background: 'rgba(0, 0, 0, 0.95)',
+        borderTop: '1px solid rgba(251, 191, 36, 0.2)',
+        padding: '12px 32px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        zIndex: 100
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{
+            background: 'rgba(251, 191, 36, 0.1)',
+            border: '1px solid rgba(251, 191, 36, 0.3)',
+            padding: '4px 12px',
+            borderRadius: '4px',
+            fontSize: '11px',
+            fontWeight: '600',
+            color: '#fbbf24'
+          }}>SIMULATION</div>
+          <span style={{ fontSize: '12px', color: '#94a3b8' }}>Risk scores derived from proxy models.</span>
+        </div>
+        <div style={{ fontSize: '11px', color: '#64748b' }}>LTF v2.1 Methodology</div>
+      </footer>
+
+      <style>{`
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        button:hover { filter: brightness(1.1); }
+      `}</style>
+    </div>
+  );
+};
+
+export default MemberRiskAssessment;

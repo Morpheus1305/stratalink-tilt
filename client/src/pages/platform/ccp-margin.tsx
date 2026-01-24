@@ -18,9 +18,14 @@ import {
   Zap,
   BarChart3,
   FileText,
-  X
+  X,
+  Layers,
+  Wallet,
+  Eye,
+  Users
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PreTradeVerification, ManipulationDetection, MemberRiskAssessment } from "./ccp-views";
 
 type MemberStatus = "healthy" | "caution" | "alert";
 type TsleStatus = "clear" | "anomaly";
@@ -28,6 +33,7 @@ type DataConfidence = "high" | "medium" | "low";
 type StressScenario = "normal" | "moderate" | "stressed" | "extreme";
 type RightPanelTab = "alerts" | "trends";
 type CollateralView = "overview" | "poli" | "tsle" | "dact";
+type CCPView = "pretrade" | "margin" | "manipulation" | "memberrisk";
 
 interface Collateral {
   id: string;
@@ -353,6 +359,14 @@ export default function CCPMarginPage() {
   const [showDataProvenance, setShowDataProvenance] = useState(false);
   const [memberSearch, setMemberSearch] = useState("");
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [ccpView, setCcpView] = useState<CCPView>("margin");
+
+  const ccpViewOptions = [
+    { id: "pretrade" as CCPView, label: "PRE-TRADE", icon: Layers, description: "Settlement Verification" },
+    { id: "margin" as CCPView, label: "MARGIN", icon: Wallet, description: "Collateral Analysis" },
+    { id: "manipulation" as CCPView, label: "MANIPULATION", icon: Eye, description: "Integrity Detection" },
+    { id: "memberrisk" as CCPView, label: "MEMBER RISK", icon: Users, description: "Risk Assessment" },
+  ];
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -468,6 +482,37 @@ export default function CCPMarginPage() {
         </div>
       </div>
 
+      {/* CCP View Switcher */}
+      <div 
+        className="border-b px-4 py-2"
+        style={{ borderColor: "rgba(255,255,255,0.1)", background: "#050505" }}
+      >
+        <div className="flex items-center gap-1">
+          {ccpViewOptions.map((opt) => {
+            const Icon = opt.icon;
+            const isActive = ccpView === opt.id;
+            return (
+              <Button
+                key={opt.id}
+                variant={isActive ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setCcpView(opt.id)}
+                className={cn(
+                  "text-xs gap-2",
+                  isActive 
+                    ? "bg-white/10 text-white" 
+                    : "text-slate-500"
+                )}
+                data-testid={`btn-view-${opt.id}`}
+              >
+                <Icon className="w-4 h-4" />
+                <span className="font-semibold">{opt.label}</span>
+              </Button>
+            );
+          })}
+        </div>
+      </div>
+
       {showDataProvenance && (
         <div 
           className="border-b px-6 py-4"
@@ -509,7 +554,30 @@ export default function CCPMarginPage() {
         </div>
       )}
 
-      <div className="flex-1 flex overflow-hidden" style={{ marginBottom: "48px" }}>
+      {/* Pre-Trade Verification View */}
+      {ccpView === "pretrade" && (
+        <div className="flex-1 overflow-hidden" style={{ marginBottom: "48px" }}>
+          <PreTradeVerification />
+        </div>
+      )}
+
+      {/* Manipulation Detection View */}
+      {ccpView === "manipulation" && (
+        <div className="flex-1 overflow-hidden" style={{ marginBottom: "48px" }}>
+          <ManipulationDetection />
+        </div>
+      )}
+
+      {/* Member Risk Assessment View */}
+      {ccpView === "memberrisk" && (
+        <div className="flex-1 overflow-hidden" style={{ marginBottom: "48px" }}>
+          <MemberRiskAssessment />
+        </div>
+      )}
+
+      {/* Margin View (existing content) */}
+      {ccpView === "margin" && (
+        <div className="flex-1 flex overflow-hidden" style={{ marginBottom: "48px" }}>
         <div className="w-[280px] border-r p-4 space-y-3 overflow-y-auto" style={{ borderColor: "rgba(255,255,255,0.1)", background: "#0a0a0a" }}>
           <div className="text-[11px] font-semibold tracking-wider text-slate-500 mb-2">CLEARING MEMBERS</div>
           <div className="relative">
@@ -1253,6 +1321,7 @@ export default function CCPMarginPage() {
           )}
         </div>
       </div>
+      )}
 
       <div 
         className="fixed bottom-0 left-0 right-0 px-6 py-2 flex items-center justify-between z-50"

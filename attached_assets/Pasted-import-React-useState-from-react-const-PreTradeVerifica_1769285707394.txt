@@ -1,0 +1,936 @@
+import React, { useState } from 'react';
+
+const PreTradeVerification = () => {
+  const [selectedTrade, setSelectedTrade] = useState('TRD-2026-0124-0847');
+  const [tradeFilter, setTradeFilter] = useState('all');
+  const [showDataProvenance, setShowDataProvenance] = useState(false);
+
+  // Pending trades queue
+  const pendingTrades = [
+    {
+      id: 'TRD-2026-0124-0847',
+      counterparty: 'acme-capital',
+      counterpartyName: 'Acme Capital LLC',
+      direction: 'BUY',
+      asset: 'Russell 1000 ETF Token',
+      assetType: 'Equity ETF',
+      notional: 45000000,
+      settlementDate: '2026-01-25',
+      settlementType: 'T+1',
+      status: 'pending_verification',
+      riskFlags: ['low_liquidity_asset', 'large_notional'],
+      settlementProbability: 0.87,
+      coverageRatio: 2.69
+    },
+    {
+      id: 'TRD-2026-0124-0846',
+      counterparty: 'meridian-fund',
+      counterpartyName: 'Meridian Fund Services',
+      direction: 'SELL',
+      asset: 'UST 10Y Token',
+      assetType: 'Treasury',
+      notional: 125000000,
+      settlementDate: '2026-01-25',
+      settlementType: 'T+1',
+      status: 'approved',
+      riskFlags: [],
+      settlementProbability: 0.96,
+      coverageRatio: 4.12
+    },
+    {
+      id: 'TRD-2026-0124-0845',
+      counterparty: 'vertex-trading',
+      counterpartyName: 'Vertex Trading Corp',
+      direction: 'BUY',
+      asset: 'AAPL Token',
+      assetType: 'Equity',
+      notional: 28000000,
+      settlementDate: '2026-01-25',
+      settlementType: 'T+1',
+      status: 'flagged',
+      riskFlags: ['counterparty_alert_status', 'concentration_risk'],
+      settlementProbability: 0.58,
+      coverageRatio: 1.34
+    },
+    {
+      id: 'TRD-2026-0124-0844',
+      counterparty: 'acme-capital',
+      counterpartyName: 'Acme Capital LLC',
+      direction: 'SELL',
+      asset: 'UST 2Y Token',
+      assetType: 'Treasury',
+      notional: 75000000,
+      settlementDate: '2026-01-25',
+      settlementType: 'T+1',
+      status: 'approved',
+      riskFlags: [],
+      settlementProbability: 0.94,
+      coverageRatio: 3.85
+    },
+    {
+      id: 'TRD-2026-0124-0843',
+      counterparty: 'vertex-trading',
+      counterpartyName: 'Vertex Trading Corp',
+      direction: 'BUY',
+      asset: 'ETH Token',
+      assetType: 'Crypto',
+      notional: 15000000,
+      settlementDate: '2026-01-25',
+      settlementType: 'T+1',
+      status: 'pending_verification',
+      riskFlags: ['volatile_asset'],
+      settlementProbability: 0.72,
+      coverageRatio: 1.89
+    }
+  ];
+
+  // Settlement capability data per counterparty
+  const settlementCapability = {
+    'acme-capital': {
+      availableBalance: 127300000,
+      requiredMargin: 47200000,
+      coverageRatio: 2.69,
+      liquidityScore: 73,
+      settlementProbability: 0.87,
+      sources: [
+        { type: 'Cash & Stablecoins', amount: 52100000, pct: 41, poliAvg: 97 },
+        { type: 'Treasury Tokens', amount: 48700000, pct: 38, poliAvg: 93 },
+        { type: 'Equity Tokens', amount: 26500000, pct: 21, poliAvg: 74 }
+      ],
+      warnings: ['21% in equity tokens with PoLi < 80']
+    },
+    'meridian-fund': {
+      availableBalance: 892000000,
+      requiredMargin: 156000000,
+      coverageRatio: 5.72,
+      liquidityScore: 89,
+      settlementProbability: 0.96,
+      sources: [
+        { type: 'Cash & Stablecoins', amount: 412000000, pct: 46, poliAvg: 98 },
+        { type: 'Treasury Tokens', amount: 356000000, pct: 40, poliAvg: 94 },
+        { type: 'Equity Tokens', amount: 124000000, pct: 14, poliAvg: 82 }
+      ],
+      warnings: []
+    },
+    'vertex-trading': {
+      availableBalance: 89500000,
+      requiredMargin: 66800000,
+      coverageRatio: 1.34,
+      liquidityScore: 52,
+      settlementProbability: 0.58,
+      sources: [
+        { type: 'Cash & Stablecoins', amount: 22400000, pct: 25, poliAvg: 96 },
+        { type: 'Treasury Tokens', amount: 18700000, pct: 21, poliAvg: 91 },
+        { type: 'Equity Tokens', amount: 48400000, pct: 54, poliAvg: 61 }
+      ],
+      warnings: ['Coverage ratio below 1.5x threshold', '54% in low-liquidity equity tokens', 'Counterparty on ALERT status']
+    }
+  };
+
+  // Settlement risk alerts
+  const settlementAlerts = [
+    {
+      id: 1,
+      time: '19:41:33',
+      severity: 'high',
+      tradeId: 'TRD-2026-0124-0845',
+      counterparty: 'Vertex Trading',
+      message: 'Settlement probability dropped below 60% threshold',
+      type: 'settlement_risk'
+    },
+    {
+      id: 2,
+      time: '19:38:17',
+      severity: 'medium',
+      tradeId: 'TRD-2026-0124-0847',
+      counterparty: 'Acme Capital',
+      message: 'Collateral rebalancing detected - monitoring coverage ratio',
+      type: 'collateral_movement'
+    },
+    {
+      id: 3,
+      time: '19:35:02',
+      severity: 'low',
+      tradeId: 'TRD-2026-0124-0846',
+      counterparty: 'Meridian Fund',
+      message: 'Large incoming transfer verified - coverage improved',
+      type: 'positive_signal'
+    },
+    {
+      id: 4,
+      time: '19:28:45',
+      severity: 'high',
+      tradeId: 'TRD-2026-0124-0843',
+      counterparty: 'Vertex Trading',
+      message: 'Asset volatility spike detected on ETH Token',
+      type: 'volatility_alert'
+    },
+    {
+      id: 5,
+      time: '19:22:11',
+      severity: 'medium',
+      tradeId: 'TRD-2026-0124-0847',
+      counterparty: 'Acme Capital',
+      message: 'Russell 1000 ETF liquidity fragmentation increased',
+      type: 'liquidity_change'
+    }
+  ];
+
+  const trade = pendingTrades.find(t => t.id === selectedTrade);
+  const capability = trade ? settlementCapability[trade.counterparty] : null;
+
+  const filteredTrades = tradeFilter === 'all' 
+    ? pendingTrades 
+    : pendingTrades.filter(t => t.status === 'flagged' || t.status === 'pending_verification');
+
+  const formatCurrency = (value) => {
+    if (value >= 1000000000) return `$${(value / 1000000000).toFixed(2)}B`;
+    if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
+    return `$${value.toLocaleString()}`;
+  };
+
+  const getScoreColor = (score) => {
+    if (score >= 85) return '#10b981';
+    if (score >= 70) return '#f59e0b';
+    return '#ef4444';
+  };
+
+  const getProbabilityColor = (prob) => {
+    if (prob >= 0.9) return '#10b981';
+    if (prob >= 0.75) return '#f59e0b';
+    return '#ef4444';
+  };
+
+  const getStatusBadge = (status) => {
+    const styles = {
+      approved: { bg: '#064e3b', color: '#34d399', label: 'APPROVED' },
+      pending_verification: { bg: '#1e3a5f', color: '#60a5fa', label: 'PENDING' },
+      flagged: { bg: '#78350f', color: '#fbbf24', label: 'FLAGGED' },
+      rejected: { bg: '#7f1d1d', color: '#f87171', label: 'REJECTED' }
+    };
+    const s = styles[status] || styles.pending_verification;
+    return (
+      <span style={{
+        background: s.bg,
+        color: s.color,
+        padding: '4px 10px',
+        borderRadius: '4px',
+        fontSize: '11px',
+        fontWeight: '700',
+        letterSpacing: '0.05em'
+      }}>
+        {s.label}
+      </span>
+    );
+  };
+
+  const getSeverityStyle = (severity) => {
+    const styles = {
+      high: { bg: 'rgba(239, 68, 68, 0.15)', border: 'rgba(239, 68, 68, 0.4)', dot: '#ef4444' },
+      medium: { bg: 'rgba(245, 158, 11, 0.15)', border: 'rgba(245, 158, 11, 0.4)', dot: '#f59e0b' },
+      low: { bg: 'rgba(59, 130, 246, 0.15)', border: 'rgba(59, 130, 246, 0.4)', dot: '#3b82f6' }
+    };
+    return styles[severity] || styles.low;
+  };
+
+  const getRiskFlagLabel = (flag) => {
+    const labels = {
+      'low_liquidity_asset': 'Low Liquidity Asset',
+      'large_notional': 'Large Notional',
+      'counterparty_alert_status': 'Counterparty Alert',
+      'concentration_risk': 'Concentration Risk',
+      'volatile_asset': 'Volatile Asset'
+    };
+    return labels[flag] || flag;
+  };
+
+  return (
+    <div style={{
+      minHeight: '100vh',
+      background: '#000000',
+      color: '#e2e8f0',
+      fontFamily: "'IBM Plex Sans', -apple-system, sans-serif",
+      padding: '0'
+    }}>
+      {/* Header */}
+      <header style={{
+        background: 'rgba(0, 0, 0, 0.9)',
+        backdropFilter: 'blur(12px)',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+        padding: '16px 32px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        position: 'sticky',
+        top: 0,
+        zIndex: 100
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{
+              width: '36px',
+              height: '36px',
+              background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: '800',
+              fontSize: '16px'
+            }}>
+              S
+            </div>
+            <div>
+              <div style={{ fontWeight: '700', fontSize: '16px', letterSpacing: '-0.02em' }}>STRATALINK</div>
+              <div style={{ fontSize: '10px', color: '#64748b', letterSpacing: '0.1em' }}>LIQUIDITY TRUTH LAYER</div>
+            </div>
+          </div>
+          <div style={{ height: '24px', width: '1px', background: '#333' }} />
+          <div style={{ fontSize: '14px', color: '#94a3b8' }}>Pre-Trade Verification Console</div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div 
+            onClick={() => setShowDataProvenance(!showDataProvenance)}
+            style={{
+              background: 'rgba(251, 191, 36, 0.1)',
+              border: '1px solid rgba(251, 191, 36, 0.3)',
+              padding: '8px 16px',
+              borderRadius: '6px',
+              fontSize: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              cursor: 'pointer'
+            }}
+          >
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#fbbf24' }} />
+            <span style={{ color: '#fbbf24', fontWeight: '600' }}>SYNTHETIC DATA</span>
+            <span style={{ color: '#94a3b8' }}>|</span>
+            <span style={{ color: '#d97706' }}>Proxy Model v1.2</span>
+          </div>
+          <div style={{
+            background: '#111111',
+            padding: '8px 16px',
+            borderRadius: '6px',
+            fontSize: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', animation: 'pulse 2s infinite' }} />
+            <span style={{ color: '#94a3b8' }}>LIVE</span>
+            <span style={{ color: '#e2e8f0' }}>Canton Network</span>
+          </div>
+          <div style={{ fontSize: '12px', color: '#64748b' }}>
+            {new Date().toLocaleString('en-US', { 
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+              hour12: false
+            })} UTC
+          </div>
+        </div>
+      </header>
+
+      <div style={{ display: 'flex' }}>
+        {/* Sidebar - Pending Trades Queue */}
+        <aside style={{
+          width: '300px',
+          background: 'rgba(10, 10, 10, 0.8)',
+          borderRight: '1px solid rgba(255, 255, 255, 0.1)',
+          padding: '24px 0',
+          minHeight: 'calc(100vh - 69px)',
+          flexShrink: 0
+        }}>
+          <div style={{ padding: '0 20px', marginBottom: '20px' }}>
+            <div style={{ fontSize: '11px', color: '#64748b', letterSpacing: '0.1em', marginBottom: '12px' }}>
+              PENDING TRADES QUEUE
+            </div>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+              <button
+                onClick={() => setTradeFilter('all')}
+                style={{
+                  flex: 1,
+                  padding: '8px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: tradeFilter === 'all' ? '#3b82f6' : '#111111',
+                  color: tradeFilter === 'all' ? '#fff' : '#94a3b8',
+                  fontSize: '11px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                ALL ({pendingTrades.length})
+              </button>
+              <button
+                onClick={() => setTradeFilter('flagged')}
+                style={{
+                  flex: 1,
+                  padding: '8px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: tradeFilter === 'flagged' ? '#f59e0b' : '#111111',
+                  color: tradeFilter === 'flagged' ? '#000' : '#94a3b8',
+                  fontSize: '11px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                REVIEW ({pendingTrades.filter(t => t.status === 'flagged' || t.status === 'pending_verification').length})
+              </button>
+            </div>
+          </div>
+          
+          {filteredTrades.map((t) => (
+            <div
+              key={t.id}
+              onClick={() => setSelectedTrade(t.id)}
+              style={{
+                padding: '16px 20px',
+                cursor: 'pointer',
+                background: selectedTrade === t.id ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+                borderLeft: selectedTrade === t.id ? '3px solid #3b82f6' : '3px solid transparent',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                <div style={{ fontSize: '12px', color: '#64748b', fontFamily: 'monospace' }}>{t.id.slice(-8)}</div>
+                {getStatusBadge(t.status)}
+              </div>
+              <div style={{ fontWeight: '600', fontSize: '14px', marginBottom: '4px' }}>{t.asset}</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ fontSize: '12px', color: '#94a3b8' }}>
+                  {t.direction} • {formatCurrency(t.notional)}
+                </div>
+                <div style={{
+                  fontSize: '14px',
+                  fontWeight: '700',
+                  color: getProbabilityColor(t.settlementProbability)
+                }}>
+                  {Math.round(t.settlementProbability * 100)}%
+                </div>
+              </div>
+              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
+                {t.counterpartyName}
+              </div>
+            </div>
+          ))}
+        </aside>
+
+        {/* Main Content */}
+        <main style={{ flex: 1, padding: '24px 32px', minWidth: 0 }}>
+          {trade && capability && (
+            <>
+              {/* Trade Detail Header */}
+              <div style={{
+                background: 'rgba(17, 17, 17, 0.9)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '12px',
+                padding: '24px',
+                marginBottom: '24px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+                  <div>
+                    <div style={{ fontSize: '11px', color: '#64748b', letterSpacing: '0.1em', marginBottom: '8px' }}>
+                      TRADE DETAIL
+                    </div>
+                    <div style={{ fontSize: '24px', fontWeight: '700', marginBottom: '4px' }}>{trade.asset}</div>
+                    <div style={{ fontSize: '14px', color: '#94a3b8' }}>
+                      {trade.id} • {trade.settlementType} Settlement
+                    </div>
+                  </div>
+                  {getStatusBadge(trade.status)}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '24px' }}>
+                  <div>
+                    <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px' }}>COUNTERPARTY</div>
+                    <div style={{ fontSize: '14px', fontWeight: '600' }}>{trade.counterpartyName}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px' }}>DIRECTION</div>
+                    <div style={{ 
+                      fontSize: '14px', 
+                      fontWeight: '600',
+                      color: trade.direction === 'BUY' ? '#10b981' : '#ef4444'
+                    }}>
+                      {trade.direction}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px' }}>NOTIONAL</div>
+                    <div style={{ fontSize: '14px', fontWeight: '600' }}>{formatCurrency(trade.notional)}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px' }}>ASSET TYPE</div>
+                    <div style={{ fontSize: '14px', fontWeight: '600' }}>{trade.assetType}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px' }}>SETTLEMENT DATE</div>
+                    <div style={{ fontSize: '14px', fontWeight: '600' }}>{trade.settlementDate}</div>
+                  </div>
+                </div>
+
+                {trade.riskFlags.length > 0 && (
+                  <div style={{ marginTop: '16px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {trade.riskFlags.map((flag, i) => (
+                      <span key={i} style={{
+                        background: 'rgba(245, 158, 11, 0.1)',
+                        border: '1px solid rgba(245, 158, 11, 0.3)',
+                        color: '#fbbf24',
+                        padding: '4px 10px',
+                        borderRadius: '4px',
+                        fontSize: '11px',
+                        fontWeight: '600'
+                      }}>
+                        ⚠ {getRiskFlagLabel(flag)}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Settlement Capability Assessment */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(5, 1fr)',
+                gap: '20px',
+                marginBottom: '24px'
+              }}>
+                <div style={{
+                  background: 'rgba(17, 17, 17, 0.9)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '12px',
+                  padding: '20px'
+                }}>
+                  <div style={{ fontSize: '11px', color: '#64748b', letterSpacing: '0.1em', marginBottom: '8px' }}>
+                    AVAILABLE BALANCE
+                  </div>
+                  <div style={{ fontSize: '28px', fontWeight: '700' }}>
+                    {formatCurrency(capability.availableBalance)}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                    Liquid assets held
+                  </div>
+                </div>
+
+                <div style={{
+                  background: 'rgba(17, 17, 17, 0.9)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '12px',
+                  padding: '20px'
+                }}>
+                  <div style={{ fontSize: '11px', color: '#64748b', letterSpacing: '0.1em', marginBottom: '8px' }}>
+                    REQUIRED MARGIN
+                  </div>
+                  <div style={{ fontSize: '28px', fontWeight: '700' }}>
+                    {formatCurrency(capability.requiredMargin)}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                    For this trade
+                  </div>
+                </div>
+
+                <div style={{
+                  background: 'rgba(17, 17, 17, 0.9)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '12px',
+                  padding: '20px'
+                }}>
+                  <div style={{ fontSize: '11px', color: '#64748b', letterSpacing: '0.1em', marginBottom: '8px' }}>
+                    COVERAGE RATIO
+                  </div>
+                  <div style={{ 
+                    fontSize: '28px', 
+                    fontWeight: '700',
+                    color: capability.coverageRatio >= 2 ? '#10b981' : capability.coverageRatio >= 1.5 ? '#f59e0b' : '#ef4444'
+                  }}>
+                    {capability.coverageRatio.toFixed(2)}x
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                    {capability.coverageRatio >= 2 ? 'Healthy' : capability.coverageRatio >= 1.5 ? 'Adequate' : 'Below threshold'}
+                  </div>
+                </div>
+
+                <div style={{
+                  background: 'rgba(17, 17, 17, 0.9)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '12px',
+                  padding: '20px'
+                }}>
+                  <div style={{ fontSize: '11px', color: '#64748b', letterSpacing: '0.1em', marginBottom: '8px' }}>
+                    LIQUIDITY SCORE
+                  </div>
+                  <div style={{ 
+                    fontSize: '28px', 
+                    fontWeight: '700',
+                    color: getScoreColor(capability.liquidityScore)
+                  }}>
+                    {capability.liquidityScore}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                    Weighted PoLi avg
+                  </div>
+                </div>
+
+                <div style={{
+                  background: capability.settlementProbability >= 0.75 
+                    ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.15) 100%)'
+                    : 'linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(220, 38, 38, 0.15) 100%)',
+                  border: `1px solid ${capability.settlementProbability >= 0.75 ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+                  borderRadius: '12px',
+                  padding: '20px'
+                }}>
+                  <div style={{ 
+                    fontSize: '11px', 
+                    color: capability.settlementProbability >= 0.75 ? '#34d399' : '#fca5a5', 
+                    letterSpacing: '0.1em', 
+                    marginBottom: '8px' 
+                  }}>
+                    SETTLEMENT PROBABILITY
+                  </div>
+                  <div style={{ 
+                    fontSize: '28px', 
+                    fontWeight: '700',
+                    color: getProbabilityColor(capability.settlementProbability)
+                  }}>
+                    {Math.round(capability.settlementProbability * 100)}%
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                    {capability.settlementProbability >= 0.9 ? 'Very Likely' : capability.settlementProbability >= 0.75 ? 'Likely' : 'At Risk'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Settlement Probability Bar */}
+              <div style={{
+                background: 'rgba(17, 17, 17, 0.9)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '12px',
+                padding: '24px',
+                marginBottom: '24px'
+              }}>
+                <div style={{ fontSize: '11px', color: '#64748b', letterSpacing: '0.1em', marginBottom: '16px' }}>
+                  SETTLEMENT PROBABILITY ASSESSMENT
+                </div>
+                <div style={{ 
+                  background: '#111111', 
+                  borderRadius: '8px', 
+                  height: '32px', 
+                  overflow: 'hidden',
+                  position: 'relative'
+                }}>
+                  <div style={{
+                    width: `${capability.settlementProbability * 100}%`,
+                    height: '100%',
+                    background: `linear-gradient(90deg, ${getProbabilityColor(capability.settlementProbability)} 0%, ${getProbabilityColor(capability.settlementProbability)}88 100%)`,
+                    transition: 'width 0.5s ease',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'flex-end',
+                    paddingRight: '12px'
+                  }}>
+                    <span style={{ fontSize: '14px', fontWeight: '700', color: '#000' }}>
+                      {Math.round(capability.settlementProbability * 100)}% LIKELY
+                    </span>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '11px', color: '#64748b' }}>
+                  <span>0%</span>
+                  <span>Low Risk Threshold (75%)</span>
+                  <span>100%</span>
+                </div>
+              </div>
+
+              {/* Liquidity Source Breakdown */}
+              <div style={{
+                background: 'rgba(17, 17, 17, 0.9)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '12px',
+                padding: '24px',
+                marginBottom: '24px'
+              }}>
+                <div style={{ fontSize: '11px', color: '#64748b', letterSpacing: '0.1em', marginBottom: '20px' }}>
+                  LIQUIDITY SOURCE BREAKDOWN
+                </div>
+                
+                {capability.sources.map((source, i) => (
+                  <div key={i} style={{ marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <span style={{ fontSize: '14px', color: '#e2e8f0' }}>{source.type}</span>
+                        <span style={{
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          fontSize: '11px',
+                          fontWeight: '600',
+                          background: getScoreColor(source.poliAvg) + '20',
+                          color: getScoreColor(source.poliAvg)
+                        }}>
+                          PoLi {source.poliAvg}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '14px', color: '#94a3b8' }}>
+                        {formatCurrency(source.amount)} ({source.pct}%)
+                      </div>
+                    </div>
+                    <div style={{ background: '#111111', borderRadius: '4px', height: '8px', overflow: 'hidden' }}>
+                      <div style={{
+                        width: `${source.pct}%`,
+                        height: '100%',
+                        background: i === 0 ? '#10b981' : i === 1 ? '#3b82f6' : '#f59e0b',
+                        transition: 'width 0.5s ease'
+                      }} />
+                    </div>
+                  </div>
+                ))}
+
+                {capability.warnings.length > 0 && (
+                  <div style={{
+                    marginTop: '20px',
+                    padding: '16px',
+                    background: 'rgba(245, 158, 11, 0.1)',
+                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                    borderRadius: '8px'
+                  }}>
+                    {capability.warnings.map((warning, i) => (
+                      <div key={i} style={{ 
+                        fontSize: '13px', 
+                        color: '#fbbf24',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}>
+                        <span>⚠</span> {warning}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Verification Decision */}
+              <div style={{
+                background: 'rgba(17, 17, 17, 0.9)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '12px',
+                padding: '24px'
+              }}>
+                <div style={{ fontSize: '11px', color: '#64748b', letterSpacing: '0.1em', marginBottom: '20px' }}>
+                  VERIFICATION DECISION
+                </div>
+                <div style={{ display: 'flex', gap: '16px' }}>
+                  <button style={{
+                    flex: 1,
+                    padding: '16px 24px',
+                    background: '#10b981',
+                    border: 'none',
+                    borderRadius: '8px',
+                    color: '#fff',
+                    fontSize: '14px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
+                  }}>
+                    ✓ APPROVE TRADE
+                  </button>
+                  <button style={{
+                    flex: 1,
+                    padding: '16px 24px',
+                    background: '#f59e0b',
+                    border: 'none',
+                    borderRadius: '8px',
+                    color: '#000',
+                    fontSize: '14px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
+                  }}>
+                    ⚠ FLAG FOR REVIEW
+                  </button>
+                  <button style={{
+                    flex: 1,
+                    padding: '16px 24px',
+                    background: '#ef4444',
+                    border: 'none',
+                    borderRadius: '8px',
+                    color: '#fff',
+                    fontSize: '14px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
+                  }}>
+                    ✗ REJECT
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </main>
+
+        {/* Right Panel - Settlement Risk Feed */}
+        <aside style={{
+          width: '340px',
+          background: 'rgba(10, 10, 10, 0.8)',
+          borderLeft: '1px solid rgba(255, 255, 255, 0.1)',
+          minHeight: 'calc(100vh - 69px)',
+          flexShrink: 0,
+          padding: '20px'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <div style={{ fontSize: '11px', color: '#64748b', letterSpacing: '0.1em' }}>
+              SETTLEMENT RISK FEED
+            </div>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '11px',
+              color: '#10b981'
+            }}>
+              <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', animation: 'pulse 2s infinite' }} />
+              MONITORING
+            </div>
+          </div>
+
+          {/* Alert Stats */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, 1fr)',
+            gap: '12px',
+            marginBottom: '20px'
+          }}>
+            {[
+              { label: 'HIGH', count: settlementAlerts.filter(a => a.severity === 'high').length, color: '#ef4444' },
+              { label: 'MEDIUM', count: settlementAlerts.filter(a => a.severity === 'medium').length, color: '#f59e0b' },
+              { label: 'LOW', count: settlementAlerts.filter(a => a.severity === 'low').length, color: '#3b82f6' }
+            ].map(stat => (
+              <div key={stat.label} style={{
+                background: '#111111',
+                borderRadius: '8px',
+                padding: '12px',
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '20px', fontWeight: '700', color: stat.color }}>{stat.count}</div>
+                <div style={{ fontSize: '10px', color: '#64748b', letterSpacing: '0.05em' }}>{stat.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Alert List */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {settlementAlerts.map(alert => {
+              const style = getSeverityStyle(alert.severity);
+              return (
+                <div
+                  key={alert.id}
+                  style={{
+                    background: style.bg,
+                    border: `1px solid ${style.border}`,
+                    borderRadius: '8px',
+                    padding: '14px'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: style.dot }} />
+                      <span style={{ fontSize: '12px', fontWeight: '600', color: '#e2e8f0' }}>{alert.counterparty}</span>
+                    </div>
+                    <span style={{ fontSize: '11px', color: '#64748b' }}>{alert.time}</span>
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '8px', lineHeight: 1.4 }}>
+                    {alert.message}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '11px', color: '#64748b', fontFamily: 'monospace' }}>{alert.tradeId.slice(-8)}</span>
+                    <span style={{
+                      fontSize: '10px',
+                      color: '#64748b',
+                      background: '#000',
+                      padding: '2px 8px',
+                      borderRadius: '4px'
+                    }}>
+                      {alert.type.replace('_', ' ')}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </aside>
+      </div>
+
+      {/* Footer */}
+      <footer style={{
+        background: 'rgba(0, 0, 0, 0.95)',
+        borderTop: '1px solid rgba(251, 191, 36, 0.2)',
+        padding: '12px 32px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        zIndex: 100
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{
+            background: 'rgba(251, 191, 36, 0.1)',
+            border: '1px solid rgba(251, 191, 36, 0.3)',
+            padding: '4px 12px',
+            borderRadius: '4px',
+            fontSize: '11px',
+            fontWeight: '600',
+            color: '#fbbf24'
+          }}>
+            SIMULATION
+          </div>
+          <span style={{ fontSize: '12px', color: '#94a3b8' }}>
+            Settlement probabilities derived from proxy liquidity models. Not representative of live trading.
+          </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <span style={{ fontSize: '11px', color: '#64748b' }}>
+            Production: Pending Canton Network + DTC Tokenization Service (H2 2026)
+          </span>
+          <div style={{ 
+            fontSize: '11px', 
+            color: '#64748b',
+            padding: '4px 12px',
+            background: '#111111',
+            borderRadius: '4px'
+          }}>
+            LTF v2.1 Methodology
+          </div>
+        </div>
+      </footer>
+
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+        button:hover {
+          filter: brightness(1.1);
+        }
+      `}</style>
+    </div>
+  );
+};
+
+export default PreTradeVerification;
