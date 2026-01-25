@@ -47,10 +47,11 @@ import {
   DollarSign,
   ArrowUpRight,
   ArrowDownRight,
-  Info
+  Info,
+  Link
 } from "lucide-react";
 
-type ViewType = "pretrade" | "margin" | "manipulation" | "member-risk";
+type ViewType = "pretrade" | "margin" | "manipulation" | "member-risk" | "poli";
 type StressScenario = "normal" | "moderate" | "stressed" | "extreme";
 
 interface RiskFactor {
@@ -135,6 +136,15 @@ const RISK_THRESHOLDS = {
   CRITICAL: { min: 0, color: "#dc2626", label: "CRITICAL" }
 };
 
+// Evidence Level Definitions - Data confidence grades for PoLi attestations
+const EVIDENCE_LEVELS: Record<string, { label: string; name: string; color: string; description: string }> = {
+  L1: { label: "L1", name: "Direct", color: "#10b981", description: "Real-time venue data" },
+  L2: { label: "L2", name: "Verified", color: "#34d399", description: "Cross-venue validated" },
+  L3: { label: "L3", name: "Derived", color: "#f59e0b", description: "Model-derived with proxies" },
+  L4: { label: "L4", name: "Estimated", color: "#fb923c", description: "Historical extrapolation" },
+  L5: { label: "L5", name: "Declared", color: "#94a3b8", description: "Self-reported, unverified" }
+};
+
 const getRiskLabel = (score: number) => {
   if (score >= 85) return RISK_THRESHOLDS.LOW;
   if (score >= 70) return RISK_THRESHOLDS.MODERATE;
@@ -195,6 +205,7 @@ export default function CCPMarginUnified() {
   const [selectedCollateral, setSelectedCollateral] = useState<string | null>(null);
   const [memberSearch, setMemberSearch] = useState("");
   const [rightPanelTab, setRightPanelTab] = useState<"alerts" | "trends">("alerts");
+  const [showAttestationHistory, setShowAttestationHistory] = useState(false);
 
   const members: Record<string, Member> = {
     "acme-capital": {
@@ -502,7 +513,8 @@ export default function CCPMarginUnified() {
     { id: "pretrade", label: "Pre-Trade Verification", Icon: ArrowRightLeft, question: "Can they settle?" },
     { id: "margin", label: "Margin Accuracy", Icon: Scale, question: "Is collateral liquid?" },
     { id: "manipulation", label: "Manipulation Detection", Icon: Eye, question: "Is liquidity gamed?" },
-    { id: "member-risk", label: "Member Risk", Icon: Users, question: "Aggregate exposure?" }
+    { id: "member-risk", label: "Member Risk", Icon: Users, question: "Aggregate exposure?" },
+    { id: "poli", label: "PoLi Attestations", Icon: Link, question: "What's on Canton?" }
   ];
 
   const formatCurrency = (value: number) => {
@@ -536,9 +548,45 @@ export default function CCPMarginUnified() {
       MODERATE: { bg: "#78350f", color: "#fbbf24" },
       MEDIUM: { bg: "#78350f", color: "#fbbf24" },
       HIGH: { bg: "#7f1d1d", color: "#f87171" },
-      CRITICAL: { bg: "#450a0a", color: "#fca5a5" }
+      CRITICAL: { bg: "#450a0a", color: "#fca5a5" },
+      current: { bg: "#064e3b", color: "#34d399", label: "CURRENT" },
+      stale: { bg: "#78350f", color: "#fbbf24", label: "STALE" },
+      confirmed: { bg: "#064e3b", color: "#34d399", label: "CONFIRMED" },
+      pending: { bg: "#1e3a5f", color: "#60a5fa", label: "PENDING" },
+      superseded: { bg: "#374151", color: "#9ca3af", label: "SUPERSEDED" }
     };
     return styles[status] || styles.caution;
+  };
+
+  // PoLi Attestation Data - What's anchored on Canton Network
+  const poliAttestations = {
+    summary: {
+      activeAttestations: 127,
+      pendingAnchor: 3,
+      queriesLast24h: 847,
+      averageEvidenceLevel: "L2",
+      lastAnchorTime: "14:32:07",
+      cantonBlockHeight: "8,847,293"
+    },
+    memberAttestations: [
+      { memberId: "ACMECAPITAL", memberName: "Acme Capital LLC", attestations: 4, avgPoLi: 85, avgEvidence: "L2", lastUpdate: "14:32:07", status: "current", queries24h: 156 },
+      { memberId: "MERIDIANFUND", memberName: "Meridian Fund Services", attestations: 3, avgPoLi: 90, avgEvidence: "L1", lastUpdate: "14:31:45", status: "current", queries24h: 89 },
+      { memberId: "VERTEXTRADING", memberName: "Vertex Trading Corp", attestations: 3, avgPoLi: 63, avgEvidence: "L3", lastUpdate: "14:30:22", status: "stale", queries24h: 312 }
+    ],
+    history: [
+      { id: "att-001", time: "14:32:07", member: "Acme Capital", asset: "Russell 1000 ETF Token", poliScore: 68, evidence: "L3", anchorRef: "0x7f3a8b2c...d4e1", status: "confirmed", queries: [{ entity: "ADGM", count: 2, lastQuery: "14:35:12" }] },
+      { id: "att-002", time: "14:32:07", member: "Acme Capital", asset: "UST 10Y Token", poliScore: 91, evidence: "L2", anchorRef: "0x8b2c9d3e...f5a2", status: "confirmed", queries: [] },
+      { id: "att-003", time: "14:32:07", member: "Acme Capital", asset: "AAPL Token", poliScore: 84, evidence: "L2", anchorRef: "0x9c3d0e4f...a6b3", status: "confirmed", queries: [{ entity: "Canton CCP", count: 1, lastQuery: "14:33:45" }] },
+      { id: "att-004", time: "14:32:07", member: "Acme Capital", asset: "UST 2Y Token", poliScore: 96, evidence: "L1", anchorRef: "0xad4e1f5a...b7c4", status: "confirmed", queries: [] },
+      { id: "att-005", time: "14:31:45", member: "Meridian Fund", asset: "UST 10Y Token", poliScore: 94, evidence: "L1", anchorRef: "0xbe5f2a6b...c8d5", status: "confirmed", queries: [{ entity: "IntellectEU", count: 3, lastQuery: "14:34:22" }] },
+      { id: "att-006", time: "14:31:45", member: "Meridian Fund", asset: "UST 5Y Token", poliScore: 95, evidence: "L1", anchorRef: "0xcf6a3b7c...d9e6", status: "confirmed", queries: [] },
+      { id: "att-007", time: "14:31:45", member: "Meridian Fund", asset: "IG Corp Bond Token", poliScore: 82, evidence: "L2", anchorRef: "0xd07b4c8d...e0f7", status: "confirmed", queries: [] },
+      { id: "att-008", time: "14:30:22", member: "Vertex Trading", asset: "BTC Token", poliScore: 71, evidence: "L3", anchorRef: "0xe18c5d9e...f1a8", status: "confirmed", queries: [{ entity: "ADGM", count: 5, lastQuery: "14:36:01" }, { entity: "Canton CCP", count: 3, lastQuery: "14:35:55" }] },
+      { id: "att-009", time: "14:30:22", member: "Vertex Trading", asset: "ETH Token", poliScore: 65, evidence: "L3", anchorRef: "0xf29d6e0f...a2b9", status: "confirmed", queries: [{ entity: "ADGM", count: 4, lastQuery: "14:35:58" }] },
+      { id: "att-010", time: "14:30:22", member: "Vertex Trading", asset: "SOL Token", poliScore: 52, evidence: "L4", anchorRef: "0xa30e7f1a...b3c0", status: "confirmed", queries: [{ entity: "ADGM", count: 6, lastQuery: "14:36:05" }] },
+      { id: "att-011", time: "14:28:15", member: "Acme Capital", asset: "Russell 1000 ETF Token", poliScore: 71, evidence: "L3", anchorRef: "0xb41f8a2b...c4d1", status: "superseded", queries: [] },
+      { id: "att-012", time: "14:25:33", member: "Vertex Trading", asset: "BTC Token", poliScore: 73, evidence: "L3", anchorRef: "0xc52a9b3c...d5e2", status: "superseded", queries: [] }
+    ]
   };
 
   const getSeverityStyle = (severity: string) => {
@@ -815,6 +863,13 @@ export default function CCPMarginUnified() {
         {activeView === "member-risk" && <MemberRiskView
           member={getMemberWithCalculatedRisk(selectedMember)}
           formatCurrency={formatCurrency}
+          getScoreColor={getScoreColor}
+          getStatusBadge={getStatusBadge}
+        />}
+        {activeView === "poli" && <PoLiAttestationsView
+          poliAttestations={poliAttestations}
+          showAttestationHistory={showAttestationHistory}
+          setShowAttestationHistory={setShowAttestationHistory}
           getScoreColor={getScoreColor}
           getStatusBadge={getStatusBadge}
         />}
@@ -1638,6 +1693,278 @@ function MemberRiskView({ member, formatCurrency, getScoreColor, getStatusBadge 
               </div>
             );
           })}
+        </div>
+      </div>
+    </main>
+  );
+}
+
+// ============================================================================
+// PoLi Attestations View - "What's anchored on Canton?"
+// ============================================================================
+interface PoLiAttestationsViewProps {
+  poliAttestations: {
+    summary: {
+      activeAttestations: number;
+      pendingAnchor: number;
+      queriesLast24h: number;
+      averageEvidenceLevel: string;
+      lastAnchorTime: string;
+      cantonBlockHeight: string;
+    };
+    memberAttestations: Array<{
+      memberId: string;
+      memberName: string;
+      attestations: number;
+      avgPoLi: number;
+      avgEvidence: string;
+      lastUpdate: string;
+      status: string;
+      queries24h: number;
+    }>;
+    history: Array<{
+      id: string;
+      time: string;
+      member: string;
+      asset: string;
+      poliScore: number;
+      evidence: string;
+      anchorRef: string;
+      status: string;
+      queries: Array<{ entity: string; count: number; lastQuery: string }>;
+    }>;
+  };
+  showAttestationHistory: boolean;
+  setShowAttestationHistory: (show: boolean) => void;
+  getScoreColor: (score: number) => string;
+  getStatusBadge: (status: string) => { bg: string; color: string; label?: string };
+}
+
+function PoLiAttestationsView({
+  poliAttestations,
+  showAttestationHistory,
+  setShowAttestationHistory,
+  getScoreColor,
+  getStatusBadge
+}: PoLiAttestationsViewProps) {
+  return (
+    <main className="flex-1 p-6 overflow-y-auto min-w-0">
+      {/* Summary Stats */}
+      <div className="grid grid-cols-6 gap-4 mb-6">
+        {[
+          { label: "ACTIVE", value: poliAttestations.summary.activeAttestations, color: "#10b981" },
+          { label: "PENDING", value: poliAttestations.summary.pendingAnchor, color: "#f59e0b" },
+          { label: "QUERIES 24H", value: poliAttestations.summary.queriesLast24h, color: "#3b82f6" },
+          { label: "AVG EVIDENCE", value: poliAttestations.summary.averageEvidenceLevel, color: EVIDENCE_LEVELS[poliAttestations.summary.averageEvidenceLevel]?.color || "#94a3b8" },
+          { label: "LAST ANCHOR", value: poliAttestations.summary.lastAnchorTime, color: "#94a3b8" },
+          { label: "CANTON BLOCK", value: poliAttestations.summary.cantonBlockHeight, color: "#a78bfa" }
+        ].map((stat, i) => (
+          <div
+            key={i}
+            className="p-4 rounded-xl"
+            style={{ background: "rgba(17, 17, 17, 0.9)", border: "1px solid rgba(255, 255, 255, 0.1)" }}
+          >
+            <div className="text-[9px] text-slate-500 tracking-widest mb-2">{stat.label}</div>
+            <div className="text-2xl font-bold" style={{ color: stat.color }}>{stat.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Member Attestations */}
+      <div
+        className="p-6 rounded-xl mb-6"
+        style={{ background: "rgba(17, 17, 17, 0.9)", border: "1px solid rgba(255, 255, 255, 0.1)" }}
+      >
+        <div className="text-[11px] text-slate-500 tracking-widest mb-4">MEMBER ATTESTATIONS</div>
+        <div className="grid grid-cols-3 gap-4">
+          {poliAttestations.memberAttestations.map((ma) => {
+            const statusStyle = getStatusBadge(ma.status);
+            return (
+              <div
+                key={ma.memberId}
+                className="p-4 rounded-lg"
+                style={{ background: "#111111", border: "1px solid rgba(255, 255, 255, 0.05)" }}
+              >
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <div className="font-semibold text-sm mb-1">{ma.memberName}</div>
+                    <div className="text-[10px] text-slate-500 font-mono">{ma.memberId}</div>
+                  </div>
+                  <span
+                    className="text-[9px] px-2 py-1 rounded font-bold"
+                    style={{ background: statusStyle.bg, color: statusStyle.color }}
+                  >
+                    {statusStyle.label || ma.status.toUpperCase()}
+                  </span>
+                </div>
+                <div className="grid grid-cols-4 gap-2 text-center">
+                  <div>
+                    <div className="text-[9px] text-slate-500 mb-1">ASSETS</div>
+                    <div className="text-lg font-bold">{ma.attestations}</div>
+                  </div>
+                  <div>
+                    <div className="text-[9px] text-slate-500 mb-1">AVG PoLi</div>
+                    <div className="text-lg font-bold" style={{ color: getScoreColor(ma.avgPoLi) }}>{ma.avgPoLi}</div>
+                  </div>
+                  <div>
+                    <div className="text-[9px] text-slate-500 mb-1">EVIDENCE</div>
+                    <div className="text-lg font-bold" style={{ color: EVIDENCE_LEVELS[ma.avgEvidence]?.color }}>{ma.avgEvidence}</div>
+                  </div>
+                  <div>
+                    <div className="text-[9px] text-slate-500 mb-1">QUERIES</div>
+                    <div className="text-lg font-bold" style={{ color: ma.queries24h > 200 ? "#f59e0b" : "#94a3b8" }}>{ma.queries24h}</div>
+                  </div>
+                </div>
+                <div className="mt-3 pt-3 border-t border-white/5 text-[10px] text-slate-500">
+                  Last update: {ma.lastUpdate}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Evidence Level Legend */}
+      <div
+        className="p-5 rounded-xl mb-6"
+        style={{ background: "rgba(17, 17, 17, 0.9)", border: "1px solid rgba(255, 255, 255, 0.1)" }}
+      >
+        <div className="text-[11px] text-slate-500 tracking-widest mb-4">EVIDENCE LEVEL DEFINITIONS</div>
+        <div className="flex gap-4 flex-wrap">
+          {Object.entries(EVIDENCE_LEVELS).map(([key, level]) => (
+            <div key={key} className="flex items-center gap-2">
+              <span
+                className="text-[11px] px-2 py-1 rounded font-bold"
+                style={{ background: level.color + "20", color: level.color }}
+              >
+                {level.label}
+              </span>
+              <span className="text-xs text-slate-300">{level.name}</span>
+              <span className="text-[11px] text-slate-500">- {level.description}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Toggle for History */}
+      <Button
+        variant="outline"
+        onClick={() => setShowAttestationHistory(!showAttestationHistory)}
+        className={cn(
+          "mb-4",
+          showAttestationHistory ? "border-purple-500/40 bg-purple-500/20 text-purple-300" : ""
+        )}
+        data-testid="btn-toggle-history"
+      >
+        {showAttestationHistory ? <ChevronDown className="w-4 h-4 mr-2" /> : <ChevronUp className="w-4 h-4 mr-2" />}
+        {showAttestationHistory ? "Hide" : "Show"} Attestation History
+      </Button>
+
+      {/* Attestation History Log */}
+      {showAttestationHistory && (
+        <div
+          className="rounded-xl overflow-hidden"
+          style={{ background: "rgba(17, 17, 17, 0.9)", border: "1px solid rgba(255, 255, 255, 0.1)" }}
+        >
+          <div className="p-4 border-b border-white/10 flex justify-between items-center">
+            <div>
+              <div className="text-[11px] text-slate-500 tracking-widest">ATTESTATION HISTORY</div>
+              <div className="text-xs text-slate-400 mt-1">Showing {poliAttestations.history.length} events</div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 text-[11px] text-green-400">
+                <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                Auto-scroll: On
+              </div>
+              <Button variant="ghost" size="sm" className="text-[11px] text-slate-400">
+                Jump to latest
+              </Button>
+            </div>
+          </div>
+
+          <div className="max-h-[400px] overflow-y-auto">
+            <table className="w-full border-collapse">
+              <thead className="sticky top-0 bg-[#0a0a0a]">
+                <tr className="border-b border-white/10">
+                  {["TIME", "MEMBER", "ASSET", "PoLi", "EVIDENCE", "ANCHOR REF", "STATUS", "QUERIES"].map((col) => (
+                    <th key={col} className="p-3 text-left text-[10px] text-slate-500 font-semibold tracking-wide">
+                      {col}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {poliAttestations.history.map((att) => {
+                  const statusStyle = getStatusBadge(att.status);
+                  return (
+                    <tr
+                      key={att.id}
+                      className="border-b border-white/5"
+                      style={{ opacity: att.status === "superseded" ? 0.5 : 1 }}
+                    >
+                      <td className="p-3 text-xs font-mono text-slate-400">{att.time}</td>
+                      <td className="p-3 text-xs">{att.member}</td>
+                      <td className="p-3 text-xs">{att.asset}</td>
+                      <td className="p-3">
+                        <span
+                          className="px-2 py-1 rounded text-xs font-bold"
+                          style={{ background: getScoreColor(att.poliScore) + "20", color: getScoreColor(att.poliScore) }}
+                        >
+                          {att.poliScore}
+                        </span>
+                      </td>
+                      <td className="p-3">
+                        <span
+                          className="px-2 py-1 rounded text-[10px] font-semibold"
+                          style={{ background: EVIDENCE_LEVELS[att.evidence]?.color + "20", color: EVIDENCE_LEVELS[att.evidence]?.color }}
+                        >
+                          {att.evidence}
+                        </span>
+                      </td>
+                      <td className="p-3 text-[11px] font-mono text-slate-500">{att.anchorRef}</td>
+                      <td className="p-3">
+                        <span
+                          className="px-2 py-1 rounded text-[10px] font-semibold"
+                          style={{ background: statusStyle.bg, color: statusStyle.color }}
+                        >
+                          {att.status.toUpperCase()}
+                        </span>
+                      </td>
+                      <td className="p-3">
+                        {att.queries.length > 0 ? (
+                          <div className="flex flex-col gap-1">
+                            {att.queries.map((q, i) => (
+                              <div key={i} className="text-[10px] text-slate-400">
+                                <span className="text-blue-400">{q.entity}</span> ({q.count}x)
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-slate-600">-</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Canton Integration Note */}
+      <div
+        className="mt-6 p-5 rounded-xl"
+        style={{ background: "rgba(139, 92, 246, 0.1)", border: "1px solid rgba(139, 92, 246, 0.3)" }}
+      >
+        <div className="flex items-start gap-3">
+          <Link className="w-5 h-5 text-purple-400 mt-0.5" />
+          <div>
+            <div className="text-sm font-semibold text-purple-300 mb-1">Canton Network Integration</div>
+            <div className="text-xs text-slate-400 leading-relaxed">
+              PoLi attestations are the only Stratalink component that lives on-chain. Regulators (ADGM), CCPs, and counterparties query these attestations directly from Canton - they don't need access to Stratalink to verify collateral liquidity scores.
+            </div>
+          </div>
         </div>
       </div>
     </main>
