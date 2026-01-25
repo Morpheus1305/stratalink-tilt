@@ -1,0 +1,999 @@
+import React, { useState, useMemo } from 'react';
+
+// ============================================================================
+// UNIFIED CCP MARGIN CONSOLE - v2.3 (With PoLi Attestations View)
+// ============================================================================
+// Architecture:
+// - STRATA, TSLE, DACT, RCL, LTF run OFF-CHAIN (Stratalink infrastructure)
+// - PoLi attestations are ANCHORED ON CANTON (what clients/regulators query)
+// - TILT visualizes both internal analysis AND on-chain attestation state
+//
+// 5 Views:
+// 1. Pre-Trade Verification - "Can they settle?"
+// 2. Margin Accuracy - "Is collateral liquid?"
+// 3. Manipulation Detection - "Is liquidity gamed?"
+// 4. Member Risk - "Aggregate exposure?"
+// 5. PoLi Attestations - "What's anchored on Canton?"
+// ============================================================================
+
+const CCPMarginConsole = () => {
+  const [activeView, setActiveView] = useState('margin');
+  const [showDataProvenance, setShowDataProvenance] = useState(false);
+  const [selectedMember, setSelectedMember] = useState('acme-capital');
+  const [stressScenario, setStressScenario] = useState('normal');
+  const [selectedTrade, setSelectedTrade] = useState('TRD-2026-0124-0847');
+  const [selectedAsset, setSelectedAsset] = useState('russ-etf');
+  const [selectedCollateral, setSelectedCollateral] = useState(null);
+  const [showSimulator, setShowSimulator] = useState(false);
+  const [rightPanelTab, setRightPanelTab] = useState('alerts');
+  const [showAttestationHistory, setShowAttestationHistory] = useState(false);
+
+  // ============================================================================
+  // RISK METHODOLOGY CONSTANTS
+  // ============================================================================
+  
+  const RISK_WEIGHTS = {
+    venueConcentration: 0.35,
+    assetConcentration: 0.25,
+    liquidityRisk: 0.28,
+    counterpartyRisk: 0.12
+  };
+
+  const RISK_THRESHOLDS = {
+    LOW: { min: 85, color: '#10b981', label: 'LOW' },
+    MODERATE: { min: 70, color: '#f59e0b', label: 'MODERATE' },
+    HIGH: { min: 50, color: '#ef4444', label: 'HIGH' },
+    CRITICAL: { min: 0, color: '#dc2626', label: 'CRITICAL' }
+  };
+
+  const EVIDENCE_LEVELS = {
+    L1: { label: 'L1', name: 'Direct', color: '#10b981', description: 'Real-time venue data' },
+    L2: { label: 'L2', name: 'Verified', color: '#34d399', description: 'Cross-venue validated' },
+    L3: { label: 'L3', name: 'Derived', color: '#f59e0b', description: 'Model-derived with proxies' },
+    L4: { label: 'L4', name: 'Estimated', color: '#fb923c', description: 'Historical extrapolation' },
+    L5: { label: 'L5', name: 'Declared', color: '#94a3b8', description: 'Self-reported, unverified' }
+  };
+
+  const getRiskLabel = (score) => {
+    if (score >= 85) return RISK_THRESHOLDS.LOW;
+    if (score >= 70) return RISK_THRESHOLDS.MODERATE;
+    if (score >= 50) return RISK_THRESHOLDS.HIGH;
+    return RISK_THRESHOLDS.CRITICAL;
+  };
+
+  const calculateRiskScore = (factors) => {
+    return Math.round(
+      factors.venueConcentration.score * RISK_WEIGHTS.venueConcentration +
+      factors.assetConcentration.score * RISK_WEIGHTS.assetConcentration +
+      factors.liquidityRisk.score * RISK_WEIGHTS.liquidityRisk +
+      factors.counterpartyRisk.score * RISK_WEIGHTS.counterpartyRisk
+    );
+  };
+
+  // ============================================================================
+  // DATA MODELS
+  // ============================================================================
+
+  // Haircut rates by asset type (standard methodology)
+  const HAIRCUT_RATES = {
+    'Treasury': 0.05,      // 5% haircut for government bonds
+    'Corporate': 0.08,     // 8% haircut for corporate bonds
+    'Equity': 0.10,        // 10% haircut for single equities
+    'Equity ETF': 0.10,    // 10% haircut for equity ETFs
+    'Crypto': 0.25         // 25% haircut for crypto assets
+  };
+
+  // Calculate haircut and STRATA value for an asset
+  const calculateAssetValues = (asset) => {
+    const haircutRate = HAIRCUT_RATES[asset.type] || 0.10;
+    const haircut = asset.nominal * (1 - haircutRate);
+    // STRATA value applies additional liquidity discount based on PoLi score
+    // Lower PoLi = higher discount. Formula: haircut * (0.7 + 0.3 * (poliScore/100))
+    const liquidityFactor = 0.7 + 0.3 * (asset.poliScore / 100);
+    const strataValue = Math.round(haircut * liquidityFactor);
+    return { ...asset, haircut, strataValue };
+  };
+
+  const members = {
+    'acme-capital': {
+      name: 'Acme Capital LLC',
+      memberId: 'ACMECAPITAL',
+      riskTier: 'Standard',
+      strataScore: 77,
+      strataStatus: 'caution',
+      strataDescription: 'Collateral liquidity reduced by Russell ETF anomalies',
+      riskFactors: {
+        venueConcentration: { score: 45, weight: 35, label: 'HIGH' },
+        assetConcentration: { score: 72, weight: 25, label: 'MODERATE' },
+        liquidityRisk: { score: 65, weight: 28, label: 'HIGH' },
+        counterpartyRisk: { score: 82, weight: 12, label: 'LOW' }
+      },
+      collateral: [
+        { id: 'tsry-10y', asset: 'UST 10Y Token', type: 'Treasury', nominal: 250000000, poliScore: 91, tsleStatus: 'clear', venues: 4, depth: 'Strong', liquidityProfile: { '24h': 1.0, '12h': 0.97, '4h': 0.91, '1h': 0.82 }, dataConfidence: 'high', evidenceLevel: 'L2' },
+        { id: 'russ-etf', asset: 'Russell 1000 ETF Token', type: 'Equity ETF', nominal: 350000000, poliScore: 68, tsleStatus: 'anomaly', venues: 3, depth: 'Fragmented', liquidityProfile: { '24h': 1.0, '12h': 0.88, '4h': 0.65, '1h': 0.42 }, dataConfidence: 'medium', evidenceLevel: 'L3' },
+        { id: 'aapl-tok', asset: 'AAPL Token', type: 'Equity', nominal: 150000000, poliScore: 84, tsleStatus: 'clear', venues: 5, depth: 'Good', liquidityProfile: { '24h': 1.0, '12h': 0.94, '4h': 0.85, '1h': 0.71 }, dataConfidence: 'medium', evidenceLevel: 'L2' },
+        { id: 'tsry-2y', asset: 'UST 2Y Token', type: 'Treasury', nominal: 97500000, poliScore: 96, tsleStatus: 'clear', venues: 4, depth: 'Deep', liquidityProfile: { '24h': 1.0, '12h': 0.98, '4h': 0.94, '1h': 0.88 }, dataConfidence: 'high', evidenceLevel: 'L1' }
+      ],
+      venueExposure: [
+        { venue: 'Canton DEX', amount: 568000000, pct: 67, status: 'healthy', note: 'Primary venue' },
+        { venue: 'Venue B (CEX)', amount: 263000000, pct: 31, status: 'warning', note: 'TSLE anomalies detected' },
+        { venue: 'Venue C (RFQ)', amount: 17000000, pct: 2, status: 'healthy', note: 'Minimal exposure' }
+      ],
+      recommendations: [
+        { priority: 1, action: 'Reduce Venue B exposure below 25% (TSLE anomalies)', impact: 'HIGH' },
+        { priority: 2, action: 'Diversify Russell 1000 ETF across additional venues', impact: 'MEDIUM' },
+        { priority: 3, action: 'Increase Treasury allocation to improve liquidity profile', impact: 'MEDIUM' }
+      ]
+    },
+    'meridian-fund': {
+      name: 'Meridian Fund Services',
+      memberId: 'MERIDIANFUND',
+      riskTier: 'Standard',
+      strataScore: 89,
+      strataStatus: 'healthy',
+      strataDescription: 'High-quality, diversified collateral with strong liquidity',
+      riskFactors: {
+        venueConcentration: { score: 82, weight: 35, label: 'LOW' },
+        assetConcentration: { score: 88, weight: 25, label: 'LOW' },
+        liquidityRisk: { score: 91, weight: 28, label: 'LOW' },
+        counterpartyRisk: { score: 94, weight: 12, label: 'LOW' }
+      },
+      collateral: [
+        { id: 'mf-tsry-10y', asset: 'UST 10Y Token', type: 'Treasury', nominal: 500000000, poliScore: 94, tsleStatus: 'clear', venues: 5, depth: 'Deep', liquidityProfile: { '24h': 1.0, '12h': 0.98, '4h': 0.93, '1h': 0.85 }, dataConfidence: 'high', evidenceLevel: 'L1' },
+        { id: 'mf-tsry-5y', asset: 'UST 5Y Token', type: 'Treasury', nominal: 400000000, poliScore: 95, tsleStatus: 'clear', venues: 5, depth: 'Deep', liquidityProfile: { '24h': 1.0, '12h': 0.98, '4h': 0.94, '1h': 0.87 }, dataConfidence: 'high', evidenceLevel: 'L1' },
+        { id: 'mf-corp-bond', asset: 'IG Corp Bond Token', type: 'Corporate', nominal: 350000000, poliScore: 82, tsleStatus: 'clear', venues: 4, depth: 'Good', liquidityProfile: { '24h': 1.0, '12h': 0.95, '4h': 0.86, '1h': 0.74 }, dataConfidence: 'medium', evidenceLevel: 'L2' }
+      ],
+      venueExposure: [
+        { venue: 'Canton DEX', amount: 625000000, pct: 50, status: 'healthy', note: 'Well-balanced primary' },
+        { venue: 'Venue B (CEX)', amount: 375000000, pct: 30, status: 'healthy', note: 'Diversified secondary' },
+        { venue: 'Venue C (RFQ)', amount: 187500000, pct: 15, status: 'healthy', note: 'Institutional access' },
+        { venue: 'OTC Pool', amount: 62500000, pct: 5, status: 'healthy', note: 'Strategic reserve' }
+      ],
+      recommendations: [
+        { priority: 1, action: 'Maintain current diversification strategy', impact: 'LOW' }
+      ]
+    },
+    'vertex-trading': {
+      name: 'Vertex Trading Corp',
+      memberId: 'VERTEXTRADING',
+      riskTier: 'Enhanced',
+      strataScore: 58,
+      strataStatus: 'alert',
+      strataDescription: 'Collateral concentrated in volatile assets with venue dependency',
+      riskFactors: {
+        venueConcentration: { score: 31, weight: 35, label: 'CRITICAL' },
+        assetConcentration: { score: 42, weight: 25, label: 'HIGH' },
+        liquidityRisk: { score: 38, weight: 28, label: 'CRITICAL' },
+        counterpartyRisk: { score: 65, weight: 12, label: 'HIGH' }
+      },
+      collateral: [
+        { id: 'vt-btc', asset: 'BTC Token', type: 'Crypto', nominal: 200000000, poliScore: 71, tsleStatus: 'watch', venues: 2, depth: 'Thin', liquidityProfile: { '24h': 1.0, '12h': 0.85, '4h': 0.68, '1h': 0.45 }, dataConfidence: 'medium', evidenceLevel: 'L3' },
+        { id: 'vt-eth', asset: 'ETH Token', type: 'Crypto', nominal: 150000000, poliScore: 65, tsleStatus: 'watch', venues: 2, depth: 'Thin', liquidityProfile: { '24h': 1.0, '12h': 0.82, '4h': 0.62, '1h': 0.38 }, dataConfidence: 'medium', evidenceLevel: 'L3' },
+        { id: 'vt-sol', asset: 'SOL Token', type: 'Crypto', nominal: 75000000, poliScore: 52, tsleStatus: 'elevated', venues: 1, depth: 'Very Thin', liquidityProfile: { '24h': 1.0, '12h': 0.75, '4h': 0.50, '1h': 0.28 }, dataConfidence: 'low', evidenceLevel: 'L4' }
+      ],
+      venueExposure: [
+        { venue: 'Venue B (CEX)', amount: 298000000, pct: 70, status: 'critical', note: 'Excessive concentration' },
+        { venue: 'Canton DEX', amount: 102000000, pct: 24, status: 'healthy', note: 'Secondary venue' },
+        { venue: 'OTC Pool', amount: 25000000, pct: 6, status: 'healthy', note: 'Minimal diversification' }
+      ],
+      recommendations: [
+        { priority: 1, action: 'URGENT: Reduce Venue B concentration below 50%', impact: 'CRITICAL' },
+        { priority: 2, action: 'Diversify crypto holdings across multiple venues', impact: 'HIGH' },
+        { priority: 3, action: 'Increase Treasury allocation to minimum 30%', impact: 'HIGH' }
+      ]
+    }
+  };
+
+  // Function to get member with all calculated values
+  const getMemberWithCalculatedValues = (memberKey) => {
+    const m = members[memberKey];
+    if (!m) return null;
+    
+    // Calculate haircut and STRATA values for each collateral item
+    const collateralWithValues = m.collateral.map(calculateAssetValues);
+    
+    // Sum up totals from collateral
+    const totalPosted = collateralWithValues.reduce((sum, c) => sum + c.nominal, 0);
+    const traditionalValue = collateralWithValues.reduce((sum, c) => sum + c.haircut, 0);
+    const strataAdjusted = collateralWithValues.reduce((sum, c) => sum + c.strataValue, 0);
+    const marginGap = traditionalValue - strataAdjusted;
+    
+    // Calculate risk score
+    const memberRiskScore = calculateRiskScore(m.riskFactors);
+    const riskLabel = getRiskLabel(memberRiskScore);
+    
+    return {
+      ...m,
+      collateral: collateralWithValues,
+      totalPosted,
+      traditionalValue,
+      strataAdjusted,
+      marginGap,
+      memberRiskScore,
+      memberRiskLabel: riskLabel.label,
+      memberRiskColor: riskLabel.color
+    };
+  };
+
+  // PoLi Attestation Data - What's anchored on Canton
+  const poliAttestations = {
+    summary: {
+      activeAttestations: 127,
+      pendingAnchor: 3,
+      queriesLast24h: 847,
+      averageEvidenceLevel: 'L2',
+      lastAnchorTime: '14:32:07',
+      cantonBlockHeight: '8,847,293'
+    },
+    memberAttestations: [
+      { memberId: 'ACMECAPITAL', memberName: 'Acme Capital LLC', attestations: 4, avgPoLi: 85, avgEvidence: 'L2', lastUpdate: '14:32:07', status: 'current', queries24h: 156 },
+      { memberId: 'MERIDIANFUND', memberName: 'Meridian Fund Services', attestations: 3, avgPoLi: 90, avgEvidence: 'L1', lastUpdate: '14:31:45', status: 'current', queries24h: 89 },
+      { memberId: 'VERTEXTRADING', memberName: 'Vertex Trading Corp', attestations: 3, avgPoLi: 63, avgEvidence: 'L3', lastUpdate: '14:30:22', status: 'stale', queries24h: 312 }
+    ],
+    history: [
+      { id: 'att-001', time: '14:32:07', member: 'Acme Capital', asset: 'Russell 1000 ETF Token', poliScore: 68, evidence: 'L3', anchorRef: '0x7f3a8b2c...d4e1', status: 'confirmed', queries: [{ entity: 'ADGM', count: 2, lastQuery: '14:35:12' }] },
+      { id: 'att-002', time: '14:32:07', member: 'Acme Capital', asset: 'UST 10Y Token', poliScore: 91, evidence: 'L2', anchorRef: '0x8b2c9d3e...f5a2', status: 'confirmed', queries: [] },
+      { id: 'att-003', time: '14:32:07', member: 'Acme Capital', asset: 'AAPL Token', poliScore: 84, evidence: 'L2', anchorRef: '0x9c3d0e4f...a6b3', status: 'confirmed', queries: [{ entity: 'Canton CCP', count: 1, lastQuery: '14:33:45' }] },
+      { id: 'att-004', time: '14:32:07', member: 'Acme Capital', asset: 'UST 2Y Token', poliScore: 96, evidence: 'L1', anchorRef: '0xad4e1f5a...b7c4', status: 'confirmed', queries: [] },
+      { id: 'att-005', time: '14:31:45', member: 'Meridian Fund', asset: 'UST 10Y Token', poliScore: 94, evidence: 'L1', anchorRef: '0xbe5f2a6b...c8d5', status: 'confirmed', queries: [{ entity: 'IntellectEU', count: 3, lastQuery: '14:34:22' }] },
+      { id: 'att-006', time: '14:31:45', member: 'Meridian Fund', asset: 'UST 5Y Token', poliScore: 95, evidence: 'L1', anchorRef: '0xcf6a3b7c...d9e6', status: 'confirmed', queries: [] },
+      { id: 'att-007', time: '14:31:45', member: 'Meridian Fund', asset: 'IG Corp Bond Token', poliScore: 82, evidence: 'L2', anchorRef: '0xd07b4c8d...e0f7', status: 'confirmed', queries: [] },
+      { id: 'att-008', time: '14:30:22', member: 'Vertex Trading', asset: 'BTC Token', poliScore: 71, evidence: 'L3', anchorRef: '0xe18c5d9e...f1a8', status: 'confirmed', queries: [{ entity: 'ADGM', count: 5, lastQuery: '14:36:01' }, { entity: 'Canton CCP', count: 3, lastQuery: '14:35:55' }] },
+      { id: 'att-009', time: '14:30:22', member: 'Vertex Trading', asset: 'ETH Token', poliScore: 65, evidence: 'L3', anchorRef: '0xf29d6e0f...a2b9', status: 'confirmed', queries: [{ entity: 'ADGM', count: 4, lastQuery: '14:35:58' }] },
+      { id: 'att-010', time: '14:30:22', member: 'Vertex Trading', asset: 'SOL Token', poliScore: 52, evidence: 'L4', anchorRef: '0xa30e7f1a...b3c0', status: 'confirmed', queries: [{ entity: 'ADGM', count: 6, lastQuery: '14:36:05' }] },
+      { id: 'att-011', time: '14:28:15', member: 'Acme Capital', asset: 'Russell 1000 ETF Token', poliScore: 71, evidence: 'L3', anchorRef: '0xb41f8a2b...c4d1', status: 'superseded', queries: [] },
+      { id: 'att-012', time: '14:25:33', member: 'Vertex Trading', asset: 'BTC Token', poliScore: 73, evidence: 'L3', anchorRef: '0xc52a9b3c...d5e2', status: 'superseded', queries: [] }
+    ]
+  };
+
+  const pendingTrades = [
+    { id: 'TRD-2026-0124-0847', counterparty: 'acme-capital', counterpartyName: 'Acme Capital LLC', direction: 'BUY', asset: 'Russell 1000 ETF Token', assetType: 'Equity ETF', notional: 45000000, settlementDate: '2026-01-25', status: 'pending_verification', riskFlags: ['low_liquidity_asset', 'large_notional'], settlementProbability: 0.87, coverageRatio: 2.69 },
+    { id: 'TRD-2026-0124-0846', counterparty: 'meridian-fund', counterpartyName: 'Meridian Fund Services', direction: 'SELL', asset: 'UST 10Y Token', assetType: 'Treasury', notional: 125000000, settlementDate: '2026-01-25', status: 'approved', riskFlags: [], settlementProbability: 0.96, coverageRatio: 4.12 },
+    { id: 'TRD-2026-0124-0845', counterparty: 'vertex-trading', counterpartyName: 'Vertex Trading Corp', direction: 'BUY', asset: 'AAPL Token', assetType: 'Equity', notional: 28000000, settlementDate: '2026-01-25', status: 'flagged', riskFlags: ['counterparty_alert_status', 'concentration_risk'], settlementProbability: 0.58, coverageRatio: 1.34 }
+  ];
+
+  const manipulationAssets = [
+    { id: 'russ-etf', name: 'Russell 1000 ETF Token', type: 'Equity ETF', tsleState: 'elevated', integrity: 72, alerts: 3 },
+    { id: 'eth-tok', name: 'ETH Token', type: 'Crypto', tsleState: 'watch', integrity: 81, alerts: 1 },
+    { id: 'sol-tok', name: 'SOL Token', type: 'Crypto', tsleState: 'elevated', integrity: 68, alerts: 2 },
+    { id: 'aapl-tok', name: 'AAPL Token', type: 'Equity', tsleState: 'clear', integrity: 94, alerts: 0 },
+    { id: 'ust-10y', name: 'UST 10Y Token', type: 'Treasury', tsleState: 'clear', integrity: 97, alerts: 0 },
+    { id: 'btc-tok', name: 'BTC Token', type: 'Crypto', tsleState: 'watch', integrity: 79, alerts: 2 }
+  ];
+
+  const tsleAlerts = [
+    { id: 1, time: '14:32:07', severity: 'high', asset: 'Russell 1000 ETF Token', member: 'Acme Capital', message: 'Volume spike inconsistent with order book depth on Venue B', type: 'wash_trading' },
+    { id: 2, time: '14:28:45', severity: 'medium', asset: 'ETH Token', member: 'Vertex Trading', message: 'Bid-ask spread widening beyond 2σ threshold', type: 'spread_anomaly' },
+    { id: 3, time: '14:25:12', severity: 'high', asset: 'SOL Token', member: 'Vertex Trading', message: 'Concentrated selling pressure from single venue', type: 'venue_concentration' },
+    { id: 4, time: '14:22:33', severity: 'low', asset: 'AAPL Token', member: 'Acme Capital', message: 'Minor latency spike detected in price feed', type: 'latency' },
+    { id: 5, time: '14:18:56', severity: 'medium', asset: 'BTC Token', member: 'Vertex Trading', message: 'Funding rate divergence across venues', type: 'funding_divergence' }
+  ];
+
+  const stressMultipliers = {
+    normal: { label: 'Normal Market', timeframe: '24h+', factor: 1.0, color: '#10b981' },
+    moderate: { label: '12h Liquidation', timeframe: '12h', factor: 0.92, color: '#f59e0b' },
+    stressed: { label: '4h Liquidation', timeframe: '4h', factor: 0.78, color: '#ef4444' },
+    extreme: { label: '1h Fire Sale', timeframe: '1h', factor: 0.61, color: '#dc2626' }
+  };
+
+  // ============================================================================
+  // UTILITY FUNCTIONS
+  // ============================================================================
+
+  const formatCurrency = (value) => {
+    if (value >= 1000000000) return `$${(value / 1000000000).toFixed(2)}B`;
+    if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
+    return `$${value.toLocaleString()}`;
+  };
+
+  const getScoreColor = (score) => {
+    if (score >= 85) return '#10b981';
+    if (score >= 70) return '#f59e0b';
+    if (score >= 50) return '#ef4444';
+    return '#dc2626';
+  };
+
+  const getStatusBadge = (status) => {
+    const styles = {
+      healthy: { bg: '#064e3b', color: '#34d399', label: 'HEALTHY' },
+      caution: { bg: '#78350f', color: '#fbbf24', label: 'CAUTION' },
+      alert: { bg: '#7f1d1d', color: '#f87171', label: 'ALERT' },
+      clear: { bg: '#064e3b', color: '#34d399', label: 'CLEAR' },
+      anomaly: { bg: '#78350f', color: '#fbbf24', label: 'ANOMALY' },
+      elevated: { bg: '#78350f', color: '#fbbf24', label: 'ELEVATED' },
+      watch: { bg: '#1e3a5f', color: '#60a5fa', label: 'WATCH' },
+      approved: { bg: '#064e3b', color: '#34d399', label: 'APPROVED' },
+      pending_verification: { bg: '#1e3a5f', color: '#60a5fa', label: 'PENDING' },
+      flagged: { bg: '#78350f', color: '#fbbf24', label: 'FLAGGED' },
+      current: { bg: '#064e3b', color: '#34d399', label: 'CURRENT' },
+      stale: { bg: '#78350f', color: '#fbbf24', label: 'STALE' },
+      confirmed: { bg: '#064e3b', color: '#34d399', label: 'CONFIRMED' },
+      pending: { bg: '#1e3a5f', color: '#60a5fa', label: 'PENDING' },
+      superseded: { bg: '#374151', color: '#9ca3af', label: 'SUPERSEDED' },
+      LOW: { bg: '#064e3b', color: '#34d399', label: 'LOW' },
+      MODERATE: { bg: '#78350f', color: '#fbbf24', label: 'MODERATE' },
+      MEDIUM: { bg: '#78350f', color: '#fbbf24', label: 'MEDIUM' },
+      HIGH: { bg: '#7f1d1d', color: '#f87171', label: 'HIGH' },
+      CRITICAL: { bg: '#450a0a', color: '#fca5a5', label: 'CRITICAL' }
+    };
+    return styles[status] || styles.caution;
+  };
+
+  const getSeverityStyle = (severity) => {
+    const styles = {
+      high: { bg: 'rgba(239, 68, 68, 0.15)', border: 'rgba(239, 68, 68, 0.4)', dot: '#ef4444' },
+      medium: { bg: 'rgba(245, 158, 11, 0.15)', border: 'rgba(245, 158, 11, 0.4)', dot: '#f59e0b' },
+      low: { bg: 'rgba(59, 130, 246, 0.15)', border: 'rgba(59, 130, 246, 0.4)', dot: '#3b82f6' }
+    };
+    return styles[severity] || styles.medium;
+  };
+
+  const getVenueStatusColor = (status) => {
+    return { healthy: '#10b981', warning: '#f59e0b', critical: '#ef4444' }[status] || '#f59e0b';
+  };
+
+  const member = getMemberWithCalculatedValues(selectedMember);
+
+  const getStressedValue = (baseValue, collateral) => {
+    if (stressScenario === 'normal') return baseValue;
+    const tf = { moderate: '12h', stressed: '4h', extreme: '1h' }[stressScenario];
+    return Math.round(baseValue * (collateral?.liquidityProfile?.[tf] || stressMultipliers[stressScenario].factor));
+  };
+
+  const totalStressedValue = useMemo(() => {
+    if (!member?.collateral?.length) return member?.strataAdjusted || 0;
+    return member.collateral.reduce((sum, c) => sum + getStressedValue(c.strataValue || 0, c), 0);
+  }, [selectedMember, stressScenario]);
+
+  const stressedMarginGap = member ? member.traditionalValue - totalStressedValue : 0;
+
+  // 5 view tabs now
+  const viewTabs = [
+    { id: 'pretrade', label: 'Pre-Trade', icon: '📊', question: 'Can they settle?' },
+    { id: 'margin', label: 'Margin Accuracy', icon: '💰', question: 'Is collateral liquid?' },
+    { id: 'manipulation', label: 'Manipulation', icon: '🔍', question: 'Is liquidity gamed?' },
+    { id: 'member-risk', label: 'Member Risk', icon: '👥', question: 'Aggregate exposure?' },
+    { id: 'poli', label: 'PoLi Attestations', icon: '⛓', question: "What's on Canton?" }
+  ];
+
+  const riskFactorLabels = {
+    venueConcentration: 'VENUE CONCENTRATION',
+    assetConcentration: 'ASSET CONCENTRATION',
+    liquidityRisk: 'LIQUIDITY RISK',
+    counterpartyRisk: 'COUNTERPARTY RISK'
+  };
+
+  // ============================================================================
+  // HEADER & NAV
+  // ============================================================================
+
+  const renderHeader = () => (
+    <header style={{ background: 'rgba(0, 0, 0, 0.95)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', padding: '16px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 100 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ width: '36px', height: '36px', background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', fontSize: '16px' }}>S</div>
+          <div>
+            <div style={{ fontWeight: '700', fontSize: '16px', letterSpacing: '-0.02em' }}>STRATALINK</div>
+            <div style={{ fontSize: '10px', color: '#64748b', letterSpacing: '0.1em' }}>LIQUIDITY TRUTH LAYER</div>
+          </div>
+        </div>
+        <div style={{ height: '24px', width: '1px', background: '#333' }} />
+        <div style={{ fontSize: '14px', color: '#94a3b8' }}>CCP Margin Verification Console</div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <div onClick={() => setShowDataProvenance(!showDataProvenance)} style={{ background: 'rgba(251, 191, 36, 0.1)', border: '1px solid rgba(251, 191, 36, 0.3)', padding: '8px 16px', borderRadius: '6px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#fbbf24' }} />
+          <span style={{ color: '#fbbf24', fontWeight: '600' }}>SYNTHETIC DATA</span>
+          <span style={{ color: '#94a3b8' }}>|</span>
+          <span style={{ color: '#d97706' }}>Proxy Model v1.2</span>
+        </div>
+        <div style={{ background: '#111111', padding: '8px 16px', borderRadius: '6px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', animation: 'pulse 2s infinite' }} />
+          <span style={{ color: '#94a3b8' }}>LIVE</span>
+          <span style={{ color: '#e2e8f0' }}>Canton Network</span>
+        </div>
+        <div style={{ fontSize: '12px', color: '#64748b', fontFamily: 'monospace' }}>{new Date().toISOString().slice(0, 19).replace('T', ' ')} UTC</div>
+      </div>
+    </header>
+  );
+
+  const renderDataProvenance = () => !showDataProvenance ? null : (
+    <div style={{ background: 'rgba(251, 191, 36, 0.05)', borderBottom: '1px solid rgba(251, 191, 36, 0.2)', padding: '20px 32px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '32px' }}>
+        <div>
+          <div style={{ fontSize: '11px', color: '#fbbf24', letterSpacing: '0.1em', marginBottom: '12px' }}>SIMULATION MODE — PROXY METHODOLOGY</div>
+          <div style={{ fontSize: '13px', color: '#94a3b8', marginBottom: '16px' }}>LTF-conformant simulation using historical TradFi + DeFi liquidity patterns. PoLi attestations anchor to Canton Network.</div>
+        </div>
+        <div style={{ background: 'rgba(251, 191, 36, 0.1)', border: '1px solid rgba(251, 191, 36, 0.2)', borderRadius: '8px', padding: '16px' }}>
+          <div style={{ fontSize: '11px', color: '#fbbf24', fontWeight: '600', marginBottom: '8px' }}>⚠ IMPORTANT DISCLAIMER</div>
+          <div style={{ fontSize: '12px', color: '#94a3b8', lineHeight: 1.5 }}>Simulated environment. Production pending Canton Network venue integration + DTCC tokenization (H2 2026).</div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderViewSwitcher = () => (
+    <div style={{ background: 'rgba(17, 17, 17, 0.9)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', padding: '12px 32px', display: 'flex', gap: '6px' }}>
+      {viewTabs.map((tab) => (
+        <button key={tab.id} onClick={() => setActiveView(tab.id)} style={{ padding: '10px 18px', borderRadius: '8px', fontSize: '12px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s ease', border: activeView === tab.id ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid rgba(255, 255, 255, 0.1)', background: activeView === tab.id ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(139, 92, 246, 0.2) 100%)' : 'transparent', color: activeView === tab.id ? '#e2e8f0' : '#64748b' }}>
+          <span style={{ fontSize: '14px' }}>{tab.icon}</span>
+          <div style={{ textAlign: 'left' }}>
+            <div>{tab.label}</div>
+            <div style={{ fontSize: '9px', fontWeight: '400', opacity: 0.7 }}>{tab.question}</div>
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+
+  // ============================================================================
+  // SIDEBARS
+  // ============================================================================
+
+  const renderMemberSidebar = () => (
+    <aside style={{ width: '280px', background: 'rgba(10, 10, 10, 0.8)', borderRight: '1px solid rgba(255, 255, 255, 0.1)', padding: '24px 0', minHeight: 'calc(100vh - 180px)', flexShrink: 0 }}>
+      <div style={{ padding: '0 20px', marginBottom: '20px' }}>
+        <div style={{ fontSize: '11px', color: '#64748b', letterSpacing: '0.1em', marginBottom: '12px' }}>CLEARING MEMBERS</div>
+        <input type="text" placeholder="Search members..." style={{ width: '100%', background: '#111111', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '6px', padding: '10px 12px', color: '#e2e8f0', fontSize: '13px', outline: 'none' }} />
+      </div>
+      {Object.entries(members).map(([key, m]) => {
+        const memberWithValues = getMemberWithCalculatedValues(key);
+        const statusStyle = getStatusBadge(m.strataStatus);
+        return (
+          <div key={key} onClick={() => setSelectedMember(key)} style={{ padding: '16px 20px', cursor: 'pointer', background: selectedMember === key ? 'rgba(59, 130, 246, 0.1)' : 'transparent', borderLeft: selectedMember === key ? '3px solid #3b82f6' : '3px solid transparent' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+              <div style={{ fontWeight: '600', fontSize: '14px', flex: 1, marginRight: '8px' }}>{m.name}</div>
+              <span style={{ background: statusStyle.bg, color: statusStyle.color, padding: '4px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '700' }}>{statusStyle.label}</span>
+            </div>
+            <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '8px' }}>Posted: {formatCurrency(memberWithValues.totalPosted)}</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+              <div style={{ textAlign: 'center', flex: 1 }}>
+                <div style={{ fontSize: '9px', color: '#64748b', marginBottom: '2px', letterSpacing: '0.05em' }}>STRATA</div>
+                <div style={{ fontSize: '18px', fontWeight: '700', color: getScoreColor(m.strataScore) }}>{m.strataScore}</div>
+              </div>
+              <div style={{ width: '1px', height: '30px', background: 'rgba(255,255,255,0.1)' }} />
+              <div style={{ textAlign: 'center', flex: 1 }}>
+                <div style={{ fontSize: '9px', color: '#64748b', marginBottom: '2px', letterSpacing: '0.05em' }}>RISK</div>
+                <div style={{ fontSize: '18px', fontWeight: '700', color: memberWithValues.memberRiskColor }}>{memberWithValues.memberRiskScore}</div>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+      <div style={{ padding: '16px 20px', borderTop: '1px solid rgba(255,255,255,0.05)', marginTop: '16px' }}>
+        <div style={{ fontSize: '9px', color: '#64748b', letterSpacing: '0.1em', marginBottom: '8px' }}>SCORE DEFINITIONS</div>
+        <div style={{ fontSize: '10px', color: '#94a3b8', marginBottom: '4px' }}><span style={{ color: '#60a5fa' }}>STRATA</span>: Collateral liquidity confidence</div>
+        <div style={{ fontSize: '10px', color: '#94a3b8' }}><span style={{ color: '#a78bfa' }}>RISK</span>: Operational risk profile</div>
+      </div>
+    </aside>
+  );
+
+  const renderRightPanel = () => (
+    <aside style={{ width: '320px', background: 'rgba(10, 10, 10, 0.8)', borderLeft: '1px solid rgba(255, 255, 255, 0.1)', minHeight: 'calc(100vh - 180px)', flexShrink: 0 }}>
+      <div style={{ display: 'flex', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
+        {['alerts', 'trends'].map((tab) => (
+          <button key={tab} onClick={() => setRightPanelTab(tab)} style={{ flex: 1, padding: '16px', background: 'transparent', border: 'none', borderBottom: rightPanelTab === tab ? '2px solid #3b82f6' : '2px solid transparent', color: rightPanelTab === tab ? '#e2e8f0' : '#64748b', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>{tab === 'alerts' ? 'TSLE Alerts' : 'STRATA Trends'}</button>
+        ))}
+      </div>
+      <div style={{ padding: '20px' }}>
+        {rightPanelTab === 'alerts' ? (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ fontSize: '11px', color: '#64748b', letterSpacing: '0.1em' }}>LIVE FEED</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#10b981' }}>
+                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', animation: 'pulse 2s infinite' }} />MONITORING
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '16px' }}>
+              {[{ label: 'HIGH', count: tsleAlerts.filter(a => a.severity === 'high').length, color: '#ef4444' }, { label: 'MED', count: tsleAlerts.filter(a => a.severity === 'medium').length, color: '#f59e0b' }, { label: 'LOW', count: tsleAlerts.filter(a => a.severity === 'low').length, color: '#3b82f6' }].map(stat => (
+                <div key={stat.label} style={{ background: '#111111', borderRadius: '8px', padding: '10px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '18px', fontWeight: '700', color: stat.color }}>{stat.count}</div>
+                  <div style={{ fontSize: '9px', color: '#64748b' }}>{stat.label}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {tsleAlerts.slice(0, 4).map(alert => {
+                const style = getSeverityStyle(alert.severity);
+                return (
+                  <div key={alert.id} style={{ background: style.bg, border: `1px solid ${style.border}`, borderRadius: '8px', padding: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: style.dot }} />
+                        <span style={{ fontSize: '11px', fontWeight: '600' }}>{alert.asset}</span>
+                      </div>
+                      <span style={{ fontSize: '10px', color: '#64748b' }}>{alert.time}</span>
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#94a3b8', lineHeight: 1.4 }}>{alert.message}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ fontSize: '11px', color: '#64748b', letterSpacing: '0.1em', marginBottom: '16px' }}>30-DAY GAP TREND</div>
+            <div style={{ background: '#111111', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+                <div><div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px' }}>Current</div><div style={{ fontSize: '24px', fontWeight: '700', color: '#ef4444' }}>22%</div></div>
+                <div style={{ textAlign: 'right' }}><div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px' }}>30D Δ</div><div style={{ fontSize: '24px', fontWeight: '700', color: '#ef4444' }}>+9%</div></div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-end', height: '40px', gap: '2px' }}>
+                {[13, 16, 20, 17, 24, 21, 22].map((val, i) => (<div key={i} style={{ flex: 1, height: `${(val / 24) * 100}%`, background: i === 6 ? '#ef4444' : '#ef444466', borderRadius: '2px' }} />))}
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </aside>
+  );
+
+  // ============================================================================
+  // VIEW: PRE-TRADE VERIFICATION
+  // ============================================================================
+
+  const renderPreTradeView = () => {
+    const trade = pendingTrades.find(t => t.id === selectedTrade);
+    const counterparty = trade ? getMemberWithCalculatedValues(trade.counterparty) : null;
+
+    return (
+      <main style={{ flex: 1, padding: '24px', minWidth: 0, paddingBottom: '80px', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', gap: '20px', height: '100%' }}>
+          <div style={{ width: '240px', flexShrink: 0, background: 'rgba(17, 17, 17, 0.9)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '16px', overflowY: 'auto' }}>
+            <div style={{ fontSize: '11px', color: '#64748b', letterSpacing: '0.1em', marginBottom: '16px' }}>PENDING TRADES</div>
+            {pendingTrades.map((t) => (
+              <div key={t.id} onClick={() => setSelectedTrade(t.id)} style={{ padding: '12px', borderRadius: '8px', marginBottom: '8px', cursor: 'pointer', background: selectedTrade === t.id ? 'rgba(59, 130, 246, 0.15)' : '#111111', border: selectedTrade === t.id ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid transparent' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '10px', color: '#64748b', fontFamily: 'monospace' }}>{t.id.slice(-8)}</span>
+                  <span style={{ padding: '2px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: '600', background: getStatusBadge(t.status).bg, color: getStatusBadge(t.status).color }}>{getStatusBadge(t.status).label}</span>
+                </div>
+                <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '4px' }}>{t.asset}</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '10px', color: '#94a3b8' }}>{t.direction} • {formatCurrency(t.notional)}</span>
+                  <span style={{ fontSize: '13px', fontWeight: '700', color: getScoreColor(t.settlementProbability * 100) }}>{Math.round(t.settlementProbability * 100)}%</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          {trade && counterparty && (
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '20px', overflow: 'hidden' }}>
+              <div style={{ background: 'rgba(17, 17, 17, 0.9)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '20px', flexShrink: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: '20px', fontWeight: '700', marginBottom: '4px' }}>{trade.asset}</div>
+                    <div style={{ fontSize: '12px', color: '#94a3b8' }}>{trade.id} • T+1</div>
+                  </div>
+                  <span style={{ padding: '6px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: '700', background: getStatusBadge(trade.status).bg, color: getStatusBadge(trade.status).color }}>{getStatusBadge(trade.status).label}</span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '12px' }}>
+                  {[{ label: 'COUNTERPARTY', value: trade.counterpartyName }, { label: 'DIRECTION', value: trade.direction, color: trade.direction === 'BUY' ? '#10b981' : '#ef4444' }, { label: 'NOTIONAL', value: formatCurrency(trade.notional) }, { label: 'TYPE', value: trade.assetType }].map((item, i) => (
+                    <div key={i}><div style={{ fontSize: '9px', color: '#64748b', marginBottom: '4px' }}>{item.label}</div><div style={{ fontSize: '13px', fontWeight: '600', color: item.color || '#e2e8f0' }}>{item.value}</div></div>
+                  ))}
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '12px', flexShrink: 0 }}>
+                {[{ label: 'AVAILABLE', value: formatCurrency(counterparty.totalPosted * 0.15), sub: 'Liquid' }, { label: 'REQUIRED', value: formatCurrency(trade.notional * 0.35), sub: 'Margin' }, { label: 'COVERAGE', value: `${trade.coverageRatio.toFixed(2)}x`, color: getScoreColor(trade.coverageRatio * 40) }, { label: 'SETTLEMENT', value: `${Math.round(trade.settlementProbability * 100)}%`, color: getScoreColor(trade.settlementProbability * 100), highlight: true }].map((m, i) => (
+                  <div key={i} style={{ background: m.highlight ? `${getScoreColor(trade.settlementProbability * 100)}15` : 'rgba(17, 17, 17, 0.9)', border: `1px solid ${m.highlight ? getScoreColor(trade.settlementProbability * 100) + '40' : 'rgba(255, 255, 255, 0.1)'}`, borderRadius: '10px', padding: '16px' }}>
+                    <div style={{ fontSize: '9px', color: '#64748b', marginBottom: '6px' }}>{m.label}</div>
+                    <div style={{ fontSize: '22px', fontWeight: '700', color: m.color || '#e2e8f0' }}>{m.value}</div>
+                    {m.sub && <div style={{ fontSize: '10px', color: '#64748b' }}>{m.sub}</div>}
+                  </div>
+                ))}
+              </div>
+              {trade.riskFlags?.length > 0 && (
+                <div style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: '10px', padding: '16px', flexShrink: 0 }}>
+                  <div style={{ fontSize: '12px', fontWeight: '600', color: '#fbbf24', marginBottom: '12px' }}>⚠ RISK FLAGS</div>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {trade.riskFlags.map((flag, i) => (<span key={i} style={{ background: 'rgba(245, 158, 11, 0.2)', color: '#fbbf24', padding: '6px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: '600' }}>{flag.replace(/_/g, ' ').toUpperCase()}</span>))}
+                  </div>
+                </div>
+              )}
+              <div style={{ background: 'rgba(17, 17, 17, 0.9)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '20px', flexShrink: 0 }}>
+                <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '14px' }}>DECISION</div>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <button style={{ flex: 1, padding: '14px', background: '#10b981', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}>✓ APPROVE</button>
+                  <button style={{ flex: 1, padding: '14px', background: '#f59e0b', border: 'none', borderRadius: '8px', color: '#000', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}>⚠ FLAG</button>
+                  <button style={{ flex: 1, padding: '14px', background: '#ef4444', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}>✗ REJECT</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
+    );
+  };
+
+  // ============================================================================
+  // VIEW: MARGIN ACCURACY
+  // ============================================================================
+
+  const renderMarginAccuracyView = () => (
+    <main style={{ flex: 1, padding: '24px', minWidth: 0, paddingBottom: '80px', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '8px' }}>
+            <h1 style={{ fontSize: '28px', fontWeight: '700', margin: 0 }}>{member.name}</h1>
+            <span style={{ background: getStatusBadge(member.strataStatus).bg, color: getStatusBadge(member.strataStatus).color, padding: '6px 12px', borderRadius: '4px', fontSize: '12px', fontWeight: '700' }}>{member.strataStatus.toUpperCase()}</span>
+          </div>
+          <div style={{ fontSize: '14px', color: '#94a3b8' }}>{member.memberId} | {member.riskTier}</div>
+        </div>
+      </div>
+      <div style={{ background: 'rgba(17, 17, 17, 0.9)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '20px', marginBottom: '24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div><div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px' }}>STRESS SCENARIO</div></div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            {Object.entries(stressMultipliers).map(([key, s]) => (
+              <button key={key} onClick={() => setStressScenario(key)} style={{ padding: '10px 16px', borderRadius: '6px', border: stressScenario === key ? `1px solid ${s.color}` : '1px solid rgba(255, 255, 255, 0.1)', background: stressScenario === key ? `${s.color}20` : 'transparent', color: stressScenario === key ? s.color : '#94a3b8', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>
+                <div>{s.label}</div><div style={{ fontSize: '10px', opacity: 0.7 }}>({s.timeframe})</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '24px' }}>
+        <div style={{ background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(139, 92, 246, 0.15) 100%)', border: '1px solid rgba(59, 130, 246, 0.3)', borderRadius: '12px', padding: '20px' }}>
+          <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '8px' }}>STRATA SCORE</div>
+          <div style={{ fontSize: '48px', fontWeight: '800', color: getScoreColor(member.strataScore) }}>{member.strataScore}</div>
+          <div style={{ fontSize: '11px', color: '#64748b' }}>Collateral Liquidity</div>
+        </div>
+        <div style={{ background: 'rgba(17, 17, 17, 0.9)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '20px' }}>
+          <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '8px' }}>TRADITIONAL</div>
+          <div style={{ fontSize: '32px', fontWeight: '700' }}>{formatCurrency(member.traditionalValue)}</div>
+          <div style={{ fontSize: '11px', color: '#64748b' }}>5% haircut</div>
+        </div>
+        <div style={{ background: 'rgba(17, 17, 17, 0.9)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '20px' }}>
+          <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '8px' }}>STRATA-ADJUSTED</div>
+          <div style={{ fontSize: '32px', fontWeight: '700', color: stressScenario !== 'normal' ? stressMultipliers[stressScenario].color : '#f59e0b' }}>{formatCurrency(totalStressedValue)}</div>
+          <div style={{ fontSize: '11px', color: '#64748b' }}>Liquidity verified</div>
+        </div>
+        <div style={{ background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(220, 38, 38, 0.15) 100%)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '12px', padding: '20px' }}>
+          <div style={{ fontSize: '11px', color: '#fca5a5', marginBottom: '8px' }}>MARGIN GAP</div>
+          <div style={{ fontSize: '32px', fontWeight: '700', color: '#ef4444' }}>{formatCurrency(stressedMarginGap)}</div>
+          <div style={{ fontSize: '11px', color: '#64748b' }}>{((stressedMarginGap / member.traditionalValue) * 100).toFixed(1)}% gap</div>
+        </div>
+      </div>
+      {member.collateral && member.collateral.length > 0 && (
+        <div style={{ background: 'rgba(17, 17, 17, 0.9)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', overflow: 'hidden' }}>
+          <div style={{ padding: '20px 24px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
+            <div style={{ fontSize: '16px', fontWeight: '600' }}>Posted Collateral</div>
+          </div>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                {['ASSET', 'NOMINAL', 'PoLi', 'EVIDENCE', 'TSLE'].map((col) => (
+                  <th key={col} style={{ padding: '14px 16px', textAlign: col === 'ASSET' ? 'left' : 'right', fontSize: '11px', color: '#64748b', fontWeight: '600' }}>{col}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {member.collateral.map((c) => (
+                <tr key={c.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                  <td style={{ padding: '16px' }}>
+                    <div style={{ fontSize: '14px' }}>{c.asset}</div>
+                    <div style={{ fontSize: '12px', color: '#64748b' }}>{c.type}</div>
+                  </td>
+                  <td style={{ padding: '16px', textAlign: 'right' }}>{formatCurrency(c.nominal)}</td>
+                  <td style={{ padding: '16px', textAlign: 'right' }}><span style={{ padding: '4px 10px', borderRadius: '4px', fontSize: '12px', fontWeight: '700', background: getScoreColor(c.poliScore) + '20', color: getScoreColor(c.poliScore) }}>{c.poliScore}</span></td>
+                  <td style={{ padding: '16px', textAlign: 'right' }}><span style={{ padding: '4px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '600', background: EVIDENCE_LEVELS[c.evidenceLevel]?.color + '20', color: EVIDENCE_LEVELS[c.evidenceLevel]?.color }}>{c.evidenceLevel}</span></td>
+                  <td style={{ padding: '16px', textAlign: 'right' }}>{c.tsleStatus && <span style={{ padding: '4px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', background: getStatusBadge(c.tsleStatus).bg, color: getStatusBadge(c.tsleStatus).color }}>{c.tsleStatus.toUpperCase()}</span>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </main>
+  );
+
+  // ============================================================================
+  // VIEW: MANIPULATION DETECTION
+  // ============================================================================
+
+  const renderManipulationView = () => {
+    const asset = manipulationAssets.find(a => a.id === selectedAsset) || manipulationAssets[0];
+    return (
+      <main style={{ flex: 1, padding: '24px', minWidth: 0, paddingBottom: '80px', overflow: 'hidden' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
+          {[{ label: 'MONITORED', value: '47', sub: 'Assets' }, { label: 'ALERTS', value: '12', color: '#f59e0b' }, { label: 'CONFIRMED', value: '3', color: '#ef4444' }, { label: 'INTEGRITY', value: '91%', color: '#10b981', highlight: true }].map((c, i) => (
+            <div key={i} style={{ background: c.highlight ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.15) 100%)' : 'rgba(17, 17, 17, 0.9)', border: `1px solid ${c.highlight ? 'rgba(16, 185, 129, 0.3)' : 'rgba(255, 255, 255, 0.1)'}`, borderRadius: '12px', padding: '20px' }}>
+              <div style={{ fontSize: '10px', color: c.color || '#64748b', marginBottom: '8px' }}>{c.label}</div>
+              <div style={{ fontSize: '32px', fontWeight: '700', color: c.color || '#e2e8f0' }}>{c.value}</div>
+              {c.sub && <div style={{ fontSize: '11px', color: '#64748b' }}>{c.sub}</div>}
+            </div>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: '20px' }}>
+          <div style={{ width: '240px', flexShrink: 0, background: 'rgba(17, 17, 17, 0.9)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '16px' }}>
+            <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '16px' }}>WATCHLIST</div>
+            {manipulationAssets.map((a) => (
+              <div key={a.id} onClick={() => setSelectedAsset(a.id)} style={{ padding: '12px', borderRadius: '8px', marginBottom: '8px', cursor: 'pointer', background: selectedAsset === a.id ? 'rgba(59, 130, 246, 0.15)' : '#111111', border: selectedAsset === a.id ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid transparent' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '600' }}>{a.name}</span>
+                  <span style={{ padding: '2px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: '600', background: getStatusBadge(a.tsleState).bg, color: getStatusBadge(a.tsleState).color }}>{a.tsleState.toUpperCase()}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: '10px', color: '#64748b' }}>{a.type}</span>
+                  <span style={{ fontSize: '14px', fontWeight: '700', color: getScoreColor(a.integrity) }}>{a.integrity}%</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ background: 'rgba(17, 17, 17, 0.9)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+                <div>
+                  <div style={{ fontSize: '24px', fontWeight: '700', marginBottom: '4px' }}>{asset.name}</div>
+                  <div style={{ fontSize: '14px', color: '#94a3b8' }}>{asset.type}</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <span style={{ padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '700', background: getStatusBadge(asset.tsleState).bg, color: getStatusBadge(asset.tsleState).color }}>TSLE: {asset.tsleState.toUpperCase()}</span>
+                  <div style={{ fontSize: '36px', fontWeight: '800', color: getScoreColor(asset.integrity), marginTop: '8px' }}>{asset.integrity}%</div>
+                </div>
+              </div>
+              {asset.tsleState !== 'clear' && (
+                <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', padding: '16px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: '600', color: '#fca5a5', marginBottom: '8px' }}>🔴 WASH TRADING (Venue B)</div>
+                  <div style={{ fontSize: '12px', color: '#94a3b8' }}>Circular flow, 3 wallets. $12.4M artificial (34%)</div>
+                </div>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button style={{ flex: 1, padding: '14px', background: '#ef4444', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>Generate Report</button>
+              <button style={{ flex: 1, padding: '14px', background: 'transparent', border: '1px solid #64748b', borderRadius: '8px', color: '#e2e8f0', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>Notify Compliance</button>
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  };
+
+  // ============================================================================
+  // VIEW: MEMBER RISK
+  // ============================================================================
+
+  const renderMemberRiskView = () => (
+    <main style={{ flex: 1, padding: '24px', minWidth: 0, paddingBottom: '80px', overflow: 'hidden' }}>
+      <div style={{ background: 'rgba(17, 17, 17, 0.9)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '24px', marginBottom: '24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px' }}>
+          <div>
+            <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '8px' }}>MEMBER RISK PROFILE</div>
+            <div style={{ fontSize: '28px', fontWeight: '700', marginBottom: '4px' }}>{member.name}</div>
+            <div style={{ fontSize: '14px', color: '#94a3b8' }}>{member.memberId}</div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <span style={{ padding: '8px 16px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', background: getStatusBadge(member.memberRiskLabel).bg, color: getStatusBadge(member.memberRiskLabel).color }}>{member.memberRiskLabel} RISK</span>
+            <div style={{ fontSize: '56px', fontWeight: '800', color: member.memberRiskColor, marginTop: '8px', lineHeight: 1 }}>{member.memberRiskScore}</div>
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
+          {Object.entries(member.riskFactors).map(([key, f]) => (
+            <div key={key} style={{ background: 'rgba(0, 0, 0, 0.4)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '10px', padding: '18px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+                <div style={{ fontSize: '10px', color: '#64748b' }}>{riskFactorLabels[key]}</div>
+                <div style={{ fontSize: '9px', color: '#94a3b8', background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: '4px' }}>{f.weight}%</div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                <div style={{ fontSize: '32px', fontWeight: '700', color: getScoreColor(f.score), lineHeight: 1 }}>{f.score}</div>
+                <span style={{ background: getStatusBadge(f.label).bg, color: getStatusBadge(f.label).color, padding: '5px 10px', borderRadius: '6px', fontSize: '10px', fontWeight: '700' }}>{f.label}</span>
+              </div>
+              <div style={{ marginTop: '12px', height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px' }}>
+                <div style={{ width: `${f.score}%`, height: '100%', background: getScoreColor(f.score), borderRadius: '2px' }} />
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{ marginTop: '20px', padding: '12px 16px', background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.2)', borderRadius: '8px' }}>
+          <div style={{ fontSize: '11px', color: '#60a5fa', fontWeight: '600', marginBottom: '4px' }}>ℹ CALCULATION</div>
+          <div style={{ fontSize: '11px', color: '#94a3b8' }}>Risk = (Venue×35%) + (Asset×25%) + (Liquidity×28%) + (Counterparty×12%) = {member.memberRiskScore}</div>
+        </div>
+      </div>
+      <div style={{ background: 'rgba(17, 17, 17, 0.9)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '24px', marginBottom: '24px' }}>
+        <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '20px' }}>VENUE EXPOSURE</div>
+        {member.venueExposure.map((v, i) => (
+          <div key={i} style={{ marginBottom: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontWeight: '600' }}>{v.venue}</span>
+                {v.status !== 'healthy' && <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '600', background: v.status === 'critical' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(245, 158, 11, 0.2)', color: getVenueStatusColor(v.status) }}>{v.status.toUpperCase()}</span>}
+              </div>
+              <span style={{ color: '#94a3b8' }}>{v.pct}% ({formatCurrency(v.amount)})</span>
+            </div>
+            <div style={{ background: '#111111', borderRadius: '4px', height: '20px', overflow: 'hidden' }}>
+              <div style={{ width: `${v.pct}%`, height: '100%', background: getVenueStatusColor(v.status) }} />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{ background: 'rgba(17, 17, 17, 0.9)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '24px' }}>
+        <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '20px' }}>RECOMMENDATIONS</div>
+        {member.recommendations.map((r, i) => {
+          const style = { CRITICAL: { bg: 'rgba(239, 68, 68, 0.2)', color: '#ef4444' }, HIGH: { bg: 'rgba(245, 158, 11, 0.2)', color: '#f59e0b' }, MEDIUM: { bg: 'rgba(59, 130, 246, 0.2)', color: '#60a5fa' }, LOW: { bg: 'rgba(16, 185, 129, 0.2)', color: '#34d399' } }[r.impact] || {};
+          return (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '14px', background: '#111111', borderRadius: '8px', marginBottom: '10px' }}>
+              <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: style.bg, color: style.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: '12px', marginRight: '14px' }}>{r.priority}</div>
+              <div style={{ flex: 1, fontSize: '13px' }}>{r.action}</div>
+              <span style={{ padding: '4px 10px', borderRadius: '4px', fontSize: '10px', fontWeight: '600', background: style.bg, color: style.color }}>{r.impact}</span>
+            </div>
+          );
+        })}
+      </div>
+    </main>
+  );
+ fontWeight: '700', color: getScoreColor(ma.avgPoLi) }}>{ma.avgPoLi}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '9px', color: '#64748b', marginBottom: '4px' }}>EVIDENCE</div>
+                  <div style={{ fontSize: '14px', fontWeight: '700', color: EVIDENCE_LEVELS[ma.avgEvidence]?.color }}>{ma.avgEvidence}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '9px', color: '#64748b', marginBottom: '4px' }}>QUERIES 24H</div>
+                  <div style={{ fontSize: '14px', fontWeight: '700', color: ma.queries24h > 200 ? '#f59e0b' : '#94a3b8' }}>{ma.queries24h}</div>
+                </div>
+              </div>
+              <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.05)', fontSize: '10px', color: '#64748b' }}>
+                Last update: {ma.lastUpdate}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Evidence Level Legend */}
+      <div style={{ background: 'rgba(17, 17, 17, 0.9)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '20px', marginBottom: '24px' }}>
+        <div style={{ fontSize: '11px', color: '#64748b', letterSpacing: '0.1em', marginBottom: '16px' }}>EVIDENCE LEVEL DEFINITIONS</div>
+        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+          {Object.entries(EVIDENCE_LEVELS).map(([key, level]) => (
+            <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '700', background: level.color + '20', color: level.color }}>{level.label}</span>
+              <span style={{ fontSize: '12px', color: '#94a3b8' }}>{level.name}</span>
+              <span style={{ fontSize: '11px', color: '#64748b' }}>— {level.description}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Toggle for History */}
+      <div style={{ marginBottom: '16px' }}>
+        <button 
+          onClick={() => setShowAttestationHistory(!showAttestationHistory)}
+          style={{ 
+            padding: '12px 20px', 
+            background: showAttestationHistory ? 'rgba(139, 92, 246, 0.2)' : 'rgba(17, 17, 17, 0.9)', 
+            border: showAttestationHistory ? '1px solid rgba(139, 92, 246, 0.4)' : '1px solid rgba(255, 255, 255, 0.1)', 
+            borderRadius: '8px', 
+            color: showAttestationHistory ? '#a78bfa' : '#94a3b8', 
+            fontSize: '13px', 
+            fontWeight: '600', 
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}
+        >
+          <span>{showAttestationHistory ? '▼' : '▶'}</span>
+          {showAttestationHistory ? 'Hide' : 'Show'} Attestation History
+        </button>
+      </div>
+
+      {/* Attestation History Log (TAPE-style) */}
+      {showAttestationHistory && (
+        <div style={{ background: 'rgba(17, 17, 17, 0.9)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', overflow: 'hidden' }}>
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontSize: '11px', color: '#64748b', letterSpacing: '0.1em' }}>ATTESTATION HISTORY</div>
+              <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '4px' }}>Showing {poliAttestations.history.length} events</div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#10b981' }}>
+                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', animation: 'pulse 2s infinite' }} />
+                Auto-scroll: On
+              </div>
+              <button style={{ padding: '6px 12px', background: '#111111', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#94a3b8', fontSize: '11px', cursor: 'pointer' }}>Jump to latest</button>
+            </div>
+          </div>
+          
+          {/* Log Table */}
+          <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead style={{ position: 'sticky', top: 0, background: '#0a0a0a' }}>
+                <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                  {['TIME', 'MEMBER', 'ASSET', 'PoLi', 'EVIDENCE', 'ANCHOR REF', 'STATUS', 'QUERIES'].map((col) => (
+                    <th key={col} style={{ padding: '12px 16px', textAlign: 'left', fontSize: '10px', color: '#64748b', fontWeight: '600', letterSpacing: '0.05em' }}>{col}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {poliAttestations.history.map((att) => (
+                  <tr key={att.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', opacity: att.status === 'superseded' ? 0.5 : 1 }}>
+                    <td style={{ padding: '12px 16px', fontSize: '12px', fontFamily: 'monospace', color: '#94a3b8' }}>{att.time}</td>
+                    <td style={{ padding: '12px 16px', fontSize: '12px' }}>{att.member}</td>
+                    <td style={{ padding: '12px 16px', fontSize: '12px' }}>{att.asset}</td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <span style={{ padding: '4px 10px', borderRadius: '4px', fontSize: '12px', fontWeight: '700', background: getScoreColor(att.poliScore) + '20', color: getScoreColor(att.poliScore) }}>{att.poliScore}</span>
+                    </td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <span style={{ padding: '4px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '600', background: EVIDENCE_LEVELS[att.evidence]?.color + '20', color: EVIDENCE_LEVELS[att.evidence]?.color }}>{att.evidence}</span>
+                    </td>
+                    <td style={{ padding: '12px 16px', fontSize: '11px', fontFamily: 'monospace', color: '#64748b' }}>{att.anchorRef}</td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <span style={{ padding: '4px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '600', background: getStatusBadge(att.status).bg, color: getStatusBadge(att.status).color }}>{att.status.toUpperCase()}</span>
+                    </td>
+                    <td style={{ padding: '12px 16px' }}>
+                      {att.queries.length > 0 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          {att.queries.map((q, i) => (
+                            <div key={i} style={{ fontSize: '10px', color: '#94a3b8' }}>
+                              <span style={{ color: '#60a5fa' }}>{q.entity}</span> ({q.count}×)
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <span style={{ fontSize: '10px', color: '#64748b' }}>—</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Canton Integration Note */}
+      <div style={{ marginTop: '24px', padding: '16px 20px', background: 'rgba(139, 92, 246, 0.1)', border: '1px solid rgba(139, 92, 246, 0.3)', borderRadius: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+          <span style={{ fontSize: '20px' }}>⛓</span>
+          <div>
+            <div style={{ fontSize: '13px', fontWeight: '600', color: '#a78bfa', marginBottom: '4px' }}>Canton Network Integration</div>
+            <div style={{ fontSize: '12px', color: '#94a3b8', lineHeight: 1.5 }}>
+              PoLi attestations are the only Stratalink component that lives on-chain. Regulators (ADGM), CCPs, and counterparties query these attestations directly from Canton — they don't need access to Stratalink to verify collateral liquidity scores.
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+
+  // ============================================================================
+  // FOOTER & MAIN RENDER
+  // ============================================================================
+
+  const renderFooter = () => (
+    <footer style={{ background: 'rgba(0, 0, 0, 0.95)', borderTop: '1px solid rgba(251, 191, 36, 0.2)', padding: '12px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <div style={{ background: 'rgba(251, 191, 36, 0.1)', border: '1px solid rgba(251, 191, 36, 0.3)', padding: '4px 12px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', color: '#fbbf24' }}>SIMULATION</div>
+        <span style={{ fontSize: '12px', color: '#94a3b8' }}>Synthetic data. Production: H2 2026</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <span style={{ fontSize: '11px', color: '#64748b' }}>STRATA • TSLE • DACT • RCL • <span style={{ color: '#a78bfa' }}>PoLi</span> (on Canton)</span>
+        <div style={{ fontSize: '11px', color: '#64748b', padding: '4px 12px', background: '#111111', borderRadius: '4px' }}>LTF v2.1</div>
+      </div>
+    </footer>
+  );
+
+  return (
+    <div style={{ minHeight: '100vh', background: '#000000', color: '#e2e8f0', fontFamily: "'IBM Plex Sans', -apple-system, sans-serif" }}>
+      {renderHeader()}
+      {renderDataProvenance()}
+      {renderViewSwitcher()}
+      <div style={{ display: 'flex' }}>
+        {renderMemberSidebar()}
+        {activeView === 'pretrade' && renderPreTradeView()}
+        {activeView === 'margin' && renderMarginAccuracyView()}
+        {activeView === 'manipulation' && renderManipulationView()}
+        {activeView === 'member-risk' && renderMemberRiskView()}
+        {activeView === 'poli' && renderPoliAttestationsView()}
+        {renderRightPanel()}
+      </div>
+      {renderFooter()}
+      <style>{`
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        button:hover { filter: brightness(1.1); }
+        input::placeholder { color: #64748b; }
+      `}</style>
+    </div>
+  );
+};
+
+export default CCPMarginConsole;
