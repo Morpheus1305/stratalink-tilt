@@ -1765,7 +1765,12 @@ function PoLiAttestationsView({
             style={{ background: "rgba(17, 17, 17, 0.9)", border: "1px solid rgba(255, 255, 255, 0.1)" }}
           >
             <div className="text-[9px] text-slate-500 tracking-widest mb-2">{stat.label}</div>
-            <div className="text-2xl font-bold" style={{ color: stat.color }}>{stat.value}</div>
+            <div 
+              className={cn("font-bold", stat.label === "CANTON BLOCK" ? "text-lg" : "text-2xl")} 
+              style={{ color: stat.color }}
+            >
+              {stat.value}
+            </div>
           </div>
         ))}
       </div>
