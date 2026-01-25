@@ -82,6 +82,9 @@ function AppRouter() {
         )}
       </Route>
 
+      {/* Demo route for CCP Margin (public access for testing) */}
+      <Route path="/demo/ccp-margin" component={CCPMarginPage} />
+
       <Route path="/platform/trends">
         {() => (
           <RequireAuth>
