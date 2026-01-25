@@ -95,16 +95,61 @@ interface Member {
   riskTier: string;
   strataScore: number;
   strataStatus: string;
+  strataDescription?: string;
   totalPosted: number;
   traditionalValue: number;
   strataAdjusted: number;
   marginGap: number;
-  overallRisk: { score: number; label: string; trend: string };
   collateral: Collateral[];
   venueExposure: VenueExposure[];
   riskFactors: Record<string, RiskFactor>;
   recommendations: Recommendation[];
 }
+
+interface MemberWithRisk extends Member {
+  memberRiskScore: number;
+  memberRiskLabel: string;
+  memberRiskColor: string;
+}
+
+// ============================================================================
+// RISK METHODOLOGY CONSTANTS
+// ============================================================================
+// Two Distinct Scores:
+// 1. STRATA Score - Collateral liquidity confidence ("Can they liquidate cleanly?")
+// 2. Member Risk Score - Operational risk profile ("How exposed to systemic vulnerabilities?")
+// Risk Score = (Venue×0.35) + (Asset×0.25) + (Liquidity×0.28) + (Counterparty×0.12)
+// ============================================================================
+
+const RISK_WEIGHTS = {
+  venueConcentration: 0.35,    // Largest - venue failure is systemic
+  assetConcentration: 0.25,    // Single-asset exposure
+  liquidityRisk: 0.28,         // Illiquid positions can't exit at fair value
+  counterpartyRisk: 0.12       // Slower-moving, more manageable
+};
+
+const RISK_THRESHOLDS = {
+  LOW: { min: 85, color: "#10b981", label: "LOW" },
+  MODERATE: { min: 70, color: "#f59e0b", label: "MODERATE" },
+  HIGH: { min: 50, color: "#ef4444", label: "HIGH" },
+  CRITICAL: { min: 0, color: "#dc2626", label: "CRITICAL" }
+};
+
+const getRiskLabel = (score: number) => {
+  if (score >= 85) return RISK_THRESHOLDS.LOW;
+  if (score >= 70) return RISK_THRESHOLDS.MODERATE;
+  if (score >= 50) return RISK_THRESHOLDS.HIGH;
+  return RISK_THRESHOLDS.CRITICAL;
+};
+
+const calculateRiskScore = (factors: Record<string, RiskFactor>): number => {
+  return Math.round(
+    (factors.venueConcentration?.score || 0) * RISK_WEIGHTS.venueConcentration +
+    (factors.assetConcentration?.score || 0) * RISK_WEIGHTS.assetConcentration +
+    (factors.liquidityRisk?.score || 0) * RISK_WEIGHTS.liquidityRisk +
+    (factors.counterpartyRisk?.score || 0) * RISK_WEIGHTS.counterpartyRisk
+  );
+};
 
 interface PendingTrade {
   id: string;
@@ -156,13 +201,14 @@ export default function CCPMarginUnified() {
       name: "Acme Capital LLC",
       memberId: "ACMECAPITAL",
       riskTier: "Standard",
-      strataScore: 73,
+      // STRATA Score: Collateral liquidity confidence - reduced by Russell ETF anomalies
+      strataScore: 77,
       strataStatus: "caution",
+      strataDescription: "Collateral liquidity reduced by Russell ETF anomalies",
       totalPosted: 847500000,
       traditionalValue: 805125000,
       strataAdjusted: 731250000,
       marginGap: 73875000,
-      overallRisk: { score: 67, label: "MODERATE", trend: "stable" },
       collateral: [
         {
           id: "tsry-10y",
@@ -230,29 +276,31 @@ export default function CCPMarginUnified() {
         { venue: "Venue B (CEX)", amount: 263000000, pct: 31, status: "warning", note: "TSLE anomalies" },
         { venue: "Venue C (RFQ)", amount: 17000000, pct: 2, status: "healthy", note: "Minimal" }
       ],
+      // Risk Factors - Calculated: 45×0.35 + 72×0.25 + 65×0.28 + 82×0.12 = 62
       riskFactors: {
-        venueConcentration: { score: 43, weight: 35, label: "HIGH" },
-        assetConcentration: { score: 71, weight: 25, label: "MEDIUM" },
-        liquidityRisk: { score: 58, weight: 28, label: "HIGH" },
-        counterpartyRisk: { score: 85, weight: 12, label: "LOW" }
+        venueConcentration: { score: 45, weight: 35, label: "HIGH" },      // 67% Canton, 31% Venue B
+        assetConcentration: { score: 72, weight: 25, label: "MODERATE" },  // Russell ETF is 41%
+        liquidityRisk: { score: 65, weight: 28, label: "HIGH" },           // Fragmentation concerns
+        counterpartyRisk: { score: 82, weight: 12, label: "LOW" }          // No major alerts
       },
       recommendations: [
-        { priority: 1, action: "Reduce Venue B exposure (TSLE anomalies)", impact: "HIGH" },
-        { priority: 2, action: "Diversify Russell 1000 ETF across venues", impact: "MEDIUM" },
-        { priority: 3, action: "Increase Treasury allocation", impact: "MEDIUM" }
+        { priority: 1, action: "Reduce Venue B exposure below 25% (TSLE anomalies)", impact: "HIGH" },
+        { priority: 2, action: "Diversify Russell 1000 ETF across additional venues", impact: "MEDIUM" },
+        { priority: 3, action: "Increase Treasury allocation to improve liquidity profile", impact: "MEDIUM" }
       ]
     },
     "meridian-fund": {
       name: "Meridian Fund Services",
       memberId: "MERIDIANFUND",
       riskTier: "Standard",
+      // STRATA Score: Excellent collateral quality
       strataScore: 89,
       strataStatus: "healthy",
+      strataDescription: "High-quality, diversified collateral with strong liquidity",
       totalPosted: 1250000000,
       traditionalValue: 1187500000,
       strataAdjusted: 1143750000,
       marginGap: 43750000,
-      overallRisk: { score: 89, label: "LOW", trend: "improving" },
       collateral: [
         {
           id: "tsry-10y",
@@ -291,27 +339,30 @@ export default function CCPMarginUnified() {
         { venue: "Venue C (RFQ)", amount: 187500000, pct: 15, status: "healthy", note: "Institutional" },
         { venue: "OTC Pool", amount: 62500000, pct: 5, status: "healthy", note: "Strategic" }
       ],
+      // Risk Factors - Calculated: 82×0.35 + 88×0.25 + 91×0.28 + 94×0.12 = 87
       riskFactors: {
-        venueConcentration: { score: 82, weight: 35, label: "LOW" },
-        assetConcentration: { score: 88, weight: 25, label: "LOW" },
-        liquidityRisk: { score: 91, weight: 28, label: "LOW" },
-        counterpartyRisk: { score: 94, weight: 12, label: "LOW" }
+        venueConcentration: { score: 82, weight: 35, label: "LOW" },       // 50% Canton, 4 venues
+        assetConcentration: { score: 88, weight: 25, label: "LOW" },       // Well diversified
+        liquidityRisk: { score: 91, weight: 28, label: "LOW" },            // All positions liquid
+        counterpartyRisk: { score: 94, weight: 12, label: "LOW" }          // Clean record
       },
       recommendations: [
-        { priority: 1, action: "Maintain current diversification", impact: "LOW" }
+        { priority: 1, action: "Maintain current diversification strategy", impact: "LOW" },
+        { priority: 2, action: "Consider OTC Pool expansion for large block trades", impact: "LOW" }
       ]
     },
     "vertex-trading": {
       name: "Vertex Trading Corp",
       memberId: "VERTEXTRADING",
       riskTier: "Enhanced",
-      strataScore: 52,
+      // STRATA Score: Poor collateral quality, concentrated in volatile assets
+      strataScore: 58,
       strataStatus: "alert",
+      strataDescription: "Collateral concentrated in volatile assets with venue dependency",
       totalPosted: 425000000,
       traditionalValue: 403750000,
       strataAdjusted: 318750000,
       marginGap: 85000000,
-      overallRisk: { score: 52, label: "HIGH", trend: "worsening" },
       collateral: [
         {
           id: "btc-tok",
@@ -349,16 +400,18 @@ export default function CCPMarginUnified() {
         { venue: "Canton DEX", amount: 102000000, pct: 24, status: "healthy", note: "Secondary" },
         { venue: "OTC Pool", amount: 25000000, pct: 6, status: "healthy", note: "Minimal" }
       ],
+      // Risk Factors - Calculated: 31×0.35 + 42×0.25 + 38×0.28 + 65×0.12 = 40
       riskFactors: {
-        venueConcentration: { score: 38, weight: 35, label: "CRITICAL" },
-        assetConcentration: { score: 45, weight: 25, label: "HIGH" },
-        liquidityRisk: { score: 42, weight: 28, label: "HIGH" },
-        counterpartyRisk: { score: 71, weight: 12, label: "MEDIUM" }
+        venueConcentration: { score: 31, weight: 35, label: "CRITICAL" },  // 70% Venue B
+        assetConcentration: { score: 42, weight: 25, label: "HIGH" },      // Heavy crypto
+        liquidityRisk: { score: 38, weight: 28, label: "CRITICAL" },       // Illiquid, single-venue
+        counterpartyRisk: { score: 65, weight: 12, label: "HIGH" }         // Some concerns
       },
       recommendations: [
-        { priority: 1, action: "Immediately reduce Venue B below 50%", impact: "CRITICAL" },
-        { priority: 2, action: "Diversify crypto holdings", impact: "HIGH" },
-        { priority: 3, action: "Increase Treasury to 30%", impact: "HIGH" }
+        { priority: 1, action: "URGENT: Reduce Venue B concentration below 50%", impact: "CRITICAL" },
+        { priority: 2, action: "Diversify crypto holdings across multiple venues", impact: "HIGH" },
+        { priority: 3, action: "Increase Treasury allocation to minimum 30%", impact: "HIGH" },
+        { priority: 4, action: "Establish presence on Venue C for RFQ access", impact: "MEDIUM" }
       ]
     }
   };
@@ -417,6 +470,19 @@ export default function CCPMarginUnified() {
     { id: "btc-tok", name: "BTC Token", type: "Crypto", tsleState: "watch", integrity: 79, alerts: 2 }
   ];
 
+  // Helper function to get member with calculated risk score
+  const getMemberWithCalculatedRisk = (memberKey: string): MemberWithRisk => {
+    const m = members[memberKey];
+    const calculatedScore = calculateRiskScore(m.riskFactors);
+    const riskLabel = getRiskLabel(calculatedScore);
+    return {
+      ...m,
+      memberRiskScore: calculatedScore,
+      memberRiskLabel: riskLabel.label,
+      memberRiskColor: riskLabel.color
+    };
+  };
+
   const tsleAlerts: TSLEAlert[] = [
     { id: 1, time: "14:32:07", severity: "high", asset: "Russell 1000 ETF Token", member: "Acme Capital", message: "Volume spike inconsistent with order book depth on Venue B", type: "wash_trading" },
     { id: 2, time: "14:28:45", severity: "medium", asset: "ETH Token", member: "Vertex Trading", message: "Bid-ask spread widening beyond 2sigma threshold", type: "spread_anomaly" },
@@ -446,9 +512,10 @@ export default function CCPMarginUnified() {
   };
 
   const getScoreColor = (score: number) => {
-    if (score >= 85) return "#10b981";
-    if (score >= 70) return "#f59e0b";
-    return "#ef4444";
+    if (score >= 85) return "#10b981";  // Green - LOW risk
+    if (score >= 70) return "#f59e0b";  // Yellow - MODERATE risk
+    if (score >= 50) return "#ef4444";  // Red - HIGH risk
+    return "#dc2626";                    // Dark red - CRITICAL risk
   };
 
   const getStatusBadge = (status: string) => {
@@ -653,6 +720,7 @@ export default function CCPMarginUnified() {
           </div>
           <div className="space-y-2">
             {filteredMembers.map(([key, m]) => {
+              const memberWithRisk = getMemberWithCalculatedRisk(key);
               const statusStyle = getStatusBadge(m.strataStatus);
               const isSelected = selectedMember === key;
               return (
@@ -678,18 +746,37 @@ export default function CCPMarginUnified() {
                       {statusStyle.label || m.strataStatus.toUpperCase()}
                     </span>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[11px] text-slate-500">{m.memberId}</span>
-                    <span
-                      className="text-lg font-bold"
-                      style={{ color: getScoreColor(m.strataScore) }}
-                    >
-                      {m.strataScore}
-                    </span>
+                  <div className="text-[11px] text-slate-500 mb-2">Posted: {formatCurrency(m.totalPosted)}</div>
+                  {/* Two distinct scores with clear labels */}
+                  <div className="flex justify-between items-center gap-3">
+                    <div className="text-center flex-1">
+                      <div className="text-[9px] text-slate-500 mb-0.5 tracking-wider">STRATA</div>
+                      <div className="text-lg font-bold" style={{ color: getScoreColor(m.strataScore) }}>
+                        {m.strataScore}
+                      </div>
+                    </div>
+                    <div className="w-px h-8 bg-white/10" />
+                    <div className="text-center flex-1">
+                      <div className="text-[9px] text-slate-500 mb-0.5 tracking-wider">RISK</div>
+                      <div className="text-lg font-bold" style={{ color: memberWithRisk.memberRiskColor }}>
+                        {memberWithRisk.memberRiskScore}
+                      </div>
+                    </div>
                   </div>
                 </div>
               );
             })}
+          </div>
+          
+          {/* Score Legend */}
+          <div className="mt-4 pt-4 border-t border-white/5 px-1">
+            <div className="text-[9px] text-slate-500 tracking-widest mb-2">SCORE DEFINITIONS</div>
+            <div className="text-[10px] text-slate-400 mb-1">
+              <span className="font-semibold">STRATA:</span> Collateral liquidity confidence
+            </div>
+            <div className="text-[10px] text-slate-400">
+              <span className="font-semibold">RISK:</span> Weighted operational risk profile
+            </div>
           </div>
         </aside>
 
@@ -726,7 +813,7 @@ export default function CCPMarginUnified() {
           getStatusBadge={getStatusBadge}
         />}
         {activeView === "member-risk" && <MemberRiskView
-          member={member}
+          member={getMemberWithCalculatedRisk(selectedMember)}
           formatCurrency={formatCurrency}
           getScoreColor={getScoreColor}
           getStatusBadge={getStatusBadge}
@@ -1379,7 +1466,7 @@ function ManipulationView({ assets, selectedAsset, setSelectedAsset, formatCurre
 // ============================================================================
 
 interface MemberRiskViewProps {
-  member: Member;
+  member: MemberWithRisk;
   formatCurrency: (value: number) => string;
   getScoreColor: (score: number) => string;
   getStatusBadge: (status: string) => { bg: string; color: string; label?: string };
@@ -1412,12 +1499,12 @@ function MemberRiskView({ member, formatCurrency, getScoreColor, getStatusBadge 
           <div className="text-right">
             <span
               className="text-xs px-3 py-1 rounded-md font-bold"
-              style={{ background: getStatusBadge(member.overallRisk.label).bg, color: getStatusBadge(member.overallRisk.label).color }}
+              style={{ background: getStatusBadge(member.memberRiskLabel).bg, color: getStatusBadge(member.memberRiskLabel).color }}
             >
-              {member.overallRisk.label} RISK
+              {member.memberRiskLabel} RISK
             </span>
-            <div className="text-5xl font-extrabold mt-2" style={{ color: getScoreColor(member.overallRisk.score) }}>
-              {member.overallRisk.score}
+            <div className="text-5xl font-extrabold mt-2" style={{ color: member.memberRiskColor }}>
+              {member.memberRiskScore}
             </div>
           </div>
         </div>
