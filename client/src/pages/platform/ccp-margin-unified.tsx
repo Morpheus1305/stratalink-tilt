@@ -1513,11 +1513,19 @@ function MemberRiskView({ member, formatCurrency, getScoreColor, getStatusBadge 
         <div className="grid grid-cols-4 gap-4">
           {Object.entries(member.riskFactors).map(([key, factor]) => {
             const statusStyle = getStatusBadge(factor.label);
+            // Format labels to be on two lines for consistency
+            const labelMap: Record<string, [string, string]> = {
+              venueConcentration: ["VENUE", "CONCENTRATION"],
+              assetConcentration: ["ASSET", "CONCENTRATION"],
+              liquidityRisk: ["LIQUIDITY", "RISK"],
+              counterpartyRisk: ["COUNTERPARTY", "RISK"]
+            };
+            const [line1, line2] = labelMap[key] || [key.toUpperCase(), ""];
             return (
               <Card key={key} className="p-4 bg-background/80 border-border/50">
                 <div className="flex justify-between items-start mb-3">
-                  <div className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                    {key.replace(/([A-Z])/g, " $1").trim()}
+                  <div className="text-[10px] text-muted-foreground uppercase tracking-wider leading-tight">
+                    {line1}<br />{line2}
                   </div>
                   <span className="text-[9px] text-muted-foreground">{factor.weight}%</span>
                 </div>
