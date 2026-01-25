@@ -989,21 +989,21 @@ function PreTradeView({ trades, members, selectedTrade, setSelectedTrade, format
 
             {/* Verification Actions */}
             <div
-              className="p-6 rounded-xl"
+              className="p-4 rounded-xl"
               style={{ background: "rgba(17, 17, 17, 0.9)", border: "1px solid rgba(255, 255, 255, 0.1)" }}
             >
-              <div className="text-[11px] text-slate-500 tracking-widest mb-4">VERIFICATION DECISION</div>
-              <div className="flex gap-4">
-                <Button className="flex-1 h-12 text-sm font-bold bg-emerald-500 hover:bg-emerald-600" data-testid="btn-approve-trade">
-                  <CheckCircle className="w-4 h-4 mr-2" />
+              <div className="text-[11px] text-slate-500 tracking-widest mb-3">VERIFICATION DECISION</div>
+              <div className="flex gap-3">
+                <Button size="sm" className="flex-1 text-xs font-semibold bg-emerald-500 hover:bg-emerald-600" data-testid="btn-approve-trade">
+                  <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
                   APPROVE TRADE
                 </Button>
-                <Button className="flex-1 h-12 text-sm font-bold bg-amber-500 hover:bg-amber-600 text-black" data-testid="btn-flag-trade">
-                  <AlertTriangle className="w-4 h-4 mr-2" />
+                <Button size="sm" className="flex-1 text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-black" data-testid="btn-flag-trade">
+                  <AlertTriangle className="w-3.5 h-3.5 mr-1.5" />
                   FLAG FOR REVIEW
                 </Button>
-                <Button className="flex-1 h-12 text-sm font-bold bg-red-500 hover:bg-red-600" data-testid="btn-reject-trade">
-                  <XCircle className="w-4 h-4 mr-2" />
+                <Button size="sm" className="flex-1 text-xs font-semibold bg-red-500 hover:bg-red-600" data-testid="btn-reject-trade">
+                  <XCircle className="w-3.5 h-3.5 mr-1.5" />
                   REJECT
                 </Button>
               </div>
