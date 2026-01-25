@@ -861,8 +861,8 @@ function PreTradeView({ trades, members, selectedTrade, setSelectedTrade, format
   const counterparty = trade ? members[trade.counterparty] : null;
 
   return (
-    <main className="flex-1 p-6 overflow-y-auto">
-      <div className="flex gap-6">
+    <main className="flex-1 p-6 overflow-y-auto min-w-0">
+      <div className="flex gap-6 min-w-0">
         {/* Trade Queue */}
         <div
           className="w-[280px] flex-shrink-0 p-4 rounded-xl"
@@ -908,7 +908,7 @@ function PreTradeView({ trades, members, selectedTrade, setSelectedTrade, format
 
         {/* Trade Detail */}
         {trade && counterparty && (
-          <div className="flex-1 space-y-6">
+          <div className="flex-1 min-w-0 space-y-6">
             {/* Trade Header */}
             <div
               className="p-6 rounded-xl"
@@ -1424,22 +1424,41 @@ function MemberRiskView({ member, formatCurrency, getScoreColor, getStatusBadge 
 
         {/* Risk Factor Cards */}
         <div className="grid grid-cols-4 gap-4">
-          {Object.entries(member.riskFactors).map(([key, factor]) => (
-            <div key={key} className="p-4 rounded-lg" style={{ background: "#111111" }}>
-              <div className="text-[10px] text-slate-500 mb-2 uppercase">
-                {key.replace(/([A-Z])/g, " $1").trim()}
-              </div>
-              <div className="flex justify-between items-end">
-                <div className="text-2xl font-bold" style={{ color: getScoreColor(factor.score) }}>{factor.score}</div>
-                <span
-                  className="text-[10px] px-2 py-0.5 rounded font-bold"
-                  style={{ background: getStatusBadge(factor.label).bg, color: getStatusBadge(factor.label).color }}
-                >
-                  {factor.label}
-                </span>
-              </div>
-            </div>
-          ))}
+          {Object.entries(member.riskFactors).map(([key, factor]) => {
+            const statusStyle = getStatusBadge(factor.label);
+            return (
+              <Card key={key} className="p-4 bg-background/80 border-border/50">
+                <div className="flex justify-between items-start mb-3">
+                  <div className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                    {key.replace(/([A-Z])/g, " $1").trim()}
+                  </div>
+                  <span className="text-[9px] text-muted-foreground">{factor.weight}%</span>
+                </div>
+                <div className="flex justify-between items-end">
+                  <div className="text-3xl font-bold" style={{ color: getScoreColor(factor.score) }}>
+                    {factor.score}
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] font-bold"
+                    style={{ background: statusStyle.bg, color: statusStyle.color, borderColor: statusStyle.color + "40" }}
+                  >
+                    {factor.label}
+                  </Badge>
+                </div>
+                {/* Score bar visualization */}
+                <div className="mt-3 h-1.5 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-300"
+                    style={{
+                      width: `${factor.score}%`,
+                      background: getScoreColor(factor.score)
+                    }}
+                  />
+                </div>
+              </Card>
+            );
+          })}
         </div>
       </div>
 
