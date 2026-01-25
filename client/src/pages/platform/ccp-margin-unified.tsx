@@ -5,6 +5,12 @@ import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DashboardHeader } from "@/components/dashboard-header";
+import { PlatformTabs } from "@/components/platform-tabs";
+import { DateTimeBar } from "@/components/date-time-bar";
+import { BottomTicker } from "@/components/bottom-ticker";
+import { useQuery } from "@tanstack/react-query";
+import type { DashboardData } from "@shared/schema";
 import {
   Search,
   CheckCircle,
@@ -501,63 +507,59 @@ export default function CCPMarginUnified() {
     m.memberId.toLowerCase().includes(memberSearch.toLowerCase())
   );
 
+  const { data: dashboardData } = useQuery<DashboardData>({
+    queryKey: ['/api/dashboard', 'BTC'],
+    queryFn: async () => {
+      const response = await fetch('/api/dashboard?asset=BTC');
+      if (!response.ok) throw new Error('Failed to fetch dashboard data');
+      return response.json();
+    },
+    refetchInterval: 10000,
+  });
+
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: "#000000", color: "#e2e8f0" }}>
-      {/* Header */}
-      <header
-        className="sticky top-0 z-50 flex justify-between items-center px-8 py-4"
-        style={{ background: "rgba(0, 0, 0, 0.95)", borderBottom: "1px solid rgba(255, 255, 255, 0.1)" }}
+    <div className="min-h-screen flex flex-col bg-background pb-[72px]">
+      {/* Standard App Navigation Headers */}
+      <DashboardHeader />
+      <PlatformTabs />
+
+      {/* CCP Margin Page Sub-Header */}
+      <div
+        className="flex justify-between items-center px-4 py-3 border-b border-border bg-card"
       >
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-3">
-            <div
-              className="w-9 h-9 rounded-lg flex items-center justify-center font-extrabold text-base"
-              style={{ background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)" }}
-            >
-              S
-            </div>
-            <div>
-              <div className="font-bold text-base tracking-tight">STRATALINK</div>
-              <div className="text-[10px] text-slate-500 tracking-widest">LIQUIDITY TRUTH LAYER</div>
-            </div>
+        <div className="flex items-center gap-4">
+          <span className="text-sm font-semibold text-foreground">CCP Margin Verification Console</span>
+          <div className="h-4 w-px bg-border" />
+          <div className="flex items-center gap-2 text-xs">
+            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-muted-foreground">LIVE</span>
+            <span className="text-foreground">Canton Network</span>
           </div>
-          <div className="h-6 w-px bg-white/10" />
-          <div className="text-sm text-slate-400">CCP Margin Verification Console</div>
         </div>
         <div className="flex items-center gap-4">
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
             onClick={() => setShowDataProvenance(!showDataProvenance)}
-            className="text-xs gap-2"
-            style={{ background: "rgba(251, 191, 36, 0.1)", border: "1px solid rgba(251, 191, 36, 0.3)" }}
+            className="text-xs gap-2 bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20"
             data-testid="btn-toggle-provenance"
           >
-            <CircleDot className="w-2 h-2" style={{ color: "#fbbf24" }} />
-            <span style={{ color: "#fbbf24" }} className="font-semibold">SYNTHETIC DATA</span>
-            <span className="text-slate-500">|</span>
-            <span style={{ color: "#d97706" }}>Proxy Model v1.2</span>
-            {showDataProvenance ? <ChevronUp className="w-3 h-3 text-slate-500" /> : <ChevronDown className="w-3 h-3 text-slate-500" />}
+            <CircleDot className="w-2 h-2" />
+            <span className="font-semibold">SYNTHETIC DATA</span>
+            <span className="text-muted-foreground">|</span>
+            <span className="text-amber-600">Proxy Model v1.2</span>
+            {showDataProvenance ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
           </Button>
-          <div
-            className="flex items-center gap-2 px-4 py-2 rounded-md text-xs"
-            style={{ background: "#111111" }}
-          >
-            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-slate-400">LIVE</span>
-            <span className="text-slate-200">Canton Network</span>
-          </div>
-          <div className="text-xs text-slate-500 font-mono">
+          <div className="text-xs text-muted-foreground font-mono">
             {new Date().toISOString().slice(0, 19).replace("T", " ")} UTC
           </div>
         </div>
-      </header>
+      </div>
 
       {/* Data Provenance Panel */}
       {showDataProvenance && (
         <div
-          className="px-8 py-5"
-          style={{ background: "rgba(251, 191, 36, 0.05)", borderBottom: "1px solid rgba(251, 191, 36, 0.2)" }}
+          className="px-4 py-4 bg-amber-500/5 border-b border-amber-500/20"
         >
           <div className="grid grid-cols-3 gap-8 max-w-7xl mx-auto">
             <div className="col-span-2">
@@ -600,8 +602,7 @@ export default function CCPMarginUnified() {
 
       {/* View Switcher */}
       <div
-        className="px-8 py-3 flex gap-2"
-        style={{ background: "rgba(17, 17, 17, 0.9)", borderBottom: "1px solid rgba(255, 255, 255, 0.1)" }}
+        className="px-4 py-3 flex gap-2 bg-card/90 border-b border-border"
       >
         {viewTabs.map((tab) => {
           const isActive = activeView === tab.id;
@@ -634,11 +635,10 @@ export default function CCPMarginUnified() {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex flex-1 overflow-hidden" style={{ marginBottom: "48px" }}>
+      <div className="flex flex-1 overflow-hidden">
         {/* Member Sidebar - Shared across views */}
         <aside
-          className="w-[280px] flex-shrink-0 p-5 overflow-y-auto"
-          style={{ background: "rgba(10, 10, 10, 0.8)", borderRight: "1px solid rgba(255, 255, 255, 0.1)" }}
+          className="w-[280px] flex-shrink-0 p-4 overflow-y-auto bg-card/80 border-r border-border"
         >
           <div className="text-[11px] text-slate-500 tracking-widest mb-3">CLEARING MEMBERS</div>
           <div className="relative mb-4">
@@ -734,8 +734,7 @@ export default function CCPMarginUnified() {
 
         {/* Right Panel - TSLE Alerts */}
         <aside
-          className="w-[320px] flex-shrink-0 p-5 overflow-y-auto"
-          style={{ background: "rgba(10, 10, 10, 0.8)", borderLeft: "1px solid rgba(255, 255, 255, 0.1)" }}
+          className="w-[320px] flex-shrink-0 p-4 overflow-y-auto bg-card/80 border-l border-border"
         >
           <div className="flex items-center gap-2 mb-4">
             <Button
@@ -836,26 +835,9 @@ export default function CCPMarginUnified() {
         </aside>
       </div>
 
-      {/* Footer */}
-      <footer
-        className="fixed bottom-0 left-0 right-0 z-50 px-8 py-3 flex justify-between items-center"
-        style={{ background: "rgba(0, 0, 0, 0.95)", borderTop: "1px solid rgba(251, 191, 36, 0.2)" }}
-      >
-        <div className="flex items-center gap-4">
-          <Badge className="text-[10px] bg-amber-500/20 text-amber-400 border-amber-500/40">
-            SIMULATION
-          </Badge>
-          <span className="text-xs text-slate-400">
-            Synthetic data from proxy models. Production pending Canton Network + DTC Tokenization (H2 2026).
-          </span>
-        </div>
-        <div className="flex items-center gap-4">
-          <span className="text-[11px] text-slate-500">STRATA | TSLE | DACT | RCL | PoLi</span>
-          <div className="text-[11px] text-slate-500 px-3 py-1 rounded" style={{ background: "#111111" }}>
-            LTF v2.1 Methodology
-          </div>
-        </div>
-      </footer>
+      {/* Standard App Footer */}
+      <DateTimeBar />
+      <BottomTicker items={dashboardData?.tickerItems || []} />
     </div>
   );
 }
