@@ -34,7 +34,8 @@ Built with React, TypeScript, and Vite, using Wouter for routing and TanStack Qu
 -   **Token Liquidity League Table**: Sortable summary of tracked tokens.
 -   **CCP Margin Verification Console**: Unified dashboard for Clearing House and CCP risk officers to verify collateral liquidity using STRATA, PoLi, TSLE, and DACT infrastructure. Features:
     - Standard app navigation (DashboardHeader + PlatformTabs) for seamless navigation across the platform
-    - Four unified value propositions in one view: Pre-Trade Verification, Margin Accuracy, Manipulation Detection, Member Risk Assessment
+    - Five unified value propositions in one view: Pre-Trade Verification, Margin Accuracy, Manipulation Detection, Member Risk Assessment, PoLi Attestations (Canton Network anchored)
+    - Responsive three-column layout with fluid sidebars (clamp-based widths 240px-380px) and adaptive metric grids
     - Left sidebar with clearing members list (search, selection, status badges) shared across all views
     - Stress scenario toggles (Normal, 12h, 4h, 1h liquidation windows)
     - Four key metrics cards (STRATA Score, Traditional Haircut, STRATA-Adjusted Value, Margin Gap)
