@@ -1787,22 +1787,22 @@ function PoLiAttestationsView({
             return (
               <div
                 key={ma.memberId}
-                className="p-4 rounded-lg"
+                className="p-4 rounded-lg flex flex-col"
                 style={{ background: "#111111", border: "1px solid rgba(255, 255, 255, 0.05)" }}
               >
-                <div className="flex justify-between items-start mb-3">
+                <div className="flex justify-between items-start mb-3 min-h-[56px]">
                   <div>
-                    <div className="font-semibold text-sm mb-1">{ma.memberName}</div>
+                    <div className="font-semibold text-sm mb-1 line-clamp-2">{ma.memberName}</div>
                     <div className="text-[10px] text-slate-500 font-mono">{ma.memberId}</div>
                   </div>
                   <span
-                    className="text-[9px] px-2 py-1 rounded font-bold"
+                    className="text-[9px] px-2 py-1 rounded font-bold flex-shrink-0"
                     style={{ background: statusStyle.bg, color: statusStyle.color }}
                   >
                     {statusStyle.label || ma.status.toUpperCase()}
                   </span>
                 </div>
-                <div className="grid grid-cols-4 gap-2 text-center">
+                <div className="grid grid-cols-4 gap-2 text-center mt-auto">
                   <div>
                     <div className="text-[9px] text-slate-500 mb-1">ASSETS</div>
                     <div className="text-lg font-bold">{ma.attestations}</div>
