@@ -750,10 +750,10 @@ export default function CCPMarginUnified() {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="ccp-three-column">
         {/* Member Sidebar - Shared across views */}
         <aside
-          className="w-[280px] flex-shrink-0 p-4 overflow-y-auto bg-card/80 border-r border-border"
+          className="ccp-sidebar-left ccp-panel-padding overflow-y-auto bg-card/80 border-r border-border"
         >
           <div className="text-[11px] text-slate-500 tracking-widest mb-3">CLEARING MEMBERS</div>
           <div className="relative mb-4">
@@ -876,7 +876,7 @@ export default function CCPMarginUnified() {
 
         {/* Right Panel - TSLE Alerts */}
         <aside
-          className="w-[320px] flex-shrink-0 p-4 overflow-y-auto bg-card/80 border-l border-border"
+          className="ccp-sidebar-right ccp-panel-padding overflow-y-auto bg-card/80 border-l border-border"
         >
           <div className="flex items-center gap-2 mb-4">
             <Button
@@ -1003,11 +1003,11 @@ function PreTradeView({ trades, members, selectedTrade, setSelectedTrade, format
   const counterparty = trade ? members[trade.counterparty] : null;
 
   return (
-    <main className="flex-1 p-6 overflow-y-auto min-w-0">
+    <main className="ccp-main ccp-panel-padding min-w-0">
       <div className="flex gap-6 min-w-0">
         {/* Trade Queue */}
         <div
-          className="w-[280px] flex-shrink-0 p-4 rounded-xl"
+          className="ccp-content-panel ccp-card-padding rounded-xl"
           style={{ background: "rgba(17, 17, 17, 0.9)", border: "1px solid rgba(255, 255, 255, 0.1)" }}
         >
           <div className="text-[11px] text-slate-500 tracking-widest mb-4">PENDING TRADES QUEUE</div>
@@ -1068,7 +1068,7 @@ function PreTradeView({ trades, members, selectedTrade, setSelectedTrade, format
                   {getStatusBadge(trade.status).label}
                 </span>
               </div>
-              <div className="grid grid-cols-5 gap-4">
+              <div className="ccp-metrics-grid-5">
                 {[
                   { label: "COUNTERPARTY", value: trade.counterpartyName },
                   { label: "DIRECTION", value: trade.direction, color: trade.direction === "BUY" ? "#10b981" : "#ef4444" },
@@ -1085,7 +1085,7 @@ function PreTradeView({ trades, members, selectedTrade, setSelectedTrade, format
             </div>
 
             {/* Settlement Metrics */}
-            <div className="grid grid-cols-4 gap-4">
+            <div className="ccp-metrics-grid-4">
               {[
                 { label: "AVAILABLE BALANCE", value: formatCurrency(counterparty.totalPosted * 0.15), sub: "Liquid assets" },
                 { label: "REQUIRED MARGIN", value: formatCurrency(trade.notional * 0.35), sub: "For this trade" },
@@ -1102,8 +1102,8 @@ function PreTradeView({ trades, members, selectedTrade, setSelectedTrade, format
                     border: `1px solid ${metric.highlight ? getScoreColor(trade.settlementProbability * 100) + "40" : "rgba(255, 255, 255, 0.1)"}`
                   }}
                 >
-                  <div className="text-[10px] text-slate-500 tracking-widest mb-2">{metric.label}</div>
-                  <div className="text-2xl font-bold" style={{ color: metric.color || "#e2e8f0" }}>{metric.value}</div>
+                  <div className="ccp-metric-label text-slate-500 mb-2">{metric.label}</div>
+                  <div className="ccp-metric-value" style={{ color: metric.color || "#e2e8f0" }}>{metric.value}</div>
                   <div className="text-[11px] text-slate-500">{metric.sub}</div>
                 </div>
               ))}
@@ -1191,7 +1191,7 @@ function MarginAccuracyView({
   stressedMarginGap
 }: MarginAccuracyViewProps) {
   return (
-    <main className="flex-1 p-6 overflow-y-auto">
+    <main className="ccp-main ccp-panel-padding">
       {/* Stress Scenario Selector */}
       <div className="flex gap-2 mb-6">
         {(Object.entries(stressMultipliers) as [StressScenario, typeof stressMultipliers[StressScenario]][]).map(([key, scenario]) => (
@@ -1211,7 +1211,7 @@ function MarginAccuracyView({
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="ccp-metrics-grid-4 mb-6">
         {[
           { label: "STRATA SCORE", value: member.strataScore.toString(), color: getScoreColor(member.strataScore), sub: member.strataStatus.toUpperCase() },
           { label: "TRADITIONAL HAIRCUT", value: formatCurrency(member.traditionalValue), sub: "Standard methodology" },
@@ -1226,8 +1226,8 @@ function MarginAccuracyView({
               border: `1px solid ${card.highlight ? "rgba(239, 68, 68, 0.3)" : "rgba(255, 255, 255, 0.1)"}`
             }}
           >
-            <div className="text-[10px] text-slate-500 tracking-widest mb-2">{card.label}</div>
-            <div className="text-2xl font-bold" style={{ color: card.color || "#e2e8f0" }}>{card.value}</div>
+            <div className="ccp-metric-label text-slate-500 mb-2">{card.label}</div>
+            <div className="ccp-metric-value" style={{ color: card.color || "#e2e8f0" }}>{card.value}</div>
             <div className="text-[11px] text-slate-500">{card.sub}</div>
           </div>
         ))}
@@ -1358,9 +1358,9 @@ function ManipulationView({ assets, selectedAsset, setSelectedAsset, formatCurre
   const asset = assets.find(a => a.id === selectedAsset) || assets[0];
 
   return (
-    <main className="flex-1 p-6 overflow-y-auto">
+    <main className="ccp-main ccp-panel-padding">
       {/* Summary Cards */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="ccp-metrics-grid-4 mb-6">
         {[
           { label: "MONITORED ASSETS", value: "47", sub: "Across all venues" },
           { label: "ACTIVE ALERTS", value: "12", sub: "Requiring review", color: "#f59e0b" },
@@ -1369,7 +1369,7 @@ function ManipulationView({ assets, selectedAsset, setSelectedAsset, formatCurre
         ].map((card, i) => (
           <div
             key={i}
-            className="p-5 rounded-xl"
+            className="ccp-card-padding rounded-xl"
             style={{
               background: card.highlight
                 ? "linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.15) 100%)"
@@ -1377,8 +1377,8 @@ function ManipulationView({ assets, selectedAsset, setSelectedAsset, formatCurre
               border: `1px solid ${card.highlight ? "rgba(16, 185, 129, 0.3)" : "rgba(255, 255, 255, 0.1)"}`
             }}
           >
-            <div className="text-[10px] tracking-widest mb-2" style={{ color: card.color || "#64748b" }}>{card.label}</div>
-            <div className="text-3xl font-bold" style={{ color: card.color || "#e2e8f0" }}>{card.value}</div>
+            <div className="ccp-metric-label mb-2" style={{ color: card.color || "#64748b" }}>{card.label}</div>
+            <div className="ccp-metric-large" style={{ color: card.color || "#e2e8f0" }}>{card.value}</div>
             <div className="text-[11px] text-slate-500">{card.sub}</div>
           </div>
         ))}
@@ -1387,7 +1387,7 @@ function ManipulationView({ assets, selectedAsset, setSelectedAsset, formatCurre
       <div className="flex gap-6">
         {/* Asset Watchlist */}
         <div
-          className="w-[260px] flex-shrink-0 p-4 rounded-xl"
+          className="ccp-content-panel ccp-card-padding rounded-xl"
           style={{ background: "rgba(17, 17, 17, 0.9)", border: "1px solid rgba(255, 255, 255, 0.1)" }}
         >
           <div className="text-[11px] text-slate-500 tracking-widest mb-4">ASSET WATCHLIST</div>
@@ -1539,10 +1539,10 @@ function MemberRiskView({ member, formatCurrency, getScoreColor, getStatusBadge 
   };
 
   return (
-    <main className="flex-1 p-6 overflow-y-auto">
+    <main className="ccp-main ccp-panel-padding">
       {/* Risk Profile Header */}
       <div
-        className="p-6 rounded-xl mb-6"
+        className="ccp-panel-padding rounded-xl mb-6"
         style={{ background: "rgba(17, 17, 17, 0.9)", border: "1px solid rgba(255, 255, 255, 0.1)" }}
       >
         <div className="flex justify-between mb-6">
@@ -1748,9 +1748,9 @@ function PoLiAttestationsView({
   getStatusBadge
 }: PoLiAttestationsViewProps) {
   return (
-    <main className="flex-1 p-6 overflow-y-auto min-w-0">
+    <main className="ccp-main ccp-panel-padding min-w-0">
       {/* Summary Stats */}
-      <div className="grid grid-cols-6 gap-4 mb-6">
+      <div className="ccp-metrics-grid-6 mb-6">
         {[
           { label: "ACTIVE", value: poliAttestations.summary.activeAttestations, color: "#10b981" },
           { label: "PENDING", value: poliAttestations.summary.pendingAnchor, color: "#f59e0b" },
@@ -1761,12 +1761,12 @@ function PoLiAttestationsView({
         ].map((stat, i) => (
           <div
             key={i}
-            className="p-4 rounded-xl"
+            className="ccp-card-padding rounded-xl"
             style={{ background: "rgba(17, 17, 17, 0.9)", border: "1px solid rgba(255, 255, 255, 0.1)" }}
           >
-            <div className="text-[9px] text-slate-500 tracking-widest mb-2">{stat.label}</div>
+            <div className="ccp-metric-label text-slate-500 mb-2">{stat.label}</div>
             <div 
-              className={cn("font-bold", stat.label === "CANTON BLOCK" ? "text-lg" : "text-2xl")} 
+              className={cn("font-bold", stat.label === "CANTON BLOCK" ? "text-lg" : "ccp-metric-value")} 
               style={{ color: stat.color }}
             >
               {stat.value}

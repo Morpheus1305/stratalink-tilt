@@ -1,0 +1,138 @@
+I'll analyze the screenshots and create a comprehensive prompt for Replit to fix these responsive design issues in your CCP Margin Verification Console.
+
+First, let me examine the issues I can see across the screens:
+
+1. **Fixed positioning issues** - Elements appear to use absolute positioning that breaks at different screen sizes
+2. **Text overflow** - Labels and values don't adapt to viewport width
+3. **Column width problems** - The three-column layout (left sidebar, center content, right trends panel) doesn't scale proportionally
+4. **Card/container spacing** - Margins and padding aren't responsive
+5. **Typography scaling** - Font sizes appear fixed rather than relative
+
+Here's a comprehensive prompt for Replit:
+
+---
+
+# Fix Responsive Layout Issues in CCP Margin Verification Console
+
+## Problem Statement
+The CCP Margin Verification Console screens (CCP MARGIN tab) currently break when viewed on different screen sizes - specifically when moving from a 13" MacBook Air to a larger Dell monitor. Text positioning, element alignment, and overall layout become misaligned. Other sections of TILT render correctly across screen sizes, so these specific pages need the same responsive treatment.
+
+## Affected Screens
+All views within the CCP MARGIN tab including:
+- Pre-Trade Verification view
+- Margin Accuracy view (showing collateral holdings, STRATA scores, margin gaps)
+- Manipulation Detection view (showing asset watchlist, venue integrity)
+- Member Risk view (showing risk profiles, venue exposure maps)
+- PoLi Attestations view (showing member attestations, evidence levels)
+
+## Requirements
+
+### 1. Responsive Grid System
+- Implement a fluid three-column layout that scales proportionally:
+  - **Left Sidebar (Clearing Members)**: Should maintain ~280-320px min-width, max 20% viewport width
+  - **Center Content Panel**: Should be fluid, taking remaining space, min-width 600px
+  - **Right Sidebar (STRATA Trends)**: Should maintain ~320-360px min-width, max 25% viewport width
+- Use CSS Grid or Flexbox with `fr` units and `minmax()` for proper scaling
+- Add breakpoints at 1920px, 1440px, 1280px, and 1024px
+
+### 2. Typography & Text Scaling
+- Convert all fixed `px` font sizes to relative units (`rem` or `em`)
+- Implement fluid typography using `clamp()` for headings and key metrics:
+  ```css
+  font-size: clamp(1rem, 2vw, 1.5rem);
+  ```
+- Ensure all labels, values, and status badges scale proportionally
+- Prevent text overflow with `overflow-wrap: break-word` and `text-overflow: ellipsis` where appropriate
+
+### 3. Card/Container Components
+All card elements (trade cards, metric cards, alert cards, member cards) should:
+- Use percentage-based or `fr`-based widths instead of fixed pixel widths
+- Implement consistent padding using relative units: `padding: clamp(0.75rem, 2vw, 1.5rem)`
+- Maintain aspect ratios where visual hierarchy matters
+- Use `display: grid` with `gap` property for internal spacing
+
+### 4. Specific Component Fixes
+
+**Pending Trades Queue** (Center panel, top section):
+- Trade cards should stack vertically with consistent gaps
+- Status badges (PENDING, APPROVED, FLAGGED) should maintain size relative to parent
+- Progress percentages (87%, 96%, 58%) should align right consistently
+
+**Trade Detail Panel** (Center panel, when trade selected):
+- Header section with token name and status badge should be flexbox with space-between
+- Metrics grid (Available Balance, Required Margin, Coverage Ratio, Settlement Prob) should use 4-column grid with auto-fit:
+  ```css
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
+  ```
+
+**Member List** (Left sidebar):
+- Member cards should maintain consistent height
+- STRATA and RISK scores should use a two-column grid within each card
+- Status badges (CAUTION, HEALTHY, ALERT) should position absolutely top-right within card
+
+**STRATA Trends** (Right sidebar):
+- Alert cards should stack with consistent gaps
+- Timestamp and severity badges should flex align properly
+- Maintain consistent spacing regardless of alert count
+
+**Margin Accuracy Collateral Holdings Table**:
+- Table should be responsive with horizontal scroll on small screens
+- Column widths should use percentage-based sizing
+- Maintain alignment of decimal numbers in value columns
+
+**Venue Integrity Section**:
+- Venue bars (Canton DEX, Venue B, Venue C) should use flexbox
+- Progress bars should scale width with `flex: 1`
+- Percentage values and absolute values should right-align consistently
+
+**Risk Profile Cards** (Member Risk view):
+- Four-column metric display should use grid with equal fractions
+- Badges (HIGH, MODERATE, LOW) should maintain consistent sizing
+- Progress bars under each metric should scale proportionally
+
+### 5. Layout Constraints
+- **Minimum supported width**: 1280px (below this, allow horizontal scroll)
+- **Maximum content width**: No max, should scale smoothly up to ultrawide displays (3440px+)
+- **Maintain 16:9 aspect ratio** for any visual elements or charts
+- **Consistent spacing**: Define CSS custom properties for spacing scale:
+  ```css
+  --space-xs: clamp(0.25rem, 0.5vw, 0.5rem);
+  --space-sm: clamp(0.5rem, 1vw, 1rem);
+  --space-md: clamp(1rem, 2vw, 2rem);
+  --space-lg: clamp(1.5rem, 3vw, 3rem);
+  --space-xl: clamp(2rem, 4vw, 4rem);
+  ```
+
+### 6. Testing Requirements
+After implementing fixes, verify:
+- Layout renders correctly at 1280px, 1440px, 1920px, 2560px, and 3440px widths
+- No horizontal scrolling within sections (only allowed at <1280px)
+- Text never overflows containers
+- All interactive elements remain clickable with proper hit areas
+- Status badges and metrics maintain visual hierarchy
+- Consistent spacing between all elements across screen sizes
+
+### 7. Don't Change
+- Color scheme and theme
+- Data values or content
+- Feature functionality
+- Navigation structure
+- Tab order
+- Any logic or business rules
+
+## Technical Approach
+1. Audit all CSS files for fixed `px` width/height values on layout containers
+2. Replace fixed positioning with flexbox/grid where elements are breaking
+3. Implement CSS custom properties for consistent scaling
+4. Add responsive utility classes if using a framework
+5. Test at each breakpoint after changes
+6. Ensure changes are scoped only to CCP MARGIN tab components
+
+## Success Criteria
+The CCP Margin Verification Console must display identically (in terms of proportions and alignment) whether viewed on a 13" laptop screen or a 27" external monitor, with all text legible, all elements properly aligned, and all spacing consistent.
+
+---
+
+This prompt comprehensively addresses the responsive design issues while preserving all your content and functionality. Would you like me to refine any specific section?
