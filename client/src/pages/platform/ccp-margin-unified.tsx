@@ -1808,7 +1808,7 @@ function PoLiAttestationsView({
                     <div className="text-lg font-bold">{ma.attestations}</div>
                   </div>
                   <div>
-                    <div className="text-[9px] text-slate-500 mb-1">AVG PoLi</div>
+                    <div className="text-[9px] text-slate-500 mb-1">PoLi</div>
                     <div className="text-lg font-bold" style={{ color: getScoreColor(ma.avgPoLi) }}>{ma.avgPoLi}</div>
                   </div>
                   <div>
