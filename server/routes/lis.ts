@@ -213,7 +213,38 @@ router.get("/:venue/depth", async (req: Request, res: Response) => {
   try {
     let data: LISSnapshot;
 
-    if (venue === "coinbase") {
+    if (venue === "deribit") {
+      const scope = req.query.scope === "spot" ? "spot" : "perps";
+      const internalHeaders: Record<string, string> = {};
+      if (process.env.RELAY_SECRET) internalHeaders["x-relay-secret"] = process.env.RELAY_SECRET;
+      const relayRes = await fetch(`http://localhost:${process.env.PORT || 5000}/deribit/${scope}/depth?symbol=${encodeURIComponent(symbol)}`, { headers: internalHeaders });
+      if (!relayRes.ok) {
+        const err = await relayRes.json().catch(() => ({}));
+        return res.status(relayRes.status).json({ error: err.error || `Deribit relay returned ${relayRes.status}` });
+      }
+      const relayData = await relayRes.json();
+      data = relayData as LISSnapshot;
+    } else if (venue === "hyperliquid") {
+      const internalHeaders: Record<string, string> = {};
+      if (process.env.RELAY_SECRET) internalHeaders["x-relay-secret"] = process.env.RELAY_SECRET;
+      const relayRes = await fetch(`http://localhost:${process.env.PORT || 5000}/hyperliquid/perps/depth?symbol=${encodeURIComponent(symbol)}`, { headers: internalHeaders });
+      if (!relayRes.ok) {
+        const err = await relayRes.json().catch(() => ({}));
+        return res.status(relayRes.status).json({ error: err.error || `Hyperliquid relay returned ${relayRes.status}` });
+      }
+      const relayData = await relayRes.json();
+      data = relayData as LISSnapshot;
+    } else if (venue === "uniswap") {
+      const internalHeaders: Record<string, string> = {};
+      if (process.env.RELAY_SECRET) internalHeaders["x-relay-secret"] = process.env.RELAY_SECRET;
+      const relayRes = await fetch(`http://localhost:${process.env.PORT || 5000}/uniswap/spot/depth?symbol=${encodeURIComponent(symbol)}`, { headers: internalHeaders });
+      if (!relayRes.ok) {
+        const err = await relayRes.json().catch(() => ({}));
+        return res.status(relayRes.status).json({ error: err.error || `Uniswap relay returned ${relayRes.status}` });
+      }
+      const relayData = await relayRes.json();
+      data = relayData as LISSnapshot;
+    } else if (venue === "coinbase") {
       // Coinbase fetch may return its own symbol; we will override to canonical.
       data = await fetchCoinbaseDepth(symbol);
     } else {
