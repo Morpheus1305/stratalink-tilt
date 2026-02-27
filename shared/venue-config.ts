@@ -127,7 +127,7 @@ export const VENUE_CONFIGS: Record<string, VenueConfig> = {
     role: "STRESS_VENUE",
     confidence: "VARIABLE",
     scope: ["SPOT", "PERP", "FUNDING", "LIQUIDATIONS"],
-    available: false,
+    available: true,
     description: "Derivatives-first exchange with high leverage exposure. Primary signal for retail leverage stress and liquidation cascades.",
     usedFor: [
       "Retail leverage stress detection",
@@ -199,6 +199,26 @@ export const VENUE_CONFIGS: Record<string, VenueConfig> = {
       "Derivatives analysis",
       "Leverage regime modeling",
       "Stress venue signals",
+    ],
+  },
+  dydx: {
+    venue: "DYDX",
+    displayName: "dYdX",
+    role: "DERIVATIVES_SPECIALIST",
+    confidence: "HIGH",
+    scope: ["PERP", "FUNDING"],
+    available: true,
+    description: "Decentralized perpetuals exchange built on Cosmos appchain (v4). Fully on-chain orderbook with transparent funding rates and open interest data.",
+    usedFor: [
+      "On-chain perpetuals depth analysis",
+      "Decentralized derivatives liquidity",
+      "Transparent funding rate signals",
+      "Cross-venue CEX/DEX perps divergence",
+    ],
+    notUsedFor: [
+      "Spot liquidity baseline",
+      "Reference anchoring",
+      "Options flow analysis",
     ],
   },
 };

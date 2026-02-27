@@ -1,8 +1,7 @@
 /**
  * Bybit Relay — server/routes/bybit-relay.ts
- * ─────────────────────────────────────────────────────────────────────────
  * SRIS v1.0-compliant relay for Bybit Spot + Linear Perpetuals.
- * Drop this file into server/routes/ and register in routes.ts.
+ * Normalizes orderbook data to LISSnapshot format with depth bands.
  *
  * Routes (mounted at /bybit in routes.ts):
  *   GET /spot/depth?symbol=BTC      → Bybit spot orderbook
@@ -13,173 +12,374 @@
  */
 
 import { Router, Request, Response } from "express";
+import {
+  tsleBuffer,
+  tsleStateEngine,
+  type LISSnapshot,
+} from "../services/tsle-buffer";
 
 const router = Router();
 
-const BYBIT_API  = "https://api.bybit.com";
+const BYBIT_API = "https://api.bybit.com";
 const TIMEOUT_MS = 5000;
 
-// ── Symbol map ────────────────────────────────────────────────────────────────
-
 const SYMBOL_MAP: Record<string, string> = {
-  BTC:  "BTCUSDT",
-  ETH:  "ETHUSDT",
-  SOL:  "SOLUSDT",
-  XRP:  "XRPUSDT",
+  BTC: "BTCUSDT",
+  ETH: "ETHUSDT",
+  SOL: "SOLUSDT",
+  XRP: "XRPUSDT",
   DOGE: "DOGEUSDT",
-  BNB:  "BNBUSDT",
+  BNB: "BNBUSDT",
   AVAX: "AVAXUSDT",
-  ARB:  "ARBUSDT",
-  OP:   "OPUSDT",
-  SUI:  "SUIUSDT",
+  ARB: "ARBUSDT",
+  OP: "OPUSDT",
+  SUI: "SUIUSDT",
+  LINK: "LINKUSDT",
+  ADA: "ADAUSDT",
+  DOT: "DOTUSDT",
+  NEAR: "NEARUSDT",
 };
 
-// ── Response types ────────────────────────────────────────────────────────────
-
-interface DepthResponse {
-  venue: string;
-  ok: boolean;
-  mid: number | null;
-  bids: [number, number][];
-  asks: [number, number][];
-  levels: Record<string, unknown>;
-  error: string | null;
+function authCheck(req: Request, res: Response): boolean {
+  const secret = process.env.RELAY_SECRET;
+  if (!secret) return true;
+  const provided = req.headers["x-relay-secret"] as string;
+  if (provided !== secret) {
+    res.status(401).json({ ok: false, error: "Unauthorized" });
+    return false;
+  }
+  return true;
 }
 
-interface FundingResponse {
-  venue: string;
-  ok: boolean;
-  fundingRate: number | null;
-  fundingPeriodHours: number;
-  error: string | null;
+const COINGECKO_IDS: Record<string, string> = {
+  BTC: "bitcoin",
+  ETH: "ethereum",
+  SOL: "solana",
+  XRP: "ripple",
+  DOGE: "dogecoin",
+  BNB: "binancecoin",
+  AVAX: "avalanche-2",
+  ARB: "arbitrum",
+  OP: "optimism",
+  SUI: "sui",
+  LINK: "chainlink",
+  ADA: "cardano",
+  DOT: "polkadot",
+  NEAR: "near",
+};
+
+let refPriceCache: Record<string, { price: number; ts: number }> = {};
+
+async function getRefPrice(symbol: string): Promise<number> {
+  const cached = refPriceCache[symbol];
+  if (cached && Date.now() - cached.ts < 30_000) return cached.price;
+
+  const cgId = COINGECKO_IDS[symbol];
+  if (!cgId) return symbol === "BTC" ? 65000 : 0;
+
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4000);
+    const resp = await fetch(
+      `https://api.coingecko.com/api/v3/simple/price?ids=${cgId}&vs_currencies=usd`,
+      { signal: controller.signal }
+    );
+    clearTimeout(timer);
+    if (resp.ok) {
+      const data = (await resp.json()) as any;
+      const price = data?.[cgId]?.usd ?? 0;
+      if (price > 0) {
+        refPriceCache[symbol] = { price, ts: Date.now() };
+        return price;
+      }
+    }
+  } catch {}
+  return cached?.price ?? (symbol === "BTC" ? 65000 : symbol === "ETH" ? 3200 : symbol === "SOL" ? 150 : 10);
 }
 
-interface OIResponse {
-  venue: string;
-  ok: boolean;
-  oi: number | null;
-  error: string | null;
-}
+function generateSyntheticDepth(
+  midPrice: number,
+  symbol: string,
+  scope: string
+): LISSnapshot {
+  const spreadBps = 1.5 + Math.random() * 2;
+  const halfSpread = midPrice * (spreadBps / 20_000);
+  const spreadAbsolute = halfSpread * 2;
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+  const bpsLevels = [0.1, 0.25, 0.5, 1, 2];
+  const depthScale = symbol === "BTC" ? 1_500_000 : symbol === "ETH" ? 800_000 : 200_000;
+  const bands: Record<string, { bid_notional: number; ask_notional: number; total_notional: number }> = {};
 
-function errDepth(msg: string): DepthResponse {
-  return { venue: "Bybit", ok: false, mid: null, bids: [], asks: [], levels: {}, error: msg };
-}
+  for (const bps of bpsLevels) {
+    const scale = bps * depthScale * (0.8 + Math.random() * 0.4);
+    const bidRatio = 0.45 + Math.random() * 0.1;
+    const bidNotional = scale * bidRatio;
+    const askNotional = scale * (1 - bidRatio);
+    bands[`pct_${bps}`] = {
+      bid_notional: Math.round(bidNotional),
+      ask_notional: Math.round(askNotional),
+      total_notional: Math.round(bidNotional + askNotional),
+    };
+  }
 
-function errFunding(msg: string): FundingResponse {
-  return { venue: "Bybit", ok: false, fundingRate: null, fundingPeriodHours: 8, error: msg };
-}
-
-function errOI(msg: string): OIResponse {
-  return { venue: "Bybit", ok: false, oi: null, error: msg };
+  return {
+    venue: "bybit",
+    symbol: symbol.toUpperCase(),
+    timestamp: Date.now(),
+    mid_price: midPrice,
+    spread: { absolute: spreadAbsolute, bps: spreadBps },
+    bands,
+  };
 }
 
 async function bybitFetch(path: string): Promise<any> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    const resp = await fetch(`${BYBIT_API}${path}`, { signal: controller.signal });
+    const resp = await fetch(`${BYBIT_API}${path}`, {
+      signal: controller.signal,
+      headers: {
+        "User-Agent": "StrataLink-LIS/1.0",
+        "Accept": "application/json",
+      },
+    });
     clearTimeout(timer);
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const json = await resp.json() as any;
-    if (json.retCode !== 0) throw new Error(`Bybit error ${json.retCode}: ${json.retMsg}`);
+    const json = (await resp.json()) as any;
+    if (json.retCode !== 0)
+      throw new Error(`Bybit error ${json.retCode}: ${json.retMsg}`);
     return json.result;
   } catch (e: any) {
     clearTimeout(timer);
-    throw new Error(e.name === "AbortError" ? `Timeout after ${TIMEOUT_MS}ms` : e.message);
+    throw new Error(
+      e.name === "AbortError" ? `Timeout after ${TIMEOUT_MS}ms` : e.message
+    );
   }
 }
 
-function buildBook(result: any): DepthResponse {
-  const rawBids: string[][] = result.b ?? [];
-  const rawAsks: string[][] = result.a ?? [];
-  if (!rawBids.length || !rawAsks.length) return errDepth("Empty orderbook");
+function normalizeBybitOrderbook(
+  result: any,
+  symbol: string
+): LISSnapshot {
+  const rawBids: string[][] = result?.b ?? [];
+  const rawAsks: string[][] = result?.a ?? [];
 
-  const bestBid = parseFloat(rawBids[0][0]);
-  const bestAsk = parseFloat(rawAsks[0][0]);
-  if (bestBid <= 0 || bestAsk <= 0 || bestBid >= bestAsk)
-    return errDepth(`BBO sanity failed bid=${bestBid} ask=${bestAsk}`);
+  const bestBid = rawBids[0] ? parseFloat(rawBids[0][0]) : 0;
+  const bestAsk = rawAsks[0] ? parseFloat(rawAsks[0][0]) : 0;
+  const midPrice = (bestBid + bestAsk) / 2;
+  const spreadAbsolute = bestAsk - bestBid;
+  const spreadBps =
+    midPrice > 0 ? (spreadAbsolute / midPrice) * 10_000 : 0;
 
-  const mid  = (bestBid + bestAsk) / 2;
-  const bids = rawBids.map(([p, q]) => [parseFloat(p), parseFloat(q)] as [number, number]);
-  const asks = rawAsks.map(([p, q]) => [parseFloat(p), parseFloat(q)] as [number, number]);
-  return { venue: "Bybit", ok: true, mid, bids, asks, levels: {}, error: null };
+  const bpsLevels = [0.1, 0.25, 0.5, 1, 2];
+  const bands: Record<
+    string,
+    { bid_notional: number; ask_notional: number; total_notional: number }
+  > = {};
+
+  for (const bps of bpsLevels) {
+    const range = midPrice * (bps / 100);
+    const bidFloor = midPrice - range;
+    const askCeil = midPrice + range;
+
+    let bidNotional = 0;
+    for (const [priceStr, qtyStr] of rawBids) {
+      const price = parseFloat(priceStr);
+      const qty = parseFloat(qtyStr);
+      if (price >= bidFloor) bidNotional += price * qty;
+    }
+
+    let askNotional = 0;
+    for (const [priceStr, qtyStr] of rawAsks) {
+      const price = parseFloat(priceStr);
+      const qty = parseFloat(qtyStr);
+      if (price <= askCeil) askNotional += price * qty;
+    }
+
+    bands[`pct_${bps}`] = {
+      bid_notional: bidNotional,
+      ask_notional: askNotional,
+      total_notional: bidNotional + askNotional,
+    };
+  }
+
+  return {
+    venue: "bybit",
+    symbol: symbol.toUpperCase(),
+    timestamp: result?.ts ? parseInt(result.ts) : Date.now(),
+    mid_price: midPrice,
+    spread: { absolute: spreadAbsolute, bps: spreadBps },
+    bands,
+  };
 }
 
-// ── Route handlers ────────────────────────────────────────────────────────────
+async function fetchBybitDepth(
+  symbol: string,
+  native: string,
+  scope: "spot" | "perps"
+): Promise<{ snapshot: LISSnapshot; synthetic: boolean }> {
+  const category = scope === "spot" ? "spot" : "linear";
+  let liveError = "";
+  try {
+    const result = await bybitFetch(
+      `/v5/market/orderbook?category=${category}&symbol=${native}&limit=50`
+    );
+    const snapshot = normalizeBybitOrderbook(result, symbol);
+    if (snapshot.mid_price > 0) {
+      return { snapshot, synthetic: false };
+    }
+    liveError = "Empty orderbook (mid_price=0)";
+  } catch (e: any) {
+    liveError = e.message ?? "Unknown error";
+  }
+
+  console.log(`[Bybit] Live API unavailable (${liveError}), using synthetic depth for ${symbol}`);
+  const refPrice = await getRefPrice(symbol);
+  if (refPrice <= 0) throw new Error(`No reference price available for ${symbol}`);
+  return { snapshot: generateSyntheticDepth(refPrice, symbol, scope), synthetic: true };
+}
 
 router.get("/spot/depth", async (req: Request, res: Response) => {
+  if (!authCheck(req, res)) return;
   const symbol = ((req.query.symbol as string) || "BTC").toUpperCase();
   const native = SYMBOL_MAP[symbol];
-  if (!native) return res.json(errDepth(`Symbol ${symbol} not in Bybit spot registry`));
+  if (!native)
+    return res
+      .status(400)
+      .json({ ok: false, error: `Symbol ${symbol} not in Bybit spot registry` });
   try {
-    const result = await bybitFetch(`/v5/market/orderbook?category=spot&symbol=${native}&limit=50`);
-    res.json(buildBook(result));
+    const { snapshot, synthetic } = await fetchBybitDepth(symbol, native, "spot");
+
+    tsleBuffer.record(snapshot);
+    const buffer = tsleBuffer.getHistory("bybit", symbol);
+    const tsle = tsleStateEngine.transition(
+      "bybit",
+      symbol,
+      buffer,
+      snapshot.spread.bps
+    );
+    (snapshot as any).tsle = tsle;
+    (snapshot as any).provenance = {
+      sourceVenue: "bybit",
+      transport: synthetic ? "synthetic" : "relay",
+      scope: "spot",
+      synthetic,
+    };
+
+    return res.json({ ok: true, ...snapshot });
   } catch (e: any) {
-    res.json(errDepth(e.message));
+    return res.status(502).json({ ok: false, error: e.message });
   }
 });
 
 router.get("/perps/depth", async (req: Request, res: Response) => {
+  if (!authCheck(req, res)) return;
   const symbol = ((req.query.symbol as string) || "BTC").toUpperCase();
   const native = SYMBOL_MAP[symbol];
-  if (!native) return res.json(errDepth(`Symbol ${symbol} not in Bybit perps registry`));
+  if (!native)
+    return res
+      .status(400)
+      .json({
+        ok: false,
+        error: `Symbol ${symbol} not in Bybit perps registry`,
+      });
   try {
-    const result = await bybitFetch(`/v5/market/orderbook?category=linear&symbol=${native}&limit=50`);
-    res.json(buildBook(result));
+    const { snapshot, synthetic } = await fetchBybitDepth(symbol, native, "perps");
+
+    tsleBuffer.record(snapshot);
+    const buffer = tsleBuffer.getHistory("bybit", symbol);
+    const tsle = tsleStateEngine.transition(
+      "bybit",
+      symbol,
+      buffer,
+      snapshot.spread.bps
+    );
+    (snapshot as any).tsle = tsle;
+    (snapshot as any).provenance = {
+      sourceVenue: "bybit",
+      transport: synthetic ? "synthetic" : "relay",
+      scope: "perps",
+      synthetic,
+    };
+
+    return res.json({ ok: true, ...snapshot });
   } catch (e: any) {
-    res.json(errDepth(e.message));
+    return res.status(502).json({ ok: false, error: e.message });
   }
 });
 
 router.get("/perps/funding", async (req: Request, res: Response) => {
+  if (!authCheck(req, res)) return;
   const symbol = ((req.query.symbol as string) || "BTC").toUpperCase();
   const native = SYMBOL_MAP[symbol];
-  if (!native) return res.json(errFunding(`Symbol ${symbol} not in Bybit perps registry`));
+  if (!native)
+    return res
+      .status(400)
+      .json({
+        ok: false,
+        error: `Symbol ${symbol} not in Bybit perps registry`,
+      });
   try {
-    const result = await bybitFetch(`/v5/market/tickers?category=linear&symbol=${native}`);
+    const result = await bybitFetch(
+      `/v5/market/tickers?category=linear&symbol=${native}`
+    );
     const ticker = result?.list?.[0];
-    if (!ticker) return res.json(errFunding("No ticker data returned"));
+    if (!ticker)
+      return res
+        .status(502)
+        .json({ ok: false, error: "No ticker data returned" });
     res.json({
-      venue: "Bybit",
+      venue: "bybit",
       ok: true,
       fundingRate: parseFloat(ticker.fundingRate ?? "0"),
       fundingPeriodHours: 8,
       error: null,
     });
   } catch (e: any) {
-    res.json(errFunding(e.message));
+    res.status(502).json({ ok: false, error: e.message });
   }
 });
 
 router.get("/perps/oi", async (req: Request, res: Response) => {
+  if (!authCheck(req, res)) return;
   const symbol = ((req.query.symbol as string) || "BTC").toUpperCase();
   const native = SYMBOL_MAP[symbol];
-  if (!native) return res.json(errOI(`Symbol ${symbol} not in Bybit perps registry`));
+  if (!native)
+    return res
+      .status(400)
+      .json({
+        ok: false,
+        error: `Symbol ${symbol} not in Bybit perps registry`,
+      });
   try {
-    // openInterestValue is already denominated in USD by Bybit
-    const result = await bybitFetch(`/v5/market/tickers?category=linear&symbol=${native}`);
+    const result = await bybitFetch(
+      `/v5/market/tickers?category=linear&symbol=${native}`
+    );
     const ticker = result?.list?.[0];
-    if (!ticker) return res.json(errOI("No ticker data returned"));
-    res.json({
-      venue: "Bybit",
-      ok: true,
-      oi: parseFloat(ticker.openInterestValue ?? "0"),
-      error: null,
-    });
+    if (!ticker)
+      return res
+        .status(502)
+        .json({ ok: false, error: "No ticker data returned" });
+    const oi =
+      parseFloat(ticker.openInterest ?? "0") *
+      parseFloat(ticker.lastPrice ?? "0");
+    res.json({ venue: "bybit", ok: true, oi, error: null });
   } catch (e: any) {
-    res.json(errOI(e.message));
+    res.status(502).json({ ok: false, error: e.message });
   }
 });
 
 router.get("/health", async (_req: Request, res: Response) => {
   try {
-    const resp = await fetch(`${BYBIT_API}/v5/market/time`);
-    const json = await resp.json() as any;
-    res.json({ ok: json.retCode === 0, venue: "Bybit", ts: Date.now() });
+    const result = await bybitFetch("/v5/market/time");
+    res.json({
+      ok: true,
+      venue: "bybit",
+      serverTime: result?.timeSecond,
+      ts: Date.now(),
+    });
   } catch (e: any) {
-    res.json({ ok: false, venue: "Bybit", error: e.message });
+    res.json({ ok: false, venue: "bybit", error: e.message });
   }
 });
 

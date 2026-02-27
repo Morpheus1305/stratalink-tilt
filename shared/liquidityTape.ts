@@ -5,6 +5,7 @@ export type LiquidityVenue =
   | "kraken"
   | "okx"
   | "bybit"
+  | "dydx"
   | "dex"
   | "unknown";
 

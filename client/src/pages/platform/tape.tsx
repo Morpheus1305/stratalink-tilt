@@ -33,7 +33,7 @@ import type {
 } from "@shared/liquidityTape";
 
 const ALL_VENUES: LiquidityVenue[] = [
-  "binance", "coinbase", "kraken", "okx", "bybit", "dex", "unknown"
+  "binance", "coinbase", "kraken", "okx", "bybit", "dydx", "dex", "unknown"
 ];
 
 type TapeHealthVenue = {

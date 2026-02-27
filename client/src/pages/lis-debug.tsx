@@ -24,8 +24,8 @@ const BAND_LABELS: Record<string, string> = {
 };
 
 const TOKENS = ["BTC", "ETH", "SOL", "LINK", "AVAX"];
-const AVAILABLE_VENUES = ["binance", "coinbase", "kraken", "deribit", "hyperliquid", "uniswap", "okx"] as const;
-const COMING_SOON_VENUES = ["bybit"] as const;
+const AVAILABLE_VENUES = ["binance", "coinbase", "kraken", "deribit", "hyperliquid", "uniswap", "okx", "bybit", "dydx"] as const;
+const COMING_SOON_VENUES = [] as const;
 const VENUES = [...AVAILABLE_VENUES, ...COMING_SOON_VENUES] as const;
 
 type Venue = (typeof AVAILABLE_VENUES)[number];
@@ -427,14 +427,18 @@ export default function LiquidityTruthConsole() {
                     {AVAILABLE_VENUES.map((v) => (
                       <SelectItem key={v} value={v}>{v.toUpperCase()}</SelectItem>
                     ))}
-                    <div className="px-2 py-1.5 text-[10px] text-muted-foreground uppercase tracking-wider border-t border-border mt-1">
-                      Coming Soon
-                    </div>
-                    {COMING_SOON_VENUES.map((v) => (
-                      <SelectItem key={v} value={v} disabled className="opacity-50">
-                        {v.toUpperCase()}
-                      </SelectItem>
-                    ))}
+                    {COMING_SOON_VENUES.length > 0 && (
+                      <>
+                        <div className="px-2 py-1.5 text-[10px] text-muted-foreground uppercase tracking-wider border-t border-border mt-1">
+                          Coming Soon
+                        </div>
+                        {COMING_SOON_VENUES.map((v) => (
+                          <SelectItem key={v} value={v} disabled className="opacity-50">
+                            {v.toUpperCase()}
+                          </SelectItem>
+                        ))}
+                      </>
+                    )}
                   </SelectContent>
                 </Select>
               </div>

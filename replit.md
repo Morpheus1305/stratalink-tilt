@@ -72,7 +72,8 @@ Uses Express.js with in-memory storage (MemStorage) to provide API endpoints for
 -   **Coinbase API**: Exchange connector.
 -   **Kraken API**: Exchange connector.
 -   **OKX API**: Exchange relay (`/okx/spot/depth`, `/okx/perps/depth`, `/okx/funding`) — live orderbook and funding rate data normalized to LISSnapshot.
--   **Bybit API**: Exchange connector.
+-   **Bybit API**: Exchange relay (`/bybit/spot/depth`, `/bybit/perps/depth`, `/bybit/perps/funding`, `/bybit/perps/oi`) — live orderbook and funding data normalized to LISSnapshot. Falls back to CoinGecko-anchored synthetic depth when API is geo-blocked (403).
+-   **dYdX v4 Indexer**: Perpetuals DEX relay (`/dydx/perps/depth`, `/dydx/perps/funding`, `/dydx/perps/oi`) — live CLOB orderbook data from Cosmos appchain indexer, normalized to LISSnapshot.
 -   **Deribit API**: Derivatives exchange relay (`/deribit/perps/depth`, `/deribit/spot/depth`) — live orderbook data normalized to LISSnapshot.
 -   **Hyperliquid API**: Perpetuals DEX relay (`/hyperliquid/perps/depth`, `/hyperliquid/perps/meta`, `/hyperliquid/perps/funding`) — live L2 book data.
 -   **Uniswap V3 (The Graph + DeFiLlama)**: DEX spot relay (`/uniswap/spot/depth`, `/uniswap/pools`) — pool TVL-based depth bands with CoinGecko pricing fallback.
