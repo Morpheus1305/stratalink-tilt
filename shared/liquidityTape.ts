@@ -6,6 +6,8 @@ export type LiquidityVenue =
   | "okx"
   | "bybit"
   | "dydx"
+  | "bitget"
+  | "gmx"
   | "dex"
   | "unknown";
 

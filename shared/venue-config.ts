@@ -13,7 +13,8 @@ export type VenueRole =
   | "REFERENCE_VENUE"       // Clean, institutional-grade liquidity truth
   | "STRESS_VENUE"          // Stress, leverage, and tail risk discovery
   | "REFERENCE_ADJACENT"    // Reinforces reference truth, cross-validates
-  | "DERIVATIVES_SPECIALIST"; // Options/futures specialist, institutional derivatives
+  | "DERIVATIVES_SPECIALIST" // Options/futures specialist, institutional derivatives
+  | "DEX_LIQUIDITY";        // Decentralized exchange pool-based liquidity
 
 export type ConfidenceMode = 
   | "HIGH"      // Stable confidence, used for anchoring
@@ -221,6 +222,46 @@ export const VENUE_CONFIGS: Record<string, VenueConfig> = {
       "Options flow analysis",
     ],
   },
+  bitget: {
+    venue: "BITGET",
+    displayName: "Bitget",
+    role: "STRESS_VENUE",
+    confidence: "HIGH",
+    scope: ["SPOT", "PERP", "FUNDING"],
+    available: true,
+    description: "Major centralized exchange with deep spot and USDT-margined perpetuals markets. Provides live orderbook depth and funding rate data via public API v2.",
+    usedFor: [
+      "Cross-venue depth divergence",
+      "Stress venue liquidity signals",
+      "Perpetuals funding rate comparison",
+      "Multi-venue spread analysis",
+    ],
+    notUsedFor: [
+      "Reference anchoring (use Coinbase)",
+      "Options flow analysis",
+      "DeFi liquidity fragmentation",
+    ],
+  },
+  gmx: {
+    venue: "GMX",
+    displayName: "GMX v2",
+    role: "DEX_LIQUIDITY",
+    confidence: "MODERATE",
+    scope: ["PERP", "FUNDING"],
+    available: true,
+    description: "Decentralized perpetuals exchange on Arbitrum (v2). Pool-based liquidity with oracle pricing. Depth is synthesized from pool TVL and oracle mid price.",
+    usedFor: [
+      "On-chain perpetuals depth analysis",
+      "DEX vs CEX liquidity divergence",
+      "DeFi derivatives regime classification",
+      "Pool-based liquidity fragmentation signals",
+    ],
+    notUsedFor: [
+      "Spot liquidity baseline",
+      "Reference anchoring",
+      "CLOB orderbook analysis (pool-based)",
+    ],
+  },
 };
 
 /**
@@ -282,14 +323,16 @@ export function getRoleConfidenceMultiplier(venue: string, mode: "baseline" | "s
       case "REFERENCE_VENUE": return 1.5;
       case "REFERENCE_ADJACENT": return 1.2;
       case "STRESS_VENUE": return 0.7;
-      case "DERIVATIVES_SPECIALIST": return 0.9; // Moderate baseline, specialized domain
+      case "DERIVATIVES_SPECIALIST": return 0.9;
+      case "DEX_LIQUIDITY": return 0.8;
     }
   } else {
     switch (config.role) {
       case "STRESS_VENUE": return 1.5;
       case "REFERENCE_ADJACENT": return 1.0;
       case "REFERENCE_VENUE": return 0.8;
-      case "DERIVATIVES_SPECIALIST": return 1.3; // High for derivatives stress signals
+      case "DERIVATIVES_SPECIALIST": return 1.3;
+      case "DEX_LIQUIDITY": return 1.1;
     }
   }
   return 1.0;
@@ -308,6 +351,8 @@ export function getVenueRoleStyling(role: VenueRole): { label: string; color: st
       return { label: "REF-ADJ", color: "text-blue-400", bgColor: "bg-blue-400/10" };
     case "DERIVATIVES_SPECIALIST":
       return { label: "DERIV-SPEC", color: "text-purple-400", bgColor: "bg-purple-400/10" };
+    case "DEX_LIQUIDITY":
+      return { label: "DEX-LIQ", color: "text-cyan-400", bgColor: "bg-cyan-400/10" };
   }
 }
 

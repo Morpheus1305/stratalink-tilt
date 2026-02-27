@@ -74,6 +74,8 @@ Uses Express.js with in-memory storage (MemStorage) to provide API endpoints for
 -   **OKX API**: Exchange relay (`/okx/spot/depth`, `/okx/perps/depth`, `/okx/funding`) — live orderbook and funding rate data normalized to LISSnapshot.
 -   **Bybit API**: Exchange relay (`/bybit/spot/depth`, `/bybit/perps/depth`, `/bybit/perps/funding`, `/bybit/perps/oi`) — live orderbook and funding data normalized to LISSnapshot. Falls back to CoinGecko-anchored synthetic depth when API is geo-blocked (403).
 -   **dYdX v4 Indexer**: Perpetuals DEX relay (`/dydx/perps/depth`, `/dydx/perps/funding`, `/dydx/perps/oi`) — live CLOB orderbook data from Cosmos appchain indexer, normalized to LISSnapshot.
+-   **Bitget API**: Exchange relay (`/bitget/spot/depth`, `/bitget/perps/depth`, `/bitget/perps/funding`, `/bitget/perps/oi`) — live orderbook depth (spot via v2 orderbook, perps via v2 merge-depth) normalized to LISSnapshot with TSLE recording.
+-   **GMX v2 (Arbitrum)**: DEX relay (`/gmx/perps/depth`, `/gmx/perps/funding`, `/gmx/perps/oi`) — pool-based perpetuals with oracle pricing from `arbitrum-api.gmxinfra.io`. Depth synthesized from pool TVL + oracle mid price, marked `transport: "synthetic"` in provenance.
 -   **Deribit API**: Derivatives exchange relay (`/deribit/perps/depth`, `/deribit/spot/depth`) — live orderbook data normalized to LISSnapshot.
 -   **Hyperliquid API**: Perpetuals DEX relay (`/hyperliquid/perps/depth`, `/hyperliquid/perps/meta`, `/hyperliquid/perps/funding`) — live L2 book data.
 -   **Uniswap V3 (The Graph + DeFiLlama)**: DEX spot relay (`/uniswap/spot/depth`, `/uniswap/pools`) — pool TVL-based depth bands with CoinGecko pricing fallback.

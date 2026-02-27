@@ -25,6 +25,8 @@ import hyperliquidRoutes from "./routes/hyperliquid-relay";
 import okxRoutes from "./routes/okx-relay";
 import bybitRoutes from "./routes/bybit-relay";
 import dydxRoutes from "./routes/dydx-relay";
+import bitgetRoutes from "./routes/bitget-relay";
+import gmxRoutes    from "./routes/gmx-relay";
 import dailyCommentaryRouter from "./api/dailyCommentary";
 import { startIngestionLoop } from "../analytics/engines/ingestionManager";
 import { 
@@ -431,6 +433,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/okx", okxRoutes);
   app.use("/bybit", bybitRoutes);
   app.use("/dydx", dydxRoutes);
+  app.use("/bitget", bitgetRoutes);
+  app.use("/gmx",    gmxRoutes);
   
   // Download endpoint for LTC code archive
   app.get("/download/LTC-v1.0.zip", (_req, res) => {

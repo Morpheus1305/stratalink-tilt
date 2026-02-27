@@ -20,7 +20,7 @@ import { fetchCoinbaseDepth } from "../services/lis-coinbase";
 
 const router = Router();
 
-const VALID_VENUES = ["binance", "coinbase", "kraken", "deribit", "uniswap", "hyperliquid", "okx", "bybit", "dydx"] as const;
+const VALID_VENUES = ["binance", "coinbase", "kraken", "deribit", "uniswap", "hyperliquid", "okx", "bybit", "dydx", "bitget", "gmx"] as const;
 type ValidVenue = (typeof VALID_VENUES)[number];
 
 function isValidVenue(v: string): v is ValidVenue {
@@ -213,7 +213,7 @@ router.get("/:venue/depth", async (req: Request, res: Response) => {
   try {
     let data: LISSnapshot;
 
-    if (venue === "deribit" || venue === "hyperliquid" || venue === "uniswap" || venue === "okx" || venue === "bybit" || venue === "dydx") {
+    if (venue === "deribit" || venue === "hyperliquid" || venue === "uniswap" || venue === "okx" || venue === "bybit" || venue === "dydx" || venue === "bitget" || venue === "gmx") {
       const relayMap: Record<string, string> = {
         deribit: `/deribit/${req.query.scope === "spot" ? "spot" : "perps"}/depth`,
         hyperliquid: `/hyperliquid/perps/depth`,
@@ -221,6 +221,8 @@ router.get("/:venue/depth", async (req: Request, res: Response) => {
         okx: `/okx/${req.query.scope === "perps" ? "perps" : "spot"}/depth`,
         bybit: `/bybit/${req.query.scope === "perps" ? "perps" : "spot"}/depth`,
         dydx: `/dydx/perps/depth`,
+        bitget: `/bitget/${req.query.scope === "perps" ? "perps" : "spot"}/depth`,
+        gmx: `/gmx/perps/depth`,
       };
       const relayPath = relayMap[venue];
       const internalHeaders: Record<string, string> = {};
