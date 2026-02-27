@@ -71,7 +71,7 @@ Uses Express.js with in-memory storage (MemStorage) to provide API endpoints for
 -   **Arkham API**: On-chain identity intelligence.
 -   **Coinbase API**: Exchange connector.
 -   **Kraken API**: Exchange connector.
--   **OKX API**: Exchange connector.
+-   **OKX API**: Exchange relay (`/okx/spot/depth`, `/okx/perps/depth`, `/okx/funding`) — live orderbook and funding rate data normalized to LISSnapshot.
 -   **Bybit API**: Exchange connector.
 -   **Deribit API**: Derivatives exchange relay (`/deribit/perps/depth`, `/deribit/spot/depth`) — live orderbook data normalized to LISSnapshot.
 -   **Hyperliquid API**: Perpetuals DEX relay (`/hyperliquid/perps/depth`, `/hyperliquid/perps/meta`, `/hyperliquid/perps/funding`) — live L2 book data.

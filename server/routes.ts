@@ -22,6 +22,7 @@ import rclRoutes from "./routes/rcl";
 import deribitRoutes from "./routes/deribit-relay";
 import uniswapRoutes from "./routes/uniswap-relay";
 import hyperliquidRoutes from "./routes/hyperliquid-relay";
+import okxRoutes from "./routes/okx-relay";
 import dailyCommentaryRouter from "./api/dailyCommentary";
 import { startIngestionLoop } from "../analytics/engines/ingestionManager";
 import { 
@@ -425,6 +426,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/deribit", deribitRoutes);
   app.use("/uniswap", uniswapRoutes);
   app.use("/hyperliquid", hyperliquidRoutes);
+  app.use("/okx", okxRoutes);
 
   // Download endpoint for LTC code archive
   app.get("/download/LTC-v1.0.zip", (_req, res) => {

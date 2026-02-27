@@ -20,7 +20,7 @@ import { fetchCoinbaseDepth } from "../services/lis-coinbase";
 
 const router = Router();
 
-const VALID_VENUES = ["binance", "coinbase", "kraken", "deribit", "uniswap", "hyperliquid"] as const;
+const VALID_VENUES = ["binance", "coinbase", "kraken", "deribit", "uniswap", "hyperliquid", "okx"] as const;
 type ValidVenue = (typeof VALID_VENUES)[number];
 
 function isValidVenue(v: string): v is ValidVenue {
@@ -241,6 +241,17 @@ router.get("/:venue/depth", async (req: Request, res: Response) => {
       if (!relayRes.ok) {
         const err = await relayRes.json().catch(() => ({}));
         return res.status(relayRes.status).json({ error: err.error || `Uniswap relay returned ${relayRes.status}` });
+      }
+      const relayData = await relayRes.json();
+      data = relayData as LISSnapshot;
+    } else if (venue === "okx") {
+      const scope = req.query.scope === "perps" ? "perps" : "spot";
+      const internalHeaders: Record<string, string> = {};
+      if (process.env.RELAY_SECRET) internalHeaders["x-relay-secret"] = process.env.RELAY_SECRET;
+      const relayRes = await fetch(`http://localhost:${process.env.PORT || 5000}/okx/${scope}/depth?symbol=${encodeURIComponent(symbol)}`, { headers: internalHeaders });
+      if (!relayRes.ok) {
+        const err = await relayRes.json().catch(() => ({}));
+        return res.status(relayRes.status).json({ error: err.error || `OKX relay returned ${relayRes.status}` });
       }
       const relayData = await relayRes.json();
       data = relayData as LISSnapshot;

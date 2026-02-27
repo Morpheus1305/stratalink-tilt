@@ -1,6 +1,6 @@
 // client/src/services/lis.ts
 
-export type Venue = "binance" | "coinbase" | "kraken" | "deribit" | "hyperliquid" | "uniswap";
+export type Venue = "binance" | "coinbase" | "kraken" | "deribit" | "hyperliquid" | "uniswap" | "okx";
 
 export interface LISBand {
   bid_notional?: number;

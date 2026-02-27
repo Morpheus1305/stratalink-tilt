@@ -24,8 +24,8 @@ const BAND_LABELS: Record<string, string> = {
 };
 
 const TOKENS = ["BTC", "ETH", "SOL", "LINK", "AVAX"];
-const AVAILABLE_VENUES = ["binance", "coinbase", "kraken", "deribit", "hyperliquid", "uniswap"] as const;
-const COMING_SOON_VENUES = ["okx", "bybit"] as const;
+const AVAILABLE_VENUES = ["binance", "coinbase", "kraken", "deribit", "hyperliquid", "uniswap", "okx"] as const;
+const COMING_SOON_VENUES = ["bybit"] as const;
 const VENUES = [...AVAILABLE_VENUES, ...COMING_SOON_VENUES] as const;
 
 type Venue = (typeof AVAILABLE_VENUES)[number];
