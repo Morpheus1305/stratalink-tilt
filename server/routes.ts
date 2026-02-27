@@ -19,6 +19,9 @@ import poliApiRoutes from "./routes/poliApi";
 import alertsRoutes from "./routes/alerts";
 import tapeRoutes from "./routes/tape";
 import rclRoutes from "./routes/rcl";
+import deribitRoutes from "./routes/deribit-relay";
+import uniswapRoutes from "./routes/uniswap-relay";
+import hyperliquidRoutes from "./routes/hyperliquid-relay";
 import dailyCommentaryRouter from "./api/dailyCommentary";
 import { startIngestionLoop } from "../analytics/engines/ingestionManager";
 import { 
@@ -417,6 +420,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mount RCL routes (Regulatory Consumption Layer - ADGM)
   app.use("/api/rcl/v0.1", rclRoutes);
+
+  // Mount exchange relay routes (LIS/TLC venue connectors)
+  app.use("/deribit", deribitRoutes);
+  app.use("/uniswap", uniswapRoutes);
+  app.use("/hyperliquid", hyperliquidRoutes);
 
   // Download endpoint for LTC code archive
   app.get("/download/LTC-v1.0.zip", (_req, res) => {

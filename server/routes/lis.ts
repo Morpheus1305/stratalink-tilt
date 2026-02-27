@@ -20,7 +20,7 @@ import { fetchCoinbaseDepth } from "../services/lis-coinbase";
 
 const router = Router();
 
-const VALID_VENUES = ["binance", "coinbase", "kraken"] as const;
+const VALID_VENUES = ["binance", "coinbase", "kraken", "deribit", "uniswap", "hyperliquid"] as const;
 type ValidVenue = (typeof VALID_VENUES)[number];
 
 function isValidVenue(v: string): v is ValidVenue {
