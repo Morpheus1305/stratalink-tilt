@@ -158,9 +158,8 @@
    }
 
    public record(snapshot: LISSnapshot): TSLEPoint | null {
-     // Process all supported venues
      const venue = snapshot.venue.toLowerCase();
-     const supportedVenues = ["binance", "coinbase", "kraken"];
+     const supportedVenues = ["binance", "coinbase", "kraken", "deribit", "hyperliquid", "uniswap", "okx"];
      if (!supportedVenues.includes(venue)) {
        return null;
      }

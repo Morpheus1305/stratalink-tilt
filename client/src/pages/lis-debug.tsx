@@ -352,7 +352,7 @@ export default function LiquidityTruthConsole() {
     
     const fetchDivergence = async () => {
       try {
-        const res = await fetch(`/api/lis/divergence?symbol=${token}`);
+        const res = await fetch(`/api/lis/divergence?symbol=${token}&venue=${venue}`);
         if (res.ok && alive) {
           const data = await res.json();
           setDivergenceData(data);
@@ -369,7 +369,7 @@ export default function LiquidityTruthConsole() {
       alive = false;
       clearInterval(interval);
     };
-  }, [token]);
+  }, [token, venue]);
 
   return (
     <div className="min-h-screen bg-background">

@@ -213,48 +213,34 @@ router.get("/:venue/depth", async (req: Request, res: Response) => {
   try {
     let data: LISSnapshot;
 
-    if (venue === "deribit") {
-      const scope = req.query.scope === "spot" ? "spot" : "perps";
+    if (venue === "deribit" || venue === "hyperliquid" || venue === "uniswap" || venue === "okx") {
+      const relayMap: Record<string, string> = {
+        deribit: `/deribit/${req.query.scope === "spot" ? "spot" : "perps"}/depth`,
+        hyperliquid: `/hyperliquid/perps/depth`,
+        uniswap: `/uniswap/spot/depth`,
+        okx: `/okx/${req.query.scope === "perps" ? "perps" : "spot"}/depth`,
+      };
+      const relayPath = relayMap[venue];
       const internalHeaders: Record<string, string> = {};
       if (process.env.RELAY_SECRET) internalHeaders["x-relay-secret"] = process.env.RELAY_SECRET;
-      const relayRes = await fetch(`http://localhost:${process.env.PORT || 5000}/deribit/${scope}/depth?symbol=${encodeURIComponent(symbol)}`, { headers: internalHeaders });
+      const relayRes = await fetch(
+        `http://localhost:${process.env.PORT || 5000}${relayPath}?symbol=${encodeURIComponent(symbol)}`,
+        { headers: internalHeaders }
+      );
       if (!relayRes.ok) {
         const err = await relayRes.json().catch(() => ({}));
-        return res.status(relayRes.status).json({ error: err.error || `Deribit relay returned ${relayRes.status}` });
+        return res.status(relayRes.status).json({ error: err.error || `${venue} relay returned ${relayRes.status}` });
       }
       const relayData = await relayRes.json();
-      data = relayData as LISSnapshot;
-    } else if (venue === "hyperliquid") {
-      const internalHeaders: Record<string, string> = {};
-      if (process.env.RELAY_SECRET) internalHeaders["x-relay-secret"] = process.env.RELAY_SECRET;
-      const relayRes = await fetch(`http://localhost:${process.env.PORT || 5000}/hyperliquid/perps/depth?symbol=${encodeURIComponent(symbol)}`, { headers: internalHeaders });
-      if (!relayRes.ok) {
-        const err = await relayRes.json().catch(() => ({}));
-        return res.status(relayRes.status).json({ error: err.error || `Hyperliquid relay returned ${relayRes.status}` });
-      }
-      const relayData = await relayRes.json();
-      data = relayData as LISSnapshot;
-    } else if (venue === "uniswap") {
-      const internalHeaders: Record<string, string> = {};
-      if (process.env.RELAY_SECRET) internalHeaders["x-relay-secret"] = process.env.RELAY_SECRET;
-      const relayRes = await fetch(`http://localhost:${process.env.PORT || 5000}/uniswap/spot/depth?symbol=${encodeURIComponent(symbol)}`, { headers: internalHeaders });
-      if (!relayRes.ok) {
-        const err = await relayRes.json().catch(() => ({}));
-        return res.status(relayRes.status).json({ error: err.error || `Uniswap relay returned ${relayRes.status}` });
-      }
-      const relayData = await relayRes.json();
-      data = relayData as LISSnapshot;
-    } else if (venue === "okx") {
-      const scope = req.query.scope === "perps" ? "perps" : "spot";
-      const internalHeaders: Record<string, string> = {};
-      if (process.env.RELAY_SECRET) internalHeaders["x-relay-secret"] = process.env.RELAY_SECRET;
-      const relayRes = await fetch(`http://localhost:${process.env.PORT || 5000}/okx/${scope}/depth?symbol=${encodeURIComponent(symbol)}`, { headers: internalHeaders });
-      if (!relayRes.ok) {
-        const err = await relayRes.json().catch(() => ({}));
-        return res.status(relayRes.status).json({ error: err.error || `OKX relay returned ${relayRes.status}` });
-      }
-      const relayData = await relayRes.json();
-      data = relayData as LISSnapshot;
+      data = {
+        venue,
+        symbol,
+        timestamp: relayData.timestamp ?? Date.now(),
+        mid_price: relayData.mid_price ?? 0,
+        spread: relayData.spread ?? { absolute: 0, bps: 0 },
+        bands: relayData.bands ?? {},
+      } as LISSnapshot;
+      if (relayData.provenance) (data as any).provenance = relayData.provenance;
     } else if (venue === "coinbase") {
       // Coinbase fetch may return its own symbol; we will override to canonical.
       data = await fetchCoinbaseDepth(symbol);
@@ -436,11 +422,25 @@ router.get("/", async (req: Request, res: Response) => {
 /**
  * Venue Divergence Detection endpoint
  * Compares Reference vs Stress venues for a given symbol
+ * If a venue query param is provided and it's not coinbase/binance,
+ * compare that venue against coinbase as reference.
  */
 router.get("/divergence", async (req: Request, res: Response) => {
   const symbol = String(req.query.symbol ?? "BTC").toUpperCase();
-  const referenceVenue: ValidVenue = "coinbase";
-  const stressVenue: ValidVenue = "binance";
+  const requestedVenue = req.query.venue ? String(req.query.venue).toLowerCase() : null;
+
+  let referenceVenue: string = "coinbase";
+  let stressVenue: string = "binance";
+
+  if (requestedVenue && isValidVenue(requestedVenue)) {
+    if (requestedVenue === "coinbase") {
+      referenceVenue = "coinbase";
+      stressVenue = "binance";
+    } else {
+      stressVenue = requestedVenue;
+      referenceVenue = "coinbase";
+    }
+  }
 
   try {
     const refLatest = tsleBuffer.getLatest(referenceVenue, symbol);
