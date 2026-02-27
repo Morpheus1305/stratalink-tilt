@@ -73,4 +73,8 @@ Uses Express.js with in-memory storage (MemStorage) to provide API endpoints for
 -   **Kraken API**: Exchange connector.
 -   **OKX API**: Exchange connector.
 -   **Bybit API**: Exchange connector.
+-   **Deribit API**: Derivatives exchange relay (`/deribit/perps/depth`, `/deribit/spot/depth`) — live orderbook data normalized to LISSnapshot.
+-   **Hyperliquid API**: Perpetuals DEX relay (`/hyperliquid/perps/depth`, `/hyperliquid/perps/meta`, `/hyperliquid/perps/funding`) — live L2 book data.
+-   **Uniswap V3 (The Graph + DeFiLlama)**: DEX spot relay (`/uniswap/spot/depth`, `/uniswap/pools`) — pool TVL-based depth bands with CoinGecko pricing fallback.
+-   **DeFiLlama API**: DEX TVL data fallback for Uniswap pool depth.
 -   **Coinglass/Laevitas**: Funding rates, open interest, liquidations data.

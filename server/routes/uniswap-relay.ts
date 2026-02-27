@@ -10,16 +10,19 @@ const router = Router();
 
 const UNISWAP_V3_SUBGRAPH_ID = "5zvR82QoaXYFyDEKLZ9t6v9adgnptxYpKpSbxtgVENFV";
 
-const TOKEN_MAP: Record<string, { address: string; decimals: number }> = {
-  ETH: { address: "0xc02aaa39b223fe8d0a0e5d4e7a29163de4294623", decimals: 18 },
-  WETH: { address: "0xc02aaa39b223fe8d0a0e5d4e7a29163de4294623", decimals: 18 },
-  USDC: { address: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", decimals: 6 },
-  USDT: { address: "0xdac17f958d2ee523a2206206994597c13d831ec7", decimals: 6 },
-  WBTC: { address: "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599", decimals: 8 },
-  DAI: { address: "0x6b175474e89094c44da98b954eedeac495271d0f", decimals: 18 },
-  LINK: { address: "0x514910771af9ca656af840dff83e8264ecf986ca", decimals: 18 },
-  UNI: { address: "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984", decimals: 18 },
+const TOKEN_MAP: Record<string, { address: string; decimals: number; coingeckoId: string }> = {
+  ETH: { address: "0xc02aaa39b223fe8d0a0e5d4e7a29163de4294623", decimals: 18, coingeckoId: "ethereum" },
+  WETH: { address: "0xc02aaa39b223fe8d0a0e5d4e7a29163de4294623", decimals: 18, coingeckoId: "ethereum" },
+  USDC: { address: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", decimals: 6, coingeckoId: "usd-coin" },
+  USDT: { address: "0xdac17f958d2ee523a2206206994597c13d831ec7", decimals: 6, coingeckoId: "tether" },
+  WBTC: { address: "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599", decimals: 8, coingeckoId: "wrapped-bitcoin" },
+  BTC: { address: "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599", decimals: 8, coingeckoId: "wrapped-bitcoin" },
+  DAI: { address: "0x6b175474e89094c44da98b954eedeac495271d0f", decimals: 18, coingeckoId: "dai" },
+  LINK: { address: "0x514910771af9ca656af840dff83e8264ecf986ca", decimals: 18, coingeckoId: "chainlink" },
+  UNI: { address: "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984", decimals: 18, coingeckoId: "uniswap" },
 };
+
+const DEFILLAMA_POOLS_URL = "https://yields.llama.fi/pools";
 
 const POOL_QUERY = `
   query TopPools($token: String!) {
@@ -46,20 +49,6 @@ const POOL_QUERY = `
   }
 `;
 
-const TICKS_QUERY = `
-  query PoolTicks($pool: String!) {
-    ticks(
-      first: 100,
-      orderBy: tickIdx,
-      where: { pool: $pool, liquidityNet_not: "0" }
-    ) {
-      tickIdx
-      liquidityGross
-      liquidityNet
-    }
-  }
-`;
-
 function buildGraphUrl(): string | null {
   const apiKey = process.env.GRAPH_API_KEY;
   if (!apiKey) return null;
@@ -78,31 +67,10 @@ function authCheck(req: Request, res: Response): boolean {
 }
 
 function computeDepthBands(
-  pools: any[],
-  symbol: string
-): {
-  midPrice: number;
-  spreadBps: number;
-  bands: Record<string, { bid_notional: number; ask_notional: number; total_notional: number }>;
-} {
-  if (!pools.length) {
-    return { midPrice: 0, spreadBps: 0, bands: {} };
-  }
-
-  const topPool = pools[0];
-  const isToken0 = topPool.token0.symbol.toUpperCase() === symbol.toUpperCase() ||
-    topPool.token0.symbol.toUpperCase() === `W${symbol.toUpperCase()}`;
-
-  const midPrice = isToken0
-    ? parseFloat(topPool.token1Price)
-    : parseFloat(topPool.token0Price);
-
-  const tvlUSD = parseFloat(topPool.totalValueLockedUSD) || 0;
+  tvlUSD: number,
+  feeTierBps: number
+): Record<string, { bid_notional: number; ask_notional: number; total_notional: number }> {
   const halfTVL = tvlUSD / 2;
-
-  const feeTierBps = parseInt(topPool.feeTier) / 100;
-  const spreadBps = feeTierBps;
-
   const bpsLevels = [0.1, 0.25, 0.5, 1, 2];
   const bands: Record<string, { bid_notional: number; ask_notional: number; total_notional: number }> = {};
 
@@ -119,26 +87,12 @@ function computeDepthBands(
     };
   }
 
-  return { midPrice, spreadBps, bands };
+  return bands;
 }
 
-router.get("/spot/depth", async (req: Request, res: Response) => {
-  if (!authCheck(req, res)) return;
-
-  const symbol = String(req.query.symbol ?? "ETH").toUpperCase();
-  const tokenInfo = TOKEN_MAP[symbol] || TOKEN_MAP[`W${symbol}`];
-
-  if (!tokenInfo) {
-    return res.status(400).json({
-      ok: false,
-      error: `Token ${symbol} not mapped. Available: ${Object.keys(TOKEN_MAP).join(", ")}`,
-    });
-  }
-
+async function fetchGraphPools(tokenAddress: string): Promise<any[] | null> {
   const graphUrl = buildGraphUrl();
-  if (!graphUrl) {
-    return res.status(500).json({ ok: false, error: "GRAPH_API_KEY not configured" });
-  }
+  if (!graphUrl) return null;
 
   try {
     const poolRes = await fetch(graphUrl, {
@@ -146,51 +100,176 @@ router.get("/spot/depth", async (req: Request, res: Response) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         query: POOL_QUERY,
-        variables: { token: tokenInfo.address },
+        variables: { token: tokenAddress },
       }),
     });
 
-    if (!poolRes.ok) {
-      const errText = await poolRes.text();
-      return res.status(poolRes.status).json({ ok: false, error: `Graph API: ${errText}` });
-    }
+    if (!poolRes.ok) return null;
 
     const poolData = await poolRes.json();
     const pools = poolData?.data?.pools ?? [];
 
-    if (!pools.length) {
-      return res.status(404).json({ ok: false, error: `No Uniswap V3 pools found for ${symbol}` });
+    const validPools = pools.filter((p: any) => {
+      const tvl = parseFloat(p.totalValueLockedUSD);
+      return tvl > 10_000 && tvl < 100_000_000_000;
+    });
+
+    return validPools.length > 0 ? validPools : null;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchDefiLlamaPool(symbol: string): Promise<{
+  tvlUSD: number;
+  apy: number;
+  pool: string;
+} | null> {
+  try {
+    const res = await fetch(DEFILLAMA_POOLS_URL);
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    const pools: any[] = data?.data ?? [];
+
+    const uniPools = pools.filter((p: any) =>
+      p.project === "uniswap-v3" &&
+      p.chain === "Ethereum" &&
+      p.symbol?.toUpperCase().includes(symbol.toUpperCase())
+    );
+
+    uniPools.sort((a: any, b: any) => (b.tvlUsd ?? 0) - (a.tvlUsd ?? 0));
+
+    if (!uniPools.length) return null;
+
+    return {
+      tvlUSD: uniPools[0].tvlUsd ?? 0,
+      apy: uniPools[0].apy ?? 0,
+      pool: uniPools[0].pool ?? uniPools[0].symbol,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function fetchTokenPrice(coingeckoId: string): Promise<number> {
+  try {
+    const res = await fetch(
+      `https://api.coingecko.com/api/v3/simple/price?ids=${coingeckoId}&vs_currencies=usd`
+    );
+    if (!res.ok) return 0;
+    const data = await res.json();
+    return data?.[coingeckoId]?.usd ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+router.get("/spot/depth", async (req: Request, res: Response) => {
+  if (!authCheck(req, res)) return;
+
+  const rawSymbol = String(req.query.symbol ?? "ETH").toUpperCase();
+  const symbol = rawSymbol;
+  const lookupKey = TOKEN_MAP[rawSymbol] ? rawSymbol : `W${rawSymbol}`;
+  const tokenInfo = TOKEN_MAP[lookupKey];
+
+  if (!tokenInfo) {
+    return res.status(400).json({
+      ok: false,
+      error: `Token ${rawSymbol} not mapped. Available: ${Object.keys(TOKEN_MAP).join(", ")}`,
+    });
+  }
+
+  try {
+    const graphPools = await fetchGraphPools(tokenInfo.address);
+
+    if (graphPools && graphPools.length > 0) {
+      const topPool = graphPools[0];
+      const isToken0 = topPool.token0.symbol.toUpperCase() === symbol.toUpperCase() ||
+        topPool.token0.symbol.toUpperCase() === `W${symbol.toUpperCase()}`;
+
+      const midPrice = isToken0
+        ? parseFloat(topPool.token1Price)
+        : parseFloat(topPool.token0Price);
+
+      const tvlUSD = parseFloat(topPool.totalValueLockedUSD) || 0;
+      const feeTierBps = parseInt(topPool.feeTier) / 100;
+      const bands = computeDepthBands(tvlUSD, feeTierBps);
+
+      const snapshot: LISSnapshot = {
+        venue: "uniswap",
+        symbol,
+        timestamp: Date.now(),
+        mid_price: midPrice,
+        spread: { absolute: midPrice * (feeTierBps / 10_000), bps: feeTierBps },
+        bands,
+      };
+
+      (snapshot as any).market = "spot";
+      (snapshot as any).source = "thegraph";
+      (snapshot as any).poolCount = graphPools.length;
+      (snapshot as any).topPool = {
+        id: topPool.id,
+        feeTier: topPool.feeTier,
+        tvlUSD,
+        volume24hUSD: parseFloat(topPool.volumeUSD),
+        token0: topPool.token0.symbol,
+        token1: topPool.token1.symbol,
+      };
+      (snapshot as any).provenance = {
+        sourceVenue: "uniswap",
+        transport: "relay",
+        engine: "uniswap-relay-v1",
+        subgraph: UNISWAP_V3_SUBGRAPH_ID,
+        ts_fetch: Date.now(),
+      };
+
+      tsleBuffer.record(snapshot);
+      const buffer = tsleBuffer.getHistory("uniswap", symbol);
+      const tsle = tsleStateEngine.transition("uniswap", symbol, buffer, snapshot.spread.bps);
+      (snapshot as any).tsle = tsle;
+
+      return res.json({ ok: true, ...snapshot });
     }
 
-    const { midPrice, spreadBps, bands } = computeDepthBands(pools, symbol);
+    console.log(`[Uniswap Relay] Graph returned no valid pools for ${symbol}, trying DeFiLlama...`);
+
+    const [llamaPool, price] = await Promise.all([
+      fetchDefiLlamaPool(symbol === "BTC" ? "WBTC" : symbol === "ETH" ? "WETH" : symbol),
+      fetchTokenPrice(tokenInfo.coingeckoId),
+    ]);
+
+    if (!llamaPool || !price) {
+      return res.status(404).json({
+        ok: false,
+        error: `No Uniswap V3 pool data found for ${symbol} from any source`,
+      });
+    }
+
+    const feeTierBps = 30;
+    const bands = computeDepthBands(llamaPool.tvlUSD, feeTierBps);
 
     const snapshot: LISSnapshot = {
       venue: "uniswap",
       symbol,
       timestamp: Date.now(),
-      mid_price: midPrice,
-      spread: {
-        absolute: midPrice * (spreadBps / 10_000),
-        bps: spreadBps,
-      },
+      mid_price: price,
+      spread: { absolute: price * (feeTierBps / 10_000), bps: feeTierBps },
       bands,
     };
 
     (snapshot as any).market = "spot";
-    (snapshot as any).poolCount = pools.length;
-    (snapshot as any).topPool = {
-      id: pools[0].id,
-      feeTier: pools[0].feeTier,
-      tvlUSD: parseFloat(pools[0].totalValueLockedUSD),
-      volume24hUSD: parseFloat(pools[0].volumeUSD),
-      token0: pools[0].token0.symbol,
-      token1: pools[0].token1.symbol,
+    (snapshot as any).source = "defillama";
+    (snapshot as any).poolInfo = {
+      pool: llamaPool.pool,
+      tvlUSD: llamaPool.tvlUSD,
+      apy: llamaPool.apy,
     };
     (snapshot as any).provenance = {
       sourceVenue: "uniswap",
       transport: "relay",
       engine: "uniswap-relay-v1",
-      subgraph: UNISWAP_V3_SUBGRAPH_ID,
+      dataSource: "defillama+coingecko",
       ts_fetch: Date.now(),
     };
 
@@ -209,11 +288,12 @@ router.get("/spot/depth", async (req: Request, res: Response) => {
 router.get("/pools", async (req: Request, res: Response) => {
   if (!authCheck(req, res)) return;
 
-  const symbol = String(req.query.symbol ?? "ETH").toUpperCase();
-  const tokenInfo = TOKEN_MAP[symbol] || TOKEN_MAP[`W${symbol}`];
+  const rawSymbol = String(req.query.symbol ?? "ETH").toUpperCase();
+  const lookupKey = TOKEN_MAP[rawSymbol] ? rawSymbol : `W${rawSymbol}`;
+  const tokenInfo = TOKEN_MAP[lookupKey];
 
   if (!tokenInfo) {
-    return res.status(400).json({ ok: false, error: `Token ${symbol} not mapped` });
+    return res.status(400).json({ ok: false, error: `Token ${rawSymbol} not mapped` });
   }
 
   const graphUrl = buildGraphUrl();
