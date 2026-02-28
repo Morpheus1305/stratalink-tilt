@@ -89,6 +89,20 @@ async function attestationToSnapshot(symbol: string, attestedDepth: number): Pro
   return { venue: "canton", symbol: symbol.toUpperCase(), timestamp: Date.now(), mid_price: oraclePrice, spread: { absolute: oraclePrice * (spreadBps / 10_000), bps: spreadBps }, bands };
 }
 
+const SYNTHETIC_ATTESTED_DEPTH: Record<string, number> = { BTC: 120_000_000, ETH: 80_000_000, USDC: 200_000_000, SOL: 30_000_000, BNB: 25_000_000 };
+
+async function buildSyntheticSnapshot(symbol: string): Promise<LISSnapshot> {
+  const refPrice = await getRefPrice(symbol);
+  const attestedDepth = SYNTHETIC_ATTESTED_DEPTH[symbol] ?? 50_000_000;
+  const bands: Record<string, { bid_notional: number; ask_notional: number; total_notional: number }> = {};
+  for (const bps of [0.1, 0.25, 0.5, 1, 2]) {
+    const total = attestedDepth * (bps / 100) * 0.5;
+    bands[`pct_${bps}`] = { bid_notional: Math.round(total), ask_notional: Math.round(total), total_notional: Math.round(total * 2) };
+  }
+  const spreadBps = 0.8;
+  return { venue: "canton", symbol: symbol.toUpperCase(), timestamp: Date.now(), mid_price: refPrice, spread: { absolute: refPrice * (spreadBps / 10_000), bps: spreadBps }, bands };
+}
+
 router.get("/attestation/liquidity", async (req: Request, res: Response) => {
   if (!authCheck(req, res)) return;
   const symbol = ((req.query.symbol as string) || "BTC").toUpperCase();
@@ -104,17 +118,31 @@ router.get("/attestation/depth", async (req: Request, res: Response) => {
   if (!authCheck(req, res)) return;
   const symbol = ((req.query.symbol as string) || "BTC").toUpperCase();
   if (!SUPPORTED_SYMBOLS.includes(symbol)) return res.status(400).json({ ok: false, error: `Symbol ${symbol} not supported` });
-  if (!process.env.CANTON_LEDGER_URL) return res.json({ ok: false, venue: "canton", error: "CANTON_LEDGER_URL not configured — requires Digital Asset partner onboarding" });
-  try {
-    const attestation = await fetchAttestation(symbol);
-    const snapshot = await attestationToSnapshot(symbol, attestation.attestedDepth);
-    tsleBuffer.record(snapshot);
-    const tsle = tsleStateEngine.transition("canton", symbol, tsleBuffer.getHistory("canton", symbol), snapshot.spread.bps);
-    (snapshot as any).tsle = tsle;
-    (snapshot as any).provenance = { sourceVenue: "canton", transport: "relay", scope: "attestation", synthetic: false };
+  let snapshot: LISSnapshot;
+  let synthetic = false;
+  let attestation: any = null;
+  if (!process.env.CANTON_LEDGER_URL) {
+    snapshot = await buildSyntheticSnapshot(symbol);
+    synthetic = true;
+    console.log(`[Canton] CANTON_LEDGER_URL not configured, synthetic fallback for ${symbol}`);
+  } else {
+    try {
+      attestation = await fetchAttestation(symbol);
+      snapshot = await attestationToSnapshot(symbol, attestation.attestedDepth);
+    } catch (e: any) {
+      console.log(`[Canton] Live ledger unavailable (${e.message}), synthetic fallback for ${symbol}`);
+      snapshot = await buildSyntheticSnapshot(symbol);
+      synthetic = true;
+    }
+  }
+  tsleBuffer.record(snapshot);
+  const tsle = tsleStateEngine.transition("canton", symbol, tsleBuffer.getHistory("canton", symbol), snapshot.spread.bps);
+  (snapshot as any).tsle = tsle;
+  (snapshot as any).provenance = { sourceVenue: "canton", transport: synthetic ? "synthetic" : "relay", scope: "attestation", synthetic };
+  if (attestation) {
     (snapshot as any).attestation = { attestationHash: attestation.attestationHash, issuerParty: attestation.issuerParty, contractId: attestation.contractId, poliTier: "L5", trustMultiplier: 1.15 };
-    res.json({ ok: true, ...snapshot });
-  } catch (e: any) { res.status(502).json({ ok: false, venue: "canton", error: e.message }); }
+  }
+  res.json({ ok: true, ...snapshot });
 });
 
 router.get("/health", async (_req: Request, res: Response) => {
