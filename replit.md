@@ -80,4 +80,7 @@ Uses Express.js with in-memory storage (MemStorage) to provide API endpoints for
 -   **Hyperliquid API**: Perpetuals DEX relay (`/hyperliquid/perps/depth`, `/hyperliquid/perps/meta`, `/hyperliquid/perps/funding`) — live L2 book data.
 -   **Uniswap V3 (The Graph + DeFiLlama)**: DEX spot relay (`/uniswap/spot/depth`, `/uniswap/pools`) — pool TVL-based depth bands with CoinGecko pricing fallback.
 -   **DeFiLlama API**: DEX TVL data fallback for Uniswap pool depth.
+-   **Curve Finance**: DEX spot relay (`/curve/spot/depth`) — pool-based AMM with deep stablecoin and pegged-asset liquidity on Ethereum. Depth synthesized from pool TVL with CoinGecko pricing, marked `transport: "synthetic"` when live API unavailable.
+-   **OTC (RFQ)**: Bilateral dark liquidity relay (`/otc/spot/depth`, `/otc/perps/depth`) — institutional RFQ desk quotes at large notional sizes. Requires onboarding (OTC_RFQ_URL). Falls back to synthetic depth when unconfigured.
+-   **Canton Network (Digital Asset)**: On-chain attestation relay (`/canton/attestation/depth`, `/canton/attestation/liquidity`) — cryptographically attested liquidity data from Daml contracts. Requires partner onboarding (CANTON_LEDGER_URL). PoLi L5 trust tier.
 -   **Coinglass/Laevitas**: Funding rates, open interest, liquidations data.

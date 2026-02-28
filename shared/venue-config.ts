@@ -262,6 +262,66 @@ export const VENUE_CONFIGS: Record<string, VenueConfig> = {
       "CLOB orderbook analysis (pool-based)",
     ],
   },
+  curve: {
+    venue: "CURVE",
+    displayName: "Curve Finance",
+    role: "DEX_LIQUIDITY",
+    confidence: "MODERATE",
+    scope: ["SPOT"],
+    available: true,
+    description: "Decentralized exchange optimized for stablecoin and pegged-asset swaps on Ethereum. Pool-based AMM with deep stablecoin liquidity and low-slippage swaps.",
+    usedFor: [
+      "Stablecoin liquidity depth analysis",
+      "CEX/DEX liquidity ratio computation",
+      "DeFi liquidity fragmentation signals",
+      "Pegged-asset spread analysis",
+    ],
+    notUsedFor: [
+      "Derivatives analysis",
+      "Leverage regime modeling",
+      "Reference anchoring",
+    ],
+  },
+  otc: {
+    venue: "OTC",
+    displayName: "OTC (RFQ)",
+    role: "REFERENCE_ADJACENT",
+    confidence: "MODERATE",
+    scope: ["SPOT", "PERP"],
+    available: true,
+    description: "Bilateral OTC dark liquidity via institutional RFQ (Request for Quote) desks. Provides indicative two-way quotes at institutional notional sizes. Requires institutional onboarding (OTC_RFQ_URL).",
+    usedFor: [
+      "Institutional dark pool depth estimation",
+      "Large-block liquidity assessment",
+      "Cross-venue depth comparison (lit vs dark)",
+      "Whale-tier execution quality signals",
+    ],
+    notUsedFor: [
+      "Retail-tier depth analysis",
+      "High-frequency spread signals",
+      "DeFi liquidity fragmentation",
+    ],
+  },
+  canton: {
+    venue: "CANTON",
+    displayName: "Canton Network",
+    role: "REFERENCE_ADJACENT",
+    confidence: "HIGH",
+    scope: ["SPOT"],
+    available: true,
+    description: "Digital Asset's Canton Network provides cryptographically attested liquidity data anchored on-chain. Depth derived from formal Daml contract attestations with provenance guarantees.",
+    usedFor: [
+      "PoLi attestation anchoring (L5 trust tier)",
+      "Regulatory-grade provenance verification",
+      "Formal liquidity attestation cross-checks",
+      "Canton-anchored depth signals",
+    ],
+    notUsedFor: [
+      "Real-time orderbook depth",
+      "Derivatives analysis",
+      "High-frequency spread signals",
+    ],
+  },
 };
 
 /**

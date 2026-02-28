@@ -8,6 +8,9 @@ export type LiquidityVenue =
   | "dydx"
   | "bitget"
   | "gmx"
+  | "curve"
+  | "otc"
+  | "canton"
   | "dex"
   | "unknown";
 

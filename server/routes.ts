@@ -27,6 +27,9 @@ import bybitRoutes from "./routes/bybit-relay";
 import dydxRoutes from "./routes/dydx-relay";
 import bitgetRoutes from "./routes/bitget-relay";
 import gmxRoutes    from "./routes/gmx-relay";
+import curveRoutes  from "./routes/curve-relay";
+import otcRoutes    from "./routes/otc-relay";
+import cantonRoutes from "./routes/canton-relay";
 import dailyCommentaryRouter from "./api/dailyCommentary";
 import { startIngestionLoop } from "../analytics/engines/ingestionManager";
 import { 
@@ -427,14 +430,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/rcl/v0.1", rclRoutes);
 
   // Mount exchange relay routes (LIS/TLC venue connectors)
-  app.use("/deribit", deribitRoutes);
-  app.use("/uniswap", uniswapRoutes);
-  app.use("/hyperliquid", hyperliquidRoutes);
-  app.use("/okx", okxRoutes);
-  app.use("/bybit", bybitRoutes);
-  app.use("/dydx", dydxRoutes);
-  app.use("/bitget", bitgetRoutes);
-  app.use("/gmx",    gmxRoutes);
+  app.use("/api/deribit", deribitRoutes);
+  app.use("/api/uniswap", uniswapRoutes);
+  app.use("/api/hyperliquid", hyperliquidRoutes);
+  app.use("/api/okx", okxRoutes);
+  app.use("/api/bybit", bybitRoutes);
+  app.use("/api/dydx", dydxRoutes);
+  app.use("/api/bitget", bitgetRoutes);
+  app.use("/api/gmx",    gmxRoutes);
+  app.use("/api/curve",  curveRoutes);
+  app.use("/api/otc",    otcRoutes);
+  app.use("/api/canton", cantonRoutes);
   
   // Download endpoint for LTC code archive
   app.get("/download/LTC-v1.0.zip", (_req, res) => {
