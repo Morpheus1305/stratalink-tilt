@@ -1,12 +1,3 @@
-/**
- * Canton Network Relay — server/routes/canton-relay.ts
- * SRIS v1.3-compliant relay for Canton Network (Digital Asset).
- * Routes (mounted at /canton in routes.ts):
- *   GET /attestation/liquidity?symbol=BTC
- *   GET /attestation/depth?symbol=BTC
- *   GET /health
- * Env vars: CANTON_LEDGER_URL, CANTON_AUTH_TOKEN, CANTON_PARTY_ID
- */
 import { Router, Request, Response } from "express";
 import { tsleBuffer, tsleStateEngine, type LISSnapshot } from "../services/tsle-buffer";
 
@@ -14,7 +5,36 @@ const router = Router();
 const TIMEOUT_MS = 5000;
 const TEMPLATE_ID = "StratalinkLiquidity:LiquidityAttestation";
 const SUPPORTED_SYMBOLS = ["BTC", "ETH", "USDC", "SOL", "BNB"];
-const ORACLE_PRICES: Record<string, number> = { BTC: 95000, ETH: 3200, USDC: 1.0, SOL: 180, BNB: 600 };
+
+const COINGECKO_IDS: Record<string, string> = {
+  BTC: "bitcoin", ETH: "ethereum", USDC: "usd-coin", SOL: "solana", BNB: "binancecoin",
+};
+const HARDCODED_FALLBACK: Record<string, number> = { BTC: 65000, ETH: 1900, USDC: 1.0, SOL: 80, BNB: 600 };
+
+let refPriceCache: Record<string, { price: number; ts: number }> = {};
+
+async function getRefPrice(symbol: string): Promise<number> {
+  if (symbol === "USDC") return 1.0;
+  const cached = refPriceCache[symbol];
+  if (cached && Date.now() - cached.ts < 30_000) return cached.price;
+  const cgId = COINGECKO_IDS[symbol];
+  if (!cgId) return HARDCODED_FALLBACK[symbol] ?? 1;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4000);
+    const resp = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${cgId}&vs_currencies=usd`, { signal: controller.signal });
+    clearTimeout(timer);
+    if (resp.ok) {
+      const data = (await resp.json()) as any;
+      const price = data?.[cgId]?.usd ?? 0;
+      if (price > 0) {
+        refPriceCache[symbol] = { price, ts: Date.now() };
+        return price;
+      }
+    }
+  } catch {}
+  return cached?.price ?? HARDCODED_FALLBACK[symbol] ?? 1;
+}
 
 function authCheck(req: Request, res: Response): boolean {
   const secret = process.env.RELAY_SECRET;
@@ -58,8 +78,8 @@ async function fetchAttestation(symbol: string) {
   };
 }
 
-function attestationToSnapshot(symbol: string, attestedDepth: number): LISSnapshot {
-  const oraclePrice = ORACLE_PRICES[symbol] ?? 1;
+async function attestationToSnapshot(symbol: string, attestedDepth: number): Promise<LISSnapshot> {
+  const oraclePrice = await getRefPrice(symbol);
   const bands: Record<string, { bid_notional: number; ask_notional: number; total_notional: number }> = {};
   for (const bps of [0.1, 0.25, 0.5, 1, 2]) {
     const total = attestedDepth * (bps / 100) * 0.5;
@@ -87,7 +107,7 @@ router.get("/attestation/depth", async (req: Request, res: Response) => {
   if (!process.env.CANTON_LEDGER_URL) return res.json({ ok: false, venue: "canton", error: "CANTON_LEDGER_URL not configured — requires Digital Asset partner onboarding" });
   try {
     const attestation = await fetchAttestation(symbol);
-    const snapshot = attestationToSnapshot(symbol, attestation.attestedDepth);
+    const snapshot = await attestationToSnapshot(symbol, attestation.attestedDepth);
     tsleBuffer.record(snapshot);
     const tsle = tsleStateEngine.transition("canton", symbol, tsleBuffer.getHistory("canton", symbol), snapshot.spread.bps);
     (snapshot as any).tsle = tsle;

@@ -1,12 +1,3 @@
-/**
- * OTC / RFQ Relay — server/routes/otc-relay.ts
- * SRIS v1.3-compliant relay for bilateral OTC dark liquidity.
- * Routes (mounted at /otc in routes.ts):
- *   GET /spot/depth?symbol=BTC
- *   GET /perps/depth?symbol=BTC
- *   GET /health
- * Env vars: OTC_RFQ_URL, OTC_API_KEY, OTC_API_SECRET, OTC_VENUE_NAME
- */
 import { Router, Request, Response } from "express";
 import crypto from "crypto";
 import { tsleBuffer, tsleStateEngine, type LISSnapshot } from "../services/tsle-buffer";
@@ -14,7 +5,36 @@ import { tsleBuffer, tsleStateEngine, type LISSnapshot } from "../services/tsle-
 const router = Router();
 const TIMEOUT_MS = 5000;
 const SUPPORTED_SYMBOLS = ["BTC", "ETH", "SOL", "XRP", "BNB", "AVAX", "ARB", "OP"];
-const FALLBACK_PRICES: Record<string, number> = { BTC: 95000, ETH: 3200, SOL: 180, XRP: 0.60, BNB: 600, AVAX: 38, ARB: 1.2, OP: 2.5 };
+
+const COINGECKO_IDS: Record<string, string> = {
+  BTC: "bitcoin", ETH: "ethereum", SOL: "solana", XRP: "ripple",
+  BNB: "binancecoin", AVAX: "avalanche-2", ARB: "arbitrum", OP: "optimism",
+};
+const HARDCODED_FALLBACK: Record<string, number> = { BTC: 65000, ETH: 1900, SOL: 80, XRP: 0.60, BNB: 600, AVAX: 9, ARB: 1.2, OP: 2.5 };
+
+let refPriceCache: Record<string, { price: number; ts: number }> = {};
+
+async function getRefPrice(symbol: string): Promise<number> {
+  const cached = refPriceCache[symbol];
+  if (cached && Date.now() - cached.ts < 30_000) return cached.price;
+  const cgId = COINGECKO_IDS[symbol];
+  if (!cgId) return HARDCODED_FALLBACK[symbol] ?? 1;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4000);
+    const resp = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${cgId}&vs_currencies=usd`, { signal: controller.signal });
+    clearTimeout(timer);
+    if (resp.ok) {
+      const data = (await resp.json()) as any;
+      const price = data?.[cgId]?.usd ?? 0;
+      if (price > 0) {
+        refPriceCache[symbol] = { price, ts: Date.now() };
+        return price;
+      }
+    }
+  } catch {}
+  return cached?.price ?? HARDCODED_FALLBACK[symbol] ?? 1;
+}
 
 function authCheck(req: Request, res: Response): boolean {
   const secret = process.env.RELAY_SECRET;
@@ -61,7 +81,8 @@ function buildSyntheticSnapshot(symbol: string, midPrice: number, poolSize: numb
 
 async function fetchOtcDepth(symbol: string, scope: "spot" | "perps"): Promise<{ snapshot: LISSnapshot; synthetic: boolean }> {
   if (!process.env.OTC_RFQ_URL) {
-    return { snapshot: buildSyntheticSnapshot(symbol, FALLBACK_PRICES[symbol] ?? 1, symbol === "BTC" ? 50_000_000 : 20_000_000), synthetic: true };
+    const refPrice = await getRefPrice(symbol);
+    return { snapshot: buildSyntheticSnapshot(symbol, refPrice, symbol === "BTC" ? 50_000_000 : 20_000_000), synthetic: true };
   }
   const notionals = [1_000_000, 5_000_000, 10_000_000, 25_000_000, 50_000_000];
   let liveError = "";
@@ -82,7 +103,8 @@ async function fetchOtcDepth(symbol: string, scope: "spot" | "perps"): Promise<{
     liveError = "Zero bid in RFQ response";
   } catch (e: any) { liveError = e.message; }
   console.log(`[OTC] Live RFQ unavailable (${liveError}), synthetic fallback for ${symbol}`);
-  return { snapshot: buildSyntheticSnapshot(symbol, FALLBACK_PRICES[symbol] ?? 1, symbol === "BTC" ? 50_000_000 : 20_000_000), synthetic: true };
+  const refPrice = await getRefPrice(symbol);
+  return { snapshot: buildSyntheticSnapshot(symbol, refPrice, symbol === "BTC" ? 50_000_000 : 20_000_000), synthetic: true };
 }
 
 router.get("/spot/depth", async (req: Request, res: Response) => {

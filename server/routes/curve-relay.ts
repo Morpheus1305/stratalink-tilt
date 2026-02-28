@@ -1,10 +1,3 @@
-/**
- * Curve Finance Relay — server/routes/curve-relay.ts
- * SRIS v1.3-compliant relay for Curve Finance DEX.
- * Routes (mounted at /curve in routes.ts):
- *   GET /spot/depth?symbol=BTC|ETH|USDC
- *   GET /health
- */
 import { Router, Request, Response } from "express";
 import { tsleBuffer, tsleStateEngine, type LISSnapshot } from "../services/tsle-buffer";
 
@@ -18,8 +11,34 @@ const POOL_REGISTRY: Record<string, { address: string; api: string }> = {
   USDC: { address: "0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7", api: `${CURVE_API}/getPools/ethereum/main`   },
 };
 
-const FALLBACK_PRICES: Record<string, number> = { BTC: 95000, ETH: 3200, USDC: 1.0 };
+const COINGECKO_IDS: Record<string, string> = { BTC: "bitcoin", ETH: "ethereum", USDC: "usd-coin" };
+const HARDCODED_FALLBACK: Record<string, number> = { BTC: 65000, ETH: 1900, USDC: 1.0 };
 const FALLBACK_POOL_USD: Record<string, number> = { BTC: 180_000_000, ETH: 320_000_000, USDC: 250_000_000 };
+
+let refPriceCache: Record<string, { price: number; ts: number }> = {};
+
+async function getRefPrice(symbol: string): Promise<number> {
+  if (symbol === "USDC") return 1.0;
+  const cached = refPriceCache[symbol];
+  if (cached && Date.now() - cached.ts < 30_000) return cached.price;
+  const cgId = COINGECKO_IDS[symbol];
+  if (!cgId) return HARDCODED_FALLBACK[symbol] ?? 1;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4000);
+    const resp = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${cgId}&vs_currencies=usd`, { signal: controller.signal });
+    clearTimeout(timer);
+    if (resp.ok) {
+      const data = (await resp.json()) as any;
+      const price = data?.[cgId]?.usd ?? 0;
+      if (price > 0) {
+        refPriceCache[symbol] = { price, ts: Date.now() };
+        return price;
+      }
+    }
+  } catch {}
+  return cached?.price ?? HARDCODED_FALLBACK[symbol] ?? 1;
+}
 
 function authCheck(req: Request, res: Response): boolean {
   const secret = process.env.RELAY_SECRET;
@@ -63,14 +82,15 @@ async function fetchCurveDepth(symbol: string): Promise<{ snapshot: LISSnapshot;
     const match = pools.find((p: any) => p.address?.toLowerCase() === pool.address.toLowerCase());
     if (match) {
       const usdTotal = parseFloat(match.usdTotal ?? match.tvl ?? "0");
-      const virtualPrice = parseFloat(match.virtualPrice ?? match.virtual_price ?? "1");
-      const midPrice = symbol === "USDC" ? 1.0 : virtualPrice * (FALLBACK_PRICES[symbol] ?? 1);
+      const refPrice = await getRefPrice(symbol);
+      const midPrice = symbol === "USDC" ? 1.0 : refPrice;
       if (usdTotal > 0 && midPrice > 0) return { snapshot: buildSnapshot(symbol, midPrice, usdTotal), synthetic: false };
       liveError = "usdTotal=0";
     } else { liveError = `Pool ${pool.address} not found`; }
   } catch (e: any) { liveError = e.message; }
   console.log(`[Curve] Live unavailable (${liveError}), synthetic fallback for ${symbol}`);
-  return { snapshot: buildSnapshot(symbol, FALLBACK_PRICES[symbol] ?? 1, FALLBACK_POOL_USD[symbol] ?? 100_000_000), synthetic: true };
+  const refPrice = await getRefPrice(symbol);
+  return { snapshot: buildSnapshot(symbol, refPrice, FALLBACK_POOL_USD[symbol] ?? 100_000_000), synthetic: true };
 }
 
 router.get("/spot/depth", async (req: Request, res: Response) => {
