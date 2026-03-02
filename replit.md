@@ -32,6 +32,7 @@ Built with React, TypeScript, and Vite, using Wouter for routing and TanStack Qu
 -   **Liquidity Tape**: Real-time event stream (DEPTH_UPDATE, TRADE, LIQUIDATION, FUNDING, SPREAD_CHANGE) with in-memory ring buffer and query API.
 -   **Yesterday vs Today Comparison Panel**: Synthetic comparative analysis against simulated prior-session values.
 -   **Token Liquidity League Table**: Sortable summary of tracked tokens.
+-   **TILT Terminal**: Full-screen institutional liquidity terminal (Bloomberg-style) with 4-panel grid layout. Features L5F composite score ring, 5-factor breakdown (DQ, R, F, EI, RS), cross-venue depth map for all 14 venues, stress/regime monitor, structural integrity metrics, and real-time status bar. Accessible via TILT tab in PlatformTabs, route `/platform/tilt`. Fetches live data from `/api/analytics/l5f/snapshot/:symbol` every 5s. Scoped CSS in `tilt-terminal.css` with `tilt-` prefixed variables/classes to avoid conflicts.
 -   **CCP Margin Verification Console**: Unified dashboard for Clearing House and CCP risk officers to verify collateral liquidity using STRATA, PoLi, TSLE, and DACT infrastructure. Features:
     - Standard app navigation (DashboardHeader + PlatformTabs) for seamless navigation across the platform
     - Five unified value propositions in one view: Pre-Trade Verification, Margin Accuracy, Manipulation Detection, Member Risk Assessment, PoLi Attestations (Canton Network anchored)

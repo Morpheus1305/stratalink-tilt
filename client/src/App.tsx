@@ -35,6 +35,7 @@ import DownloadPage from "@/pages/download";
 import TapePage from "@/pages/platform/tape";
 import CCPMarginPage from "@/pages/platform/ccp-margin-unified";
 import RegulatoryAdgmView from "@/pages/regulatory/RegulatoryAdgmView";
+import TiltTerminal from "@/pages/platform/tilt-terminal";
 
 // ✅ IMPORTANT: this must point to your existing file:
 // client/src/pages/clt-evidence.tsx
@@ -170,6 +171,14 @@ function AppRouter() {
         {() => (
           <RequireAuth>
             <RegSurveillancePage />
+          </RequireAuth>
+        )}
+      </Route>
+
+      <Route path="/platform/tilt">
+        {() => (
+          <RequireAuth>
+            <TiltTerminal />
           </RequireAuth>
         )}
       </Route>

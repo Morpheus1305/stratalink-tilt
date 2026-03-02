@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stratalink — Institutional Liquidity Terminal</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg:       #070B14;
+    --panel:    #0C1220;
+    --panel2:   #0F1729;
+    --border:   #1A2C45;
+    --accent:   #1E88E5;
+    --accent2:  #0D6CC8;
+    --navy:     #0A1628;
+    --green:    #22C55E;
+    --amber:    #F59E0B;
+    --red:      #EF4444;
+    --text:     #E2E8F0;
+    --sub:      #7A90A8;
+    --muted:    #4A6080;
+    --white:    #FFFFFF;
+    --highlight:#1A3A6B;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Arial', sans-serif;
+    font-size: 13px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* ── HEADER BAR ─────────────────────────────────────── */
+  #header {
+    background: var(--navy);
+    border-bottom: 1px solid var(--accent);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    height: 38px;
+    flex-shrink: 0;
+    gap: 6px;
+  }
+
+  .logo {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--white);
+    letter-spacing: 2px;
+    margin-right: 12px;
+  }
+  .logo span { color: var(--accent); }
+
+  .header-divider {
+    width: 1px; height: 20px;
+    background: var(--border);
+    margin: 0 8px;
+  }
+
+  /* ── TOP CONTEXT BAR ────────────────────────────────── */
+  #topbar {
+    background: #0A1220;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    height: 44px;
+    flex-shrink: 0;
+    gap: 0;
+  }
+
+  /* Asset tabs */
+  .asset-tabs { display: flex; gap: 2px; margin-right: 20px; }
+  .asset-tab {
+    padding: 4px 14px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    color: var(--sub);
+    letter-spacing: 0.5px;
+    transition: all 0.15s;
+  }
+  .asset-tab.active {
+    background: var(--accent);
+    color: var(--white);
+  }
+  .asset-tab:hover:not(.active) {
+    background: var(--highlight);
+    color: var(--text);
+  }
+
+  .tb-divider { width: 1px; height: 22px; background: var(--border); margin: 0 14px; }
+
+  .tb-item { display: flex; flex-direction: column; align-items: center; min-width: 70px; }
+  .tb-label { font-size: 9px; color: var(--muted); letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 1px; }
+  .tb-value { font-size: 13px; font-weight: 700; color: var(--text); font-family: 'Courier New', monospace; }
+  .tb-value.positive { color: var(--green); }
+  .tb-value.negative { color: var(--red); }
+  .tb-value.depth    { font-size: 14px; color: var(--white); }
+
+  .regime-badge {
+    padding: 3px 10px;
+    border-radius: 2px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+  .regime-normal  { background: rgba(34,197,94,0.15);  color: var(--green); border: 1px solid rgba(34,197,94,0.3); }
+  .regime-elevated{ background: rgba(245,158,11,0.15); color: var(--amber); border: 1px solid rgba(245,158,11,0.3); }
+  .regime-stress  { background: rgba(239,68,68,0.15);  color: var(--red);   border: 1px solid rgba(239,68,68,0.3); }
+
+  .tb-timestamp {
+    margin-left: auto;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .tb-timestamp span { color: var(--sub); }
+
+  /* ── MAIN GRID ──────────────────────────────────────── */
+  #main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    grid-template-rows: 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+    overflow: hidden;
+  }
+
+  .panel {
+    background: var(--panel);
+    padding: 14px 16px;
+    overflow: hidden;
+    position: relative;
+  }
+  .panel-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .panel-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--sub);
+  }
+  .panel-accent { width: 3px; height: 14px; background: var(--accent); border-radius: 1px; }
+
+  /* ── PANEL 1: STATUS BOARD (top-left) ─────────────────── */
+  #p-status {
+    grid-column: 1;
+    grid-row: 1;
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 16px;
+    padding: 14px 16px;
+  }
+
+  /* TSLE score column */
+  .tsle-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    position: relative;
+  }
+
+  .tsle-ring {
+    width: 110px; height: 110px;
+    position: relative;
+    margin-bottom: 10px;
+  }
+  .tsle-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .tsle-ring circle.bg  { fill: none; stroke: var(--border); stroke-width: 8; }
+  .tsle-ring circle.fg  { fill: none; stroke: var(--accent); stroke-width: 8; stroke-linecap: round;
+    stroke-dasharray: 283; transition: stroke-dashoffset 1.5s ease; }
+  .tsle-center {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+  }
+  .tsle-number { font-size: 28px; font-weight: 700; color: var(--white); font-family: 'Courier New', monospace; }
+  .tsle-sub    { font-size: 9px; color: var(--muted); letter-spacing: 1px; }
+
+  .tsle-status {
+    font-size: 11px; font-weight: 700; letter-spacing: 1.5px;
+    color: var(--green); margin-bottom: 6px;
+  }
+  .tsle-deltas { display: flex; gap: 12px; }
+  .tsle-delta  { text-align: center; }
+  .tsle-delta .d-label { font-size: 9px; color: var(--muted); }
+  .tsle-delta .d-val   { font-size: 12px; font-weight: 700; font-family: 'Courier New', monospace; }
+  .d-val.pos { color: var(--green); }
+  .d-val.neg { color: var(--red); }
+  .d-val.neu { color: var(--sub); }
+
+  /* L5F table */
+  .l5f-col {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+  }
+  .l5f-title {
+    font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 6px;
+  }
+
+  .l5f-row {
+    display: grid;
+    grid-template-columns: 140px 50px 30px 1fr 40px;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 3px;
+    transition: background 0.2s;
+  }
+  .l5f-row:hover { background: var(--panel2); }
+  .l5f-name  { font-size: 12px; color: var(--text); }
+  .l5f-score { font-size: 14px; font-weight: 700; font-family: 'Courier New', monospace; color: var(--white); }
+  .l5f-trend { font-size: 14px; }
+  .l5f-trend.up   { color: var(--green); }
+  .l5f-trend.flat { color: var(--sub); }
+  .l5f-trend.dn   { color: var(--red); }
+
+  .l5f-bar-wrap { height: 4px; background: var(--border); border-radius: 2px; }
+  .l5f-bar      { height: 100%; border-radius: 2px; transition: width 1.5s ease; }
+
+  .l5f-weight { font-size: 10px; color: var(--muted); text-align: right; }
+
+  .l5f-total {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 8px; padding: 8px 8px;
+    background: var(--highlight);
+    border-radius: 3px;
+    border: 1px solid var(--accent2);
+  }
+  .l5f-total-label { font-size: 10px; font-weight: 700; color: var(--accent); letter-spacing: 1px; }
+  .l5f-total-score { font-size: 20px; font-weight: 700; color: var(--white); font-family: 'Courier New', monospace; }
+
+  /* ── PANEL: REGIME MONITOR (top-right) ───────────────── */
+  #p-regime {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .regime-tile {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    padding: 8px 10px;
+    margin-bottom: 4px;
+    background: var(--panel2);
+    border-radius: 3px;
+    border-left: 3px solid var(--border);
+    transition: border-color 0.3s;
+  }
+  .regime-tile.g { border-left-color: var(--green); }
+  .regime-tile.a { border-left-color: var(--amber); }
+  .regime-tile.r { border-left-color: var(--red); }
+
+  .rt-label { font-size: 11px; color: var(--sub); margin-bottom: 2px; }
+  .rt-value { font-size: 13px; font-weight: 700; font-family: 'Courier New', monospace; color: var(--text); }
+  .rt-dot   { width: 8px; height: 8px; border-radius: 50%; }
+  .rt-dot.g { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .rt-dot.a { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+  .rt-dot.r { background: var(--red);   box-shadow: 0 0 6px var(--red); }
+
+  /* ── PANEL: CROSS-VENUE DEPTH MAP (bottom-left) ───────── */
+  #p-venue {
+    grid-column: 1;
+    grid-row: 2;
+    padding: 12px 16px;
+  }
+
+  .venue-table { width: 100%; border-collapse: collapse; }
+  .venue-table th {
+    font-size: 9px; letter-spacing: 1px; text-transform: uppercase;
+    color: var(--muted); padding: 4px 8px; text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  .venue-table th:not(:first-child) { text-align: center; }
+  .venue-table td {
+    padding: 6px 8px;
+    font-size: 12px;
+    border-bottom: 1px solid rgba(26,44,69,0.5);
+    transition: background 0.2s;
+  }
+  .venue-table tr:hover td { background: var(--panel2); }
+  .venue-table td:not(:first-child) { text-align: center; }
+
+  .venue-name  { font-weight: 700; color: var(--text); }
+  .venue-type  { font-size: 9px; color: var(--muted); letter-spacing: 0.5px; }
+  .depth-val   { font-family: 'Courier New', monospace; color: var(--white); font-weight: 600; }
+  .pct-val     { color: var(--sub); }
+
+  .reg-yes { color: var(--green); font-weight: 700; font-size: 11px; }
+  .reg-no  { color: var(--muted); font-size: 11px; }
+
+  .stab-bar-wrap { display: flex; align-items: center; gap: 6px; justify-content: center; }
+  .stab-num  { font-family: 'Courier New', monospace; font-size: 12px; font-weight: 700; width: 22px; }
+  .mini-bar-wrap { width: 40px; height: 4px; background: var(--border); border-radius: 2px; }
+  .mini-bar  { height: 100%; border-radius: 2px; }
+
+  /* ── PANEL: STRUCTURAL INTEGRITY (bottom-right) ───────── */
+  #p-integrity {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .int-tile {
+    background: var(--panel2);
+    border-radius: 3px;
+    padding: 8px 10px;
+    margin-bottom: 5px;
+  }
+  .int-label { font-size: 10px; color: var(--muted); margin-bottom: 3px; letter-spacing: 0.5px; }
+  .int-value { font-size: 16px; font-weight: 700; font-family: 'Courier New', monospace; }
+  .int-sub   { font-size: 9px; color: var(--muted); margin-top: 1px; }
+
+  .int-price-leader {
+    background: var(--panel2);
+    border-radius: 3px;
+    padding: 8px 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .ipl-left .int-label { margin-bottom: 3px; }
+  .ipl-left .int-value { font-size: 14px; }
+  .leader-badge {
+    font-size: 10px; font-weight: 700; padding: 3px 8px;
+    border-radius: 2px; letter-spacing: 0.5px;
+    background: rgba(30,136,229,0.15);
+    color: var(--accent);
+    border: 1px solid rgba(30,136,229,0.3);
+  }
+
+  /* ── STATUS BAR ─────────────────────────────────────── */
+  #statusbar {
+    background: #060A12;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    height: 24px;
+    flex-shrink: 0;
+    gap: 20px;
+  }
+  .sb-item { font-size: 10px; color: var(--muted); letter-spacing: 0.5px; }
+  .sb-item span { color: var(--sub); }
+  .sb-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 4px var(--green); flex-shrink: 0; }
+  .sb-live { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--green); font-weight: 700; }
+
+  /* ── PANEL HEADER UTILITY ───────────────────────────── */
+  .ph-tag {
+    margin-left: auto;
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 2px;
+    letter-spacing: 0.5px;
+    background: rgba(30,136,229,0.12);
+    color: var(--accent);
+    border: 1px solid rgba(30,136,229,0.25);
+  }
+
+  /* ── WARMING UP OVERLAY ─────────────────────────────── */
+  .warming-note {
+    font-size: 10px;
+    color: var(--amber);
+    letter-spacing: 0.5px;
+    margin-left: 8px;
+    display: none;
+  }
+  .warming-note.visible { display: inline; }
+
+  /* ── PULSING ANIMATION ──────────────────────────────── */
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  .pulse { animation: pulse 2s ease-in-out infinite; }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--panel); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- ─── HEADER ──────────────────────────────────────────── -->
+<div id="header">
+  <div class="logo">STRATA<span>LINK</span></div>
+  <div class="header-divider"></div>
+  <div style="font-size:10px;color:var(--sub);letter-spacing:1px;">INSTITUTIONAL LIQUIDITY TERMINAL</div>
+  <div class="header-divider"></div>
+  <div style="font-size:10px;color:var(--muted);">TILT v1.0</div>
+  <div style="margin-left:auto;display:flex;gap:16px;align-items:center;">
+    <div style="font-size:10px;color:var(--muted);">14 VENUES &nbsp;·&nbsp; 17 TSLE FEEDS</div>
+    <div class="sb-live"><div class="sb-dot pulse"></div>LIVE</div>
+  </div>
+</div>
+
+<!-- ─── TOP CONTEXT BAR ───────────────────────────────────── -->
+<div id="topbar">
+  <div class="asset-tabs">
+    <div class="asset-tab active" onclick="setAsset('BTC')">BTC</div>
+    <div class="asset-tab" onclick="setAsset('ETH')">ETH</div>
+    <div class="asset-tab" onclick="setAsset('SOL')">SOL</div>
+  </div>
+
+  <div class="tb-divider"></div>
+  <!-- Total Depth replaces price — live from analytics aggregate -->
+  <div class="tb-item">
+    <div class="tb-label">Total Depth ±10bps</div>
+    <div class="tb-value depth" id="tb-depth">—</div>
+  </div>
+  <div class="tb-divider"></div>
+  <div class="tb-item">
+    <div class="tb-label">Venues Live</div>
+    <div class="tb-value" id="tb-venues">—</div>
+  </div>
+  <div class="tb-divider"></div>
+  <div class="tb-item">
+    <div class="tb-label">Spread Dispersion</div>
+    <div class="tb-value" id="tb-sdisp">—</div>
+  </div>
+  <div class="tb-divider"></div>
+  <div class="tb-item">
+    <div class="tb-label">Vol Regime</div>
+    <div id="tb-regime" class="regime-badge regime-normal">—</div>
+  </div>
+  <div class="tb-divider"></div>
+  <div class="tb-item">
+    <div class="tb-label">Regulated</div>
+    <div class="tb-value positive" id="tb-reg">—</div>
+  </div>
+  <div class="tb-divider"></div>
+  <div class="tb-item">
+    <div class="tb-label">Offshore</div>
+    <div class="tb-value" style="color:var(--amber)" id="tb-off">—</div>
+  </div>
+  <div class="header-divider" style="margin-left:12px"></div>
+  <div class="tb-timestamp">
+    LAST UPDATE &nbsp;<span id="tb-time">--:--:--.---</span>
+  </div>
+</div>
+
+<!-- ─── MAIN GRID ─────────────────────────────────────────── -->
+<div id="main">
+
+  <!-- PANEL 1: STATUS BOARD -->
+  <div id="p-status" class="panel" style="grid-column:1;grid-row:1;">
+    <div style="display:flex;flex-direction:column;height:100%;">
+      <div class="panel-header">
+        <div class="panel-accent"></div>
+        <div class="panel-title">Liquidity Health Core</div>
+        <div class="warming-note" id="warming-note">⏳ Buffer warming — R &amp; RS values are neutral defaults</div>
+        <div class="ph-tag">PANEL 1</div>
+      </div>
+      <div style="display:grid;grid-template-columns:190px 1fr;gap:16px;flex:1;min-height:0;">
+
+        <!-- TSLE column -->
+        <div class="tsle-col">
+          <div class="tsle-ring">
+            <svg viewBox="0 0 100 100">
+              <circle class="bg" cx="50" cy="50" r="45"/>
+              <circle class="fg" id="tsle-arc" cx="50" cy="50" r="45" stroke-dashoffset="283"/>
+            </svg>
+            <div class="tsle-center">
+              <div class="tsle-number" id="tsle-num">—</div>
+              <div class="tsle-sub">/ 100</div>
+            </div>
+          </div>
+          <div class="tsle-status" id="tsle-status" style="color:var(--sub);">● LOADING</div>
+          <div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:8px;">L5F COMPOSITE</div>
+          <div class="tsle-deltas">
+            <div class="tsle-delta">
+              <div class="d-label">24h Δ</div>
+              <!-- Phase 2: requires Postgres history -->
+              <div class="d-val neu" id="tsle-24h">—</div>
+            </div>
+            <div class="tsle-delta">
+              <div class="d-label">7d Δ</div>
+              <div class="d-val neu" id="tsle-7d">—</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- L5F column -->
+        <div class="l5f-col">
+          <div class="l5f-title">Liquidity 5-Factor Score (L5F)</div>
+
+          <div class="l5f-row">
+            <div class="l5f-name">Depth Quality</div>
+            <div class="l5f-score" id="l5f-dq">—</div>
+            <div class="l5f-trend flat" id="trend-dq">→</div>
+            <div class="l5f-bar-wrap"><div class="l5f-bar" id="bar-dq" style="width:0%;background:var(--accent);"></div></div>
+            <div class="l5f-weight">×0.30</div>
+          </div>
+          <div class="l5f-row">
+            <div class="l5f-name">Resilience</div>
+            <div class="l5f-score" id="l5f-r">—</div>
+            <div class="l5f-trend flat" id="trend-r">→</div>
+            <div class="l5f-bar-wrap"><div class="l5f-bar" id="bar-r" style="width:0%;background:var(--sub);"></div></div>
+            <div class="l5f-weight">×0.20</div>
+          </div>
+          <div class="l5f-row">
+            <div class="l5f-name">Fragmentation</div>
+            <div class="l5f-score" id="l5f-f">—</div>
+            <div class="l5f-trend flat" id="trend-f">→</div>
+            <div class="l5f-bar-wrap"><div class="l5f-bar" id="bar-f" style="width:0%;background:var(--amber);"></div></div>
+            <div class="l5f-weight">×0.15</div>
+          </div>
+          <div class="l5f-row">
+            <div class="l5f-name">Execution Integrity</div>
+            <div class="l5f-score" id="l5f-ei">—</div>
+            <div class="l5f-trend flat" id="trend-ei">→</div>
+            <div class="l5f-bar-wrap"><div class="l5f-bar" id="bar-ei" style="width:0%;background:var(--green);"></div></div>
+            <div class="l5f-weight">×0.20</div>
+          </div>
+          <div class="l5f-row">
+            <div class="l5f-name">Regime Stability</div>
+            <div class="l5f-score" id="l5f-rs">—</div>
+            <div class="l5f-trend flat" id="trend-rs">→</div>
+            <div class="l5f-bar-wrap"><div class="l5f-bar" id="bar-rs" style="width:0%;background:var(--sub);"></div></div>
+            <div class="l5f-weight">×0.15</div>
+          </div>
+
+          <div class="l5f-total">
+            <div>
+              <div class="l5f-total-label">L5F COMPOSITE</div>
+              <div style="font-size:9px;color:var(--muted);margin-top:2px;">0.30·DQ + 0.20·R + 0.15·(100−F) + 0.20·EI + 0.15·RS</div>
+            </div>
+            <div class="l5f-total-score" id="l5f-total">—</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL 2: REGIME & STRESS -->
+  <div id="p-regime" class="panel" style="grid-column:2;grid-row:1;">
+    <div class="panel-header">
+      <div class="panel-accent" style="background:var(--amber)"></div>
+      <div class="panel-title">Stress &amp; Regime</div>
+      <div class="ph-tag">PANEL 4</div>
+    </div>
+
+    <!-- Tile 0: Withdrawal Velocity -->
+    <div class="regime-tile">
+      <div>
+        <div class="rt-label">Liquidity Withdrawal Velocity</div>
+        <div class="rt-value" id="rt-lwv">—</div>
+      </div>
+      <div class="rt-dot"></div>
+    </div>
+    <!-- Tile 1: Depth Decay Rate -->
+    <div class="regime-tile">
+      <div>
+        <div class="rt-label">Depth Decay Rate</div>
+        <div class="rt-value" id="rt-ddr">—</div>
+      </div>
+      <div class="rt-dot"></div>
+    </div>
+    <!-- Tile 2: Spread Elasticity -->
+    <div class="regime-tile">
+      <div>
+        <div class="rt-label">Spread Elasticity</div>
+        <div class="rt-value" id="rt-se">—</div>
+      </div>
+      <div class="rt-dot"></div>
+    </div>
+    <!-- Tile 3: Funding Skew — Phase 2, not in LISSnapshot -->
+    <div class="regime-tile">
+      <div>
+        <div class="rt-label">Funding Skew (Perps vs Spot)</div>
+        <div class="rt-value" id="rt-fs" style="color:var(--muted)">— Phase 2</div>
+      </div>
+      <div class="rt-dot"></div>
+    </div>
+    <!-- Tile 4: Derivatives Dominance — Phase 2 -->
+    <div class="regime-tile">
+      <div>
+        <div class="rt-label">Derivatives Dominance</div>
+        <div class="rt-value" id="rt-dd" style="color:var(--muted)">— Phase 2</div>
+      </div>
+      <div class="rt-dot"></div>
+    </div>
+
+    <div id="regime-box" style="margin-top:10px;padding:8px 10px;background:rgba(34,197,94,0.07);border-radius:3px;border:1px solid rgba(34,197,94,0.2);">
+      <div id="regime-box-label" style="font-size:9px;color:var(--green);letter-spacing:1px;font-weight:700;margin-bottom:3px;">REGIME CLASSIFICATION</div>
+      <div style="font-size:14px;font-weight:700;color:var(--sub)" id="regime-class">LOADING…</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:2px;" id="regime-note">Awaiting first tick</div>
+    </div>
+  </div>
+
+  <!-- PANEL 3: CROSS-VENUE DEPTH MAP -->
+  <div id="p-venue" class="panel" style="grid-column:1;grid-row:2;">
+    <div class="panel-header">
+      <div class="panel-accent" style="background:var(--green)"></div>
+      <div class="panel-title">Cross-Venue Depth Map</div>
+      <div style="margin-left:8px;font-size:10px;color:var(--muted);">± 10bps</div>
+      <div class="ph-tag">PANEL 2</div>
+    </div>
+
+    <table class="venue-table">
+      <thead>
+        <tr>
+          <th style="width:160px">Venue</th>
+          <th>±10bps Depth</th>
+          <th>% of Global</th>
+          <th>Regulated</th>
+          <th>Stability</th>
+          <th style="width:180px">Depth Share</th>
+        </tr>
+      </thead>
+      <tbody id="venue-tbody">
+        <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px;">Awaiting first tick…</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- PANEL 4: STRUCTURAL INTEGRITY -->
+  <div id="p-integrity" class="panel" style="grid-column:2;grid-row:2;">
+    <div class="panel-header">
+      <div class="panel-accent" style="background:var(--accent)"></div>
+      <div class="panel-title">Structural Integrity</div>
+      <div class="ph-tag">PANEL 3</div>
+    </div>
+
+    <div class="int-tile">
+      <div class="int-label">FRAGMENTATION INDEX (HHI-based)</div>
+      <div class="int-value" style="color:var(--sub)" id="si-fi">—</div>
+      <div class="int-sub" id="si-fi-note">Awaiting data</div>
+    </div>
+    <div class="int-tile">
+      <div class="int-label">CROSS-VENUE SPREAD DISPERSION</div>
+      <div class="int-value" style="color:var(--sub)" id="si-sd">—</div>
+      <div class="int-sub" id="si-sd-note">Awaiting data</div>
+    </div>
+    <div class="int-tile">
+      <div class="int-label">BASIS DISPERSION (Spot vs Perp)</div>
+      <!-- Phase 2: requires perp funding data from LISSnapshot -->
+      <div class="int-value" style="color:var(--muted)" id="si-bd">— Phase 2</div>
+      <div class="int-sub">Perp basis feed not yet in LISSnapshot</div>
+    </div>
+    <div class="int-price-leader">
+      <div class="ipl-left">
+        <div class="int-label">PRICE LEADERSHIP INDEX</div>
+        <div class="int-value" id="si-pl" style="color:var(--sub)">—</div>
+        <div class="int-sub" id="si-pl-note">Awaiting data</div>
+      </div>
+      <div class="leader-badge" id="si-pl-badge">—</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ─── STATUS BAR ────────────────────────────────────────── -->
+<div id="statusbar">
+  <div class="sb-live"><div class="sb-dot pulse"></div>LIVE DATA</div>
+  <div class="sb-item">VENUES: <span id="sb-venues">—</span></div>
+  <div class="sb-item">FEEDS: <span>17 TSLE</span></div>
+  <div class="sb-item">LATENCY: <span id="sb-lat">—</span></div>
+  <div class="sb-item">DEPTH RECORDS: <span id="sb-recs">—</span></div>
+  <div style="margin-left:auto;" class="sb-item">
+    STRATALINK TILT &nbsp;·&nbsp; PHASE 1 INSTITUTIONAL PREVIEW &nbsp;·&nbsp; <span>CONFIDENTIAL</span>
+  </div>
+</div>
+
+<!-- ─── SCRIPT ────────────────────────────────────────────── -->
+<script>
+'use strict';
+
+// ── State ─────────────────────────────────────────────────────────────────────
+const SYMBOLS   = ['BTC', 'ETH', 'SOL'];
+let currentAsset = 'BTC';
+let liveData     = {};  // symbol → TsleAggregate
+let prevFactors  = {};  // symbol → {dq,r,f,ei,rs} for trend arrow direction
+let totalRecords = 0;
+
+// ── Format helpers ────────────────────────────────────────────────────────────
+
+/**
+ * Format USD notional depth.
+ * total_notional from LISBand is raw USD — adjust the divisor below if your
+ * ingestion layer stores it in thousands or millions instead.
+ */
+function fmtDepth(v) {
+  if (v == null || v === 0) return '—';
+  if (v >= 1e9) return '$' + (v / 1e9).toFixed(1) + 'b';
+  if (v >= 1e6) return '$' + (v / 1e6).toFixed(0) + 'm';
+  if (v >= 1e3) return '$' + (v / 1e3).toFixed(0) + 'k';
+  return '$' + Math.round(v);
+}
+
+function scoreColor(v) {
+  return v >= 75 ? 'var(--green)' : v >= 55 ? 'var(--accent)' : 'var(--amber)';
+}
+
+function trendChar(prev, curr) {
+  if (prev == null) return { sym: '→', cls: 'flat' };
+  const d = curr - prev;
+  if (d >  0.5) return { sym: '↑', cls: 'up'  };
+  if (d < -0.5) return { sym: '↓', cls: 'dn'  };
+  return { sym: '→', cls: 'flat' };
+}
+
+/**
+ * Update a stress/regime tile.
+ * Provide value=null for Phase 2 metrics not yet available.
+ * gThresh / aThresh: value BELOW g = green, BELOW a = amber, else red.
+ */
+function applyTile(tile, value, formatter, gThresh, aThresh) {
+  const valEl = tile.querySelector('.rt-value');
+  const dotEl = tile.querySelector('.rt-dot');
+  if (value == null) {
+    // Already set in HTML — leave Phase 2 tiles alone
+    return;
+  }
+  const cls = value < gThresh ? 'g' : value < aThresh ? 'a' : 'r';
+  tile.className = 'regime-tile ' + cls;
+  valEl.textContent = formatter(value);
+  valEl.style.color = '';
+  dotEl.className = 'rt-dot ' + cls;
+}
+
+// ── Main render ───────────────────────────────────────────────────────────────
+
+function renderAggregate(agg) {
+  if (!agg) return;
+  const prev = prevFactors[agg.symbol] || {};
+
+  // ── Topbar ────────────────────────────────────────────────────────────────
+  document.getElementById('tb-depth').textContent   = fmtDepth(agg.total_depth_10bps);
+  document.getElementById('tb-venues').textContent  = agg.venue_count;
+  document.getElementById('tb-sdisp').textContent   = agg.spread_dispersion_bps.toFixed(1) + ' bps';
+  document.getElementById('tb-reg').textContent     = Math.round(agg.regulated_depth_share * 100) + '%';
+  document.getElementById('tb-off').textContent     = Math.round(agg.offshore_depth_share  * 100) + '%';
+
+  const regEl  = document.getElementById('tb-regime');
+  regEl.textContent = agg.vol_regime;
+  regEl.className   = 'regime-badge ' + (
+    agg.vol_regime === 'NORMAL'   ? 'regime-normal'   :
+    agg.vol_regime === 'ELEVATED' ? 'regime-elevated' : 'regime-stress'
+  );
+
+  // ── L5F composite ring ────────────────────────────────────────────────────
+  const score  = agg.l5f_composite;
+  const offset = 283 - (283 * score / 100);
+  document.getElementById('tsle-arc').style.strokeDashoffset = offset;
+  document.getElementById('tsle-num').textContent = score.toFixed(1);
+
+  const statusLabel =
+    score >= 80 ? 'ROBUST'       :
+    score >= 65 ? 'STABLE'       :
+    score >= 50 ? 'FRAGILE'      : 'DETERIORATING';
+  const statusColors = {
+    ROBUST: 'var(--green)', STABLE: 'var(--accent)',
+    FRAGILE: 'var(--amber)', DETERIORATING: 'var(--red)'
+  };
+  const statusEl = document.getElementById('tsle-status');
+  statusEl.textContent = '● ' + statusLabel;
+  statusEl.style.color = statusColors[statusLabel];
+
+  // 24h / 7d deltas require Postgres session history — Phase 2
+  // Leave as '—' until wired to historical endpoint
+
+  // ── L5F factor rows ───────────────────────────────────────────────────────
+  const factors = {
+    dq: agg.l5f_depth_quality,
+    r:  agg.l5f_resilience,
+    f:  agg.l5f_fragmentation,
+    ei: agg.l5f_exec_integrity,
+    rs: agg.l5f_regime_stability,
+  };
+
+  Object.entries(factors).forEach(([k, v]) => {
+    document.getElementById('l5f-' + k).textContent = v.toFixed(1);
+    const bar = document.getElementById('bar-' + k);
+    bar.style.width      = v + '%';
+    bar.style.background = scoreColor(v);
+    const t    = trendChar(prev[k], v);
+    const tEl  = document.getElementById('trend-' + k);
+    tEl.textContent = t.sym;
+    tEl.className   = 'l5f-trend ' + t.cls;
+  });
+
+  document.getElementById('l5f-total').textContent = score.toFixed(1);
+
+  // Warming-up note: R stays at ~80 and decay_rate stays at 0 until buffer fills
+  const isWarm = agg.depth_decay_rate === 0 && agg.l5f_resilience >= 79;
+  document.getElementById('warming-note').classList.toggle('visible', isWarm);
+
+  // ── Stress & Regime panel (Panel 4 top-right) ─────────────────────────────
+  const tiles = document.querySelectorAll('.regime-tile');
+
+  // Tile 0 — Withdrawal Velocity (< 20 = green, < 40 = amber, ≥ 40 = red)
+  applyTile(tiles[0], agg.withdrawal_velocity,
+    v => v.toFixed(1) + ' bps/hr', 20, 40);
+
+  // Tile 1 — Depth Decay Rate (< 5% = green, < 15% = amber, ≥ 15% = red)
+  applyTile(tiles[1], agg.depth_decay_rate,
+    v => v.toFixed(1) + '% / min', 5, 15);
+
+  // Tile 2 — Spread Elasticity (< 1.0 = green, < 1.5 = amber, ≥ 1.5 = red)
+  applyTile(tiles[2], agg.spread_elasticity,
+    v => v.toFixed(2) + '×', 1.0, 1.5);
+
+  // Tiles 3 & 4 (Funding Skew, Deriv Dominance): Phase 2 — leave as-is
+
+  // Regime classification box
+  const rcMap = {
+    NORMAL:   {
+      text: 'NORMAL — STABLE',
+      color: 'var(--green)', bg: 'rgba(34,197,94,0.07)',
+      border: 'rgba(34,197,94,0.2)', note: 'No pre-stress indicators active'
+    },
+    ELEVATED: {
+      text: 'ELEVATED — MONITORING',
+      color: 'var(--amber)', bg: 'rgba(245,158,11,0.07)',
+      border: 'rgba(245,158,11,0.2)', note: 'Liquidity stress indicators active — monitor closely'
+    },
+    STRESS: {
+      text: 'STRESS — ALERT',
+      color: 'var(--red)', bg: 'rgba(239,68,68,0.07)',
+      border: 'rgba(239,68,68,0.2)', note: 'Multiple stress indicators active'
+    },
+  };
+  const rc    = rcMap[agg.vol_regime] || rcMap.NORMAL;
+  const rcEl  = document.getElementById('regime-class');
+  const rcBox = document.getElementById('regime-box');
+  rcEl.textContent             = rc.text;
+  rcEl.style.color             = rc.color;
+  rcBox.style.background       = rc.bg;
+  rcBox.style.border           = '1px solid ' + rc.border;
+  document.getElementById('regime-box-label').style.color = rc.color;
+  document.getElementById('regime-note').textContent      = rc.note;
+
+  // ── Venue table (Panel 3) ─────────────────────────────────────────────────
+  const tbody = document.getElementById('venue-tbody');
+  tbody.innerHTML = '';
+  (agg.venue_slices || []).forEach(v => {
+    const stabColor =
+      v.stability_score >= 75 ? 'var(--green)' :
+      v.stability_score >= 60 ? 'var(--amber)' : 'var(--red)';
+    const barWidth = Math.min(v.depth_share_pct * 3, 100);
+    tbody.innerHTML += `
+      <tr>
+        <td>
+          <div class="venue-name">${v.venue_id}</div>
+          <div class="venue-type">${v.weight_class}</div>
+        </td>
+        <td class="depth-val">${fmtDepth(v.depth_10bps)}</td>
+        <td class="pct-val">${v.depth_share_pct.toFixed(1)}%</td>
+        <td class="${v.is_regulated ? 'reg-yes' : 'reg-no'}">${v.is_regulated ? '✓ YES' : 'NO'}</td>
+        <td>
+          <div class="stab-bar-wrap">
+            <span class="stab-num" style="color:${stabColor}">${Math.round(v.stability_score)}</span>
+            <div class="mini-bar-wrap">
+              <div class="mini-bar" style="width:${v.stability_score.toFixed(0)}%;background:${stabColor}"></div>
+            </div>
+          </div>
+        </td>
+        <td>
+          <div style="height:8px;background:var(--border);border-radius:2px;width:100%;max-width:140px;margin:auto;">
+            <div style="height:100%;width:${barWidth}%;background:${v.is_regulated ? 'var(--accent)' : 'var(--muted)'};border-radius:2px;max-width:100%"></div>
+          </div>
+        </td>
+      </tr>`;
+  });
+
+  // Status bar venue count
+  document.getElementById('sb-venues').textContent = agg.venue_count + ' ACTIVE';
+
+  // ── Structural Integrity (Panel 4 bottom-right) ───────────────────────────
+
+  // Fragmentation Index
+  const fi = agg.fragmentation_index;
+  const fiColor =
+    fi < 0.30 ? 'var(--green)' :
+    fi < 0.55 ? 'var(--amber)' : 'var(--red)';
+  const fiEl = document.getElementById('si-fi');
+  fiEl.textContent = fi.toFixed(2);
+  fiEl.style.color = fiColor;
+  document.getElementById('si-fi-note').textContent =
+    fi < 0.30 ? 'Low fragmentation — depth well concentrated' :
+    fi < 0.55 ? 'Moderate dispersion — offshore venues fragmenting' :
+                'High fragmentation — liquidity widely dispersed';
+
+  // Spread Dispersion
+  const sd = agg.spread_dispersion_bps;
+  const sdColor =
+    sd < 2 ? 'var(--green)' :
+    sd < 5 ? 'var(--amber)' : 'var(--red)';
+  const sdEl = document.getElementById('si-sd');
+  sdEl.textContent = sd.toFixed(1) + ' bps';
+  sdEl.style.color = sdColor;
+  document.getElementById('si-sd-note').textContent =
+    sd < 2 ? 'Within acceptable institutional range' :
+    sd < 5 ? 'Elevated spread dispersion — review venue fills' :
+             'High dispersion — execution quality degraded';
+
+  // Price leader: venue with highest price_leadership_score
+  const leader = (agg.venue_slices || []).reduce(
+    (best, v) => (v.price_leadership_score > (best?.price_leadership_score || 0)) ? v : best,
+    null
+  );
+  if (leader) {
+    document.getElementById('si-pl').textContent     = leader.venue_id;
+    document.getElementById('si-pl').style.color     = leader.is_regulated ? 'var(--green)' : 'var(--text)';
+    document.getElementById('si-pl-note').textContent =
+      leader.is_regulated
+        ? 'Regulated venue leading — strong price discovery'
+        : 'Offshore-led — ' + leader.venue_id + ' setting price direction';
+    const badge = document.getElementById('si-pl-badge');
+    badge.textContent        = leader.is_regulated ? 'REGULATED' : 'OFFSHORE';
+    badge.style.color        = leader.is_regulated ? 'var(--green)'              : 'var(--accent)';
+    badge.style.background   = leader.is_regulated ? 'rgba(34,197,94,0.15)'      : 'rgba(30,136,229,0.15)';
+    badge.style.borderColor  = leader.is_regulated ? 'rgba(34,197,94,0.3)'       : 'rgba(30,136,229,0.3)';
+  }
+
+  // ── Save factors for next-tick trend arrows ───────────────────────────────
+  prevFactors[agg.symbol] = { ...factors };
+}
+
+// ── Fetch & poll ──────────────────────────────────────────────────────────────
+
+async function poll() {
+  const t0 = performance.now();
+  try {
+    const res = await fetch(`/api/analytics/l5f/snapshot/${currentAsset}`);
+    const latencyMs = Math.round(performance.now() - t0);
+    document.getElementById('sb-lat').textContent = latencyMs + 'ms';
+
+    if (!res.ok) {
+      // 503 = buffer still warming; don't overwrite existing render
+      return;
+    }
+
+    const json = await res.json();
+    if (json.aggregate) {
+      liveData[currentAsset] = json.aggregate;
+      renderAggregate(json.aggregate);
+
+      // Increment record counter as a proxy for throughput
+      totalRecords += (json.aggregate.venue_count || 0) * 14;
+      document.getElementById('sb-recs').textContent = totalRecords.toLocaleString();
+    }
+  } catch (e) {
+    console.warn('[Terminal] poll error:', e);
+  }
+}
+
+// ── Asset switch ──────────────────────────────────────────────────────────────
+
+async function setAsset(a) {
+  currentAsset = a;
+  document.querySelectorAll('.asset-tab').forEach(t =>
+    t.classList.toggle('active', t.textContent === a)
+  );
+  // Render from cache immediately for instant feedback, then refresh
+  if (liveData[a]) renderAggregate(liveData[a]);
+  await poll();
+}
+
+// ── Timestamp ticker ──────────────────────────────────────────────────────────
+
+function updateTime() {
+  const now = new Date();
+  document.getElementById('tb-time').textContent =
+    String(now.getHours()).padStart(2,'0')        + ':' +
+    String(now.getMinutes()).padStart(2,'0')       + ':' +
+    String(now.getSeconds()).padStart(2,'0')       + '.' +
+    String(now.getMilliseconds()).padStart(3,'0');
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+
+poll();
+updateTime();
+setInterval(updateTime, 50);
+setInterval(poll, 5_000);
+</script>
+</body>
+</html>

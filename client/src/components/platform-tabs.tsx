@@ -11,6 +11,7 @@ const tabs = [
   { id: "analytics", label: "ANALYTICS", path: "/platform/analytics" },
   { id: "tape", label: "TAPE", path: "/platform/tape" },
   { id: "rcl", label: "RCL", path: "/regulatory/adgm" },
+  { id: "tilt", label: "TILT", path: "/platform/tilt" },
 ];
 
 export function PlatformTabs() {
