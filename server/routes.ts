@@ -30,6 +30,7 @@ import gmxRoutes    from "./routes/gmx-relay";
 import curveRoutes  from "./routes/curve-relay";
 import otcRoutes    from "./routes/otc-relay";
 import cantonRoutes from "./routes/canton-relay";
+import analyticsL5fRoutes from "./routes/analytics-l5f";
 import dailyCommentaryRouter from "./api/dailyCommentary";
 import { startIngestionLoop } from "../analytics/engines/ingestionManager";
 import { 
@@ -408,6 +409,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mount analytics routes
   app.use("/api/analytics", analyticsRoutes);
+
+  // Mount L5F analytics layer
+  app.use("/api/analytics/l5f", analyticsL5fRoutes);
 
   // Mount liquidity routes
   app.use("/api/liquidity", liquidityRoutes);

@@ -50,7 +50,8 @@ Built with React, TypeScript, and Vite, using Wouter for routing and TanStack Qu
 Uses Express.js with in-memory storage (MemStorage) to provide API endpoints for dashboard data, historical trends, portfolio risk, alerts, and token scorecard metrics. It dynamically generates asset-specific data for BTC, ETH, and SOL.
 -   **STRATA Analytics Backend**: Node.js service for real-time market structure analytics, including multi-exchange pricing aggregator and engines for orderbook depth, funding rates, liquidations, and stress scoring.
 -   **STRATA Daily Engine**: Python-based system for daily crypto market structure summaries from various API sources, generating structured JSON and Markdown reports.
--   **STRATA Liquidity 5-Factor Model**: Weighted composite scoring system for institutional liquidity assessment (Depth Quality, Execution Efficiency, Liquidity Stability, Market Fragmentation, Risk Concentration).
+-   **STRATA Liquidity 5-Factor Model (L5F)**: Weighted composite scoring system for institutional liquidity assessment. Five factors: Depth Quality (0.30), Resilience (0.20), Fragmentation (0.15, inverted HHI), Execution Integrity (0.20), Regime Stability (0.15). Computed from raw LISSnapshot history across all 14 venues. API: `GET /api/analytics/l5f/snapshot/:symbol`. Factors DQ and F are point-in-time; R and RS need ~3-5 minutes of buffer history before reflecting real values.
+-   **TSLE Buffer**: In-memory ring buffer, BUFFER_SIZE=360 (~1 hour at 10s intervals). Stores both processed TSLEPoints and raw LISSnapshots. The analytics layer reads raw snapshots via `getRawHistory()`.
 -   **Alert System**: Manages alert trigger types (DIVERGENCE, REGIME_CHANGE, POLI_DROP, DEPTH_DROP) with configurable notification channels (Email, Webhooks) and PostgreSQL persistence.
 
 ### Design System

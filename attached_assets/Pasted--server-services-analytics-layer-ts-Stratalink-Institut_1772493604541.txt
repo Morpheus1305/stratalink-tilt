@@ -1,0 +1,521 @@
+/**
+ * server/services/analytics-layer.ts
+ *
+ * Stratalink Institutional Dashboard — Analytics Layer v0.1
+ * Reads from tsleBuffer + tsleStateEngine, computes L5F composite.
+ *
+ * Integration notes:
+ *  1. Adjust the import path on the next line to match where tsleBuffer
+ *     and tsleStateEngine are exported from in your project.
+ *  2. BUFFER_SIZE in tsle-buffer.ts should be 360 (not 10) before deploying.
+ *     At 10-second refresh intervals that gives ~1 hour of history per venue,
+ *     which is the minimum for meaningful Resilience and Regime Stability scores.
+ *  3. Expand KNOWN_VENUES below to cover all 14 live venues.
+ */
+
+// ── ADJUST THIS IMPORT PATH ──────────────────────────────────────────────────
+import { tsleBuffer, tsleStateEngine } from './tsle-buffer';
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── Types ────────────────────────────────────────────────────────────────────
+
+export interface VenueSlice {
+  venue_id: string;
+  depth_10bps: number;            // USD notional at ±10bps
+  depth_share_pct: number;        // % of total cross-venue depth
+  spread_bps: number;
+  stability_score: number;        // 0–100, derived from TSLE confidence
+  is_regulated: boolean;
+  weight_class: 'HIGH' | 'MEDIUM' | 'LOW';
+  exec_integrity_score: number;   // 0–100
+  price_leadership_score: number; // 0–1
+}
+
+export type VolRegime = 'NORMAL' | 'ELEVATED' | 'STRESS';
+
+export interface TsleAggregate {
+  symbol: string;
+  computed_at_utc: number;
+  venue_count: number;
+
+  // Cross-venue composites
+  total_depth_10bps: number;
+  total_depth_25bps: number;
+  regulated_depth_share: number;  // 0–1
+  offshore_depth_share: number;   // 0–1
+  fragmentation_index: number;    // HHI-based, 0–1
+  spread_dispersion_bps: number;
+
+  // Regime
+  vol_regime: VolRegime;
+  depth_decay_rate: number;       // % depth lost per minute (rolling, from buffer)
+  withdrawal_velocity: number;    // bps/hr spread widening proxy
+  spread_elasticity: number;      // spread_dispersion / avg_spread ratio
+
+  // L5F factor scores (all 0–100)
+  l5f_depth_quality: number;
+  l5f_resilience: number;
+  l5f_fragmentation: number;      // raw F score (higher = more fragmented)
+  l5f_exec_integrity: number;
+  l5f_regime_stability: number;
+
+  // Weighted composite
+  l5f_composite: number;          // 0–100, one decimal place
+
+  venue_slices: VenueSlice[];
+}
+
+// ── Configuration ────────────────────────────────────────────────────────────
+
+/**
+ * Expand this list to cover all 14 live TSLE venues.
+ * The analytics layer only uses venues that have live data in the buffer,
+ * so adding a venue here that isn't feeding yet has no effect.
+ */
+const KNOWN_VENUES = [
+  'binance', 'coinbase', 'kraken', 'okx', 'bybit',
+  'deribit', 'hyperliquid', 'dydx', 'uniswap',
+  // add remaining venues here
+];
+
+const REGULATED = new Set(['coinbase', 'kraken', 'deribit']);
+
+/**
+ * Credibility coefficients per venue (0–1).
+ * Regulated venues carry a 1.25× depth premium in DQ computation.
+ * Weights should sum to ≤ 1; gaps are filled by DEFAULT_WEIGHT.
+ */
+const VENUE_WEIGHT: Record<string, number> = {
+  binance:     0.28,
+  coinbase:    0.18,
+  kraken:      0.14,
+  okx:         0.12,
+  bybit:       0.10,
+  deribit:     0.08,
+  hyperliquid: 0.05,
+  dydx:        0.04,
+  uniswap:     0.03,
+};
+const DEFAULT_WEIGHT = 0.03;
+
+// ── Utility ──────────────────────────────────────────────────────────────────
+
+const clamp = (v: number, lo = 0, hi = 100): number =>
+  Math.max(lo, Math.min(hi, v));
+
+function stdDev(xs: number[]): number {
+  if (xs.length < 2) return 0;
+  const mean = xs.reduce((a, b) => a + b, 0) / xs.length;
+  return Math.sqrt(xs.reduce((a, b) => a + (b - mean) ** 2, 0) / xs.length);
+}
+
+/** Read notional from a bands record. Key format: 'pct_0.1' = 10bps, 'pct_0.25' = 25bps. */
+function getBand(snap: any, key: string): number {
+  return snap?.bands?.[key]?.total_notional ?? 0;
+}
+
+function venuWeight(venue: string): number {
+  return VENUE_WEIGHT[venue.toLowerCase()] ?? DEFAULT_WEIGHT;
+}
+
+// ── Factor 1: Depth Quality (DQ) — weight 0.30 ──────────────────────────────
+//
+// Combines depth at 10bps and 25bps, quality-adjusted by regulated premium
+// and venue credibility coefficient. Normalises against the buffer peak so
+// a depleted book scores lower than its historical norm for this session.
+
+function computeDQ(
+  latestByVenue: Map<string, any>,
+  historyByVenue: Map<string, any[]>
+): number {
+  // Rolling session peak: highest single-venue 10bps depth seen in the buffer
+  let sessionPeak = 1;
+  for (const history of historyByVenue.values()) {
+    for (const snap of history) {
+      sessionPeak = Math.max(sessionPeak, getBand(snap, 'pct_0.1'));
+    }
+  }
+
+  let weightedDepth = 0;
+  let weightTotal = 0;
+
+  for (const [venue, snap] of latestByVenue) {
+    const d10 = getBand(snap, 'pct_0.1');
+    const d25 = getBand(snap, 'pct_0.25');
+    const rawDepth = d10 * 0.65 + d25 * 0.35;
+    const premium = REGULATED.has(venue) ? 1.25 : 1.0;
+    const w = venuWeight(venue);
+    weightedDepth += rawDepth * premium * w;
+    weightTotal += w;
+  }
+
+  if (weightTotal === 0) return 0;
+
+  // Reference ceiling: all venue weights at session peak with full regulated premium
+  const ceiling = sessionPeak * 1.25 * weightTotal;
+  return clamp((weightedDepth / ceiling) * 100);
+}
+
+// ── Factor 2: Resilience (R) — weight 0.20 ───────────────────────────────────
+//
+// Measures depth decay rate and spread widening velocity over the buffer window.
+// Returns 100 if depth is stable/growing and spreads are steady.
+// Falls toward 0 as depth evaporates and spreads widen rapidly.
+// Also computes raw decay_rate and withdrawal_velocity for the aggregate output.
+
+interface ResilienceResult {
+  r: number;
+  depth_decay_rate: number;     // % per minute (average across venues)
+  withdrawal_velocity: number;  // bps/hr spread widening (average across venues)
+  spread_elasticity: number;    // spread_dispersion / mean_spread
+}
+
+function computeR(
+  historyByVenue: Map<string, any[]>,
+  spread_dispersion_bps: number,
+  latestByVenue: Map<string, any>
+): ResilienceResult {
+  const decayScores: number[] = [];
+  const velocityScores: number[] = [];
+  const rawDecayRates: number[] = [];
+  const rawVelocities: number[] = [];
+
+  for (const [, history] of historyByVenue) {
+    if (history.length < 3) continue; // need at least a few ticks
+
+    const oldest = history[0];
+    const latest = history[history.length - 1];
+    const timeMs = latest.timestamp - oldest.timestamp;
+    if (timeMs < 15_000) continue; // window too short (<15s) to be meaningful
+
+    const timeMin = timeMs / 60_000;
+
+    // Depth decay
+    const d10Old = getBand(oldest, 'pct_0.1');
+    const d10New = getBand(latest, 'pct_0.1');
+    if (d10Old > 0) {
+      const decayPct = (d10Old - d10New) / d10Old; // positive = depth shrinking
+      const decayRate = decayPct / timeMin;         // % per minute
+      rawDecayRates.push(Math.max(0, decayRate));
+      const R_decay = 1.0 - clamp(decayRate / 0.25, 0, 1); // 25%/min = floor
+      decayScores.push(R_decay);
+    }
+
+    // Spread widening velocity (bps/hr proxy)
+    const spreadOld = oldest.spread?.bps ?? 0;
+    const spreadNew = latest.spread?.bps ?? 0;
+    if (spreadOld > 0 && timeMin > 0) {
+      const widenBpsPerMin = (spreadNew - spreadOld) / timeMin;
+      const widenBpsPerHr = widenBpsPerMin * 60;
+      rawVelocities.push(Math.max(0, widenBpsPerHr));
+      const R_vel = 1.0 - clamp(widenBpsPerHr / 50, 0, 1); // 50 bps/hr = floor
+      velocityScores.push(R_vel);
+    }
+  }
+
+  const avgDecay = decayScores.length
+    ? decayScores.reduce((a, b) => a + b, 0) / decayScores.length
+    : 0.8; // neutral-positive default when buffer is warming up
+
+  const avgVelocity = velocityScores.length
+    ? velocityScores.reduce((a, b) => a + b, 0) / velocityScores.length
+    : avgDecay;
+
+  const r = clamp((avgDecay * 0.60 + avgVelocity * 0.40) * 100);
+
+  const depth_decay_rate =
+    rawDecayRates.length
+      ? Math.round((rawDecayRates.reduce((a, b) => a + b, 0) / rawDecayRates.length) * 1000) / 10
+      : 0;
+
+  const withdrawal_velocity =
+    rawVelocities.length
+      ? Math.round(rawVelocities.reduce((a, b) => a + b, 0) / rawVelocities.length * 10) / 10
+      : 0;
+
+  // Spread elasticity: how much dispersion relative to mean spread
+  const allSpreads = [...latestByVenue.values()]
+    .map(s => s.spread?.bps ?? 0)
+    .filter(v => v > 0);
+  const meanSpread = allSpreads.length
+    ? allSpreads.reduce((a, b) => a + b, 0) / allSpreads.length
+    : 1;
+  const spread_elasticity =
+    Math.round((spread_dispersion_bps / Math.max(meanSpread, 0.01)) * 100) / 100;
+
+  return { r, depth_decay_rate, withdrawal_velocity, spread_elasticity };
+}
+
+// ── Factor 3: Fragmentation (F) — weight 0.15 (inverted) ────────────────────
+//
+// HHI of depth shares across venues.
+// F score: 0 = monopoly (one venue dominates), 100 = perfectly dispersed.
+// L5F input uses (100 − F) so high fragmentation hurts the composite.
+
+interface FragResult {
+  f_score: number;      // raw F (0=concentrated, 100=dispersed)
+  l5f_f_input: number;  // (100 − F) + regulated concentration bonus
+  hhi: number;          // raw HHI, 0–1
+}
+
+function computeF(latestByVenue: Map<string, any>): FragResult {
+  const entries = [...latestByVenue.entries()];
+  const depths = entries.map(([, s]) => getBand(s, 'pct_0.1'));
+  const total = depths.reduce((a, b) => a + b, 0);
+
+  if (total === 0) return { f_score: 50, l5f_f_input: 50, hhi: 0.5 };
+
+  const shares = depths.map(d => d / total);
+  const hhi = shares.reduce((a, s) => a + s * s, 0);
+  const F = (1 - hhi) * 100;
+
+  // Regulated concentration bonus: if regulated venues hold >40% of depth,
+  // the concentration is considered higher-quality, so award +5 to (100−F)
+  const regDepth = entries.reduce(
+    (sum, [venue, snap]) => sum + (REGULATED.has(venue) ? getBand(snap, 'pct_0.1') : 0),
+    0
+  );
+  const regShare = regDepth / total;
+  const regBonus = regShare > 0.4 ? 5 : 0;
+
+  return {
+    f_score: Math.round(F * 10) / 10,
+    l5f_f_input: clamp(100 - F + regBonus),
+    hhi: Math.round(hhi * 1000) / 1000,
+  };
+}
+
+// ── Factor 4: Execution Integrity (EI) — weight 0.20 ────────────────────────
+//
+// Derived from spread dispersion across venues and mean spread level.
+// LISSnapshot does not expose slippage variance or order-book flash/cancel
+// ratios, so EI is a spread-quality proxy in Phase 1. Wire in richer
+// signals (arb dislocation frequency, per-venue spoofing score) in Phase 2.
+
+function computeEI(latestByVenue: Map<string, any>): number {
+  const spreads = [...latestByVenue.values()]
+    .map(s => s.spread?.bps ?? null)
+    .filter((v): v is number => v !== null && v > 0);
+
+  if (spreads.length === 0) return 75; // neutral default
+
+  const dispersion = stdDev(spreads);
+  const meanSpread = spreads.reduce((a, b) => a + b, 0) / spreads.length;
+
+  // Spread dispersion penalty: 0 bps dispersion = 100, 5+ bps = 0
+  const EI_dispersion = clamp(100 - (dispersion / 5) * 100);
+
+  // Mean spread level penalty: tight spreads = good execution environment
+  // 1 bps or under = full marks, degrades linearly to 0 at 20 bps
+  const EI_level = clamp(100 - Math.max(0, meanSpread - 1) * (100 / 19));
+
+  return clamp(EI_dispersion * 0.60 + EI_level * 0.40);
+}
+
+// ── Factor 5: Regime Stability (RS) — weight 0.15 ───────────────────────────
+//
+// Maps TSLEStateSnapshot fields to a 0–100 stability score per venue,
+// then averages across all venues for the symbol.
+// The worst TSLE_STATE across any venue drives the vol_regime classification.
+
+const STATE_SCORE: Record<string, number> = {
+  STABLE:     1.00,
+  THINNING:   0.60,
+  FRAGILE:    0.20,
+  DISLOCATED: 0.00,
+};
+
+const STATE_TO_REGIME: Record<string, VolRegime> = {
+  STABLE:     'NORMAL',
+  THINNING:   'ELEVATED',
+  FRAGILE:    'STRESS',
+  DISLOCATED: 'STRESS',
+};
+
+// State severity order for worst-state tracking (index 0 = worst)
+const SEVERITY = ['DISLOCATED', 'FRAGILE', 'THINNING', 'STABLE'];
+
+interface RegimeResult {
+  rs: number;
+  vol_regime: VolRegime;
+}
+
+function computeRS(symbol: string, venues: string[]): RegimeResult {
+  let rsSum = 0;
+  let count = 0;
+  let worstState = 'STABLE';
+
+  for (const venue of venues) {
+    try {
+      const snap = tsleStateEngine.getState(venue, symbol);
+      if (!snap) continue;
+
+      const baseScore = STATE_SCORE[snap.state] ?? 0.5;
+
+      // Duration bonus: up to +0.15 for having been in current state ≥5 minutes
+      const durationBonus = Math.min(snap.durationMs / (5 * 60_000), 1) * 0.15;
+
+      // Transition penalty: frequent regime flips reduce confidence
+      const transitionPenalty = Math.min(snap.transitionCount / 10, 1) * 0.15;
+
+      // Pending-state penalty: a confirmation in progress signals instability
+      const pendingPenalty = snap.pendingState ? 0.10 : 0;
+
+      // Confirmation progress adds partial credit toward next state
+      // (only matters when pendingState is set)
+      const confirmationCredit = snap.pendingState
+        ? (snap.confirmationProgress / snap.confirmationRequired) * 0.05
+        : 0;
+
+      const rs_venue = clamp(
+        (baseScore + durationBonus - transitionPenalty - pendingPenalty + confirmationCredit) * 100
+      );
+
+      rsSum += rs_venue;
+      count++;
+
+      // Track worst state (lowest severity index = worst)
+      if (SEVERITY.indexOf(snap.state) < SEVERITY.indexOf(worstState)) {
+        worstState = snap.state;
+      }
+    } catch {
+      // venue has no state snapshot yet — skip
+    }
+  }
+
+  return {
+    rs: count > 0 ? clamp(rsSum / count) : 75,
+    vol_regime: STATE_TO_REGIME[worstState] ?? 'NORMAL',
+  };
+}
+
+// ── VenueSlices ───────────────────────────────────────────────────────────────
+
+function buildVenueSlices(
+  latestByVenue: Map<string, any>,
+  total_depth_10bps: number
+): VenueSlice[] {
+  return [...latestByVenue.entries()]
+    .sort(([, a], [, b]) => getBand(b, 'pct_0.1') - getBand(a, 'pct_0.1'))
+    .map(([venue, snap]) => {
+      const d10 = getBand(snap, 'pct_0.1');
+      const share = total_depth_10bps > 0 ? (d10 / total_depth_10bps) * 100 : 0;
+      const spreadBps = snap.spread?.bps ?? 0;
+      const is_regulated = REGULATED.has(venue);
+      const w = venuWeight(venue);
+
+      // Stability proxy from TSLE confidence (attached at runtime as snap.tsle.confidence)
+      const tsleConf: number = (snap as any).tsle?.confidence ?? 0.80;
+      const stability_score = clamp(tsleConf * 100);
+
+      const weight_class: 'HIGH' | 'MEDIUM' | 'LOW' =
+        w >= 0.14 ? 'HIGH' : w >= 0.08 ? 'MEDIUM' : 'LOW';
+
+      // Price leadership: credibility-weighted, regulated venues score higher
+      const price_leadership_score = Math.round(
+        clamp(w * (is_regulated ? 1.3 : 1.0), 0, 1) * 100
+      ) / 100;
+
+      // EI per venue: degrade from 100 as spread widens beyond 1 bps
+      const exec_integrity_score = clamp(100 - Math.max(0, spreadBps - 1) * 8);
+
+      return {
+        venue_id: venue,
+        depth_10bps: Math.round(d10),
+        depth_share_pct: Math.round(share * 10) / 10,
+        spread_bps: Math.round(spreadBps * 100) / 100,
+        stability_score: Math.round(stability_score * 10) / 10,
+        is_regulated,
+        weight_class,
+        exec_integrity_score: Math.round(exec_integrity_score * 10) / 10,
+        price_leadership_score,
+      };
+    });
+}
+
+// ── Main export ───────────────────────────────────────────────────────────────
+
+/**
+ * computeAnalyticsSnapshot(symbol)
+ *
+ * Returns a fully-computed TsleAggregate for the given symbol,
+ * or null if the buffer has no data yet for any venue.
+ *
+ * Call this from the /api/analytics/snapshot/:symbol route.
+ * Results should be cached for ~1s to avoid redundant recomputation
+ * on high-frequency polling from the dashboard frontend.
+ */
+export function computeAnalyticsSnapshot(symbol: string): TsleAggregate | null {
+  const sym = symbol.toUpperCase();
+
+  // Discover which venues have live data for this symbol
+  const historyByVenue = new Map<string, any[]>();
+  const latestByVenue = new Map<string, any>();
+
+  for (const venue of KNOWN_VENUES) {
+    const history = tsleBuffer.getHistory(venue, sym);
+    if (history && history.length > 0) {
+      historyByVenue.set(venue, history);
+      latestByVenue.set(venue, history[history.length - 1]);
+    }
+  }
+
+  if (latestByVenue.size === 0) return null;
+
+  const venues = [...latestByVenue.keys()];
+
+  // ── Cross-venue composites ────────────────────────────────────────────────
+  let total10 = 0, total25 = 0, regDepth = 0;
+  const allSpreads: number[] = [];
+
+  for (const [venue, snap] of latestByVenue) {
+    const d10 = getBand(snap, 'pct_0.1');
+    const d25 = getBand(snap, 'pct_0.25');
+    total10 += d10;
+    total25 += d25;
+    if (REGULATED.has(venue)) regDepth += d10;
+    if (snap.spread?.bps != null) allSpreads.push(snap.spread.bps);
+  }
+
+  const spread_dispersion_bps = Math.round(stdDev(allSpreads) * 100) / 100;
+
+  // ── L5F Factors ───────────────────────────────────────────────────────────
+  const dq = computeDQ(latestByVenue, historyByVenue);
+  const { r, depth_decay_rate, withdrawal_velocity, spread_elasticity } =
+    computeR(historyByVenue, spread_dispersion_bps, latestByVenue);
+  const { f_score, l5f_f_input, hhi } = computeF(latestByVenue);
+  const ei = computeEI(latestByVenue);
+  const { rs, vol_regime } = computeRS(sym, venues);
+
+  // ── Master Formula ────────────────────────────────────────────────────────
+  const l5f_composite =
+    Math.round(
+      clamp(0.30 * dq + 0.20 * r + 0.15 * l5f_f_input + 0.20 * ei + 0.15 * rs) * 10
+    ) / 10;
+
+  return {
+    symbol: sym,
+    computed_at_utc: Date.now(),
+    venue_count: latestByVenue.size,
+
+    total_depth_10bps: Math.round(total10),
+    total_depth_25bps: Math.round(total25),
+    regulated_depth_share: total10 > 0 ? Math.round((regDepth / total10) * 1000) / 1000 : 0,
+    offshore_depth_share: total10 > 0 ? Math.round(((total10 - regDepth) / total10) * 1000) / 1000 : 1,
+    fragmentation_index: hhi,
+    spread_dispersion_bps,
+    vol_regime,
+    depth_decay_rate,
+    withdrawal_velocity,
+    spread_elasticity,
+
+    l5f_depth_quality:    Math.round(dq * 10) / 10,
+    l5f_resilience:       Math.round(r  * 10) / 10,
+    l5f_fragmentation:    Math.round(f_score * 10) / 10,
+    l5f_exec_integrity:   Math.round(ei * 10) / 10,
+    l5f_regime_stability: Math.round(rs * 10) / 10,
+    l5f_composite,
+
+    venue_slices: buildVenueSlices(latestByVenue, total10),
+  };
+}

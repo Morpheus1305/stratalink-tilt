@@ -87,11 +87,12 @@
  }
 
  // TSLE Memory: Rolling buffer per (venue, symbol)
- // Retention: last N = 10 snapshots (no persistence)
- const BUFFER_SIZE = 10;
+ // Retention: last N = 360 snapshots (~1 hour at 10s intervals)
+ const BUFFER_SIZE = 360;
 
  class TSLEBuffer {
    private buffers: Map<string, TSLEPoint[]> = new Map();
+   private rawBuffers: Map<string, LISSnapshot[]> = new Map();
 
    private getKey(venue: string, symbol: string): string {
      return `${venue.toLowerCase()}:${symbol.toUpperCase()}`;
@@ -187,6 +188,14 @@
      if (buffer.length >= BUFFER_SIZE) buffer.shift();
      buffer.push(point);
 
+     let rawBuffer = this.rawBuffers.get(key);
+     if (!rawBuffer) {
+       rawBuffer = [];
+       this.rawBuffers.set(key, rawBuffer);
+     }
+     if (rawBuffer.length >= BUFFER_SIZE) rawBuffer.shift();
+     rawBuffer.push(snapshot);
+
      console.log(`[TSLE] Recorded ${key}: depth25=$${(depth25 / 1e6).toFixed(2)}M, poli=${poli}`);
 
      return point;
@@ -195,6 +204,14 @@
    public getHistory(venue: string, symbol: string, limit?: number): TSLEPoint[] {
      const key = this.getKey(venue, symbol);
      const buffer = this.buffers.get(key) || [];
+
+     if (limit && limit < buffer.length) return buffer.slice(-limit);
+     return [...buffer];
+   }
+
+   public getRawHistory(venue: string, symbol: string, limit?: number): LISSnapshot[] {
+     const key = this.getKey(venue, symbol);
+     const buffer = this.rawBuffers.get(key) || [];
 
      if (limit && limit < buffer.length) return buffer.slice(-limit);
      return [...buffer];
