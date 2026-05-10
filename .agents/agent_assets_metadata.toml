@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "uDNBGMOxktnkJHtmXEK6L"
+uri = "file://stratalink-tilt-source.zip"
+type = "unspecified"
+title = "StrataLink TILT — Full Source Export"
