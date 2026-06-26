@@ -332,7 +332,7 @@
 .tilt-l5f-col {
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
+  justify-content: center;
   gap: 1px;
   min-height: 0;
 }
