@@ -1,8 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import type { AlertsData, DashboardData, LiquidityScore } from "@shared/schema";
+import type { AlertsData, DashboardData } from "@shared/schema";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { PlatformTabs } from "@/components/platform-tabs";
-import { LiquidityScoreGauge } from "@/components/liquidity-score-gauge";
 import { StressSignalsPanel } from "@/components/stress-signals-panel";
 import { BottomTicker } from "@/components/bottom-ticker";
 import { DateTimeBar } from "@/components/date-time-bar";
@@ -137,21 +136,7 @@ export default function Alerts() {
     refetchInterval: 5000,
   });
 
-  // Derive LiquidityScore from L5F engine — same source as TILT
-  const l5fScore: LiquidityScore | null = (() => {
-    const agg = l5fData?.aggregate;
-    if (!agg) return null;
-    const score = Math.round(agg.l5f_composite ?? 0);
-    const riskLevel: LiquidityScore["riskLevel"] =
-      score >= 75 ? "low" : score >= 50 ? "medium" : score >= 35 ? "high" : "critical";
-    return {
-      score,
-      riskLevel,
-      trend: "neutral" as const,
-      change24h: 0,
-      historicalAverage: Math.round((agg.l5f_composite ?? 0) * 0.97),
-    };
-  })();
+  const l5fAgg = l5fData?.aggregate ?? null;
 
   const isLoading = dashboardLoading || alertsLoading;
 
@@ -268,7 +253,89 @@ export default function Alerts() {
           {/* Panel 1 — Liquidity Intelligence */}
           <div className="tilt-panel" data-testid="panel-liquidity-intelligence">
             <PanelHeader title="Liquidity Intelligence" tag="PANEL 1" />
-            <LiquidityScoreGauge scoreData={l5fScore ?? dashboardData.liquidityScore} />
+            <div style={{ display: "grid", gridTemplateColumns: "160px 1fr", gap: 12, padding: "10px 12px" }}>
+              {/* Ring column */}
+              <div className="tilt-tsle-col">
+                <div className="tilt-tsle-ring" data-testid="card-liquidity-score">
+                  <svg viewBox="0 0 100 100">
+                    <circle className="tilt-ring-bg" cx="50" cy="50" r="45" />
+                    <circle
+                      className="tilt-ring-fg"
+                      cx="50" cy="50" r="45"
+                      style={{
+                        strokeDashoffset: l5fAgg
+                          ? 283 - (l5fAgg.l5f_composite / 100) * 283
+                          : 283,
+                        stroke: l5fAgg
+                          ? (l5fAgg.l5f_composite >= 75
+                            ? "var(--tilt-green)"
+                            : l5fAgg.l5f_composite >= 55
+                            ? "var(--tilt-accent)"
+                            : "var(--tilt-amber)")
+                          : "var(--tilt-border)",
+                      }}
+                    />
+                  </svg>
+                  <div className="tilt-tsle-center">
+                    <div className="tilt-tsle-number" data-testid="text-score-value">
+                      {l5fAgg ? Math.round(l5fAgg.l5f_composite) : "—"}
+                    </div>
+                    <div className="tilt-tsle-sub">/ 100</div>
+                  </div>
+                </div>
+                {(() => {
+                  const s = l5fAgg?.l5f_composite ?? 0;
+                  const label = s >= 80 ? "ROBUST" : s >= 65 ? "STABLE" : s >= 50 ? "FRAGILE" : "DETERIORATING";
+                  const color = s >= 80
+                    ? "var(--tilt-green)"
+                    : s >= 65
+                    ? "var(--tilt-accent)"
+                    : s >= 50
+                    ? "var(--tilt-amber)"
+                    : "var(--tilt-red)";
+                  return (
+                    <div className="tilt-tsle-status" style={{ color: l5fAgg ? color : "var(--tilt-sub)" }} data-testid="text-risk-level">
+                      {l5fAgg ? `\u25CF ${label}` : "\u25CF LOADING"}
+                    </div>
+                  );
+                })()}
+                <div style={{ fontSize: 9, color: "var(--tilt-muted)", letterSpacing: 1, marginBottom: 4 }}>
+                  L5F COMPOSITE
+                </div>
+              </div>
+              {/* Factor breakdown column */}
+              <div className="tilt-l5f-col" style={{ justifyContent: "center" }}>
+                <div className="tilt-l5f-title">Liquidity 5-Factor Score (L5F)</div>
+                {([
+                  { key: "l5f_depth_quality",       label: "Depth Quality",       weight: "×0.30" },
+                  { key: "l5f_resilience",           label: "Resilience",          weight: "×0.20" },
+                  { key: "l5f_fragmentation",        label: "Fragmentation",       weight: "×0.15" },
+                  { key: "l5f_execution_integrity",  label: "Execution Integrity", weight: "×0.20" },
+                  { key: "l5f_regime_stability",     label: "Regime Stability",    weight: "×0.15" },
+                ] as const).map(({ key, label, weight }) => {
+                  const val: number | null = l5fAgg ? ((l5fAgg as any)[key] ?? null) : null;
+                  const barColor = val != null
+                    ? (val >= 75 ? "var(--tilt-green)" : val >= 55 ? "var(--tilt-accent)" : "var(--tilt-amber)")
+                    : "var(--tilt-border)";
+                  return (
+                    <div className="tilt-l5f-row" key={key}>
+                      <div className="tilt-l5f-name">{label}</div>
+                      <div className="tilt-l5f-score">{val != null ? val.toFixed(1) : "—"}</div>
+                      <div className="tilt-l5f-bar-wrap">
+                        <div className="tilt-l5f-bar" style={{ width: val != null ? `${val}%` : "0%", background: barColor }} />
+                      </div>
+                      <div className="tilt-l5f-weight">{weight}</div>
+                    </div>
+                  );
+                })}
+                <div className="tilt-l5f-total">
+                  <div className="tilt-l5f-total-label">L5F COMPOSITE</div>
+                  <div className="tilt-l5f-total-score">
+                    {l5fAgg ? l5fAgg.l5f_composite.toFixed(1) : "—"}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Panel 2 — Stress Signal Detection */}
