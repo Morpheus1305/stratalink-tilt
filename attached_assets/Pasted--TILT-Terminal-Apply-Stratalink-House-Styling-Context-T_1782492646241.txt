@@ -1,0 +1,152 @@
+# TILT Terminal: Apply Stratalink House Styling
+
+## Context
+
+The TILT terminal at `/platform/tilt` (`client/src/pages/platform/tilt-terminal.tsx`) is the main operator interface for Stratalink's Institutional Liquidity Terminal. It currently works and displays live data, but its visual styling does not match the design language established in the Stratalink storyboard.
+
+This prompt applies the storyboard's house styling to the TILT terminal. The terminal's **functionality and data flow must not change**. This is purely a visual restyling. Every component that currently renders data continues to render the same data from the same sources. Only the CSS, layout, spacing, typography, and colour treatment change.
+
+The rollback commit is `376a046` if anything breaks.
+
+---
+
+## The House Style
+
+The Stratalink house style is a dark, dense, institutional terminal aesthetic. Think Bloomberg terminal meets intelligence agency operations centre. Every design choice serves information density and rapid scanning.
+
+### Colour Palette
+
+| Token | Hex | Usage |
+|-------|-----|-------|
+| `bg-primary` | `#0B1019` | Page background |
+| `bg-panel` | `#0F151F` | Panel/card backgrounds |
+| `bg-header` | `#080D14` | Header bars, table headers |
+| `bg-row-alt` | `#0D1320` | Alternating table row background |
+| `bg-hover` | `#131D2B` | Hover state for interactive rows |
+| `border` | `#1A2435` | All borders (panels, tables, dividers) |
+| `text-primary` | `#D8DEE8` | Primary text, data values |
+| `text-secondary` | `#7B8EA3` | Labels, descriptions, secondary info |
+| `text-dim` | `#4A5B6E` | Tertiary text, timestamps, metadata |
+| `accent` | `#00BFA5` | Teal accent. Section label bars, active states, links |
+| `green` | `#00E676` | RAG green. Healthy status, positive values |
+| `amber` | `#FFB300` | RAG amber. Elevated/warning status |
+| `red` | `#FF5252` | RAG red. Stressed/critical status |
+
+### Typography
+
+- **Data values**: Monospace font stack: `'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace`. Used for all numerical data, scores, timestamps, venue names, reference IDs, metric values.
+- **Labels and headings**: System sans-serif: `-apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif`. Used for section titles and descriptive text only.
+- **Section labels**: 9-11px, monospace, uppercase, letter-spacing 0.06-0.12em, colour `text-dim` or `text-secondary`.
+- **Data values**: 12-18px, monospace, bold weight for primary figures, regular weight for supporting values.
+- **Large display numbers**: 20-28px, monospace, bold, used for headline metrics (PoLi score, total depth, spread).
+
+### Layout Conventions
+
+**Section labels with accent bar**: Every major section has a label consisting of a 3px wide, 14px tall coloured bar (default teal accent) followed by uppercase monospace text. Optional panel tag on the far right (e.g., "PANEL 1").
+
+```
+|  LIQUIDITY HEALTH CORE                                        PANEL 1
+```
+
+**Metric strips**: Horizontal rows of metrics use a 1px-gap grid with `bg-panel` cells and `border` gap colour showing through. No border-radius or minimal (2px max). Each cell has a dim uppercase label at the top and a bold coloured value below.
+
+```
+| FUND RATE  | PERP BASIS | INS FUND | XMRG UTIL | ALT LIQ  | ADL COUNT |
+| 0.08% ●    | 1.4bps ●   | 98.4% ●  | 41% ●      | 0.84 ●   | 0 ●       |
+```
+
+**Score rings**: PoLi/composite scores rendered as SVG circles with a `border` colour track and a coloured progress arc (green/amber/red based on score value). Score number centred in monospace bold. Rating letter below.
+
+**Tables**: Dark background, thin `border` lines between rows, alternating `bg-row-alt` on even rows, `bg-header` for header row. All data in monospace. Status columns use coloured dot prefix (● GREEN, ● AMBER, ● RED).
+
+**Right sidebar panels**: Independent panel sections stacked vertically. Each has a coloured dot indicator in the header (matching its RAG status), an uppercase title, and content below. Content can include large display numbers, descriptive text, or key-value pairs.
+
+**Border radius**: 2px maximum everywhere. No rounded cards, no pill shapes except for explicit badge elements. The aesthetic is angular and precise.
+
+**Hover states**: Rows and interactive elements use `bg-hover` on mouse enter with a 0.12s transition. No other hover effects (no scale, no shadow, no glow).
+
+---
+
+## Apply to the TILT Terminal
+
+The TILT terminal currently has four panels (Liquidity Health Core, Cross-Venue Depth Map, Stress and Regime, Structural Integrity) plus a header strip showing token selector, depth, venues, spread, regime, and offshore metrics.
+
+### Header Bar
+
+Replace the current top section with the house style header:
+
+```
+STRATALINK · INSTITUTIONAL LIQUIDITY TERMINAL    TILT v1.0         14 VENUES  17 TSLE FE...
+```
+
+- Left: `STRATALINK` in 10px monospace, letter-spacing 0.14em, colour `text-dim`. Dot separator. `INSTITUTIONAL LIQUIDITY TERMINAL` in 10px monospace, letter-spacing 0.08em, colour `text-secondary`.
+- Right: Venue count and TSLE feed count in 11px monospace, colour `text-dim`.
+
+### Token Selector Strip
+
+The BTC / ETH / SOL selector and the metrics strip (TOTAL DEPTH, VENUES LIVE, SPREAD DISPERSION, VOL REGIME, REGULATED, OFFSHORE) should use the metric strip convention:
+
+- Token selector buttons: Monospace, uppercase, active token uses `accent` colour with a subtle `accent` border-bottom, inactive tokens use `text-secondary`.
+- Metrics: 1px-gap grid layout. Each cell has a 9px dim uppercase label and a larger bold value. VOL REGIME uses a coloured status label (green for NORMAL, amber for ELEVATED, red for STRESSED). REGULATED and OFFSHORE use percentage values with appropriate colouring (red for 0% regulated, amber for high offshore).
+
+### Panel 1: Liquidity Health Core
+
+- Section label: Teal accent bar + "LIQUIDITY HEALTH CORE" + "PANEL 1" tag on right.
+- Buffer warming message (if present): Render as a subtle inline notice in `accent` colour, not a prominent banner.
+- L5F composite score: Large SVG score ring (80-96px) on the left with the numeric score centred. Rating label below (e.g., "ROBUST") in the appropriate RAG colour. Small monospace labels for 24h and 7d trend below that.
+- L5F factor breakdown: Five rows (Depth Quality, Resilience, Fragmentation, Execution Integrity, Regime Stability). Each row has the factor name in `text-secondary`, the score in bold monospace, an arrow separator, a horizontal progress bar (filled portion in `accent` or `green`), and a weight multiplier on the right in `text-dim`.
+- L5F COMPOSITE formula bar: Dark panel at the bottom showing the formula string and the composite score.
+
+### Panel 2: Cross-Venue Depth Map
+
+- Section label: Teal accent bar + "CROSS-VENUE DEPTH MAP" + threshold value (e.g., "≥1 10bps") + "PANEL 2" tag.
+- Table with columns: VENUE, DEPTH (with unit), % OF GLOBAL, REGULATED, STABILITY, DEPTH SHARE (horizontal bar).
+- Venue names in uppercase monospace bold. Depth values in monospace. Stability uses a coloured numeric value. DEPTH SHARE renders as a horizontal bar inside the cell.
+- Alternating row backgrounds.
+
+### Panel 3 (Right Sidebar): Stress and Regime
+
+- Section label: Amber/teal accent bar + "STRESS & REGIME" + "PANEL 4" tag.
+- Stacked key-value metric cards: Liquidity Withdrawal Velocity, Depth Decay Rate, Spread Elasticity, Funding Skew, Derivatives Dominance. Each has a label in 10px `text-dim` uppercase monospace, a value in 14-16px monospace with appropriate colour, and a RAG dot on the right.
+- REGIME CLASSIFICATION box: Coloured background panel (green-dim for NORMAL, amber-dim for ELEVATED, red-dim for STRESSED) with uppercase bold classification label.
+
+### Panel 4 (Right Sidebar continued): Structural Integrity
+
+- Section label: Teal accent bar + "STRUCTURAL INTEGRITY" + "PANEL 3" tag.
+- Stacked metrics: Fragmentation Index (HHI-based), Cross-Venue Spread Dispersion, Basis Dispersion, Price Leadership Index. Same format as Stress and Regime section.
+
+### Status Footer
+
+Replace the current footer with:
+
+```
+● LIVE DATA   VENUES: 1 ACTIVE   FEEDS: 17 TSLE   LATENCY: 150ms   DEPTH RECORDS: 1       STRATALINK TILT · PHASE 1 INSTITUTIONAL PREVIEW   CONFIDENTIAL
+```
+
+- Left: Green dot + "LIVE DATA" in `green`, followed by operational stats in `text-dim` monospace.
+- Right: Product identifier and classification in `text-dim` monospace.
+
+---
+
+## CSS/Styling Implementation Notes
+
+- If using Tailwind, define the house palette as custom colours in the Tailwind config or use inline styles with CSS custom properties.
+- If using CSS modules or inline styles, apply the colour tokens directly.
+- All borders should use 1px solid `#1A2435`.
+- Backgrounds should never be pure black. The darkest background is `#080D14` (header), the page background is `#0B1019`.
+- Remove any existing shadows, glows, or gradient effects. The aesthetic is flat with colour used only for semantic meaning (RAG status, accent highlighting).
+- Remove any border-radius greater than 2px. Cards, panels, tables, and buttons all use 2px max.
+- Ensure monospace font is loaded. If JetBrains Mono is not available, the fallback stack will handle it, but adding a Google Fonts import for JetBrains Mono will improve the result: `@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');`
+
+---
+
+## What NOT to Change
+
+- Do not modify any data fetching, API calls, WebSocket connections, or state management.
+- Do not change the L5F scoring logic or how scores are calculated.
+- Do not change how venue data is aggregated or displayed (only how it looks).
+- Do not modify the polling interval or TSLE buffer logic.
+- Do not remove or rename any existing component props or data interfaces.
+- Do not touch any files outside of the TILT terminal component and its direct styling dependencies.
+
+The TILT terminal must continue to display live data exactly as it does now. Only the visual presentation changes.
