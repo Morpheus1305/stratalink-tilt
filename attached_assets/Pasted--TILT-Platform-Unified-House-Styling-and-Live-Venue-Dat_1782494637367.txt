@@ -1,0 +1,187 @@
+# TILT Platform: Unified House Styling and Live Venue Data
+
+## Overview
+
+The TILT platform has three pages: TILT (the main terminal), RCL (the regulatory view), and ALERTS (the alert configuration). These pages have two problems that need to be fixed together.
+
+**Problem 1: Inconsistent styling.** Each page uses a different visual treatment. They need to share a single house style so the platform looks like one product.
+
+**Problem 2: No live venue data.** The platform has 14 venue relays configured (`shared/venue-config.ts`) but the TILT terminal shows "VENUES: - ACTIVE" and "DEPTH RECORDS: 0". The venue data pipeline is not flowing from the relays through the TSLE buffer to the UI. This must be diagnosed and fixed.
+
+Fix Problem 2 first (venue data), then Problem 1 (styling). A beautifully styled terminal with no data is useless. A working terminal with inconsistent styling is usable.
+
+---
+
+## PART A: Diagnose and Fix Venue Data Pipeline
+
+### Step 1: Trace the data flow
+
+The data pipeline is:
+
+```
+Venue Relays (bybit-relay.ts, okx-relay.ts, etc.)
+  → Venue Liquidity Service (venueLiquidity.ts)
+    → TSLE Buffer (tsle-buffer.ts)
+      → L5F Analytics (liquidityFactors.ts / analytics-layer.ts)
+        → PoLi Engine (poliEngine.ts)
+          → TILT Terminal UI (tilt-terminal.tsx)
+```
+
+Start at the bottom and work up. Check each layer:
+
+1. **Are the venue relays being called?** Check that the relay route files (e.g., `server/routes/bybit-relay.ts`, `server/routes/okx-relay.ts`, `server/routes/lis-coinbase.ts`) are registered in the server startup. Check whether they are being called on a schedule or only on demand. Add console logging to one relay (e.g., Coinbase via `lis-coinbase.ts`) to confirm it runs and returns data.
+
+2. **Is venue data reaching the TSLE buffer?** Check `server/services/tsle-buffer.ts`. Is it receiving data from the relays? Is the ring buffer being populated? Add a temporary log showing buffer size and last write timestamp.
+
+3. **Is the L5F snapshot endpoint returning data?** The TILT terminal polls an L5F snapshot endpoint (check the fetch call in `tilt-terminal.tsx` for the exact URL). Hit that endpoint directly in the browser or via curl. Does it return data or an empty/error response?
+
+4. **Is the TILT terminal receiving the data?** Check the polling logic in `tilt-terminal.tsx`. Is the fetch call succeeding? Is the response being parsed correctly? Is the state being updated?
+
+### Step 2: Fix the root cause
+
+The most likely causes are:
+
+- **Relays not registered:** The relay routes may not be registered in the server startup file after the Phase 1 cleanup. Check that all surviving relay files are imported and mounted.
+- **Relays not scheduled:** The relays may need to be called on a timer (e.g., via `setInterval` or `node-cron`) rather than waiting for an HTTP request. Check whether there is a scheduler or polling loop that triggers the relays.
+- **API keys missing:** Some venue APIs require API keys. Check whether environment variables for venue API keys are set (e.g., `BINANCE_API_KEY`, `COINBASE_API_KEY`). If keys are missing, the relays will fail silently.
+- **TSLE buffer not initialised:** The buffer may need a minimum number of data points before it starts serving snapshots. Check if there is a warmup period and whether the "Buffer warming" message in TILT corresponds to this.
+- **Polling interval not started:** The TILT terminal may need a server-side process to continuously poll venues and feed the TSLE buffer. This might be a startup function that is not being called.
+
+### Step 3: Verify the fix
+
+Once venue data is flowing:
+
+- The TILT terminal footer should show a non-zero number for "VENUES: X ACTIVE" and "DEPTH RECORDS: X".
+- The L5F score ring should show a numeric value instead of a dash.
+- The Cross-Venue Depth Map should show venue rows with depth, spread, and stability data.
+- The Stress and Regime panel should show real values for Liquidity Withdrawal Velocity, Depth Decay Rate, and Spread Elasticity.
+
+---
+
+## PART B: Apply Unified House Styling
+
+After venue data is flowing, apply the following house style consistently across all three pages (TILT, RCL, ALERTS).
+
+### Colour Palette
+
+Every page uses this palette. No other background colours, border colours, or text colours should appear anywhere in the platform.
+
+| Token | Hex | Usage |
+|-------|-----|-------|
+| `bg-primary` | `#0B1019` | Page background |
+| `bg-panel` | `#0F151F` | Panel/card backgrounds |
+| `bg-header` | `#080D14` | Header bars, table headers |
+| `bg-row-alt` | `#0D1320` | Alternating table row background |
+| `bg-hover` | `#131D2B` | Hover state on interactive rows |
+| `border` | `#1A2435` | All borders |
+| `text-primary` | `#D8DEE8` | Primary text, data values |
+| `text-secondary` | `#7B8EA3` | Labels, descriptions |
+| `text-dim` | `#4A5B6E` | Tertiary text, timestamps, metadata |
+| `accent` | `#00BFA5` | Teal accent. Section labels, active tab indicator, links |
+| `green` | `#00E676` | RAG green. Healthy status, positive values |
+| `amber` | `#FFB300` | RAG amber. Elevated/warning status |
+| `red` | `#FF5252` | RAG red. Stressed/critical, negative values |
+
+### Typography
+
+- **Data values:** Monospace. `'JetBrains Mono', 'SF Mono', 'Fira Code', Consolas, monospace`. Used for all numbers, scores, timestamps, venue names, reference IDs.
+- **Labels and descriptions:** System sans-serif. `-apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif`.
+- **Section labels:** 9-11px, monospace, uppercase, letter-spacing 0.06-0.12em, colour `text-dim`.
+- Add Google Fonts import for JetBrains Mono: `@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');`
+
+### Layout Rules
+
+- **Border radius:** 2px maximum everywhere. No rounded cards.
+- **Section labels:** 3px wide, 14px tall coloured bar (teal accent) on the left, followed by uppercase monospace text. Optional panel tag (e.g., "PANEL 1") right-aligned.
+- **Metric strips:** 1px-gap grid with `bg-panel` cells. Dim uppercase label, bold coloured value.
+- **Tables:** `bg-header` for header row, alternating `bg-row-alt`, 1px `border` between rows, all data in monospace.
+- **Status indicators:** Coloured dot prefix in monospace (● GREEN, ● AMBER, ● RED). No pill badges.
+- **Hover states:** `bg-hover` with 0.12s transition. No shadows, no scale effects.
+- **No decorative elements.** No gradients, shadows, glows, or animations except the LIVE indicator pulse.
+
+### Shared Header (dashboard-header.tsx)
+
+The header bar is shared across all three pages. Style it consistently:
+
+```
+[Logo] STRATALINK LABS LIQUIDITY INTELLIGENCE TERMINAL    [HOME]    ● LIVE    [🔔] [⚙] [→]
+```
+
+- Background: `bg-header` (`#080D14`)
+- Title: 13px, sans-serif, semibold, `text-primary`
+- HOME button: Sans-serif, 11px, `text-secondary`, no background
+- LIVE indicator: `green` colour with a subtle pulse animation on the dot
+- Icons: `text-secondary`, 16px
+- Bottom border: 1px `border`
+
+### Shared Platform Tabs (platform-tabs.tsx)
+
+```
+TILT    RCL    ALERTS
+```
+
+- Background: `bg-primary` or `bg-panel`
+- Tab text: 11px, monospace, uppercase, letter-spacing 0.06em
+- Active tab: `accent` colour text with a 2px `accent` bottom border
+- Inactive tabs: `text-secondary`
+- Bottom border: 1px `border`
+
+### Page 1: TILT Terminal (tilt-terminal.tsx)
+
+Apply the full house style as described in the separate TILT House Styling prompt. Key elements:
+
+- Token selector strip with BTC/ETH/SOL buttons and metric cells
+- Panel 1 (Liquidity Health Core): Score ring, L5F factor breakdown, composite formula
+- Panel 2 (Cross-Venue Depth Map): Venue table with depth, spread, stability
+- Panel 3 (Stress and Regime): Stacked key-value metrics with RAG indicators
+- Panel 4 (Structural Integrity): HHI, spread dispersion, basis, price leadership
+- Footer with live data stats
+
+**Fix the unicode escape issues visible in the current screenshots.** Several values show `\u2014` (em dash) and `\u00b1` (plus-minus sign) as literal text instead of rendering the characters. Ensure these render as their actual characters.
+
+### Page 2: RCL Regulatory View (RegulatoryAdgmView.tsx)
+
+The RCL view currently has a lighter card style that does not match the TILT terminal. Apply the house palette:
+
+- Page background: `bg-primary`
+- Three panels (Coverage, Truth, Provenance): `bg-panel` background, 1px `border`, 2px border-radius
+- Panel titles: Match section label convention (accent bar + uppercase monospace)
+- Data labels: `text-secondary`, data values: `text-primary` in monospace
+- VERIFIED badge: `green` coloured text with `green` background at 10% opacity, 2px border-radius
+- Provenance venue cards: `bg-header` background, 1px `border`
+- Reference IDs and authoritative references: Monospace, `text-dim`
+- Info bar ("Read-only supervisory view..."): `accent` at 8% opacity background, `text-secondary` text
+- Footer: Same convention as TILT footer
+
+### Page 3: ALERTS (alert-config.tsx)
+
+Apply the same house palette:
+
+- Page background: `bg-primary`
+- Alert cards/rows: `bg-panel` background, 1px `border`
+- Severity indicators: Use the RAG colours (green for low, amber for medium, red for high) with dot prefix convention
+- Alert timestamps: Monospace, `text-dim`
+- Alert descriptions: `text-secondary`
+- Configuration controls: Styled with `border`, `bg-panel` inputs, `accent` for active states
+- Match the same header, tabs, and footer as the other two pages
+
+---
+
+## Verification Checklist
+
+After all changes:
+
+1. Navigate between TILT, RCL, and ALERTS. All three pages should feel like the same product: same backgrounds, same text colours, same typography, same border treatment, same component patterns.
+2. The TILT terminal should show live venue data: non-zero depth, real PoLi scores, venue rows in the depth map.
+3. The RCL view should display its three panels with consistent styling.
+4. The ALERTS page should display alerts (if any exist) or an empty state, styled consistently.
+5. No unicode escape characters should appear as literal text anywhere.
+6. The platform-tabs strip should show TILT, RCL, ALERTS with the active tab highlighted in teal.
+7. The header should be identical across all three pages.
+
+## What NOT to Change
+
+- Do not modify any data fetching logic, API endpoints, or data processing in the venue relays, TSLE buffer, PoLi engine, or alert service (except to fix the data flow issue in Part A).
+- Do not change the RCL's three-panel layout structure (Coverage, Truth, Provenance). Only change its colours, typography, spacing, and border treatment.
+- Do not change the alert system's functionality. Only change how alerts are visually presented.
+- Do not remove or rename any data fields, props, or API response shapes.

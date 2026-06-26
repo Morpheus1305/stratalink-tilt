@@ -146,7 +146,7 @@ export default function Alerts() {
                 <Filter className="w-4 h-4 mr-2" />
                 CRITICAL
               </Button>
-              <Button variant="outline" size="sm" className="bg-primary/10 text-primary border-primary" data-testid="button-export-alerts">
+              <Button variant="outline" size="sm" data-testid="button-export-alerts">
                 <Download className="w-4 h-4 mr-2" />
                 EXPORT
               </Button>

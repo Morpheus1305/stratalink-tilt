@@ -11,33 +11,49 @@ export function PlatformTabs() {
   const [location] = useLocation();
 
   const isActive = (path: string) => {
-    if (path === "/regulatory/adgm") {
-      return location.startsWith("/regulatory");
-    }
+    if (path === "/regulatory/adgm") return location.startsWith("/regulatory");
     return location === path;
   };
 
   return (
-    <div className="sticky top-14 z-40 border-b border-border bg-background">
-      <div className="flex gap-1 px-4">
-        {tabs.map((tab) => (
-          <Link key={tab.id} href={tab.path}>
-            <button
-              data-testid={`tab-${tab.id}`}
-              className={cn(
-                "px-4 py-2.5 text-xs font-semibold transition-colors relative",
-                isActive(tab.path)
-                  ? "text-yellow-400"
-                  : "text-muted-foreground"
-              )}
-            >
-              {tab.label}
-              {isActive(tab.path) && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
-              )}
-            </button>
-          </Link>
-        ))}
+    <div
+      className="sticky z-40 flex-shrink-0"
+      style={{
+        top: 56,
+        background: "#080D14",
+        borderBottom: "1px solid #1A2435",
+      }}
+    >
+      <div style={{ display: "flex", padding: "0 16px" }}>
+        {tabs.map((tab) => {
+          const active = isActive(tab.path);
+          return (
+            <Link key={tab.id} href={tab.path}>
+              <button
+                data-testid={`tab-${tab.id}`}
+                style={{
+                  padding: "0 16px",
+                  height: 36,
+                  fontFamily: "'JetBrains Mono', 'SF Mono', Consolas, monospace",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  color: active ? "#00BFA5" : "#7B8EA3",
+                  background: "none",
+                  border: "none",
+                  borderBottom: active ? "2px solid #00BFA5" : "2px solid transparent",
+                  cursor: "pointer",
+                  position: "relative",
+                  top: 1,
+                  transition: "color 0.12s, border-color 0.12s",
+                }}
+              >
+                {tab.label}
+              </button>
+            </Link>
+          );
+        })}
       </div>
     </div>
   );

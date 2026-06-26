@@ -3,12 +3,50 @@ import { ingestFunding, getFundingCache, getLastFundingIngestTime } from "./fund
 import { ingestLiquidations, getLiquidationCache, getLastLiquidationIngestTime } from "./liquidationEngine";
 import { computeStress, getStressCommentary, StressResult } from "./stressEngine";
 import { recordDepthSnapshot } from "../../server/services/depthHistoryStore";
+import { tsleBuffer } from "../../server/services/tsle-buffer";
 
 let isIngesting = false;
 let lastFullIngest = 0;
 let ingestInterval: NodeJS.Timeout | null = null;
 
 const INGEST_INTERVAL_MS = 5000;
+
+/**
+ * Convert a DEPTH_CACHE entry into LISSnapshot format and push to tsleBuffer.
+ * Band key mapping:  "10bps" → "pct_0.1", "25bps" → "pct_0.25", etc.
+ * Field mapping:      bidUSD/askUSD/totalUSD → bid_notional/ask_notional/total_notional
+ */
+function feedDepthToTsleBuffer(): void {
+  const cache = getDepthCache();
+  const now = Date.now();
+
+  for (const [symbol, depth] of Object.entries(cache)) {
+    const sym = symbol.toUpperCase();
+    if (!["BTC", "ETH", "SOL"].includes(sym)) continue;
+
+    const b = depth.bands as any;
+
+    const snapshot = {
+      venue: depth.source || "binance",
+      symbol: sym,
+      timestamp: depth.ts || now,
+      mid_price: depth.mid,
+      spread: {
+        absolute: depth.spread,
+        bps: depth.spreadBps,
+      },
+      bands: {
+        "pct_0.1":  { bid_notional: b["10bps"]?.bidUSD  ?? 0, ask_notional: b["10bps"]?.askUSD  ?? 0, total_notional: b["10bps"]?.totalUSD  ?? 0 },
+        "pct_0.25": { bid_notional: b["25bps"]?.bidUSD  ?? 0, ask_notional: b["25bps"]?.askUSD  ?? 0, total_notional: b["25bps"]?.totalUSD  ?? 0 },
+        "pct_0.5":  { bid_notional: b["50bps"]?.bidUSD  ?? 0, ask_notional: b["50bps"]?.askUSD  ?? 0, total_notional: b["50bps"]?.totalUSD  ?? 0 },
+        "pct_1.0":  { bid_notional: b["100bps"]?.bidUSD ?? 0, ask_notional: b["100bps"]?.askUSD ?? 0, total_notional: b["100bps"]?.totalUSD ?? 0 },
+        "pct_2.0":  { bid_notional: b["200bps"]?.bidUSD ?? 0, ask_notional: b["200bps"]?.askUSD ?? 0, total_notional: b["200bps"]?.totalUSD ?? 0 },
+      },
+    };
+
+    tsleBuffer.record(snapshot);
+  }
+}
 
 export async function runFullIngest(): Promise<void> {
   if (isIngesting) {
@@ -28,7 +66,8 @@ export async function runFullIngest(): Promise<void> {
     ]);
 
     recordDepthSnapshot();
-    
+    feedDepthToTsleBuffer();
+
     lastFullIngest = Date.now();
     const elapsed = Date.now() - start;
     console.log(`[IngestionManager] Full ingest completed in ${elapsed}ms`);

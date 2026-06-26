@@ -149,7 +149,7 @@ function StatusBadge({ status }: { status: "verified" | "insufficient" | "degrad
 
 function LabelValue({ label, value, mono = false }: { label: string; value: string | number; mono?: boolean }) {
   return (
-    <div className="flex justify-between items-center py-1.5 border-b border-neutral-800/50 last:border-0">
+    <div className="flex justify-between items-center py-1.5 border-b border-border/50 last:border-0">
       <span className="text-xs text-muted-foreground">{label}</span>
       <span className={`text-xs ${mono ? "font-mono" : ""}`}>{value}</span>
     </div>
@@ -265,7 +265,7 @@ function EvidenceLevelTooltipContent({ level }: { level: EvidenceLevel }) {
         ))}
       </div>
       <div className="text-[10px] text-muted-foreground pt-1 italic">{info.description}</div>
-      <div className="text-[10px] pt-1 border-t border-neutral-700">
+      <div className="text-[10px] pt-1 border-t border-border">
         <span className="text-muted-foreground">Status: </span>
         <span className={`font-medium ${statusColors[info.statusColor]}`}>{info.statusLabel}</span>
       </div>
@@ -335,7 +335,7 @@ export default function RegulatoryAdgmView() {
               <select
                 value={selectedInstrument}
                 onChange={(e) => setSelectedInstrument(e.target.value)}
-                className="h-8 px-2 text-sm bg-neutral-900 border border-neutral-800 rounded focus:outline-none focus:ring-1 focus:ring-neutral-700"
+                className="h-8 px-2 text-sm bg-muted/30 border border-border rounded focus:outline-none focus:ring-1 focus:ring-ring text-foreground"
                 data-testid="select-instrument"
               >
                 {instruments.length === 0 && (
@@ -363,7 +363,7 @@ export default function RegulatoryAdgmView() {
           </div>
 
           {/* Notice Banner */}
-          <div className="bg-neutral-900/50 border border-neutral-800 rounded px-3 py-2 space-y-1">
+          <div className="bg-muted/20 border border-border rounded px-3 py-2 space-y-1">
             <p className="text-xs text-muted-foreground">
               Read-only regulatory view derived from live venue ingestion. This interface renders time-bounded supervisory snapshots.
             </p>
@@ -392,7 +392,7 @@ export default function RegulatoryAdgmView() {
         {data && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {/* Left Pane: Coverage */}
-            <Card className="border-neutral-800 bg-neutral-950/50">
+            <Card className="border-border ">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium">Coverage</CardTitle>
               </CardHeader>
@@ -449,7 +449,7 @@ export default function RegulatoryAdgmView() {
             </Card>
 
             {/* Center Pane: Truth */}
-            <Card className="border-neutral-800 bg-neutral-950/50">
+            <Card className="border-border ">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium">Truth</CardTitle>
               </CardHeader>
@@ -460,7 +460,7 @@ export default function RegulatoryAdgmView() {
                     <span className="text-xs text-muted-foreground">Status</span>
                     <StatusBadge status={data.truth.poli.status} />
                   </div>
-                  <div className="flex justify-between items-center py-1.5 border-b border-neutral-800/50">
+                  <div className="flex justify-between items-center py-1.5 border-b border-border/50">
                     <span className="text-xs text-muted-foreground">Evidence Level</span>
                     <div className="flex items-center gap-1">
                       <span className="text-xs font-mono">
@@ -486,7 +486,7 @@ export default function RegulatoryAdgmView() {
                   </div>
                 </div>
 
-                <div className="border-t border-neutral-800 pt-2" />
+                <div className="border-t border-border pt-2" />
 
                 {/* Integrity */}
                 <div className="space-y-1">
@@ -519,13 +519,13 @@ export default function RegulatoryAdgmView() {
             </Card>
 
             {/* Right Pane: Provenance */}
-            <Card className="border-neutral-800 bg-neutral-950/50">
+            <Card className="border-border ">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium">Provenance</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 {data.provenance.venues.map((venue) => (
-                  <div key={venue.venue_id} className="border border-neutral-800 rounded p-2 space-y-1">
+                  <div key={venue.venue_id} className="border border-border rounded p-2 space-y-1">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-medium">{venue.venue_name || venue.venue_id}</span>
                       <span className="text-[10px] text-muted-foreground">{venue.ingestion_method}</span>
@@ -545,7 +545,7 @@ export default function RegulatoryAdgmView() {
                   </div>
                 ))}
 
-                <div className="border-t border-neutral-800 pt-2 space-y-1">
+                <div className="border-t border-border pt-2 space-y-1">
                   <span className="text-xs text-muted-foreground">Reference IDs</span>
                   <div className="text-[10px] font-mono space-y-0.5">
                     <div className="truncate">Snapshot: {data.provenance.reference_ids.snapshot_ref}</div>
@@ -555,7 +555,7 @@ export default function RegulatoryAdgmView() {
                   </div>
                 </div>
 
-                <div className="border-t border-neutral-800 pt-2 space-y-1">
+                <div className="border-t border-border pt-2 space-y-1">
                   <span className="text-xs text-muted-foreground">Authoritative references (official records)</span>
                   <div className="text-[10px] font-mono space-y-0.5">
                     {data.meta.authoritative_refs.map((ref) => {
@@ -575,12 +575,12 @@ export default function RegulatoryAdgmView() {
 
         {/* Footer: Export Buttons */}
         {data && (
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-neutral-800">
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-border">
             <div className="text-[10px] font-mono text-muted-foreground space-y-0.5">
               <div>Contract Version: {data.meta.contract_version}</div>
               <div>Generated At: {formatTime(data.meta.generated_at)}</div>
               <div>Snapshot Ref: {data.provenance.reference_ids.snapshot_ref}</div>
-              <div className="border-t border-neutral-800 my-1.5" />
+              <div className="border-t border-border my-1.5" />
               <div>Supervisory Scope: <span className="text-green-500/80">Limited pilot — DSU = {"{Binance, Coinbase, Kraken}"}</span></div>
               <div>Data Status: <span className="text-green-500/80">Live ingestion — RCL-v0.1</span></div>
               <div>Access: Regulator ({data.access_context.jurisdiction}) — Permissions: {data.access_context.scopes.join(", ")} (observation only)</div>
