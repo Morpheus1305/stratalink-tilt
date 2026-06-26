@@ -1,9 +1,19 @@
 import { Button } from "@/components/ui/button";
-import { Bell, Settings, Activity, Home } from "lucide-react";
+import { Bell, Settings, Activity, Home, LogOut } from "lucide-react";
 import { Link } from "wouter";
 import stratalinkLogo from "@assets/logo_stratalink_1764604924054.png";
+import { useAuth } from "@/contexts/AuthContext";
+import { useLocation } from "wouter";
 
 export function DashboardHeader() {
+  const { logout } = useAuth();
+  const [, setLocation] = useLocation();
+
+  const handleLogout = () => {
+    logout();
+    setLocation("/login");
+  };
+
   return (
     <header className="sticky top-0 z-50 border-b border-border h-14 flex items-center px-4 bg-card">
       <div className="flex items-center gap-3">
@@ -52,6 +62,15 @@ export function DashboardHeader() {
             data-testid="button-settings"
           >
             <Settings className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleLogout}
+            data-testid="button-logout"
+            title="Sign out"
+          >
+            <LogOut className="h-4 w-4" />
           </Button>
         </div>
       </div>
