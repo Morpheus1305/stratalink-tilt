@@ -322,7 +322,7 @@ export default function RegulatoryAdgmView() {
         <div className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="space-y-1">
-              <h1 className="text-xl font-semibold">Liquidity Truth — Regulatory View</h1>
+              <h1 className="text-sm font-semibold">Liquidity Truth — Regulatory View</h1>
               <p className="text-xs text-muted-foreground">
                 ADGM Jurisdiction • Digital Assets — Spot
               </p>
