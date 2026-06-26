@@ -598,7 +598,7 @@ export default function Alerts() {
                   Critical Assets
                 </div>
                 <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 15, fontWeight: 600, color: critCount > 0 ? "var(--tilt-red)" : "var(--tilt-green)", lineHeight: 1 }} data-testid="text-critical-assets-count">
-                  {critCount} <span style={{ fontSize: 11, color: "var(--tilt-sub)", fontWeight: 400 }}>/ {critTotal}</span>
+                  {critCount} / {critTotal}
                 </div>
                 <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: "var(--tilt-muted)", marginTop: 3, letterSpacing: "0.06em" }}>
                   {critCount === 0 ? "ALL ASSETS WITHIN THRESHOLDS" : "BELOW L5F THRESHOLD (< 50)"}
