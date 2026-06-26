@@ -138,6 +138,16 @@ export default function Alerts() {
 
   const l5fAgg = l5fData?.aggregate ?? null;
 
+  const { data: depthData } = useQuery<{ spreadBps: number; bands: any }>({
+    queryKey: ["/api/analytics/depth", asset],
+    queryFn: async () => {
+      const r = await fetch(`/api/analytics/depth?symbol=${asset}`);
+      if (!r.ok) throw new Error("Depth unavailable");
+      return r.json();
+    },
+    refetchInterval: 5000,
+  });
+
   const isLoading = dashboardLoading || alertsLoading;
 
   if (isLoading) {
@@ -174,13 +184,14 @@ export default function Alerts() {
     const ts = now.getTime();
 
     // --- Signal 1: Bid-Ask Spread ---
-    const spreadMetric = dashboardData.liveMetrics.find(m => m.label === "BID-ASK SPREAD");
-    const spreadRaw = spreadMetric?.value ?? "";
-    const spreadBps = parseFloat(spreadRaw.replace(/[^0-9.]/g, "")) || 0;
-    const spreadSeverity: string = spreadBps > 10 ? "warning" : spreadBps > 3 ? "info" : "success";
-    const spreadDesc = spreadBps > 0
-      ? `Bid-ask spread is ${spreadRaw} for ${asset}. ${spreadBps > 10 ? "Elevated spread signals reduced market maker participation and heightened uncertainty." : spreadBps > 3 ? "Spread within moderate range — monitor for further widening." : "Tight spread indicates healthy market maker activity and strong liquidity depth."}`
-      : "Spread data loading…";
+    // Use depthData.spreadBps (a real number including 0) rather than parsing the
+    // formatted liveMetrics string — avoids false "loading" when spread is 0.
+    const spreadBps: number = depthData?.spreadBps ?? -1;
+    const spreadHasData = spreadBps >= 0;
+    const spreadSeverity: string = !spreadHasData ? "info" : spreadBps > 10 ? "warning" : spreadBps > 3 ? "info" : "success";
+    const spreadDesc = !spreadHasData
+      ? "Awaiting first depth snapshot from the ingestion engine…"
+      : `Bid-ask spread is ${spreadBps.toFixed(4)} bps for ${asset}. ${spreadBps > 10 ? "Elevated spread signals reduced market maker participation and heightened uncertainty." : spreadBps > 3 ? "Spread within moderate range — monitor for further widening." : "Tight spread confirms strong market maker activity and healthy two-sided liquidity."}`;
 
     // --- Signal 2: CEX Liquidity Concentration ---
     const frag = l5fAgg?.l5f_fragmentation ?? null;
