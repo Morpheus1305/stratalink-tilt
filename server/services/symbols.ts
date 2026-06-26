@@ -1,5 +1,5 @@
 // server/services/symbols.ts
-import type { LiquidityVenue } from "../../shared/liquidityTape";
+type LiquidityVenue = string;
 
 export type CanonicalSymbol = string;
 

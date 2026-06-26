@@ -1,0 +1,203 @@
+# TILT Phase 1 Cleanup: Strip-List Deletions and Navigation Consolidation
+
+## Context
+
+I have attached the ADGM/FSRA Pilot Framing Document (v3.0). This prompt implements **Phase 1** (Section 6.1) which executes the codebase cleanup described in **Section 5.1** (Still Delete) and **Section 5.4** (Navigation Cleanup).
+
+My rollback commit is `376a046`. If anything breaks, I revert to that commit.
+
+The objective is to remove approximately 10,000 lines of genuinely redundant code and consolidate the navigation so only three tabs survive: **TILT**, **RCL**, and **ALERTS**. Nothing in the TILT terminal (`tilt-terminal.tsx`), the RCL view (`RegulatoryAdgmView.tsx`), or the alert system (`alert-service.ts`, `alerts.ts`, `alert-config.tsx`) should be touched. Those stay exactly as they are.
+
+---
+
+## Step 1: Delete Identity Intelligence module (~1,500 lines)
+
+Delete these files entirely:
+
+```
+client/src/pages/identity/IdentityAlertsPage.tsx
+client/src/pages/identity/IdentityLandingPage.tsx
+client/src/pages/identity/LiquidityFragmentationPage.tsx
+client/src/pages/identity/MMIntegrityPage.tsx
+client/src/pages/identity/PoliPlusPage.tsx
+client/src/pages/identity/RegSurveillancePage.tsx
+client/src/pages/identity/components/IdentityChart.tsx
+client/src/pages/identity/components/IdentityEntityTable.tsx
+client/src/pages/identity/components/IdentityMetricCard.tsx
+client/src/pages/identity/components/IdentityTabs.tsx
+```
+
+Delete the entire `client/src/pages/identity/` directory once all files are removed.
+
+---
+
+## Step 2: Delete CCP Margin Console (~4,100 lines)
+
+Delete these files entirely:
+
+```
+client/src/pages/platform/ccp-margin.tsx
+client/src/pages/platform/ccp-margin-unified.tsx
+client/src/pages/platform/ccp-views/ManipulationDetection.tsx
+client/src/pages/platform/ccp-views/MemberRiskAssessment.tsx
+client/src/pages/platform/ccp-views/PreTradeVerification.tsx
+```
+
+Delete the entire `client/src/pages/platform/ccp-views/` directory once all files are removed.
+
+---
+
+## Step 3: Delete consumer marketing surfaces (~2,800 lines)
+
+Delete these files entirely:
+
+```
+client/src/pages/landing.tsx
+client/src/components/landing-hero.tsx
+client/src/pages/download.tsx
+client/src/pages/scorecard.tsx
+client/src/pages/trends.tsx
+client/src/pages/portfolio.tsx
+client/src/pages/lis-debug.tsx
+```
+
+---
+
+## Step 4: Delete Liquidity Tape consumer UI (~1,250 lines)
+
+Delete these files entirely:
+
+```
+client/src/pages/platform/tape.tsx
+client/src/components/tape-token-selector.tsx
+server/routes/tape.ts
+server/services/tapeStore.ts
+shared/liquidityTape.ts
+```
+
+**Important:** The DACT data ingestion layer (L1) is preserved. Only the consumer-facing Tape UI and its dedicated backend route are removed.
+
+---
+
+## Step 5: Delete canton-relay.ts venue source (~200 lines)
+
+Delete this file:
+
+```
+server/routes/canton-relay.ts
+```
+
+Canton is the destination for attestations, not a source venue. This relay was reading attestations back as a fourteenth venue, which breaks the architectural principle that data flows upward through the stack (L0 to L6) with no downstream contamination.
+
+---
+
+## Step 6: Consolidate platform-tabs.tsx
+
+Replace the contents of `client/src/components/platform-tabs.tsx` so the tabs array contains only three entries:
+
+```typescript
+const tabs = [
+  { id: "tilt", label: "TILT", path: "/platform/tilt" },
+  { id: "rcl", label: "RCL", path: "/regulatory/adgm" },
+  { id: "alerts", label: "ALERTS", path: "/platform/alerts" },
+];
+```
+
+Everything else in the file (the component logic, the active state detection, the styling) stays the same. Only the tabs array changes.
+
+---
+
+## Step 7: Clean up dashboard-header.tsx
+
+In `client/src/components/dashboard-header.tsx`, remove the navigation links for:
+
+- IDENTITY (the `<Link href="/identity">` button and its import)
+- LIS (the `<Link href="/lis">` button)
+
+Keep: HOME, OVERVIEW, and the LIVE status indicator, notifications, and settings buttons. Remove the ANALYTICS, SIGNALS, and REPORTS buttons as these are placeholder links that do not route to dedicated pages.
+
+Remove the `Fingerprint` and `Database` icon imports from lucide-react if they are no longer used after the cleanup.
+
+---
+
+## Step 8: Clean up App.tsx routes
+
+In `client/src/App.tsx`, remove all Route entries and their associated imports for deleted pages:
+
+**Remove these routes:**
+- `/` (Landing page route - replace with redirect to `/platform/tilt`)
+- `/docs` (Documentation)
+- `/download` (Download page)
+- `/platform/tape` (Tape)
+- `/platform/ccp-margin` (CCP Margin)
+- `/demo/ccp-margin` (CCP Margin demo)
+- `/platform/trends` (Trends)
+- `/platform/portfolio` (Portfolio)
+- `/platform/scorecard` (Scorecard)
+- `/platform/analytics` (Analytics)
+- `/identity` and all `/identity/*` sub-routes (Identity Intelligence)
+- `/lis` (LIS debug)
+
+**Keep these routes:**
+- `/platform` (Overview/main platform view)
+- `/platform/tilt` (TILT terminal)
+- `/platform/alerts` (Alerts)
+- `/alerts/config` (Alert configuration)
+- `/regulatory/adgm` (RCL regulatory view)
+- `/login` and `/verify-otp` (Authentication)
+- `/clt/evidence` (CLT evidence, if still used)
+
+Make the default route (`/`) redirect to `/platform/tilt` instead of loading the landing page.
+
+Remove all import statements at the top of App.tsx for deleted page components. If any lazy-loaded imports reference deleted files, remove those too.
+
+---
+
+## Step 9: Clean up server route registration
+
+In the main server file (likely `server/index.ts` or `server/routes.ts`), remove the route registrations for:
+
+- `canton-relay` routes
+- `tape` routes
+
+Keep all other route registrations, especially:
+- `rcl` routes
+- `alerts` routes
+- All venue relay endpoints
+- Authentication routes
+- L5F/TSLE endpoints
+
+---
+
+## Step 10: Verify the build
+
+After all deletions and cleanups are complete:
+
+1. Run the build and confirm it compiles with no errors.
+2. Check for any remaining import statements that reference deleted files and remove them.
+3. Check for any remaining route references that point to deleted paths and remove them.
+4. Confirm that navigating to `/platform/tilt` loads the TILT terminal correctly.
+5. Confirm that navigating to `/regulatory/adgm` loads the RCL view correctly.
+6. Confirm that navigating to `/platform/alerts` loads the alerts page correctly.
+7. Confirm the platform-tabs strip shows only TILT, RCL, and ALERTS.
+
+---
+
+## What NOT to change
+
+Do not modify any of the following files or systems:
+
+- `client/src/pages/platform/tilt-terminal.tsx` (TILT terminal)
+- `client/src/pages/regulatory/RegulatoryAdgmView.tsx` (RCL view)
+- `server/services/alert-service.ts` (Alert service)
+- `server/routes/alerts.ts` (Alert routes)
+- `client/src/pages/alert-config.tsx` (Alert configuration)
+- `server/services/rclMock.ts` (RCL mock service)
+- `server/routes/rcl.ts` (RCL routes)
+- `server/services/poliEngine.ts` (PoLi engine)
+- Any venue relay files (these are the live data feeds)
+- Any TSLE/L5F/DACT service files (these are the core data infrastructure)
+- `shared/poli.ts`, `shared/roles.ts`, `shared/schema.ts` (shared types)
+- Authentication system files
+
+The goal is purely subtractive: remove dead code and placeholder UI, consolidate navigation, and produce a clean focused build. No new features, no refactoring of surviving code.

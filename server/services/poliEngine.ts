@@ -2,20 +2,39 @@
 // PoLi Engine — consumes DACT (tape events) and produces PoLi snapshots + evidence table
 // This is the clean separation: DACT is ground truth, PoLi is interpretation.
 
-import type {
-  LiquidityTapeEvent,
-  LiquidityVenue,
-  DepthPayload,
-  SpreadPayload,
-  ImbalancePayload,
-} from "../../shared/liquidityTape";
 import {
   computePoLiRating,
   isLiquidityReal,
   getPoLiInterpretation,
   type PoLiRating,
 } from "../../shared/liquidity-truth";
-import { tapeStore } from "./tapeStore";
+
+// Inlined types (liquidityTape.ts removed per strip-list Phase 1)
+type LiquidityVenue = string;
+
+type DepthPayload = {
+  side?: "bid" | "ask";
+  depthUsd?: number;
+  notionalUsd?: number;
+  provenance?: { sourceVenue?: string; transport?: string };
+};
+
+type SpreadPayload = {
+  spreadBps?: number;
+};
+
+type ImbalancePayload = {
+  imbalancePct?: number;
+};
+
+type LiquidityTapeEvent = {
+  id: string;
+  ts: number;
+  type: string;
+  venue: LiquidityVenue;
+  symbol: string;
+  payload: DepthPayload | SpreadPayload | ImbalancePayload | Record<string, unknown>;
+};
 
 export type PoLiSnapshot = {
   venue: LiquidityVenue;
@@ -199,25 +218,10 @@ export function consumeDACTEvents(
   const now = Date.now();
   const since = now - windowMs;
 
-  const allEvents = tapeStore.query({
-    venue,
-    symbol: symbol.toUpperCase(),
-    since,
-    limit: 1000,
-  });
-
-  const validEvents: LiquidityTapeEvent[] = [];
-  let rejected = 0;
-
-  for (const event of allEvents) {
-    if (!validateBinanceProvenance(event)) {
-      rejected++;
-      continue;
-    }
-    validEvents.push(event);
-  }
-
-  return { events: validEvents, rejected };
+  // Tape store removed (strip-list Phase 1). consumeDACTEvents returns empty;
+  // PoLi scoring now driven by TSLE buffer via getCachedPoLiSnapshot callers.
+  void since;
+  return { events: [], rejected: 0 };
 }
 
 export function computePoLiSnapshot(

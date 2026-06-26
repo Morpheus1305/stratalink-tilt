@@ -3,8 +3,6 @@ import { fetchBinanceDepth, type BinanceDepthResult } from "../aggregator/exchan
 import { fetchCoinbaseDepth } from "../aggregator/exchanges/coinbase";
 import { fetchKrakenDepth } from "../aggregator/exchanges/kraken";
 import { fetchOKXDepth } from "../aggregator/exchanges/okx";
-import { tapeStore } from "../../server/services/tapeStore";
-
 type DepthSource = "coinbase" | "kraken" | "okx" | "binance";
 type TransportType = "relay" | "direct";
 
@@ -21,15 +19,6 @@ function canonicalizeSymbol(symbol: string): string {
   const s = symbol.toUpperCase();
   if (s.includes("-") || s.includes("/") || s.includes("_")) return s;
   return `${s}-USD`;
-}
-
-function safePushToTape(evt: any) {
-  if (evt && tapeStore?.push) {
-    try {
-      tapeStore.push(evt);
-    } catch {
-    }
-  }
 }
 
 const BANDS = [0.001, 0.0025, 0.005, 0.01, 0.02];
@@ -267,48 +256,6 @@ export async function ingestDepth(): Promise<void> {
 
         const canonSymbol = canonicalizeSymbol(symbol);
 
-        safePushToTape({
-          id: `depth-${canonSymbol}-${source}-${Date.now()}`,
-          ts: Date.now(),
-          type: "DEPTH_UPDATE",
-          venue: source as any,
-          symbol: canonSymbol,
-          payload: {
-            side: "bid" as const,
-            price: bestBid,
-            size: bids[0] ? Number(bids[0][1]) : 0,
-            notionalUsd: depthBands["25bps"]?.bidUSD ?? 0,
-            spreadBps,
-            depthUsd: depthBands["25bps"]?.totalUSD ?? 0,
-            bps: 25,
-            provenance: {
-              sourceVenue: provenance.sourceVenue,
-              transport: provenance.transport,
-              rawSymbol: provenance.rawSymbol,
-              engine: provenance.engine,
-            },
-          },
-        });
-
-        safePushToTape({
-          id: `spread-${canonSymbol}-${source}-${Date.now()}`,
-          ts: Date.now(),
-          type: "SPREAD_UPDATE",
-          venue: source as any,
-          symbol: canonSymbol,
-          payload: {
-            spreadBps,
-            bid: bestBid,
-            ask: bestAsk,
-            mid,
-            provenance: {
-              sourceVenue: provenance.sourceVenue,
-              transport: provenance.transport,
-              rawSymbol: provenance.rawSymbol,
-              engine: provenance.engine,
-            },
-          },
-        });
       }
 
       const first = venueDepth[0];

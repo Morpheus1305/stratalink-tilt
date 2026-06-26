@@ -1,4 +1,4 @@
-import type { LiquidityVenue } from "./liquidityTape";
+type LiquidityVenue = string;
 
 export type TokenId = 
   | "BTC" | "ETH" | "SOL" | "ADA" | "AVAX" | "NEAR"

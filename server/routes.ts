@@ -4,7 +4,6 @@ import path from "path";
 import { storage } from "./storage";
 import { authHelpers, sendOTPEmail, sanitizeUser } from "./auth";
 import { web3DataService } from "./apiClients";
-import { arkhamService } from "./arkhamClient";
 import analyticsRoutes from "../analytics/routes";
 import liquidityRoutes from "./routes/liquidity";
 import executionRoutes from "./routes/execution";
@@ -17,7 +16,6 @@ import poliRoutes from "./routes/poli";
 import poliEvidenceRoutes from "./routes/poliEvidence";
 import poliApiRoutes from "./routes/poliApi";
 import alertsRoutes from "./routes/alerts";
-import tapeRoutes from "./routes/tape";
 import rclRoutes from "./routes/rcl";
 import deribitRoutes from "./routes/deribit-relay";
 import uniswapRoutes from "./routes/uniswap-relay";
@@ -29,7 +27,6 @@ import bitgetRoutes from "./routes/bitget-relay";
 import gmxRoutes    from "./routes/gmx-relay";
 import curveRoutes  from "./routes/curve-relay";
 import otcRoutes    from "./routes/otc-relay";
-import cantonRoutes from "./routes/canton-relay";
 import analyticsL5fRoutes from "./routes/analytics-l5f";
 import dailyCommentaryRouter from "./api/dailyCommentary";
 import { startIngestionLoop } from "../analytics/engines/ingestionManager";
@@ -320,72 +317,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ========================================
-  // Arkham Identity Intelligence Endpoints
-  // ========================================
-
-  app.get("/api/identity/entity/:entity", async (req, res) => {
-    try {
-      const { entity } = req.params;
-      const data = await arkhamService.getEntityAttribution(entity);
-      res.json(data);
-    } catch (error) {
-      console.error('Entity attribution error:', error);
-      res.status(500).json({ error: "Failed to fetch entity attribution" });
-    }
-  });
-
-  app.get("/api/identity/fragmentation/:token", async (req, res) => {
-    try {
-      const { token } = req.params;
-      const data = await arkhamService.getFragmentationData(token);
-      res.json(data);
-    } catch (error) {
-      console.error('Fragmentation data error:', error);
-      res.status(500).json({ error: "Failed to fetch fragmentation data" });
-    }
-  });
-
-  app.get("/api/identity/mm-integrity", async (_req, res) => {
-    try {
-      const data = await arkhamService.getMMIntegrityScores();
-      res.json(data);
-    } catch (error) {
-      console.error('MM integrity error:', error);
-      res.status(500).json({ error: "Failed to fetch MM integrity scores" });
-    }
-  });
-
-  app.get("/api/identity/poli-plus", async (_req, res) => {
-    try {
-      const data = await arkhamService.getPoLiPlusMetrics();
-      res.json(data);
-    } catch (error) {
-      console.error('PoLi+ metrics error:', error);
-      res.status(500).json({ error: "Failed to fetch PoLi+ metrics" });
-    }
-  });
-
-  app.get("/api/identity/alerts", async (_req, res) => {
-    try {
-      const data = await arkhamService.getIdentityAlerts();
-      res.json(data);
-    } catch (error) {
-      console.error('Identity alerts error:', error);
-      res.status(500).json({ error: "Failed to fetch identity alerts" });
-    }
-  });
-
-  app.get("/api/identity/surveillance", async (_req, res) => {
-    try {
-      const data = await arkhamService.getRegSurveillanceSnapshot();
-      res.json(data);
-    } catch (error) {
-      console.error('Surveillance snapshot error:', error);
-      res.status(500).json({ error: "Failed to fetch surveillance snapshot" });
-    }
-  });
-
   // Mount funding routes (live exchange data)
   app.use("/api/funding", fundingRoutes);
 
@@ -428,8 +359,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Mount stress alert routes
   app.use("/api/alerts", alertsRoutes);
 
-  app.use("/api/tape", tapeRoutes);
-
   // Mount RCL routes (Regulatory Consumption Layer - ADGM)
   app.use("/api/rcl/v0.1", rclRoutes);
 
@@ -444,8 +373,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/gmx",    gmxRoutes);
   app.use("/api/curve",  curveRoutes);
   app.use("/api/otc",    otcRoutes);
-  app.use("/api/canton", cantonRoutes);
-  
+
   // Download endpoint for LTC code archive
   app.get("/download/LTC-v1.0.zip", (_req, res) => {
     const zipPath = path.resolve(process.cwd(), "client/public/LTC-v1.0.zip");

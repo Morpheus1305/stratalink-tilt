@@ -2,25 +2,15 @@ import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 
 const tabs = [
-  { id: "overview", label: "OVERVIEW", path: "/platform" },
-  { id: "ccp-margin", label: "CCP MARGIN", path: "/platform/ccp-margin" },
-  { id: "trends", label: "TRENDS", path: "/platform/trends" },
-  { id: "portfolio", label: "PORTFOLIO", path: "/platform/portfolio" },
-  { id: "alerts", label: "ALERTS", path: "/platform/alerts" },
-  { id: "scorecard", label: "SCORECARD", path: "/platform/scorecard" },
-  { id: "analytics", label: "ANALYTICS", path: "/platform/analytics" },
-  { id: "tape", label: "TAPE", path: "/platform/tape" },
-  { id: "rcl", label: "RCL", path: "/regulatory/adgm" },
   { id: "tilt", label: "TILT", path: "/platform/tilt" },
+  { id: "rcl", label: "RCL", path: "/regulatory/adgm" },
+  { id: "alerts", label: "ALERTS", path: "/platform/alerts" },
 ];
 
 export function PlatformTabs() {
   const [location] = useLocation();
 
   const isActive = (path: string) => {
-    if (path === "/platform") {
-      return location === "/platform" || location === "/platform/overview";
-    }
     if (path === "/regulatory/adgm") {
       return location.startsWith("/regulatory");
     }

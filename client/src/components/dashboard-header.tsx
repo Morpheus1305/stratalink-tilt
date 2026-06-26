@@ -1,13 +1,9 @@
 import { Button } from "@/components/ui/button";
-import { Bell, Settings, Activity, Home, Fingerprint, Database } from "lucide-react";
-import { Link, useLocation } from "wouter";
+import { Bell, Settings, Activity, Home } from "lucide-react";
+import { Link } from "wouter";
 import stratalinkLogo from "@assets/logo_stratalink_1764604924054.png";
 
 export function DashboardHeader() {
-  const [location] = useLocation();
-  const isIdentityActive = location.startsWith('/identity');
-  const isLisActive = location === '/lis';
-
   return (
     <header className="sticky top-0 z-50 border-b border-border h-14 flex items-center px-4 bg-card">
       <div className="flex items-center gap-3">
@@ -23,7 +19,7 @@ export function DashboardHeader() {
       </div>
 
       <nav className="ml-8 flex items-center gap-1">
-        <Link href="/">
+        <Link href="/platform/tilt">
           <Button 
             variant="ghost" 
             size="sm" 
@@ -32,62 +28,6 @@ export function DashboardHeader() {
           >
             <Home className="h-3.5 w-3.5 mr-1.5" />
             HOME
-          </Button>
-        </Link>
-        <Link href="/platform">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="text-xs font-medium"
-            data-testid="button-nav-liquidity"
-          >
-            OVERVIEW
-          </Button>
-        </Link>
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          className="text-xs font-medium"
-          data-testid="button-nav-analytics"
-        >
-          ANALYTICS
-        </Button>
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          className="text-xs font-medium"
-          data-testid="button-nav-signals"
-        >
-          SIGNALS
-        </Button>
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          className="text-xs font-medium"
-          data-testid="button-nav-reports"
-        >
-          REPORTS
-        </Button>
-        <Link href="/identity">
-          <Button 
-            variant={isIdentityActive ? "secondary" : "ghost"}
-            size="sm" 
-            className="text-xs font-medium"
-            data-testid="button-nav-identity"
-          >
-            <Fingerprint className="h-3.5 w-3.5 mr-1.5" />
-            IDENTITY
-          </Button>
-        </Link>
-        <Link href="/lis">
-          <Button 
-            variant={isLisActive ? "secondary" : "ghost"}
-            size="sm" 
-            className="text-xs font-medium"
-            data-testid="button-nav-lis"
-          >
-            <Database className="h-3.5 w-3.5 mr-1.5" />
-            LIS
           </Button>
         </Link>
       </nav>
