@@ -332,8 +332,9 @@
 .tilt-l5f-col {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 1px;
+  min-height: 0;
 }
 .tilt-l5f-title {
   font-family: var(--tilt-mono);
@@ -410,6 +411,106 @@
   font-size: 20px;
   font-weight: 700;
   color: var(--tilt-white);
+}
+
+/* ─── VENUE LIQUIDITY ATTRIBUTION STRIP ─────────────────────────────────── */
+.tilt-attr-wrap {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+.tilt-attr-header-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 5px;
+  padding: 0 2px;
+}
+.tilt-attr-accent {
+  width: 3px;
+  height: 10px;
+  background: var(--tilt-accent);
+  flex-shrink: 0;
+}
+.tilt-attr-section-label {
+  font-family: var(--tilt-mono);
+  font-size: 9px;
+  color: #4A5B6E;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.tilt-attr-empty {
+  font-family: var(--tilt-mono);
+  font-size: 11px;
+  color: #4A5B6E;
+  text-align: center;
+  padding: 12px 0;
+}
+.tilt-attr-table {
+  border: 1px solid #1A2435;
+  overflow: hidden;
+}
+.tilt-attr-thead {
+  display: grid;
+  grid-template-columns: 80px 52px 50px 36px 64px 1fr;
+  background: #080D14;
+  padding: 5px 8px;
+  gap: 4px;
+}
+.tilt-attr-thead span {
+  font-family: var(--tilt-mono);
+  font-size: 9px;
+  color: #4A5B6E;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.tilt-attr-row {
+  display: grid;
+  grid-template-columns: 80px 52px 50px 36px 64px 1fr;
+  align-items: center;
+  padding: 6px 8px;
+  gap: 4px;
+  border-top: 1px solid #1A2435;
+}
+.tilt-attr-venue {
+  font-family: var(--tilt-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: #D8DEE8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tilt-attr-num {
+  font-family: var(--tilt-mono);
+  font-size: 11px;
+  color: #D8DEE8;
+  white-space: nowrap;
+}
+.tilt-attr-muted {
+  font-family: var(--tilt-mono);
+  font-size: 11px;
+  color: #7B8EA3;
+}
+.tilt-attr-poli {
+  font-family: var(--tilt-mono);
+  font-size: 11px;
+  font-weight: 700;
+}
+.tilt-attr-status {
+  font-family: var(--tilt-mono);
+  font-size: 10px;
+  white-space: nowrap;
+}
+.tilt-attr-more {
+  font-family: var(--tilt-mono);
+  font-size: 9px;
+  color: #4A5B6E;
+  text-align: center;
+  padding: 4px 0;
+  border-top: 1px solid #1A2435;
 }
 
 /* ─── REGIME / STRESS TILES ──────────────────────────────────────────────── */

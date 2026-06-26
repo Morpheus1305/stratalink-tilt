@@ -1,0 +1,128 @@
+# Add Cross-Venue PoLi Attribution Strip to TILT Panel 1
+
+## What To Do
+
+In the TILT terminal (`client/src/pages/platform/tilt-terminal.tsx`), there is empty space below the L5F 5-Factor Score list and L5F COMPOSITE bar in Panel 1. Add a compact venue attribution table in that space showing each active venue's individual contribution to the composite liquidity score.
+
+This table uses live data from the same sources the TILT terminal already consumes. No new API endpoints or data services are needed.
+
+---
+
+## Layout
+
+The venue attribution strip sits directly below the L5F COMPOSITE bar, within Panel 1. It occupies the empty space that is currently unused.
+
+### Section Label
+
+Use the standard house style section label:
+
+```
+|  VENUE LIQUIDITY ATTRIBUTION                           [token count] ACTIVE
+```
+
+- 3px wide teal accent bar on the left
+- "VENUE LIQUIDITY ATTRIBUTION" in 10px monospace, uppercase, letter-spacing 0.08em, colour `#4A5B6E`
+- Right-aligned count showing how many venues are actively returning data (e.g., "6 ACTIVE"), same styling
+
+### Table Structure
+
+```
+VENUE          DEPTH       % SHARE    POLI    SPREAD     STATUS
+BINANCE        $4.8M       33.8%      91      0.6 bps    ● GREEN
+COINBASE       $3.2M       22.5%      87      0.9 bps    ● GREEN
+KRAKEN         $2.1M       14.8%      84      1.1 bps    ● GREEN
+OKX            $1.9M       13.4%      82      1.2 bps    ● GREEN
+BYBIT          $1.4M        9.9%      76      1.8 bps    ● AMBER
+HYPERLIQUID    $0.8M        5.6%      71      2.1 bps    ● AMBER
+```
+
+**Columns:**
+
+| Column | Source | Styling |
+|--------|--------|---------|
+| VENUE | Venue name from venue-config.ts | 12px monospace, bold, `#D8DEE8` |
+| DEPTH | Per-venue orderbook depth from TSLE buffer | 12px monospace, `#D8DEE8` |
+| % SHARE | Venue depth as percentage of total cross-venue depth | 12px monospace, `#7B8EA3` |
+| POLI | Per-venue PoLi score from poliVenueEvidence.ts | 12px monospace, bold, coloured by score (green >= 75, amber >= 50, red < 50) |
+| SPREAD | Per-venue spread from TSLE buffer | 12px monospace, `#D8DEE8` |
+| STATUS | RAG status derived from per-venue PoLi score | 10px monospace, coloured dot prefix + uppercase status label |
+
+**Table styling:**
+
+- Header row: Background `#080D14`, 9px monospace uppercase labels, colour `#4A5B6E`, letter-spacing 0.08em
+- Data rows: Alternating between transparent and `#0D1320`, 1px `#1A2435` border between rows
+- No border-radius on the table container, just 1px `#1A2435` border
+- Rows should be compact (8-10px vertical padding) to fit within the available space without scrolling
+
+### Optional: Depth Share Bar
+
+If space permits, add a narrow horizontal bar in each row showing the venue's share of total depth visually. This is a simple div with a width proportional to the venue's percentage share, coloured with the venue's RAG colour at 30% opacity. This mirrors the DEPTH SHARE column in the existing Cross-Venue Depth Map panel below.
+
+---
+
+## Data Sources
+
+All data is already available in the TILT terminal's data pipeline. No new API endpoints are needed.
+
+### Per-venue depth and spread
+
+The TSLE buffer already stores per-venue depth and spread data. The Cross-Venue Depth Map in Panel 2 already consumes this data. Use the same source:
+
+- Check how Panel 2's venue table gets its data (likely from the L5F snapshot endpoint or a dedicated venue depth endpoint).
+- Consume the same data for the attribution strip.
+
+### Per-venue PoLi score
+
+The PoLi venue evidence service (`server/services/poliVenueEvidence.ts`) computes per-venue scores. Check whether this data is already included in the L5F snapshot response. If it is, use it directly. If it is not, check whether it is available from another endpoint that the TILT terminal already calls.
+
+If per-venue PoLi scores are not currently available on the frontend, add them to the existing L5F snapshot response rather than creating a new endpoint. The L5F snapshot already contains venue-level data for the depth map. Adding per-venue PoLi scores to the same response keeps the data flow simple.
+
+### Percentage share
+
+Compute client-side: each venue's depth divided by the sum of all venues' depth, expressed as a percentage.
+
+### RAG status
+
+Derive from the per-venue PoLi score using the same thresholds used elsewhere in TILT:
+- Score >= 75: GREEN (`#00E676`)
+- Score >= 50: AMBER (`#FFB300`)
+- Score < 50: RED (`#FF5252`)
+
+---
+
+## Sorting
+
+Sort venues by depth descending (largest contributor first). This puts the most significant venue at the top and gives an instant visual read on concentration risk.
+
+---
+
+## Empty State
+
+If no venue data is available (e.g., during buffer warmup), show:
+
+```
+VENUE LIQUIDITY ATTRIBUTION
+Awaiting venue data...
+```
+
+In 11px monospace, colour `#4A5B6E`, centred in the available space. Do not show an empty table with headers and no rows.
+
+---
+
+## Verification
+
+After implementation:
+
+1. Navigate to TILT and select BTC. The venue attribution strip should appear below the L5F COMPOSITE bar showing real venue data.
+2. Switch to ETH and SOL. The strip should update with venue data for the selected token.
+3. Venue count in the section label should match the actual number of venues returning data.
+4. Percentage shares should sum to approximately 100%.
+5. PoLi scores should be coloured correctly (green/amber/red).
+6. The strip should not overflow Panel 1 or push the Cross-Venue Depth Map off screen. If space is tight, reduce row padding or limit to the top 6 venues with a "and X more" indicator.
+
+## What NOT to Change
+
+- Do not modify the L5F factor list above the attribution strip.
+- Do not modify Panel 2 (Cross-Venue Depth Map) below.
+- Do not change any data computation logic in the TSLE buffer, PoLi engine, or venue evidence services.
+- Do not add new API endpoints if the data is already available in existing responses.

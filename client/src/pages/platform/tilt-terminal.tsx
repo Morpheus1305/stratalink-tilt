@@ -13,6 +13,7 @@ interface VenueSlice {
   weight_class: string;
   exec_integrity_score: number;
   price_leadership_score: number;
+  poli_score: number;
 }
 
 interface TsleAggregate {
@@ -372,6 +373,72 @@ export default function TiltTerminal() {
                     <div className="tilt-l5f-total-score" data-testid="tilt-l5f-total">
                       {agg ? score.toFixed(1) : "—"}
                     </div>
+                  </div>
+
+                  {/* ── VENUE LIQUIDITY ATTRIBUTION STRIP ────────────────── */}
+                  <div className="tilt-attr-wrap" data-testid="tilt-attr-strip">
+                    <div className="tilt-attr-header-row">
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1 }}>
+                        <div className="tilt-attr-accent" />
+                        <span className="tilt-attr-section-label">Venue Liquidity Attribution</span>
+                      </div>
+                      {agg && (
+                        <span className="tilt-attr-section-label" data-testid="tilt-attr-count">
+                          {Math.min(agg.venue_slices.length, 6)} ACTIVE
+                        </span>
+                      )}
+                    </div>
+
+                    {!agg || !agg.venue_slices?.length ? (
+                      <div className="tilt-attr-empty">Awaiting venue data...</div>
+                    ) : (
+                      <div className="tilt-attr-table">
+                        <div className="tilt-attr-thead">
+                          <span>Venue</span>
+                          <span>Depth</span>
+                          <span>% Share</span>
+                          <span>PoLi</span>
+                          <span>Spread</span>
+                          <span>Status</span>
+                        </div>
+                        {agg.venue_slices.slice(0, 6).map((v, i) => {
+                          const poliColor =
+                            v.poli_score >= 75
+                              ? "var(--tilt-green)"
+                              : v.poli_score >= 50
+                                ? "var(--tilt-amber)"
+                                : "var(--tilt-red)";
+                          const statusLabel =
+                            v.poli_score >= 75 ? "GREEN" : v.poli_score >= 50 ? "AMBER" : "RED";
+                          return (
+                            <div
+                              key={v.venue_id}
+                              className="tilt-attr-row"
+                              style={{ background: i % 2 === 1 ? "rgba(13,19,32,0.7)" : "transparent" }}
+                              data-testid={`tilt-attr-${v.venue_id}`}
+                            >
+                              <span className="tilt-attr-venue">{v.venue_id.toUpperCase()}</span>
+                              <span className="tilt-attr-num">{fmtDepth(v.depth_10bps)}</span>
+                              <span className="tilt-attr-muted">{v.depth_share_pct.toFixed(1)}%</span>
+                              <span className="tilt-attr-poli" style={{ color: poliColor }}>
+                                {v.poli_score.toFixed(0)}
+                              </span>
+                              <span className="tilt-attr-num">
+                                {v.spread_bps.toFixed(1)} bps
+                              </span>
+                              <span className="tilt-attr-status" style={{ color: poliColor }}>
+                                ● {statusLabel}
+                              </span>
+                            </div>
+                          );
+                        })}
+                        {agg.venue_slices.length > 6 && (
+                          <div className="tilt-attr-more">
+                            and {agg.venue_slices.length - 6} more
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

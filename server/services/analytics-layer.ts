@@ -10,6 +10,7 @@ export interface VenueSlice {
   weight_class: 'HIGH' | 'MEDIUM' | 'LOW';
   exec_integrity_score: number;
   price_leadership_score: number;
+  poli_score: number;
 }
 
 export type VolRegime = 'NORMAL' | 'ELEVATED' | 'STRESS';
@@ -327,6 +328,10 @@ function buildVenueSlices(
 
       const exec_integrity_score = clamp(100 - Math.max(0, spreadBps - 1) * 8);
 
+      const poli_score = Math.round(
+        clamp(0.6 * exec_integrity_score + 0.4 * stability_score) * 10
+      ) / 10;
+
       return {
         venue_id: venue,
         depth_10bps: Math.round(d10),
@@ -337,6 +342,7 @@ function buildVenueSlices(
         weight_class,
         exec_integrity_score: Math.round(exec_integrity_score * 10) / 10,
         price_leadership_score,
+        poli_score,
       };
     });
 }
