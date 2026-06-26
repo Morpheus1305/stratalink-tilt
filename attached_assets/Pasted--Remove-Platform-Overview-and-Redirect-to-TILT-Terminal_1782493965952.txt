@@ -1,0 +1,48 @@
+# Remove Platform Overview and Redirect to TILT Terminal
+
+## What to do
+
+The `/platform` route currently loads an overview dashboard page that is redundant. It duplicates data already shown in the TILT terminal at `/platform/tilt` but with less detail. After sign-in, users should land directly on the TILT terminal.
+
+### 1. Delete the overview page component
+
+Identify and delete the component that renders when the user navigates to `/platform`. This is likely one of the following files (check which one is actually imported in App.tsx for the `/platform` route):
+
+```
+client/src/pages/platform/overview.tsx
+client/src/pages/overview.tsx
+client/src/pages/platform-overview.tsx
+```
+
+Delete whichever file is the source component for the `/platform` route.
+
+### 2. Update App.tsx routing
+
+In `client/src/App.tsx`:
+
+- Remove the dedicated `/platform` Route that renders the overview component.
+- Make `/platform` redirect to `/platform/tilt` using a Redirect component or by rendering the TILT terminal component directly at both paths.
+- Make `/` also redirect to `/platform/tilt` (this may already be done from a previous cleanup).
+- Remove the import statement for the deleted overview component.
+
+The result should be:
+- `/` redirects to `/platform/tilt`
+- `/platform` redirects to `/platform/tilt`
+- `/platform/tilt` loads the TILT terminal as normal
+
+### 3. Update dashboard-header.tsx
+
+In `client/src/components/dashboard-header.tsx`, the OVERVIEW button in the top navigation bar links to `/platform`. Update this link to point to `/platform/tilt` instead, or remove the OVERVIEW button entirely since TILT is now the default view and is already accessible via the platform-tabs strip.
+
+### 4. Verify
+
+After changes:
+- Sign in and confirm you land on the TILT terminal, not the overview page.
+- Navigate to `/platform` and confirm it loads the TILT terminal.
+- Navigate to `/` and confirm it loads the TILT terminal.
+- Confirm the platform-tabs strip (TILT, RCL, ALERTS) still works and TILT is highlighted as active.
+- Confirm no broken imports or references to the deleted overview component remain.
+
+### What NOT to change
+
+Do not touch the TILT terminal itself (`tilt-terminal.tsx`), the RCL view, the alert system, or any venue relay files. This is only about removing one redundant page and fixing two route redirects.

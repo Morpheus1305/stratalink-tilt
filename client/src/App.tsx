@@ -8,7 +8,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 import NotFound from "@/pages/not-found";
-import Dashboard from "@/pages/dashboard";
 import Alerts from "@/pages/alerts";
 import LoginPage from "@/pages/LoginPage";
 import VerifyOTPPage from "@/pages/VerifyOTPPage";
@@ -37,13 +36,9 @@ function AppRouter() {
         {() => <Redirect to="/platform/tilt" />}
       </Route>
 
-      {/* Platform (auth-gated) */}
+      {/* /platform → TILT */}
       <Route path="/platform">
-        {() => (
-          <RequireAuth>
-            <Dashboard />
-          </RequireAuth>
-        )}
+        {() => <Redirect to="/platform/tilt" />}
       </Route>
 
       <Route path="/platform/tilt">
