@@ -88,6 +88,8 @@ export default function TiltTerminal() {
   }, []);
 
   useEffect(() => {
+    setAgg(null);
+    setLoading(true);
     fetchData(currentAsset);
     if (intervalRef.current) clearInterval(intervalRef.current);
     intervalRef.current = setInterval(() => fetchData(currentAsset), 5000);
