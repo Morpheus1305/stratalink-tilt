@@ -116,19 +116,21 @@ export default async function runApp(
     throw err;
   });
 
-  // IMPORTANT: run setup AFTER routes (so SPA catch-all won’t eat /api routes)
+  // Bind port FIRST so the workflow manager detects we're alive immediately.
+  // Vite setup can take 10-30s; binding early prevents workflow timeout failures.
+  const port = Number(process.env.PORT) || 3000;
+  const host = "0.0.0.0";
+
+  await new Promise<void>((resolve) => {
+    server.listen({ port, host, reusePort: true }, () => {
+      log(`serving on ${host}:${port}`);
+      resolve();
+    });
+  });
+
+  // IMPORTANT: run setup AFTER routes (so SPA catch-all won't eat /api routes)
   await setup(app, server);
 
   // Auto-mount built client if present
   maybeServeClient(app);
-
-  // Standardized port binding:
-  // - Prefer process.env.PORT (Replit)
-  // - Fall back to 3000 for local dev
-  const port = Number(process.env.PORT) || 3000;
-  const host = "0.0.0.0";
-
-  server.listen({ port, host, reusePort: true }, () => {
-    log(`serving on ${host}:${port}`);
-  });
 }
