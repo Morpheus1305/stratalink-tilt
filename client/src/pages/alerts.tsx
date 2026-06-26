@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import type { AlertsData, DashboardData } from "@shared/schema";
+import type { AlertsData, DashboardData, LiquidityScore } from "@shared/schema";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { PlatformTabs } from "@/components/platform-tabs";
 import { LiquidityScoreGauge } from "@/components/liquidity-score-gauge";
@@ -127,6 +127,32 @@ export default function Alerts() {
     refetchInterval: 15000,
   });
 
+  const { data: l5fData } = useQuery<{ ok: boolean; aggregate: any }>({
+    queryKey: ["/api/analytics/l5f/snapshot", asset],
+    queryFn: async () => {
+      const r = await fetch(`/api/analytics/l5f/snapshot/${asset}`);
+      if (!r.ok) throw new Error("L5F unavailable");
+      return r.json();
+    },
+    refetchInterval: 5000,
+  });
+
+  // Derive LiquidityScore from L5F engine — same source as TILT
+  const l5fScore: LiquidityScore | null = (() => {
+    const agg = l5fData?.aggregate;
+    if (!agg) return null;
+    const score = Math.round(agg.l5f_composite ?? 0);
+    const riskLevel: LiquidityScore["riskLevel"] =
+      score >= 75 ? "low" : score >= 50 ? "medium" : score >= 35 ? "high" : "critical";
+    return {
+      score,
+      riskLevel,
+      trend: "neutral" as const,
+      change24h: 0,
+      historicalAverage: Math.round((agg.l5f_composite ?? 0) * 0.97),
+    };
+  })();
+
   const isLoading = dashboardLoading || alertsLoading;
 
   if (isLoading) {
@@ -242,7 +268,7 @@ export default function Alerts() {
           {/* Panel 1 — Liquidity Intelligence */}
           <div className="tilt-panel" data-testid="panel-liquidity-intelligence">
             <PanelHeader title="Liquidity Intelligence" tag="PANEL 1" />
-            <LiquidityScoreGauge scoreData={dashboardData.liquidityScore} />
+            <LiquidityScoreGauge scoreData={l5fScore ?? dashboardData.liquidityScore} />
           </div>
 
           {/* Panel 2 — Stress Signal Detection */}
