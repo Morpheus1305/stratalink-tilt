@@ -67,8 +67,10 @@ function SeverityBadge({ severity }: { severity: string }) {
 }
 
 function StatusText({ status }: { status: string }) {
-  const color = status === "New" ? "var(--tilt-accent)"
-    : status === "Acknowledged" ? "var(--tilt-green)"
+  const s = status?.toUpperCase() ?? "";
+  const color = s === "NEW" ? "var(--tilt-accent)"
+    : s === "ACKNOWLEDGED" ? "var(--tilt-green)"
+    : s === "PERSISTED" ? "var(--tilt-sub)"
     : "var(--tilt-sub)";
   return (
     <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 10, color, letterSpacing: "0.06em" }}>
@@ -164,6 +166,18 @@ export default function Alerts() {
     },
     refetchInterval: 5000,
   });
+
+  // Dedicated live alert log — polls /api/alerts/log every 5s (ring buffer + DB)
+  const { data: alertLogData } = useQuery<{ ok: boolean; entries: any[]; ringSize: number; dbSize: number }>({
+    queryKey: ["/api/alerts/log"],
+    queryFn: async () => {
+      const r = await fetch("/api/alerts/log?limit=50");
+      if (!r.ok) throw new Error("Alert log unavailable");
+      return r.json();
+    },
+    refetchInterval: 5000,
+  });
+  const liveAlertLog: any[] = alertLogData?.entries ?? alertsData?.alertLog ?? [];
 
   const isLoading = dashboardLoading || alertsLoading;
 
@@ -708,13 +722,19 @@ export default function Alerts() {
                 </tr>
               </thead>
               <tbody>
-                {alertsData.alertLog.map((log, idx) => (
+                {liveAlertLog.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} style={{ ...TD_STYLE, color: "var(--tilt-muted)", textAlign: "center", padding: "14px 0" }}>
+                      AWAITING FIRST INGEST CYCLE — RING BUFFER EMPTY
+                    </td>
+                  </tr>
+                ) : liveAlertLog.map((log, idx) => (
                   <tr
                     key={log.id}
                     data-testid={`row-alert-${log.id}`}
                     style={{ background: idx % 2 === 1 ? "var(--tilt-panel2)" : "var(--tilt-panel)" }}
                   >
-                    <td style={{ ...TD_STYLE, color: "var(--tilt-sub)", whiteSpace: "nowrap" }}
+                    <td style={{ ...TD_STYLE, color: "var(--tilt-sub)", whiteSpace: "nowrap", fontFamily: "var(--tilt-mono)" }}
                       data-testid={`text-alert-time-${log.id}`}>
                       {log.timeUTC}
                     </td>
@@ -725,7 +745,7 @@ export default function Alerts() {
                     <td style={{ ...TD_STYLE, textAlign: "center" }}>
                       <SeverityBadge severity={log.severity} data-testid={`badge-severity-${log.id}`} />
                     </td>
-                    <td style={{ ...TD_STYLE, color: "var(--tilt-sub)", fontSize: 10 }}
+                    <td style={{ ...TD_STYLE, color: "var(--tilt-sub)", fontSize: 10, fontFamily: "var(--tilt-mono)" }}
                       data-testid={`text-alert-desc-${log.id}`}>
                       {log.description}
                     </td>

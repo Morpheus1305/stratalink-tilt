@@ -6,6 +6,7 @@ import { recordDepthSnapshot } from "../../server/services/depthHistoryStore";
 import { tsleBuffer } from "../../server/services/tsle-buffer";
 import { computeAnalyticsSnapshot } from "../../server/services/analytics-layer";
 import { evaluateAndNotify } from "../../server/services/alert-service";
+import { pushIngestCycleAlerts } from "../../server/services/liveAlertsService";
 import type { DivergenceReport, DivergenceSignal } from "../../server/services/divergence-detector";
 
 let isIngesting = false;
@@ -139,6 +140,9 @@ async function detectAndWriteAlerts(): Promise<void> {
     };
 
     await evaluateAndNotify({ symbol: sym, divergenceReport: report, signals });
+
+    // Push to in-memory ring buffer so the frontend log updates every cycle
+    pushIngestCycleAlerts(sym, snap);
   }
 }
 

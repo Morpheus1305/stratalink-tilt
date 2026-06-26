@@ -18,6 +18,7 @@ import {
 } from "../services/alert-service";
 import { detectDivergence, generateDivergenceReport, VenueSnapshot } from "../services/divergence-detector";
 import { tsleBuffer, tsleStateEngine } from "../services/tsle-buffer";
+import { getAlertRingBuffer, type AlertLogEntry } from "../services/liveAlertsService";
 
 const router = Router();
 
@@ -262,6 +263,58 @@ router.post("/test-notification/:ruleId", async (req: Request, res: Response) =>
   } catch (error) {
     console.error("[Alerts] Test notification failed:", error);
     res.status(500).json({ error: "Failed to send test notification" });
+  }
+});
+
+/**
+ * GET /api/alerts/log
+ * Returns the live alert log: in-memory ring buffer (most recent 50)
+ * merged with the last 30 persisted DB entries, newest-first.
+ * No caching — always returns the freshest state.
+ */
+router.get("/log", async (req: Request, res: Response) => {
+  try {
+    const limit = Math.min(Number(req.query.limit) || 50, 200);
+
+    // 1. Ring buffer — live ingest-cycle events (in-memory, newest-first)
+    const ringEntries = getAlertRingBuffer(limit);
+
+    // 2. DB history — durable persisted rule-triggered alerts
+    let dbEntries: AlertLogEntry[] = [];
+    try {
+      const history = await getAlertHistory(30);
+      dbEntries = history.map((h: any, idx: number) => {
+        const t = new Date(h.triggeredAt);
+        const timeUTC = `${String(t.getUTCHours()).padStart(2, '0')}:${String(t.getUTCMinutes()).padStart(2, '0')}`;
+        const SEV_MAP: Record<string, AlertLogEntry['severity']> = {
+          CRITICAL: 'CRITICAL', HIGH: 'HIGH', MODERATE: 'WARNING', LOW: 'WARNING',
+        };
+        const raw: string = (h.signalData as any)?.summary ?? `${h.triggerType} detected on ${h.symbol}`;
+        return {
+          id: `db-${h.id ?? idx}`,
+          timeUTC,
+          alertType: { DIVERGENCE: 'Divergence', REGIME_CHANGE: 'Regime', POLI_DROP: 'PoLi', DEPTH_DROP: 'Depth' }[h.triggerType as string] ?? h.triggerType,
+          severity: SEV_MAP[h.severity] ?? 'WARNING',
+          description: raw.length > 80 ? raw.slice(0, 77) + '...' : raw,
+          status: 'PERSISTED',
+          ts: new Date(h.triggeredAt).getTime(),
+        };
+      });
+    } catch {
+      // DB unavailable — ring buffer only
+    }
+
+    // 3. Merge: ring buffer newest-first, then DB entries not already in ring
+    const seen = new Set(ringEntries.map((e) => e.description.slice(0, 40)));
+    const merged = [
+      ...ringEntries,
+      ...dbEntries.filter((e) => !seen.has(e.description.slice(0, 40))),
+    ].slice(0, limit);
+
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ ok: true, entries: merged, ringSize: ringEntries.length, dbSize: dbEntries.length });
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err.message });
   }
 });
 

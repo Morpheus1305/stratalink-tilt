@@ -11,6 +11,106 @@ import type { AlertsData } from '../../shared/schema';
 
 const TRACKED_ASSETS = ['BTC', 'ETH', 'SOL'] as const;
 const POLI_CRITICAL_THRESHOLD = 50;
+
+// ─── In-memory alert ring buffer ──────────────────────────────────────────
+// Holds the last RING_MAX entries pushed on every ingest cycle (5s).
+// PostgreSQL (alertHistory) is the durable long-term store; this buffer
+// is the live feed for the frontend. Lost on process restart — by design.
+
+const RING_MAX = 200;
+
+export interface AlertLogEntry {
+  id: string;
+  timeUTC: string;
+  alertType: string;
+  severity: 'CRITICAL' | 'HIGH' | 'WARNING' | 'INFO';
+  description: string;
+  status: string;
+  ts: number; // epoch ms — used for merge-dedup with DB entries
+}
+
+const ringBuffer: AlertLogEntry[] = [];
+let ringSeq = 0;
+
+/** Push one entry into the ring buffer; oldest entries are dropped when full. */
+export function pushAlertEntry(entry: Omit<AlertLogEntry, 'id' | 'ts'>): void {
+  const now = Date.now();
+  const id = `ring-${now}-${++ringSeq}`;
+  const t = new Date(now);
+  const timeUTC = `${String(t.getUTCHours()).padStart(2, '0')}:${String(t.getUTCMinutes()).padStart(2, '0')}`;
+  ringBuffer.unshift({ ...entry, id, timeUTC, ts: now });
+  if (ringBuffer.length > RING_MAX) ringBuffer.length = RING_MAX;
+}
+
+/** Return the most recent `limit` ring buffer entries. */
+export function getAlertRingBuffer(limit = 50): AlertLogEntry[] {
+  return ringBuffer.slice(0, limit);
+}
+
+/**
+ * Build and push alert log entries for one symbol's current L5F snapshot.
+ * Called from ingestionManager on every 5s ingest cycle.
+ * Always pushes a heartbeat "Divergence" entry; additionally pushes
+ * threshold-triggered entries for STRESS regime, low DQ, low composite.
+ */
+export function pushIngestCycleAlerts(sym: string, snap: TsleAggregate): void {
+  const regimeLabel = snap.vol_regime === 'STRESS' ? 'STRESSED'
+    : snap.vol_regime === 'ELEVATED' ? 'ELEVATED' : 'NORMAL';
+
+  // Heartbeat — one per symbol per cycle, always written
+  const poliSev: AlertLogEntry['severity'] =
+    snap.l5f_composite < 35 ? 'CRITICAL'
+    : snap.l5f_composite < 50 ? 'HIGH'
+    : snap.l5f_composite < 65 ? 'WARNING'
+    : 'INFO';
+
+  pushAlertEntry({
+    alertType: 'Divergence',
+    severity: poliSev,
+    description: `L5F ${sym}: composite ${snap.l5f_composite.toFixed(1)}, DQ ${snap.l5f_depth_quality.toFixed(1)}, R ${snap.l5f_resilience.toFixed(1)}, regime ${regimeLabel} — ${snap.venue_count} ve...`,
+    status: 'NEW',
+    timeUTC: '', // overwritten inside pushAlertEntry
+  });
+
+  // Condition-triggered entries
+  if (snap.vol_regime === 'STRESS') {
+    pushAlertEntry({
+      alertType: 'Regime',
+      severity: 'CRITICAL',
+      description: `${sym} entered STRESS regime — L5F composite ${snap.l5f_composite.toFixed(1)}, ${snap.venue_count} venues active`,
+      status: 'NEW',
+      timeUTC: '',
+    });
+  } else if (snap.vol_regime === 'ELEVATED') {
+    pushAlertEntry({
+      alertType: 'Regime',
+      severity: 'WARNING',
+      description: `${sym} ELEVATED regime — monitoring ${snap.venue_count} venues, L5F ${snap.l5f_composite.toFixed(1)}`,
+      status: 'NEW',
+      timeUTC: '',
+    });
+  }
+
+  if (snap.l5f_depth_quality < 40) {
+    pushAlertEntry({
+      alertType: 'Depth',
+      severity: snap.l5f_depth_quality < 25 ? 'CRITICAL' : 'HIGH',
+      description: `${sym} Depth Quality ${snap.l5f_depth_quality.toFixed(1)} — $${(snap.total_depth_10bps / 1e6).toFixed(1)}M @ 10bps`,
+      status: 'NEW',
+      timeUTC: '',
+    });
+  }
+
+  if (snap.l5f_composite < 45) {
+    pushAlertEntry({
+      alertType: 'PoLi',
+      severity: 'CRITICAL',
+      description: `${sym} Composite PoLi ${snap.l5f_composite.toFixed(1)} — below minimum threshold (45)`,
+      status: 'NEW',
+      timeUTC: '',
+    });
+  }
+}
 const KNOWN_VENUES = [
   'binance', 'coinbase', 'kraken', 'okx', 'bybit',
   'deribit', 'hyperliquid', 'dydx', 'uniswap',
