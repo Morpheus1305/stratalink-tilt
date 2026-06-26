@@ -138,6 +138,23 @@ export default function Alerts() {
 
   const l5fAgg = l5fData?.aggregate ?? null;
 
+  // L5F for all 3 tracked assets — used to count "critical" assets in Panel 4
+  const { data: l5fBtc } = useQuery<{ ok: boolean; aggregate: any }>({
+    queryKey: ["/api/analytics/l5f/snapshot", "BTC"],
+    queryFn: async () => { const r = await fetch("/api/analytics/l5f/snapshot/BTC"); return r.json(); },
+    refetchInterval: 10000,
+  });
+  const { data: l5fEth } = useQuery<{ ok: boolean; aggregate: any }>({
+    queryKey: ["/api/analytics/l5f/snapshot", "ETH"],
+    queryFn: async () => { const r = await fetch("/api/analytics/l5f/snapshot/ETH"); return r.json(); },
+    refetchInterval: 10000,
+  });
+  const { data: l5fSol } = useQuery<{ ok: boolean; aggregate: any }>({
+    queryKey: ["/api/analytics/l5f/snapshot", "SOL"],
+    queryFn: async () => { const r = await fetch("/api/analytics/l5f/snapshot/SOL"); return r.json(); },
+    refetchInterval: 10000,
+  });
+
   const { data: depthData } = useQuery<{ spreadBps: number; bands: any }>({
     queryKey: ["/api/analytics/depth", asset],
     queryFn: async () => {
@@ -171,8 +188,38 @@ export default function Alerts() {
   }
 
   const totalWarnings = alertsData.alertLog?.filter(l => l.severity === "WARNING" || l.severity === "CRITICAL" || l.severity === "HIGH").length ?? 0;
-  const critCount = alertsData.criticalAssets?.count ?? 0;
-  const critTotal = alertsData.criticalAssets?.total ?? 0;
+
+  // --- Panel 4 live values ---
+  // Warning capacity: derived from current asset's L5F composite score
+  const compositeScore = l5fAgg?.l5f_composite ?? null;
+  const warningCapacity = compositeScore == null ? "—"
+    : compositeScore >= 80 ? "> 12h"
+    : compositeScore >= 65 ? "6–12h"
+    : compositeScore >= 50 ? "2–4h"
+    : compositeScore >= 35 ? "0–2h"
+    : "< 30m";
+  const warningCapacityLabel = compositeScore == null ? "AWAITING L5F DATA"
+    : compositeScore >= 80 ? "STABLE OPERATING CONDITIONS"
+    : compositeScore >= 65 ? "MODERATE — MONITOR CLOSELY"
+    : compositeScore >= 50 ? "ELEVATED STRESS CONDITIONS"
+    : compositeScore >= 35 ? "SEVERE SESSION BEFORE COLLAPSE"
+    : "CRITICAL — IMMEDIATE ACTION REQUIRED";
+  const warningCapacityColor = compositeScore == null ? "var(--tilt-sub)"
+    : compositeScore >= 65 ? "var(--tilt-green)"
+    : compositeScore >= 50 ? "var(--tilt-amber)"
+    : "var(--tilt-red)";
+
+  // Critical assets: count of BTC/ETH/SOL with L5F composite < 50
+  const allScores = [
+    { sym: "BTC", score: l5fBtc?.aggregate?.l5f_composite ?? null },
+    { sym: "ETH", score: l5fEth?.aggregate?.l5f_composite ?? null },
+    { sym: "SOL", score: l5fSol?.aggregate?.l5f_composite ?? null },
+  ];
+  const scoredAssets = allScores.filter(a => a.score != null);
+  const critLiveCount = allScores.filter(a => a.score != null && a.score < 50).length;
+  const critLiveTotal = scoredAssets.length > 0 ? scoredAssets.length : 3;
+  const critCount = scoredAssets.length > 0 ? critLiveCount : (alertsData.criticalAssets?.count ?? 0);
+  const critTotal = scoredAssets.length > 0 ? critLiveTotal : (alertsData.criticalAssets?.total ?? 0);
 
   // Compute stress signals from live data (l5fAgg + dashboardData)
   const liveStressSignals = (() => {
@@ -458,40 +505,57 @@ export default function Alerts() {
           {/* Panel 4 — Warning Capacity + Critical Assets */}
           <div className="tilt-panel" data-testid="panel-capacity">
             <PanelHeader title="Capacity &amp; Risk" tag="PANEL 4" />
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "8px 10px" }}>
               {/* Warning Capacity tile */}
               <div style={{
-                background: "rgba(255,179,0,0.05)",
-                border: "1px solid rgba(255,179,0,0.15)",
+                background: compositeScore != null && compositeScore < 50 ? "rgba(255,82,82,0.05)" : "rgba(255,179,0,0.05)",
+                border: `1px solid ${compositeScore != null && compositeScore < 50 ? "rgba(255,82,82,0.18)" : "rgba(255,179,0,0.15)"}`,
                 borderRadius: 2,
-                padding: "10px 12px",
+                padding: "8px 10px",
               }} data-testid="card-warning-capacity">
-                <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: "var(--tilt-muted)", letterSpacing: "0.10em", marginBottom: 6, textTransform: "uppercase" }}>
+                <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: "var(--tilt-muted)", letterSpacing: "0.10em", marginBottom: 4, textTransform: "uppercase" }}>
                   Active Warning Capacity
                 </div>
-                <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 28, fontWeight: 700, color: "var(--tilt-amber)", lineHeight: 1 }} data-testid="text-warning-capacity">
-                  {alertsData.activeWarningCapacity}
+                <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 15, fontWeight: 600, color: warningCapacityColor, lineHeight: 1 }} data-testid="text-warning-capacity">
+                  {warningCapacity}
                 </div>
-                <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: "var(--tilt-muted)", marginTop: 4, letterSpacing: "0.06em" }}>
-                  SEVERE SESSION BEFORE COLLAPSE
+                <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: "var(--tilt-muted)", marginTop: 3, letterSpacing: "0.06em" }}>
+                  {warningCapacityLabel}
                 </div>
+                {compositeScore != null && (
+                  <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: "var(--tilt-sub)", marginTop: 2 }}>
+                    L5F {compositeScore.toFixed(1)} / 100
+                  </div>
+                )}
               </div>
 
               {/* Critical Assets tile */}
               <div style={{
-                background: "rgba(255,82,82,0.05)",
-                border: "1px solid rgba(255,82,82,0.15)",
+                background: critCount > 0 ? "rgba(255,82,82,0.05)" : "rgba(0,191,165,0.05)",
+                border: `1px solid ${critCount > 0 ? "rgba(255,82,82,0.15)" : "rgba(0,191,165,0.15)"}`,
                 borderRadius: 2,
-                padding: "10px 12px",
+                padding: "8px 10px",
               }} data-testid="card-critical-assets">
-                <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: "var(--tilt-muted)", letterSpacing: "0.10em", marginBottom: 6, textTransform: "uppercase" }}>
+                <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: "var(--tilt-muted)", letterSpacing: "0.10em", marginBottom: 4, textTransform: "uppercase" }}>
                   Critical Assets
                 </div>
-                <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 28, fontWeight: 700, color: "var(--tilt-red)", lineHeight: 1 }} data-testid="text-critical-assets-count">
-                  {critCount} <span style={{ fontSize: 14, color: "var(--tilt-sub)", fontWeight: 400 }}>/ {critTotal}</span>
+                <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 15, fontWeight: 600, color: critCount > 0 ? "var(--tilt-red)" : "var(--tilt-green)", lineHeight: 1 }} data-testid="text-critical-assets-count">
+                  {critCount} <span style={{ fontSize: 11, color: "var(--tilt-sub)", fontWeight: 400 }}>/ {critTotal}</span>
                 </div>
-                <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: "var(--tilt-muted)", marginTop: 4, letterSpacing: "0.06em" }}>
-                  CRITICAL LIQUIDITY
+                <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: "var(--tilt-muted)", marginTop: 3, letterSpacing: "0.06em" }}>
+                  {critCount === 0 ? "ALL ASSETS WITHIN THRESHOLDS" : "BELOW L5F THRESHOLD (< 50)"}
+                </div>
+                <div style={{ marginTop: 4, display: "flex", gap: 4, flexWrap: "wrap" }}>
+                  {allScores.map(({ sym, score }) => (
+                    <span key={sym} style={{
+                      fontFamily: "var(--tilt-mono)", fontSize: 9, padding: "1px 5px", borderRadius: 2,
+                      color: score == null ? "var(--tilt-sub)" : score < 50 ? "var(--tilt-red)" : score < 65 ? "var(--tilt-amber)" : "var(--tilt-green)",
+                      background: score == null ? "rgba(123,142,163,0.08)" : score < 50 ? "rgba(255,82,82,0.10)" : score < 65 ? "rgba(255,179,0,0.10)" : "rgba(0,191,165,0.10)",
+                      border: `1px solid ${score == null ? "rgba(123,142,163,0.15)" : score < 50 ? "rgba(255,82,82,0.20)" : score < 65 ? "rgba(255,179,0,0.20)" : "rgba(0,191,165,0.20)"}`,
+                    }}>
+                      {sym} {score != null ? score.toFixed(0) : "—"}
+                    </span>
+                  ))}
                 </div>
               </div>
             </div>
