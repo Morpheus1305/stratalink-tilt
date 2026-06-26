@@ -221,6 +221,49 @@ export default function Alerts() {
   const critCount = scoredAssets.length > 0 ? critLiveCount : (alertsData.criticalAssets?.count ?? 0);
   const critTotal = scoredAssets.length > 0 ? critLiveTotal : (alertsData.criticalAssets?.total ?? 0);
 
+  // ── Live risk indicator rows (mirrors liveAlertsService.deriveRiskIndicators) ──
+  const liveRiskIndicators: Array<{ indicator: string; observedBehavior: string; ras: string }> = (() => {
+    if (!l5fAgg) return [];
+    const fmt = (v: number) => `${v.toFixed(1)}/100`;
+    const rasLevel = (v: number, hi = 75, med = 50): string =>
+      v >= hi ? "low" : v >= med ? "medium" : "high";
+    const regimeLabel = l5fAgg.vol_regime === "STRESS" ? "STRESSED"
+      : l5fAgg.vol_regime === "ELEVATED" ? "ELEVATED" : "NORMAL";
+    return [
+      {
+        indicator: "Depth Quality",
+        observedBehavior: `DQ ${fmt(l5fAgg.l5f_depth_quality)} · $${(l5fAgg.total_depth_10bps / 1e6).toFixed(1)}M @ 10bps`,
+        ras: rasLevel(l5fAgg.l5f_depth_quality),
+      },
+      {
+        indicator: "Market Resilience",
+        observedBehavior: `R ${fmt(l5fAgg.l5f_resilience)} · Decay ${(l5fAgg.depth_decay_rate ?? 0).toFixed(2)}%/min`,
+        ras: rasLevel(l5fAgg.l5f_resilience),
+      },
+      {
+        indicator: "Liquidity Fragmentation",
+        observedBehavior: `HHI ${(l5fAgg.fragmentation_index ?? 0).toFixed(3)} · F ${fmt(l5fAgg.l5f_fragmentation)}`,
+        ras: (l5fAgg.fragmentation_index ?? 0) > 0.35 ? "high"
+          : (l5fAgg.fragmentation_index ?? 0) > 0.2 ? "medium" : "low",
+      },
+      {
+        indicator: "Execution Integrity",
+        observedBehavior: `EI ${fmt(l5fAgg.l5f_exec_integrity ?? l5fAgg.l5f_execution_integrity ?? 0)} · Spread \u03c3 ${(l5fAgg.spread_dispersion_bps ?? 0).toFixed(2)}bps`,
+        ras: rasLevel(l5fAgg.l5f_exec_integrity ?? l5fAgg.l5f_execution_integrity ?? 0),
+      },
+      {
+        indicator: "Regime Stability",
+        observedBehavior: `RS ${fmt(l5fAgg.l5f_regime_stability)} · Regime: ${regimeLabel}`,
+        ras: rasLevel(l5fAgg.l5f_regime_stability, 70, 50),
+      },
+      {
+        indicator: "Composite PoLi",
+        observedBehavior: `L5F ${fmt(l5fAgg.l5f_composite)} · ${l5fAgg.venue_count ?? 0} venues active`,
+        ras: rasLevel(l5fAgg.l5f_composite, 65, 45),
+      },
+    ];
+  })();
+
   // Compute stress signals from live data (l5fAgg + dashboardData)
   const liveStressSignals = (() => {
     // Convert a query's dataUpdatedAt (ms epoch) to "HH:MM UTC" string.
@@ -610,9 +653,15 @@ export default function Alerts() {
                 </tr>
               </thead>
               <tbody>
-                {alertsData.riskIndicators.map((indicator, index) => (
+                {liveRiskIndicators.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} style={{ ...TD_STYLE, color: "var(--tilt-muted)", textAlign: "center", padding: "14px 0" }}>
+                      AWAITING L5F DATA — INGESTION ENGINE INITIALISING…
+                    </td>
+                  </tr>
+                ) : liveRiskIndicators.map((indicator, index) => (
                   <tr
-                    key={index}
+                    key={indicator.indicator}
                     data-testid={`row-indicator-${index}`}
                     style={{ background: index % 2 === 1 ? "var(--tilt-panel2)" : "var(--tilt-panel)" }}
                   >
@@ -620,7 +669,7 @@ export default function Alerts() {
                       data-testid={`text-indicator-name-${index}`}>
                       {indicator.indicator}
                     </td>
-                    <td style={{ ...TD_STYLE, color: "var(--tilt-sub)" }}
+                    <td style={{ ...TD_STYLE, color: "var(--tilt-sub)", fontFamily: "var(--tilt-mono)", fontSize: 10 }}
                       data-testid={`text-indicator-behavior-${index}`}>
                       {indicator.observedBehavior}
                     </td>
