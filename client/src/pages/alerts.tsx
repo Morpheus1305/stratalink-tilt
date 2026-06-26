@@ -106,7 +106,7 @@ export default function Alerts() {
   const { selectedToken, setSelectedToken } = useToken();
   const asset = selectedToken || "BTC";
 
-  const { data: dashboardData, isLoading: dashboardLoading } = useQuery<DashboardData>({
+  const { data: dashboardData, isLoading: dashboardLoading, dataUpdatedAt: dashboardUpdatedAt } = useQuery<DashboardData>({
     queryKey: ["/api/dashboard", asset],
     queryFn: async () => {
       const r = await fetch(`/api/dashboard?asset=${asset}`);
@@ -126,7 +126,7 @@ export default function Alerts() {
     refetchInterval: 15000,
   });
 
-  const { data: l5fData } = useQuery<{ ok: boolean; aggregate: any }>({
+  const { data: l5fData, dataUpdatedAt: l5fUpdatedAt } = useQuery<{ ok: boolean; aggregate: any }>({
     queryKey: ["/api/analytics/l5f/snapshot", asset],
     queryFn: async () => {
       const r = await fetch(`/api/analytics/l5f/snapshot/${asset}`);
@@ -155,7 +155,7 @@ export default function Alerts() {
     refetchInterval: 10000,
   });
 
-  const { data: depthData } = useQuery<{ spreadBps: number; bands: any }>({
+  const { data: depthData, dataUpdatedAt: depthUpdatedAt } = useQuery<{ spreadBps: number; bands: any }>({
     queryKey: ["/api/analytics/depth", asset],
     queryFn: async () => {
       const r = await fetch(`/api/analytics/depth?symbol=${asset}`);
@@ -223,12 +223,13 @@ export default function Alerts() {
 
   // Compute stress signals from live data (l5fAgg + dashboardData)
   const liveStressSignals = (() => {
-    const now = new Date();
-    const utc = (offsetMin: number) => {
-      const d = new Date(now.getTime() - offsetMin * 60000);
+    // Convert a query's dataUpdatedAt (ms epoch) to "HH:MM UTC" string.
+    // Falls back to current time so the display is never blank.
+    const toUtcStr = (ms: number) => {
+      const d = new Date(ms || Date.now());
       return `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")} UTC`;
     };
-    const ts = now.getTime();
+    const ts = Date.now();
 
     // --- Signal 1: Bid-Ask Spread ---
     // Use depthData.spreadBps (a real number including 0) rather than parsing the
@@ -265,10 +266,10 @@ export default function Alerts() {
     const balDesc = `Regime Stability: ${regStab != null ? regStab.toFixed(1) : "—"}/100 · Execution Integrity: ${execInt != null ? execInt.toFixed(1) : "—"}/100. ${balSeverity === "success" ? "Regime and execution conditions are stable — no structural stress detected." : balSeverity === "warning" ? "Degraded execution or regime instability detected. Heightened monitoring advised." : "Mixed signals — regime and execution within acceptable bounds."}`;
 
     return [
-      { id: `live-spread-${ts}`,  title: "Bid-Ask Spread Analysis",    description: spreadDesc, severity: spreadSeverity, timestamp: utc(2),  category: "SPREAD ANALYSIS"     },
-      { id: `live-conc-${ts}`,    title: "CEX Liquidity Concentration", description: concDesc,   severity: concSeverity,  timestamp: utc(7),  category: "CONCENTRATION RISK"  },
-      { id: `live-depth-${ts}`,   title: "Market Depth Assessment",     description: depthDesc,  severity: depthSeverity, timestamp: utc(12), category: "DEPTH MONITORING"    },
-      { id: `live-regime-${ts}`,  title: "Regime & Execution Integrity",description: balDesc,    severity: balSeverity,   timestamp: utc(18), category: "REGIME STABILITY"    },
+      { id: `live-spread-${ts}`,  title: "Bid-Ask Spread Analysis",     description: spreadDesc, severity: spreadSeverity, timestamp: toUtcStr(depthUpdatedAt),     category: "SPREAD ANALYSIS"    },
+      { id: `live-conc-${ts}`,    title: "CEX Liquidity Concentration",  description: concDesc,   severity: concSeverity,  timestamp: toUtcStr(dashboardUpdatedAt), category: "CONCENTRATION RISK" },
+      { id: `live-depth-${ts}`,   title: "Market Depth Assessment",      description: depthDesc,  severity: depthSeverity, timestamp: toUtcStr(dashboardUpdatedAt), category: "DEPTH MONITORING"   },
+      { id: `live-regime-${ts}`,  title: "Regime & Execution Integrity", description: balDesc,    severity: balSeverity,   timestamp: toUtcStr(l5fUpdatedAt),       category: "REGIME STABILITY"   },
     ];
   })();
 
