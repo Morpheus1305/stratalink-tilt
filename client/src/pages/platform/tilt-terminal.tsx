@@ -402,14 +402,14 @@ export default function TiltTerminal() {
                           <span>Status</span>
                         </div>
                         {agg.venue_slices.slice(0, 6).map((v, i) => {
+                          const ps = v.poli_score ?? 0;
                           const poliColor =
-                            v.poli_score >= 75
+                            ps >= 75
                               ? "var(--tilt-green)"
-                              : v.poli_score >= 50
+                              : ps >= 50
                                 ? "var(--tilt-amber)"
                                 : "var(--tilt-red)";
-                          const statusLabel =
-                            v.poli_score >= 75 ? "GREEN" : v.poli_score >= 50 ? "AMBER" : "RED";
+                          const statusLabel = ps >= 75 ? "GREEN" : ps >= 50 ? "AMBER" : "RED";
                           return (
                             <div
                               key={v.venue_id}
@@ -421,7 +421,7 @@ export default function TiltTerminal() {
                               <span className="tilt-attr-num">{fmtDepth(v.depth_10bps)}</span>
                               <span className="tilt-attr-muted">{v.depth_share_pct.toFixed(1)}%</span>
                               <span className="tilt-attr-poli" style={{ color: poliColor }}>
-                                {v.poli_score.toFixed(0)}
+                                {ps.toFixed(0)}
                               </span>
                               <span className="tilt-attr-num">
                                 {v.spread_bps.toFixed(1)} bps
