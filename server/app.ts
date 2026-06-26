@@ -128,9 +128,28 @@ export default async function runApp(
     });
   });
 
+  // Serve a meta-refresh loading page for non-API routes while Vite warms up.
+  // Once setupComplete = true the handler calls next() and Vite takes over.
+  let setupComplete = false;
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (setupComplete || req.path.startsWith("/api")) return next();
+    res
+      .status(200)
+      .setHeader("Content-Type", "text/html")
+      .end(
+        `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="1"><title>StrataLink Terminal</title>` +
+        `<style>*{margin:0;padding:0}body{background:#0a0a0a;color:#ffd700;font-family:monospace;` +
+        `display:flex;align-items:center;justify-content:center;height:100vh}</style></head>` +
+        `<body><p>Initializing StrataLink Terminal\u2026</p></body></html>`
+      );
+  });
+
   // IMPORTANT: run setup AFTER routes (so SPA catch-all won't eat /api routes)
   await setup(app, server);
 
   // Auto-mount built client if present
   maybeServeClient(app);
+
+  // Allow Vite / static middleware to handle requests from this point on
+  setupComplete = true;
 }
