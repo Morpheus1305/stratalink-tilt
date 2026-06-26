@@ -142,6 +142,47 @@ async function detectAndWriteAlerts(): Promise<void> {
   }
 }
 
+const RELAY_VENUES: { path: string; symbols: string[] }[] = [
+  { path: "/api/bybit/spot/depth",       symbols: ["BTC", "ETH", "SOL"] },
+  { path: "/api/bitget/spot/depth",      symbols: ["BTC", "ETH", "SOL"] },
+  { path: "/api/dydx/perps/depth",       symbols: ["BTC", "ETH", "SOL"] },
+  { path: "/api/hyperliquid/perps/depth",symbols: ["BTC", "ETH", "SOL"] },
+  { path: "/api/gmx/perps/depth",        symbols: ["BTC", "ETH"]        },
+  { path: "/api/deribit/spot/depth",     symbols: ["BTC", "ETH"]        },
+  { path: "/api/uniswap/spot/depth",     symbols: ["BTC", "ETH", "SOL"] },
+];
+
+/**
+ * Actively poll each passive relay endpoint so it fetches from the exchange
+ * and records to tsleBuffer. Fire-and-forget per venue; failures are silenced
+ * so one bad venue doesn't block the ingest cycle.
+ */
+async function ingestRelayVenues(): Promise<void> {
+  const port = process.env.PORT || 5000;
+  const secret = process.env.RELAY_SECRET || "";
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(secret ? { "x-relay-secret": secret } : {}),
+  };
+
+  console.log(`[IngestionManager] Polling ${RELAY_VENUES.length} relay venue groups...`);
+  const calls: Promise<void>[] = [];
+  for (const { path, symbols } of RELAY_VENUES) {
+    for (const sym of symbols) {
+      const url = `http://127.0.0.1:${port}${path}?symbol=${sym}`;
+      calls.push(
+        fetch(url, { headers })
+          .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); })
+          .catch(err =>
+            console.warn(`[IngestionManager] relay ${path}?symbol=${sym}: ${err.message}`)
+          )
+      );
+    }
+  }
+  await Promise.allSettled(calls);
+  console.log(`[IngestionManager] Relay venue poll complete (${calls.length} calls)`);
+}
+
 export async function runFullIngest(): Promise<void> {
   if (isIngesting) {
     console.log("[IngestionManager] Skipping - ingest already in progress");
@@ -161,6 +202,11 @@ export async function runFullIngest(): Promise<void> {
 
     recordDepthSnapshot();
     feedDepthToTsleBuffer();
+
+    // Poll passive relay venues so they fetch+record to tsleBuffer (fire-and-forget)
+    ingestRelayVenues().catch((err) =>
+      console.warn("[IngestionManager] Relay ingest error:", err?.message)
+    );
 
     // Fire-and-forget: evaluate L5F thresholds against active alert rules
     detectAndWriteAlerts().catch((err) =>

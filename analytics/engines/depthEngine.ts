@@ -3,6 +3,7 @@ import { fetchBinanceDepth, type BinanceDepthResult } from "../aggregator/exchan
 import { fetchCoinbaseDepth } from "../aggregator/exchanges/coinbase";
 import { fetchKrakenDepth } from "../aggregator/exchanges/kraken";
 import { fetchOKXDepth } from "../aggregator/exchanges/okx";
+import { tsleBuffer } from "../../server/services/tsle-buffer";
 type DepthSource = "coinbase" | "kraken" | "okx" | "binance";
 type TransportType = "relay" | "direct";
 
@@ -254,8 +255,37 @@ export async function ingestDepth(): Promise<void> {
           depthBands[key] = computeDepth(mid, bids, asks, band);
         }
 
-        const canonSymbol = canonicalizeSymbol(symbol);
+        const sym = symbol.toUpperCase().replace(/-USD.*/, '');
 
+        // Push each CEX venue result directly into the TSLE buffer.
+        // Band key mapping: "10bps"→"pct_0.1", "25bps"→"pct_0.25", etc.
+        // Field mapping:    bidUSD/askUSD/totalUSD → bid_notional/ask_notional/total_notional
+        const bandRemap: Record<string, string> = {
+          "10bps": "pct_0.1",
+          "25bps": "pct_0.25",
+          "50bps": "pct_0.5",
+          "100bps": "pct_1.0",
+          "200bps": "pct_2.0",
+        };
+        const tsleBands: any = {};
+        for (const [oldKey, newKey] of Object.entries(bandRemap)) {
+          const b = depthBands[oldKey];
+          if (b) {
+            tsleBands[newKey] = {
+              bid_notional: b.bidUSD ?? 0,
+              ask_notional: b.askUSD ?? 0,
+              total_notional: b.totalUSD ?? 0,
+            };
+          }
+        }
+        tsleBuffer.record({
+          venue: source,
+          symbol: sym,
+          timestamp: Date.now(),
+          mid_price: mid,
+          spread: { absolute: spread, bps: spreadBps },
+          bands: tsleBands,
+        });
       }
 
       const first = venueDepth[0];
