@@ -397,8 +397,8 @@ export default function Alerts() {
           <div className="tilt-tb-divider" />
           <div className="tilt-tb-item">
             <div className="tilt-tb-label">Warning Cap</div>
-            <div className="tilt-tb-value" style={{ color: "var(--tilt-amber)" }} data-testid="alerts-tb-warn">
-              {alertsData.activeWarningCapacity ?? "—"}
+            <div className="tilt-tb-value" style={{ color: warningCapacityColor }} data-testid="alerts-tb-warn">
+              {warningCapacity}
             </div>
           </div>
           <div className="tilt-tb-divider" />
