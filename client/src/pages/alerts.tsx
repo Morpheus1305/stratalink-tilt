@@ -262,7 +262,7 @@ export default function Alerts() {
       },
       {
         indicator: "Execution Integrity",
-        observedBehavior: `EI ${fmt(l5fAgg.l5f_exec_integrity ?? l5fAgg.l5f_execution_integrity ?? 0)} · Spread \u03c3 ${(l5fAgg.spread_dispersion_bps ?? 0).toFixed(2)}bps`,
+        observedBehavior: `EI ${fmt(l5fAgg.l5f_exec_integrity ?? l5fAgg.l5f_execution_integrity ?? 0)} · Spread Sigma ${(l5fAgg.spread_dispersion_bps ?? 0).toFixed(2)}bps`,
         ras: rasLevel(l5fAgg.l5f_exec_integrity ?? l5fAgg.l5f_execution_integrity ?? 0),
       },
       {
@@ -461,7 +461,7 @@ export default function Alerts() {
                     : "var(--tilt-red)";
                   return (
                     <div className="tilt-tsle-status" style={{ color: l5fAgg ? color : "var(--tilt-sub)" }} data-testid="text-risk-level">
-                      {l5fAgg ? `\u25CF ${label}` : "\u25CF LOADING"}
+                      {l5fAgg ? `● ${label}` : "● LOADING"}
                     </div>
                   );
                 })()}

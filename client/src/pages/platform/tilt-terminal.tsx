@@ -39,7 +39,7 @@ interface TsleAggregate {
 }
 
 function fmtDepth(v: number | null | undefined): string {
-  if (v == null || v === 0) return "\u2014";
+  if (v == null || v === 0) return "—";
   if (v >= 1e9) return "$" + (v / 1e9).toFixed(1) + "b";
   if (v >= 1e6) return "$" + (v / 1e6).toFixed(0) + "m";
   if (v >= 1e3) return "$" + (v / 1e3).toFixed(0) + "k";
@@ -53,11 +53,11 @@ function scoreColor(v: number): string {
 }
 
 function trendChar(prev: number | undefined, curr: number): { sym: string; cls: string } {
-  if (prev == null) return { sym: "\u2192", cls: "flat" };
+  if (prev == null) return { sym: "→", cls: "flat" };
   const d = curr - prev;
-  if (d > 0.5) return { sym: "\u2191", cls: "up" };
-  if (d < -0.5) return { sym: "\u2193", cls: "dn" };
-  return { sym: "\u2192", cls: "flat" };
+  if (d > 0.5) return { sym: "↑", cls: "up" };
+  if (d < -0.5) return { sym: "↓", cls: "dn" };
+  return { sym: "→", cls: "flat" };
 }
 
 export default function TiltTerminal() {
@@ -117,21 +117,21 @@ export default function TiltTerminal() {
 
   const regimeMap = {
     NORMAL: {
-      text: "NORMAL \u2014 STABLE",
+      text: "NORMAL — STABLE",
       color: "var(--tilt-green)",
       bg: "rgba(34,197,94,0.07)",
       border: "rgba(34,197,94,0.2)",
       note: "No pre-stress indicators active",
     },
     ELEVATED: {
-      text: "ELEVATED \u2014 MONITORING",
+      text: "ELEVATED — MONITORING",
       color: "var(--tilt-amber)",
       bg: "rgba(245,158,11,0.07)",
       border: "rgba(245,158,11,0.2)",
-      note: "Liquidity stress indicators active \u2014 monitor closely",
+      note: "Liquidity stress indicators active — monitor closely",
     },
     STRESS: {
-      text: "STRESS \u2014 ALERT",
+      text: "STRESS — ALERT",
       color: "var(--tilt-red)",
       bg: "rgba(239,68,68,0.07)",
       border: "rgba(239,68,68,0.2)",
@@ -142,11 +142,11 @@ export default function TiltTerminal() {
   const rc = agg ? regimeMap[agg.vol_regime] || regimeMap.NORMAL : regimeMap.NORMAL;
 
   const factorRows = [
-    { key: "dq", label: "Depth Quality", weight: "\u00d70.30", barColor: "var(--tilt-accent)" },
-    { key: "r", label: "Resilience", weight: "\u00d70.20", barColor: "var(--tilt-sub)" },
-    { key: "f", label: "Fragmentation", weight: "\u00d70.15", barColor: "var(--tilt-amber)" },
-    { key: "ei", label: "Execution Integrity", weight: "\u00d70.20", barColor: "var(--tilt-green)" },
-    { key: "rs", label: "Regime Stability", weight: "\u00d70.15", barColor: "var(--tilt-sub)" },
+    { key: "dq", label: "Depth Quality", weight: "x0.30", barColor: "var(--tilt-accent)" },
+    { key: "r", label: "Resilience", weight: "x0.20", barColor: "var(--tilt-sub)" },
+    { key: "f", label: "Fragmentation", weight: "x0.15", barColor: "var(--tilt-amber)" },
+    { key: "ei", label: "Execution Integrity", weight: "x0.20", barColor: "var(--tilt-green)" },
+    { key: "rs", label: "Regime Stability", weight: "x0.15", barColor: "var(--tilt-sub)" },
   ];
 
   function tileClass(value: number | null, gThresh: number, aThresh: number): string {
@@ -223,23 +223,23 @@ export default function TiltTerminal() {
 
           <div className="tilt-tb-divider" />
           <div className="tilt-tb-item">
-            <div className="tilt-tb-label">Total Depth \u00b110bps</div>
+            <div className="tilt-tb-label">Total Depth +/-10bps</div>
             <div className="tilt-tb-value tilt-tb-depth" data-testid="tilt-depth">
-              {agg ? fmtDepth(agg.total_depth_10bps) : "\u2014"}
+              {agg ? fmtDepth(agg.total_depth_10bps) : "—"}
             </div>
           </div>
           <div className="tilt-tb-divider" />
           <div className="tilt-tb-item">
             <div className="tilt-tb-label">Venues Live</div>
             <div className="tilt-tb-value" data-testid="tilt-venues">
-              {agg?.venue_count ?? "\u2014"}
+              {agg?.venue_count ?? "—"}
             </div>
           </div>
           <div className="tilt-tb-divider" />
           <div className="tilt-tb-item">
             <div className="tilt-tb-label">Spread Dispersion</div>
             <div className="tilt-tb-value" data-testid="tilt-sdisp">
-              {agg ? agg.spread_dispersion_bps.toFixed(1) + " bps" : "\u2014"}
+              {agg ? agg.spread_dispersion_bps.toFixed(1) + " bps" : "—"}
             </div>
           </div>
           <div className="tilt-tb-divider" />
@@ -257,21 +257,21 @@ export default function TiltTerminal() {
               }`}
               data-testid="tilt-regime"
             >
-              {agg?.vol_regime ?? "\u2014"}
+              {agg?.vol_regime ?? "—"}
             </div>
           </div>
           <div className="tilt-tb-divider" />
           <div className="tilt-tb-item">
             <div className="tilt-tb-label">Regulated</div>
             <div className="tilt-tb-value" style={{ color: "var(--tilt-green)" }} data-testid="tilt-reg">
-              {agg ? Math.round(agg.regulated_depth_share * 100) + "%" : "\u2014"}
+              {agg ? Math.round(agg.regulated_depth_share * 100) + "%" : "—"}
             </div>
           </div>
           <div className="tilt-tb-divider" />
           <div className="tilt-tb-item">
             <div className="tilt-tb-label">Offshore</div>
             <div className="tilt-tb-value" style={{ color: "var(--tilt-amber)" }} data-testid="tilt-off">
-              {agg ? Math.round(agg.offshore_depth_share * 100) + "%" : "\u2014"}
+              {agg ? Math.round(agg.offshore_depth_share * 100) + "%" : "—"}
             </div>
           </div>
           <div className="tilt-header-divider" style={{ marginLeft: 12 }} />
@@ -290,7 +290,7 @@ export default function TiltTerminal() {
                 <div className="tilt-panel-title">Liquidity Health Core</div>
                 {isWarming && (
                   <div className="tilt-warming-note" data-testid="tilt-warming">
-                    Buffer warming \u2014 R &amp; RS values are neutral defaults
+                    Buffer warming — R &amp; RS values are neutral defaults
                   </div>
                 )}
                 <div className="tilt-ph-tag">PANEL 1</div>
@@ -311,25 +311,25 @@ export default function TiltTerminal() {
                     </svg>
                     <div className="tilt-tsle-center">
                       <div className="tilt-tsle-number" data-testid="tilt-l5f-score">
-                        {agg ? score.toFixed(1) : "\u2014"}
+                        {agg ? score.toFixed(1) : "—"}
                       </div>
                       <div className="tilt-tsle-sub">/ 100</div>
                     </div>
                   </div>
                   <div className="tilt-tsle-status" style={{ color: agg ? statusColors[statusLabel] : "var(--tilt-sub)" }}>
-                    {agg ? `\u25CF ${statusLabel}` : "\u25CF LOADING"}
+                    {agg ? `● ${statusLabel}` : "● LOADING"}
                   </div>
                   <div style={{ fontSize: 9, color: "var(--tilt-muted)", letterSpacing: 1, marginBottom: 8 }}>
                     L5F COMPOSITE
                   </div>
                   <div className="tilt-tsle-deltas">
                     <div className="tilt-tsle-delta">
-                      <div className="tilt-d-label">24h \u0394</div>
-                      <div className="tilt-d-val tilt-d-neu">\u2014</div>
+                      <div className="tilt-d-label">24h Change</div>
+                      <div className="tilt-d-val tilt-d-neu">—</div>
                     </div>
                     <div className="tilt-tsle-delta">
-                      <div className="tilt-d-label">7d \u0394</div>
-                      <div className="tilt-d-val tilt-d-neu">\u2014</div>
+                      <div className="tilt-d-label">7d Change</div>
+                      <div className="tilt-d-val tilt-d-neu">—</div>
                     </div>
                   </div>
                 </div>
@@ -344,7 +344,7 @@ export default function TiltTerminal() {
                       <div className="tilt-l5f-row" key={fr.key}>
                         <div className="tilt-l5f-name">{fr.label}</div>
                         <div className="tilt-l5f-score" data-testid={`tilt-l5f-${fr.key}`}>
-                          {val != null ? val.toFixed(1) : "\u2014"}
+                          {val != null ? val.toFixed(1) : "—"}
                         </div>
                         <div className={`tilt-l5f-trend ${t.cls}`}>{t.sym}</div>
                         <div className="tilt-l5f-bar-wrap">
@@ -364,11 +364,11 @@ export default function TiltTerminal() {
                     <div>
                       <div className="tilt-l5f-total-label">L5F COMPOSITE</div>
                       <div style={{ fontSize: 9, color: "var(--tilt-muted)", marginTop: 2 }}>
-                        0.30\u00b7DQ + 0.20\u00b7R + 0.15\u00b7(100\u2212F) + 0.20\u00b7EI + 0.15\u00b7RS
+                        0.30·DQ + 0.20·R + 0.15·(100-F) + 0.20·EI + 0.15·RS
                       </div>
                     </div>
                     <div className="tilt-l5f-total-score" data-testid="tilt-l5f-total">
-                      {agg ? score.toFixed(1) : "\u2014"}
+                      {agg ? score.toFixed(1) : "—"}
                     </div>
                   </div>
                 </div>
@@ -400,7 +400,7 @@ export default function TiltTerminal() {
               {
                 label: "Spread Elasticity",
                 value: agg?.spread_elasticity,
-                fmt: (v: number) => v.toFixed(2) + "\u00d7",
+                fmt: (v: number) => v.toFixed(2) + "x",
                 g: 1.0, a: 1.5,
               },
             ].map((tile, i) => {
@@ -411,7 +411,7 @@ export default function TiltTerminal() {
                   <div>
                     <div className="tilt-rt-label">{tile.label}</div>
                     <div className="tilt-rt-value">
-                      {tile.value != null ? tile.fmt(tile.value) : "\u2014"}
+                      {tile.value != null ? tile.fmt(tile.value) : "—"}
                     </div>
                   </div>
                   <div className={`tilt-rt-dot ${dc}`} />
@@ -423,7 +423,7 @@ export default function TiltTerminal() {
               <div>
                 <div className="tilt-rt-label">Funding Skew (Perps vs Spot)</div>
                 <div className="tilt-rt-value" style={{ color: "var(--tilt-muted)" }}>
-                  \u2014 Phase 2
+                  Phase 2
                 </div>
               </div>
               <div className="tilt-rt-dot" />
@@ -432,7 +432,7 @@ export default function TiltTerminal() {
               <div>
                 <div className="tilt-rt-label">Derivatives Dominance</div>
                 <div className="tilt-rt-value" style={{ color: "var(--tilt-muted)" }}>
-                  \u2014 Phase 2
+                  Phase 2
                 </div>
               </div>
               <div className="tilt-rt-dot" />
@@ -447,7 +447,7 @@ export default function TiltTerminal() {
                 REGIME CLASSIFICATION
               </div>
               <div style={{ fontSize: 14, fontWeight: 700, color: agg ? rc.color : "var(--tilt-sub)" }}>
-                {agg ? rc.text : "LOADING\u2026"}
+                {agg ? rc.text : "LOADING..."}
               </div>
               <div style={{ fontSize: 10, color: "var(--tilt-muted)", marginTop: 2 }}>
                 {agg ? rc.note : "Awaiting first tick"}
@@ -460,7 +460,7 @@ export default function TiltTerminal() {
             <div className="tilt-panel-header">
               <div className="tilt-panel-accent" style={{ background: "var(--tilt-green)" }} />
               <div className="tilt-panel-title">Cross-Venue Depth Map</div>
-              <div style={{ marginLeft: 8, fontSize: 10, color: "var(--tilt-muted)" }}>\u00b1 10bps</div>
+              <div style={{ marginLeft: 8, fontSize: 10, color: "var(--tilt-muted)" }}>+/- 10bps</div>
               <div className="tilt-ph-tag">PANEL 2</div>
             </div>
             <div style={{ overflow: "auto", flex: 1 }}>
@@ -468,7 +468,7 @@ export default function TiltTerminal() {
                 <thead>
                   <tr>
                     <th style={{ width: 160 }}>Venue</th>
-                    <th>\u00b110bps Depth</th>
+                    <th>+/-10bps Depth</th>
                     <th>% of Global</th>
                     <th>Regulated</th>
                     <th>Stability</th>
@@ -479,7 +479,7 @@ export default function TiltTerminal() {
                   {!agg || !agg.venue_slices?.length ? (
                     <tr>
                       <td colSpan={6} style={{ textAlign: "center", color: "var(--tilt-muted)", padding: 20 }}>
-                        Awaiting first tick\u2026
+                        Awaiting first tick...
                       </td>
                     </tr>
                   ) : (
@@ -496,7 +496,7 @@ export default function TiltTerminal() {
                           <td className="tilt-depth-val">{fmtDepth(v.depth_10bps)}</td>
                           <td className="tilt-pct-val">{v.depth_share_pct.toFixed(1)}%</td>
                           <td className={v.is_regulated ? "tilt-reg-yes" : "tilt-reg-no"}>
-                            {v.is_regulated ? "\u2713 YES" : "NO"}
+                            {v.is_regulated ? "YES" : "NO"}
                           </td>
                           <td>
                             <div className="tilt-stab-bar-wrap">
@@ -565,15 +565,15 @@ export default function TiltTerminal() {
                     : "var(--tilt-sub)",
                 }}
               >
-                {agg ? agg.fragmentation_index.toFixed(2) : "\u2014"}
+                {agg ? agg.fragmentation_index.toFixed(2) : "—"}
               </div>
               <div className="tilt-int-sub">
                 {agg
                   ? agg.fragmentation_index < 0.3
-                    ? "Low fragmentation \u2014 depth well concentrated"
+                    ? "Low fragmentation — depth well concentrated"
                     : agg.fragmentation_index < 0.55
-                      ? "Moderate dispersion \u2014 offshore venues fragmenting"
-                      : "High fragmentation \u2014 liquidity widely dispersed"
+                      ? "Moderate dispersion — offshore venues fragmenting"
+                      : "High fragmentation — liquidity widely dispersed"
                   : "Awaiting data"}
               </div>
             </div>
@@ -593,15 +593,15 @@ export default function TiltTerminal() {
                     : "var(--tilt-sub)",
                 }}
               >
-                {agg ? agg.spread_dispersion_bps.toFixed(1) + " bps" : "\u2014"}
+                {agg ? agg.spread_dispersion_bps.toFixed(1) + " bps" : "—"}
               </div>
               <div className="tilt-int-sub">
                 {agg
                   ? agg.spread_dispersion_bps < 2
                     ? "Within acceptable institutional range"
                     : agg.spread_dispersion_bps < 5
-                      ? "Elevated spread dispersion \u2014 review venue fills"
-                      : "High dispersion \u2014 execution quality degraded"
+                      ? "Elevated spread dispersion — review venue fills"
+                      : "High dispersion — execution quality degraded"
                   : "Awaiting data"}
               </div>
             </div>
@@ -609,7 +609,7 @@ export default function TiltTerminal() {
             <div className="tilt-int-tile">
               <div className="tilt-int-label">BASIS DISPERSION (Spot vs Perp)</div>
               <div className="tilt-int-value" style={{ color: "var(--tilt-muted)" }}>
-                \u2014 Phase 2
+                Phase 2
               </div>
               <div className="tilt-int-sub">Perp basis feed not yet in LISSnapshot</div>
             </div>
@@ -625,18 +625,18 @@ export default function TiltTerminal() {
                     color: leader?.is_regulated ? "var(--tilt-green)" : "var(--tilt-text)",
                   }}
                 >
-                  {leader?.venue_id ?? "\u2014"}
+                  {leader?.venue_id ?? "—"}
                 </div>
                 <div className="tilt-int-sub">
                   {leader
                     ? leader.is_regulated
                       ? "Regulated venue leading price discovery"
-                      : "Offshore venue leading \u2014 monitor"
+                      : "Offshore venue leading — monitor"
                     : "Awaiting data"}
                 </div>
               </div>
               <div className="tilt-leader-badge" data-testid="tilt-pl-badge">
-                {leader?.venue_id?.toUpperCase() ?? "\u2014"}
+                {leader?.venue_id?.toUpperCase() ?? "—"}
               </div>
             </div>
           </div>
@@ -649,13 +649,13 @@ export default function TiltTerminal() {
             LIVE DATA
           </div>
           <div className="tilt-sb-item">
-            VENUES: <span data-testid="tilt-sb-venues">{agg?.venue_count ?? "\u2014"} ACTIVE</span>
+            VENUES: <span data-testid="tilt-sb-venues">{agg?.venue_count ?? "—"} ACTIVE</span>
           </div>
           <div className="tilt-sb-item">
             FEEDS: <span>17 TSLE</span>
           </div>
           <div className="tilt-sb-item">
-            LATENCY: <span data-testid="tilt-sb-lat">{latency != null ? latency + "ms" : "\u2014"}</span>
+            LATENCY: <span data-testid="tilt-sb-lat">{latency != null ? latency + "ms" : "—"}</span>
           </div>
           <div className="tilt-sb-item">
             DEPTH RECORDS: <span data-testid="tilt-sb-recs">{totalRecords}</span>

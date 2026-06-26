@@ -1,0 +1,68 @@
+# Fix Unicode Escape Sequences Across All Pages
+
+## The Problem
+
+Throughout the TILT platform, Unicode escape sequences are rendering as literal text instead of displaying their intended characters. For example, `\u2014` appears on screen as the literal string "\u2014" instead of rendering as an em dash. This affects readability across all three pages (TILT, RCL, ALERTS).
+
+## What To Do
+
+Search the entire `client/src/` directory for every occurrence of `\u` followed by a four-digit hex code (the pattern `\uXXXX`). For each one, replace it with either the actual character or a plain English alternative that reads naturally on screen.
+
+Here are the most common Unicode escapes likely present and what to replace them with:
+
+| Unicode Escape | Character | Replace With |
+|---------------|-----------|--------------|
+| `\u2014` | — (em dash) | ` - ` (space-hyphen-space) or remove entirely depending on context |
+| `\u2013` | – (en dash) | `-` (hyphen) or `to` depending on context (e.g., "6-8" or "6 to 8") |
+| `\u00b1` | ± (plus-minus) | `+/-` |
+| `\u0394` | Δ (delta) | `Change` or `24h` or remove if redundant with a label |
+| `\u00b7` | · (middle dot) | ` - ` or ` | ` (pipe separator) |
+| `\u2022` | • (bullet) | `-` or remove |
+| `\u00d7` | × (multiplication) | `x` |
+| `\u2264` | ≤ (less than or equal) | `<=` |
+| `\u2265` | ≥ (greater than or equal) | `>=` |
+| `\u221e` | ∞ (infinity) | `Unlimited` or `N/A` |
+| `\u2191` | ↑ (up arrow) | `+` or `Up` |
+| `\u2193` | ↓ (down arrow) | `-` or `Down` |
+| `\u2026` | … (ellipsis) | `...` |
+| `\u00b0` | ° (degree) | remove or use context-appropriate label |
+| `\u03B1` | α (alpha) | `Alpha` |
+| `\u03B2` | β (beta) | `Beta` |
+| `\u03C3` | σ (sigma) | `Sigma` or `Std Dev` |
+| `\u0394` | Δ (delta) | `Delta` or `Change` |
+
+## How To Do It
+
+1. Run a global search across all `.tsx` and `.ts` files in `client/src/` for the regex pattern `\\u[0-9a-fA-F]{4}`.
+2. For each match, check the surrounding context to decide the best plain English replacement.
+3. If the escape appears inside a template literal or JSX string, replace it inline.
+4. If the escape appears in a constant or variable definition, replace it at the definition site so all usages are fixed at once.
+5. Also check `shared/` directory files, as some display strings may be defined there and consumed by the client.
+
+## Context-Specific Replacements
+
+Some replacements depend on where they appear. Use these guidelines:
+
+- **In labels like "Phase \u2014 2"**: Replace with "Phase 2" (remove the dash entirely, it adds nothing).
+- **In separators like "STRATALINK \u00b7 TILT"**: Replace with "STRATALINK - TILT" or "STRATALINK | TILT".
+- **In ranges like "6\u20138 hours"**: Replace with "6-8 hours".
+- **In trend indicators like "\u0394 +2.3%"**: Replace with "+2.3%" (the delta symbol is redundant when the plus sign already indicates direction).
+- **In factor labels like "\u00d70.30"**: Replace with "x0.30" (multiplication weight).
+- **In status text like "Awaiting first tick\u2026"**: Replace with "Awaiting first tick...".
+- **In placeholders like "\u2014 Phase 2"**: Replace with "Phase 2" or "Coming soon" or remove entirely if the dash was serving as a placeholder for missing data. If the value should show a dash when data is not yet available, use a regular hyphen: `-`.
+
+## Verification
+
+After all replacements:
+
+1. Build the project and confirm no errors.
+2. Navigate to TILT, RCL, and ALERTS.
+3. Visually scan every piece of text on each page. No `\u` sequences should appear anywhere on screen.
+4. Confirm that all replaced text reads naturally in English and makes sense in context.
+5. Check the browser console for any rendering warnings related to special characters.
+
+## What NOT to Change
+
+- Do not change any data values, API responses, or computation logic.
+- Do not change Unicode characters that are rendering correctly (e.g., if a middle dot is actually displaying as a dot and not as "\u00b7", leave it alone).
+- Only fix escapes that are appearing as literal text on screen.
