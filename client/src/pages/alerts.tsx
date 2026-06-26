@@ -6,12 +6,9 @@ import { LiquidityScoreGauge } from "@/components/liquidity-score-gauge";
 import { StressSignalsPanel } from "@/components/stress-signals-panel";
 import { BottomTicker } from "@/components/bottom-ticker";
 import { DateTimeBar } from "@/components/date-time-bar";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Clock, Download, Filter } from "lucide-react";
 import { TokenSelector } from "@/components/token-selector";
 import { useToken } from "@/contexts/TokenContext";
+import { Download, Filter } from "lucide-react";
 import {
   AreaChart,
   Area,
@@ -21,27 +18,111 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import "./platform/tilt-terminal.css";
 
+/* ─── helpers ─────────────────────────────────────────────────────────────── */
+function PanelHeader({ title, tag }: { title: string; tag?: string }) {
+  return (
+    <div className="tilt-panel-header">
+      <div className="tilt-panel-accent" />
+      <div className="tilt-panel-title">{title}</div>
+      {tag && <div className="tilt-ph-tag" style={{ marginLeft: "auto" }}>{tag}</div>}
+    </div>
+  );
+}
+
+function SbDivider() {
+  return <div style={{ width: 1, background: "var(--tilt-border)", alignSelf: "stretch", margin: "0 2px" }} />;
+}
+
+function RasDot({ ras }: { ras: string }) {
+  const color = ras === "high" ? "var(--tilt-red)" : ras === "medium" ? "var(--tilt-amber)" : "var(--tilt-green)";
+  return (
+    <div style={{
+      width: 8, height: 8, borderRadius: "50%", background: color,
+      boxShadow: `0 0 4px ${color}`, flexShrink: 0,
+    }} />
+  );
+}
+
+function SeverityBadge({ severity }: { severity: string }) {
+  let color = "var(--tilt-sub)";
+  let bg = "rgba(123,142,163,0.08)";
+  let border = "rgba(123,142,163,0.18)";
+  if (severity === "CRITICAL" || severity === "HIGH") {
+    color = "var(--tilt-red)"; bg = "rgba(255,82,82,0.08)"; border = "rgba(255,82,82,0.20)";
+  } else if (severity === "WARNING") {
+    color = "var(--tilt-amber)"; bg = "rgba(255,179,0,0.08)"; border = "rgba(255,179,0,0.20)";
+  } else if (severity === "INFO") {
+    color = "var(--tilt-accent)"; bg = "rgba(0,191,165,0.08)"; border = "rgba(0,191,165,0.18)";
+  }
+  return (
+    <span style={{
+      fontFamily: "var(--tilt-mono)", fontSize: 9, fontWeight: 700, letterSpacing: "0.08em",
+      padding: "2px 6px", borderRadius: 2, color, background: bg, border: `1px solid ${border}`,
+      textTransform: "uppercase",
+    }}>
+      {severity}
+    </span>
+  );
+}
+
+function StatusText({ status }: { status: string }) {
+  const color = status === "New" ? "var(--tilt-accent)"
+    : status === "Acknowledged" ? "var(--tilt-green)"
+    : "var(--tilt-sub)";
+  return (
+    <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 10, color, letterSpacing: "0.06em" }}>
+      {status.toUpperCase()}
+    </span>
+  );
+}
+
+/* ─── TABLE HEADER CELL ───────────────────────────────────────────────────── */
+const TH_STYLE: React.CSSProperties = {
+  fontFamily: "var(--tilt-mono)",
+  fontSize: 9,
+  fontWeight: 700,
+  letterSpacing: "0.10em",
+  textTransform: "uppercase",
+  color: "var(--tilt-muted)",
+  padding: "6px 10px",
+  textAlign: "left",
+  borderBottom: "1px solid var(--tilt-border)",
+  background: "var(--tilt-header)",
+  whiteSpace: "nowrap",
+};
+
+const TD_STYLE: React.CSSProperties = {
+  fontFamily: "var(--tilt-mono)",
+  fontSize: 11,
+  color: "var(--tilt-text)",
+  padding: "7px 10px",
+  borderBottom: "1px solid rgba(26,36,53,0.6)",
+  verticalAlign: "middle",
+};
+
+/* ─── MAIN COMPONENT ──────────────────────────────────────────────────────── */
 export default function Alerts() {
   const { selectedToken, setSelectedToken } = useToken();
-  const asset = selectedToken || 'BTC';
+  const asset = selectedToken || "BTC";
 
   const { data: dashboardData, isLoading: dashboardLoading } = useQuery<DashboardData>({
-    queryKey: ['/api/dashboard', asset],
+    queryKey: ["/api/dashboard", asset],
     queryFn: async () => {
-      const response = await fetch(`/api/dashboard?asset=${asset}`);
-      if (!response.ok) throw new Error('Failed to fetch dashboard data');
-      return response.json();
+      const r = await fetch(`/api/dashboard?asset=${asset}`);
+      if (!r.ok) throw new Error("Failed to fetch dashboard data");
+      return r.json();
     },
     refetchInterval: 10000,
   });
 
   const { data: alertsData, isLoading: alertsLoading } = useQuery<AlertsData>({
-    queryKey: ['/api/alerts', asset],
+    queryKey: ["/api/alerts", asset],
     queryFn: async () => {
-      const response = await fetch(`/api/alerts?asset=${asset}`);
-      if (!response.ok) throw new Error('Failed to fetch alerts data');
-      return response.json();
+      const r = await fetch(`/api/alerts?asset=${asset}`);
+      if (!r.ok) throw new Error("Failed to fetch alerts data");
+      return r.json();
     },
     refetchInterval: 15000,
   });
@@ -50,278 +131,372 @@ export default function Alerts() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-muted-foreground text-sm font-mono">LOADING ALERTS...</div>
+      <div style={{ minHeight: "100vh", background: "#0B1019", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ fontFamily: "var(--tilt-mono, monospace)", fontSize: 11, color: "#4A5B6E", letterSpacing: "0.10em" }}>
+          LOADING ALERTS...
+        </div>
       </div>
     );
   }
 
   if (!dashboardData || !alertsData) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-destructive text-sm font-mono">ERROR: FAILED TO LOAD DATA</div>
+      <div style={{ minHeight: "100vh", background: "#0B1019", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ fontFamily: "var(--tilt-mono, monospace)", fontSize: 11, color: "#FF5252", letterSpacing: "0.10em" }}>
+          ERROR: FAILED TO LOAD DATA
+        </div>
       </div>
     );
   }
 
-  const getRasColor = (ras: string) => {
-    if (ras === 'high') return 'bg-destructive';
-    if (ras === 'medium') return 'bg-yellow-500';
-    return 'bg-green-500';
-  };
-
-  const getSeverityVariant = (severity: string) => {
-    if (severity === 'CRITICAL') return 'destructive';
-    if (severity === 'HIGH') return 'destructive';
-    if (severity === 'WARNING') return 'secondary';
-    return 'outline';
-  };
-
-  const getStatusColor = (status: string) => {
-    if (status === 'New') return 'text-blue-500';
-    if (status === 'Acknowledged') return 'text-green-500';
-    return 'text-muted-foreground';
-  };
+  const totalWarnings = alertsData.alertLog?.filter(l => l.severity === "WARNING" || l.severity === "CRITICAL" || l.severity === "HIGH").length ?? 0;
+  const critCount = alertsData.criticalAssets?.count ?? 0;
+  const critTotal = alertsData.criticalAssets?.total ?? 0;
 
   return (
-    <div className="min-h-screen bg-background flex flex-col pb-[72px]">
+    <div className="tilt-terminal" data-testid="alerts-page" style={{ minHeight: "100vh" }}>
       <DashboardHeader />
       <PlatformTabs />
 
-      {/* Asset Selector & Status Bar */}
-      <div className="border-b border-border px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-muted-foreground">TOKEN:</span>
-          <TokenSelector selectedToken={selectedToken} onChange={setSelectedToken} />
+      <div className="tilt-root" style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+
+        {/* ── INNER HEADER BAR ─────────────────────────────────────────────── */}
+        <div className="tilt-header" data-testid="alerts-header">
+          <div className="tilt-logo">STRATA<span>LINK</span></div>
+          <div className="tilt-header-divider" />
+          <div style={{ fontSize: 10, color: "var(--tilt-sub)", letterSpacing: 1 }}>
+            ALERTS &amp; STRESS MONITOR
+          </div>
+          <div className="tilt-header-divider" />
+          <div style={{ fontSize: 10, color: "var(--tilt-muted)" }}>ALERT v1.0</div>
+          <div style={{ marginLeft: "auto", display: "flex", gap: 16, alignItems: "center" }}>
+            <div style={{ fontSize: 10, color: "var(--tilt-muted)" }}>
+              {alertsData.alertLog?.length ?? 0} EVENTS &middot; {totalWarnings} ACTIVE
+            </div>
+            <div className="tilt-sb-live">
+              <div className="tilt-sb-dot tilt-pulse" />
+              LIVE
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-2" data-testid="indicator-live-status">
-          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" data-testid="dot-live-indicator" />
-          <span className="text-xs font-mono text-green-500" data-testid="text-live-status">LIVE</span>
+
+        {/* ── TOPBAR: token selector + metrics ────────────────────────────── */}
+        <div className="tilt-topbar" data-testid="alerts-topbar">
+          {/* Token tabs */}
+          <div className="tilt-asset-tabs">
+            {["BTC", "ETH", "SOL"].map((s) => (
+              <div
+                key={s}
+                className={`tilt-asset-tab ${asset === s ? "active" : ""}`}
+                onClick={() => setSelectedToken(s)}
+                data-testid={`alerts-asset-${s}`}
+              >
+                {s}
+              </div>
+            ))}
+          </div>
+
+          <div className="tilt-tb-divider" />
+          <div className="tilt-tb-item">
+            <div className="tilt-tb-label">Market Depth</div>
+            <div className="tilt-tb-value tilt-tb-depth" data-testid="alerts-tb-depth">
+              {dashboardData.liveMetrics.find((m) => m.label === "MARKET DEPTH")?.value ?? "—"}
+            </div>
+          </div>
+          <div className="tilt-tb-divider" />
+          <div className="tilt-tb-item">
+            <div className="tilt-tb-label">Volatility 24H</div>
+            <div className="tilt-tb-value" data-testid="alerts-tb-vol">
+              {dashboardData.liveMetrics.find((m) => m.label === "VOLATILITY 24H")?.value ?? "—"}
+            </div>
+          </div>
+          <div className="tilt-tb-divider" />
+          <div className="tilt-tb-item">
+            <div className="tilt-tb-label">Bid-Ask Spread</div>
+            <div className="tilt-tb-value" data-testid="alerts-tb-spread">
+              {dashboardData.liveMetrics.find((m) => m.label === "BID-ASK SPREAD")?.value ?? "—"}
+            </div>
+          </div>
+          <div className="tilt-tb-divider" />
+          <div className="tilt-tb-item">
+            <div className="tilt-tb-label">Warning Cap</div>
+            <div className="tilt-tb-value" style={{ color: "var(--tilt-amber)" }} data-testid="alerts-tb-warn">
+              {alertsData.activeWarningCapacity ?? "—"}
+            </div>
+          </div>
+          <div className="tilt-tb-divider" />
+          <div className="tilt-tb-item">
+            <div className="tilt-tb-label">Critical Assets</div>
+            <div className="tilt-tb-value" style={{ color: "var(--tilt-red)" }} data-testid="alerts-tb-crit">
+              {critCount}/{critTotal}
+            </div>
+          </div>
+
+          <div className="tilt-tb-timestamp">
+            LAST SYNC <span style={{ marginLeft: 6 }}>{new Date().toISOString().slice(11, 19)} UTC</span>
+          </div>
         </div>
+
+        {/* ── PANEL ROW 1: Liquidity Intelligence + Stress Signals ─────────── */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, background: "var(--tilt-border)" }}>
+          {/* Panel 1 — Liquidity Intelligence */}
+          <div className="tilt-panel" data-testid="panel-liquidity-intelligence">
+            <PanelHeader title="Liquidity Intelligence" tag="PANEL 1" />
+            <LiquidityScoreGauge scoreData={dashboardData.liquidityScore} />
+          </div>
+
+          {/* Panel 2 — Stress Signal Detection */}
+          <div className="tilt-panel" data-testid="panel-stress-signals">
+            <PanelHeader title="Stress Signal Detection" tag="PANEL 2" />
+            <StressSignalsPanel signals={dashboardData.stressSignals} />
+          </div>
+        </div>
+
+        {/* ── PANEL ROW 2: Alert Timeline + Capacity stats ─────────────────── */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 1, background: "var(--tilt-border)", marginTop: 1 }}>
+          {/* Panel 3 — Alert Timeline Chart */}
+          <div className="tilt-panel" data-testid="panel-alert-timeline">
+            <PanelHeader title={`Alert Timeline — ${asset}`} tag="PANEL 3" />
+            <ResponsiveContainer width="100%" height={180}>
+              <AreaChart data={alertsData.alertTimeline}>
+                <CartesianGrid strokeDasharray="2 4" stroke="#1A2435" opacity={0.8} />
+                <XAxis
+                  dataKey="time"
+                  stroke="#1A2435"
+                  tick={{ fill: "#4A5B6E", fontSize: 9, fontFamily: "var(--tilt-mono, monospace)" }}
+                  interval={9}
+                />
+                <YAxis
+                  stroke="#1A2435"
+                  tick={{ fill: "#4A5B6E", fontSize: 9, fontFamily: "var(--tilt-mono, monospace)" }}
+                  width={24}
+                />
+                <Tooltip
+                  contentStyle={{
+                    background: "#0F151F",
+                    border: "1px solid #1A2435",
+                    borderRadius: 2,
+                    fontFamily: "var(--tilt-mono, monospace)",
+                    fontSize: 10,
+                  }}
+                  labelStyle={{ color: "#7B8EA3" }}
+                  itemStyle={{ color: "#D8DEE8" }}
+                />
+                <Area type="monotone" dataKey="critical" stackId="1" stroke="#FF5252" fill="#FF5252" fillOpacity={0.5} />
+                <Area type="monotone" dataKey="warning"  stackId="1" stroke="#FFB300" fill="#FFB300" fillOpacity={0.5} />
+                <Area type="monotone" dataKey="info"     stackId="1" stroke="#00BFA5" fill="#00BFA5" fillOpacity={0.4} />
+              </AreaChart>
+            </ResponsiveContainer>
+            <div style={{ display: "flex", gap: 16, marginTop: 8 }}>
+              {[
+                { color: "#FF5252", label: "CRITICAL" },
+                { color: "#FFB300", label: "WARNING" },
+                { color: "#00BFA5", label: "INFO" },
+              ].map(({ color, label }) => (
+                <div key={label} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <div style={{ width: 8, height: 2, background: color, borderRadius: 1 }} />
+                  <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: "var(--tilt-muted)", letterSpacing: "0.08em" }}>{label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Panel 4 — Warning Capacity + Critical Assets */}
+          <div className="tilt-panel" data-testid="panel-capacity">
+            <PanelHeader title="Capacity &amp; Risk" tag="PANEL 4" />
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {/* Warning Capacity tile */}
+              <div style={{
+                background: "rgba(255,179,0,0.05)",
+                border: "1px solid rgba(255,179,0,0.15)",
+                borderRadius: 2,
+                padding: "10px 12px",
+              }} data-testid="card-warning-capacity">
+                <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: "var(--tilt-muted)", letterSpacing: "0.10em", marginBottom: 6, textTransform: "uppercase" }}>
+                  Active Warning Capacity
+                </div>
+                <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 28, fontWeight: 700, color: "var(--tilt-amber)", lineHeight: 1 }} data-testid="text-warning-capacity">
+                  {alertsData.activeWarningCapacity}
+                </div>
+                <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: "var(--tilt-muted)", marginTop: 4, letterSpacing: "0.06em" }}>
+                  SEVERE SESSION BEFORE COLLAPSE
+                </div>
+              </div>
+
+              {/* Critical Assets tile */}
+              <div style={{
+                background: "rgba(255,82,82,0.05)",
+                border: "1px solid rgba(255,82,82,0.15)",
+                borderRadius: 2,
+                padding: "10px 12px",
+              }} data-testid="card-critical-assets">
+                <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: "var(--tilt-muted)", letterSpacing: "0.10em", marginBottom: 6, textTransform: "uppercase" }}>
+                  Critical Assets
+                </div>
+                <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 28, fontWeight: 700, color: "var(--tilt-red)", lineHeight: 1 }} data-testid="text-critical-assets-count">
+                  {critCount} <span style={{ fontSize: 14, color: "var(--tilt-sub)", fontWeight: 400 }}>/ {critTotal}</span>
+                </div>
+                <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: "var(--tilt-muted)", marginTop: 4, letterSpacing: "0.06em" }}>
+                  CRITICAL LIQUIDITY
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── PANEL ROW 3: Real-Time Risk Indicators ────────────────────────── */}
+        <div style={{ background: "var(--tilt-panel)", marginTop: 1, borderTop: "1px solid var(--tilt-border)" }}>
+          <div style={{ padding: "10px 14px" }}>
+            <div className="tilt-panel-header" style={{ marginBottom: 0 }}>
+              <div className="tilt-panel-accent" />
+              <div className="tilt-panel-title">Real-Time Risk Indicators</div>
+              <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+                <button
+                  data-testid="button-filter-alerts"
+                  style={{
+                    fontFamily: "var(--tilt-mono)", fontSize: 9, fontWeight: 700, letterSpacing: "0.08em",
+                    padding: "3px 10px", borderRadius: 2, cursor: "pointer",
+                    background: "rgba(255,82,82,0.08)", color: "var(--tilt-red)",
+                    border: "1px solid rgba(255,82,82,0.20)", display: "flex", alignItems: "center", gap: 4,
+                  }}
+                >
+                  <Filter style={{ width: 10, height: 10 }} />
+                  CRITICAL
+                </button>
+                <button
+                  data-testid="button-export-alerts"
+                  style={{
+                    fontFamily: "var(--tilt-mono)", fontSize: 9, fontWeight: 700, letterSpacing: "0.08em",
+                    padding: "3px 10px", borderRadius: 2, cursor: "pointer",
+                    background: "rgba(0,191,165,0.08)", color: "var(--tilt-accent)",
+                    border: "1px solid rgba(0,191,165,0.18)", display: "flex", alignItems: "center", gap: 4,
+                  }}
+                >
+                  <Download style={{ width: 10, height: 10 }} />
+                  EXPORT
+                </button>
+              </div>
+            </div>
+            <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: "var(--tilt-muted)", letterSpacing: "0.06em", marginTop: 4, marginBottom: 8 }}>
+              Timeline of abnormal market events, changing liquidity profile and risk
+            </div>
+          </div>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }} data-testid="table-risk-indicators">
+              <thead>
+                <tr>
+                  <th style={TH_STYLE}>INDICATOR</th>
+                  <th style={TH_STYLE}>OBSERVED BEHAVIOR</th>
+                  <th style={{ ...TH_STYLE, textAlign: "center" }}>RAS</th>
+                </tr>
+              </thead>
+              <tbody>
+                {alertsData.riskIndicators.map((indicator, index) => (
+                  <tr
+                    key={index}
+                    data-testid={`row-indicator-${index}`}
+                    style={{ background: index % 2 === 1 ? "var(--tilt-panel2)" : "var(--tilt-panel)" }}
+                  >
+                    <td style={{ ...TD_STYLE, color: "var(--tilt-text)", fontWeight: 500 }}
+                      data-testid={`text-indicator-name-${index}`}>
+                      {indicator.indicator}
+                    </td>
+                    <td style={{ ...TD_STYLE, color: "var(--tilt-sub)" }}
+                      data-testid={`text-indicator-behavior-${index}`}>
+                      {indicator.observedBehavior}
+                    </td>
+                    <td style={{ ...TD_STYLE, textAlign: "center" }}>
+                      <div style={{ display: "flex", justifyContent: "center" }}>
+                        <RasDot ras={indicator.ras} data-testid={`dot-ras-${index}`} />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* ── PANEL ROW 4: Alert Log ────────────────────────────────────────── */}
+        <div style={{ background: "var(--tilt-panel)", marginTop: 1, borderTop: "1px solid var(--tilt-border)" }}>
+          <div style={{ padding: "10px 14px" }}>
+            <div className="tilt-panel-header" style={{ marginBottom: 0 }}>
+              <div className="tilt-panel-accent" />
+              <div className="tilt-panel-title">Alert Log</div>
+              <span style={{ marginLeft: 8, fontFamily: "var(--tilt-mono)", fontSize: 9, color: "var(--tilt-muted)", letterSpacing: "0.06em" }}>
+                UTC TIMES
+              </span>
+            </div>
+          </div>
+          <div style={{ overflowX: "auto", paddingBottom: 4 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }} data-testid="table-alert-log">
+              <thead>
+                <tr>
+                  <th style={TH_STYLE}>TIME (UTC)</th>
+                  <th style={TH_STYLE}>ALERT TYPE</th>
+                  <th style={{ ...TH_STYLE, textAlign: "center" }}>SEVERITY</th>
+                  <th style={TH_STYLE}>DESCRIPTION</th>
+                  <th style={{ ...TH_STYLE, textAlign: "center" }}>STATUS</th>
+                </tr>
+              </thead>
+              <tbody>
+                {alertsData.alertLog.map((log, idx) => (
+                  <tr
+                    key={log.id}
+                    data-testid={`row-alert-${log.id}`}
+                    style={{ background: idx % 2 === 1 ? "var(--tilt-panel2)" : "var(--tilt-panel)" }}
+                  >
+                    <td style={{ ...TD_STYLE, color: "var(--tilt-sub)", whiteSpace: "nowrap" }}
+                      data-testid={`text-alert-time-${log.id}`}>
+                      {log.timeUTC}
+                    </td>
+                    <td style={{ ...TD_STYLE, color: "var(--tilt-text)", fontWeight: 500 }}
+                      data-testid={`text-alert-type-${log.id}`}>
+                      {log.alertType}
+                    </td>
+                    <td style={{ ...TD_STYLE, textAlign: "center" }}>
+                      <SeverityBadge severity={log.severity} data-testid={`badge-severity-${log.id}`} />
+                    </td>
+                    <td style={{ ...TD_STYLE, color: "var(--tilt-sub)", fontSize: 10 }}
+                      data-testid={`text-alert-desc-${log.id}`}>
+                      {log.description}
+                    </td>
+                    <td style={{ ...TD_STYLE, textAlign: "center" }}>
+                      <StatusText status={log.status} data-testid={`text-alert-status-${log.id}`} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* ── STATUS BAR ───────────────────────────────────────────────────── */}
+        <div className="tilt-statusbar" data-testid="alerts-statusbar">
+          <div className="tilt-sb-live">
+            <div className="tilt-sb-dot tilt-pulse" />
+            LIVE DATA
+          </div>
+          <div className="tilt-sb-item">
+            ASSET: <span data-testid="alerts-sb-asset">{asset}</span>
+          </div>
+          <div className="tilt-sb-item">
+            ACTIVE WARNINGS: <span data-testid="alerts-sb-warnings" style={{ color: "var(--tilt-amber)" }}>{totalWarnings}</span>
+          </div>
+          <div className="tilt-sb-item">
+            CRITICAL: <span data-testid="alerts-sb-critical" style={{ color: "var(--tilt-red)" }}>{critCount}/{critTotal}</span>
+          </div>
+          <div className="tilt-sb-item">
+            LOG ENTRIES: <span data-testid="alerts-sb-entries">{alertsData.alertLog?.length ?? 0}</span>
+          </div>
+          <div style={{ marginLeft: "auto" }} className="tilt-sb-item">
+            STRATALINK ALERTS &middot; PHASE 1 INSTITUTIONAL PREVIEW &middot; <span>CONFIDENTIAL</span>
+          </div>
+        </div>
+
       </div>
 
-      <div className="flex-1 p-4 space-y-4">
-        {/* Top Row: Liquidity Intelligence + Stress Signals */}
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <h2 className="text-xs font-semibold text-muted-foreground mb-3 tracking-wide">LIQUIDITY INTELLIGENCE</h2>
-              <LiquidityScoreGauge scoreData={dashboardData.liquidityScore} />
-            </div>
-            <div>
-              <h2 className="text-xs font-semibold text-muted-foreground mb-3 tracking-wide">STRESS SIGNAL DETECTION</h2>
-              <StressSignalsPanel signals={dashboardData.stressSignals} />
-            </div>
-          </div>
-
-          {/* Key Metrics Strip */}
-          <div className="grid grid-cols-3 gap-4">
-            <Card className="p-3" data-testid="card-market-depth">
-              <div className="text-xs text-muted-foreground mb-1">MARKET DEPTH</div>
-              <div className="text-2xl font-mono font-bold text-foreground" data-testid="text-market-depth-value">
-                {dashboardData.liveMetrics.find((m) => m.label === "MARKET DEPTH")?.value}
-              </div>
-            </Card>
-            <Card className="p-3" data-testid="card-volatility">
-              <div className="text-xs text-muted-foreground mb-1">VOLATILITY</div>
-              <div className="text-2xl font-mono font-bold text-foreground" data-testid="text-volatility-value">
-                {dashboardData.liveMetrics.find((m) => m.label === "VOLATILITY 24H")?.value}
-              </div>
-            </Card>
-            <Card className="p-3" data-testid="card-bid-ask-spread">
-              <div className="text-xs text-muted-foreground mb-1">BID-ASK SPREAD</div>
-              <div className="text-2xl font-mono font-bold text-foreground" data-testid="text-spread-value">
-                {dashboardData.liveMetrics.find((m) => m.label === "BID-ASK SPREAD")?.value}
-              </div>
-            </Card>
-          </div>
-        </div>
-
-        {/* Alerts Section */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">{asset} - ALERTS & STRESS SIGNALS</h2>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" data-testid="button-filter-alerts">
-                <Filter className="w-4 h-4 mr-2" />
-                CRITICAL
-              </Button>
-              <Button variant="outline" size="sm" data-testid="button-export-alerts">
-                <Download className="w-4 h-4 mr-2" />
-                EXPORT
-              </Button>
-            </div>
-          </div>
-
-          <div className="text-xs text-muted-foreground">
-            Timeline of abnormal market events, changing liquidity profile and risk
-          </div>
-
-          {/* Real-time Risk Indicators */}
-          <Card className="p-0">
-            <CardHeader className="border-b border-border p-4">
-              <CardTitle className="text-sm font-semibold" data-testid="text-risk-indicators-title">
-                REAL-TIME RISK INDICATORS - NOVEMBER 21, 2025
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full" data-testid="table-risk-indicators">
-                  <thead>
-                    <tr className="border-b border-border bg-muted/30">
-                      <th className="text-left p-3 text-xs font-semibold text-muted-foreground">INDICATOR</th>
-                      <th className="text-left p-3 text-xs font-semibold text-muted-foreground">OBSERVED BEHAVIOR</th>
-                      <th className="text-center p-3 text-xs font-semibold text-muted-foreground">RAS</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {alertsData.riskIndicators.map((indicator, index) => (
-                      <tr key={index} className="border-b border-border hover-elevate" data-testid={`row-indicator-${index}`}>
-                        <td className="p-3">
-                          <span className="text-sm" data-testid={`text-indicator-name-${index}`}>{indicator.indicator}</span>
-                        </td>
-                        <td className="p-3">
-                          <span className="text-sm font-mono" data-testid={`text-indicator-behavior-${index}`}>{indicator.observedBehavior}</span>
-                        </td>
-                        <td className="p-3 flex justify-center">
-                          <div className={`w-3 h-3 rounded-full ${getRasColor(indicator.ras)}`} data-testid={`dot-ras-${index}`} />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Warning Capacity & Critical Assets */}
-          <div className="grid grid-cols-2 gap-4">
-            <Card className="p-4 border-yellow-500/30 bg-yellow-500/5" data-testid="card-warning-capacity">
-              <div className="text-xs text-muted-foreground mb-2">ACTIVE WARNING CAPACITY</div>
-              <div className="text-3xl font-mono font-bold text-yellow-500" data-testid="text-warning-capacity">
-                {alertsData.activeWarningCapacity}
-              </div>
-              <div className="text-xs text-muted-foreground mt-2">SEVERE SESSION BEFORE COLLAPSE</div>
-            </Card>
-            <Card className="p-4 border-destructive/30 bg-destructive/5" data-testid="card-critical-assets">
-              <div className="text-xs text-muted-foreground mb-2">CRITICAL ASSETS</div>
-              <div className="text-3xl font-mono font-bold text-destructive" data-testid="text-critical-assets-count">
-                {alertsData.criticalAssets.count} <span className="text-lg text-muted-foreground">/ {alertsData.criticalAssets.total}</span>
-              </div>
-              <div className="text-xs text-muted-foreground mt-2">CRITICAL LIQUIDITY</div>
-            </Card>
-          </div>
-
-          {/* Alert Timeline Chart */}
-          <Card className="p-4" data-testid="card-alert-timeline">
-            <CardHeader className="p-0 pb-3">
-              <CardTitle className="text-sm font-semibold" data-testid="text-timeline-title">ALERT TIMELINE - {asset}</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <ResponsiveContainer width="100%" height={250}>
-                <AreaChart data={alertsData.alertTimeline}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#333" opacity={0.3} />
-                  <XAxis 
-                    dataKey="time" 
-                    stroke="#888"
-                    tick={{ fill: '#888', fontSize: 10, fontFamily: 'monospace' }}
-                    interval={9}
-                  />
-                  <YAxis 
-                    stroke="#888"
-                    tick={{ fill: '#888', fontSize: 12, fontFamily: 'monospace' }}
-                  />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: '#1a1a1a', 
-                      border: '1px solid #333',
-                      borderRadius: '4px',
-                      fontFamily: 'monospace',
-                    }}
-                  />
-                  <Area 
-                    type="monotone" 
-                    dataKey="critical" 
-                    stackId="1"
-                    stroke="#ef4444" 
-                    fill="#ef4444" 
-                    fillOpacity={0.6}
-                  />
-                  <Area 
-                    type="monotone" 
-                    dataKey="warning" 
-                    stackId="1"
-                    stroke="#eab308" 
-                    fill="#eab308" 
-                    fillOpacity={0.6}
-                  />
-                  <Area 
-                    type="monotone" 
-                    dataKey="info" 
-                    stackId="1"
-                    stroke="#10b981" 
-                    fill="#10b981" 
-                    fillOpacity={0.6}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          {/* Alert Log */}
-          <Card className="p-0">
-            <CardHeader className="border-b border-border p-4 flex flex-row items-center justify-between">
-              <CardTitle className="text-sm font-semibold" data-testid="text-alert-log-title">ALERT LOG</CardTitle>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Clock className="w-3 h-3" />
-                <span>UTC TIMES</span>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full" data-testid="table-alert-log">
-                  <thead>
-                    <tr className="border-b border-border bg-muted/30">
-                      <th className="text-left p-3 text-xs font-semibold text-muted-foreground">TIME (UTC)</th>
-                      <th className="text-left p-3 text-xs font-semibold text-muted-foreground">ALERT TYPE</th>
-                      <th className="text-center p-3 text-xs font-semibold text-muted-foreground">SEVERITY</th>
-                      <th className="text-left p-3 text-xs font-semibold text-muted-foreground">DESCRIPTION</th>
-                      <th className="text-center p-3 text-xs font-semibold text-muted-foreground">STATUS</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {alertsData.alertLog.map((log) => (
-                      <tr key={log.id} className="border-b border-border hover-elevate" data-testid={`row-alert-${log.id}`}>
-                        <td className="p-3">
-                          <span className="font-mono text-sm" data-testid={`text-alert-time-${log.id}`}>{log.timeUTC}</span>
-                        </td>
-                        <td className="p-3">
-                          <span className="text-sm" data-testid={`text-alert-type-${log.id}`}>{log.alertType}</span>
-                        </td>
-                        <td className="p-3 text-center">
-                          <Badge variant={getSeverityVariant(log.severity)} className="font-mono" data-testid={`badge-severity-${log.id}`}>
-                            {log.severity}
-                          </Badge>
-                        </td>
-                        <td className="p-3">
-                          <span className="text-sm" data-testid={`text-alert-desc-${log.id}`}>{log.description}</span>
-                        </td>
-                        <td className="p-3 text-center">
-                          <span className={`text-sm font-mono ${getStatusColor(log.status)}`} data-testid={`text-alert-status-${log.id}`}>
-                            {log.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* Bottom Date/Time Bar and Ticker */}
+      {/* Bottom Bars */}
       <DateTimeBar />
       <BottomTicker items={dashboardData.tickerItems} />
     </div>
