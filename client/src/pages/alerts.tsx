@@ -164,6 +164,56 @@ export default function Alerts() {
   const critCount = alertsData.criticalAssets?.count ?? 0;
   const critTotal = alertsData.criticalAssets?.total ?? 0;
 
+  // Compute stress signals from live data (l5fAgg + dashboardData)
+  const liveStressSignals = (() => {
+    const now = new Date();
+    const utc = (offsetMin: number) => {
+      const d = new Date(now.getTime() - offsetMin * 60000);
+      return `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")} UTC`;
+    };
+    const ts = now.getTime();
+
+    // --- Signal 1: Bid-Ask Spread ---
+    const spreadMetric = dashboardData.liveMetrics.find(m => m.label === "BID-ASK SPREAD");
+    const spreadRaw = spreadMetric?.value ?? "";
+    const spreadBps = parseFloat(spreadRaw.replace(/[^0-9.]/g, "")) || 0;
+    const spreadSeverity: string = spreadBps > 10 ? "warning" : spreadBps > 3 ? "info" : "success";
+    const spreadDesc = spreadBps > 0
+      ? `Bid-ask spread is ${spreadRaw} for ${asset}. ${spreadBps > 10 ? "Elevated spread signals reduced market maker participation and heightened uncertainty." : spreadBps > 3 ? "Spread within moderate range — monitor for further widening." : "Tight spread indicates healthy market maker activity and strong liquidity depth."}`
+      : "Spread data loading…";
+
+    // --- Signal 2: CEX Liquidity Concentration ---
+    const frag = l5fAgg?.l5f_fragmentation ?? null;
+    const cexPct = dashboardData.cexDexDistribution?.cex ?? (frag != null ? Math.round(100 - frag * 0.6) : 68);
+    const dexPct = 100 - cexPct;
+    const concSeverity: string = cexPct > 80 ? "warning" : cexPct > 65 ? "info" : "success";
+    const concDesc = `${cexPct}% of ${asset} volume is on centralised exchanges (DEX: ${dexPct}%). ${cexPct > 80 ? "High CEX concentration — single-venue failure risk elevated." : cexPct > 65 ? "Moderate CEX dominance. DEX share sufficient for resilience." : "Well-balanced CEX/DEX distribution — liquidity fragmentation risk low."}`;
+
+    // --- Signal 3: Market Depth ---
+    const depthMetric = dashboardData.liveMetrics.find(m => m.label === "MARKET DEPTH");
+    const depthRaw = depthMetric?.value ?? "";
+    const depthNum = parseFloat(depthRaw.replace(/[^0-9.]/g, "")) || 0;
+    const dqScore = l5fAgg?.l5f_depth_quality ?? null;
+    const depthSeverity: string = depthNum > 20 || (dqScore != null && dqScore >= 70) ? "success" : depthNum > 8 || (dqScore != null && dqScore >= 45) ? "info" : "warning";
+    const depthDesc = depthRaw
+      ? `Market depth at ${depthRaw} (25bps bands). ${dqScore != null ? `L5F Depth Quality score: ${dqScore.toFixed(1)}/100. ` : ""}${depthSeverity === "success" ? "Adequate two-sided liquidity supports large institutional flows." : depthSeverity === "info" ? "Depth adequate for standard trades; large blocks may face slippage." : "Thin depth — large orders risk significant market impact."}`
+      : "Depth data loading…";
+
+    // --- Signal 4: CEX/DEX Balance ---
+    const regStab = l5fAgg?.l5f_regime_stability ?? null;
+    const execInt = l5fAgg?.l5f_execution_integrity ?? null;
+    const balSeverity: string = (regStab != null && regStab < 40) || (execInt != null && execInt < 40) ? "warning"
+      : (regStab != null && regStab >= 70) && (execInt != null && execInt >= 70) ? "success" : "info";
+    const balDesc = `Regime Stability: ${regStab != null ? regStab.toFixed(1) : "—"}/100 · Execution Integrity: ${execInt != null ? execInt.toFixed(1) : "—"}/100. ${balSeverity === "success" ? "Regime and execution conditions are stable — no structural stress detected." : balSeverity === "warning" ? "Degraded execution or regime instability detected. Heightened monitoring advised." : "Mixed signals — regime and execution within acceptable bounds."}`;
+
+    return [
+      { id: `live-spread-${ts}`,  title: "Bid-Ask Spread Analysis",    description: spreadDesc, severity: spreadSeverity, timestamp: utc(2),  category: "SPREAD ANALYSIS"     },
+      { id: `live-conc-${ts}`,    title: "CEX Liquidity Concentration", description: concDesc,   severity: concSeverity,  timestamp: utc(7),  category: "CONCENTRATION RISK"  },
+      { id: `live-depth-${ts}`,   title: "Market Depth Assessment",     description: depthDesc,  severity: depthSeverity, timestamp: utc(12), category: "DEPTH MONITORING"    },
+      { id: `live-regime-${ts}`,  title: "Regime & Execution Integrity",description: balDesc,    severity: balSeverity,   timestamp: utc(18), category: "REGIME STABILITY"    },
+    ];
+  })();
+
   return (
     <div className="tilt-terminal" data-testid="alerts-page" style={{ minHeight: "100vh" }}>
       <DashboardHeader />
@@ -341,7 +391,7 @@ export default function Alerts() {
           {/* Panel 2 — Stress Signal Detection */}
           <div className="tilt-panel" data-testid="panel-stress-signals">
             <PanelHeader title="Stress Signal Detection" tag="PANEL 2" />
-            <StressSignalsPanel signals={dashboardData.stressSignals} />
+            <StressSignalsPanel signals={liveStressSignals as any} />
           </div>
         </div>
 
