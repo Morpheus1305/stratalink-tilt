@@ -1,0 +1,150 @@
+# Eliminate All Mock Data: Wire Every Page to Live Venue Data
+
+## Directive
+
+There must be no mock, static, hardcoded, or synthetic data anywhere in the Stratalink platform. Every number, every chart, every table, every indicator on every page must be derived from live venue data flowing through the TSLE buffer and L5F engine. If the venues are not returning data, the UI should show a clear "awaiting data" state, not invented numbers.
+
+This applies to all three pages: TILT, RCL, and ALERTS.
+
+Replit has already confirmed that the TSLE buffer and L5F engine capture real regime changes, depth anomalies, and stress signals from the 14-venue ingestion engine (Binance, OKX, Bybit, Hyperliquid, dYdX, Uniswap, Coinbase, Kraken, Deribit, Bitget, GMX, Curve, OTC). The infrastructure is there. It just needs to be connected to the UI.
+
+---
+
+## Page 1: ALERTS — Wire to Live Data
+
+Replit has already diagnosed that `storage.getAlertsData()` returns a static fixture. Replace it entirely.
+
+### 1.1 Risk Indicators: Derive from live L5F factor scores
+
+The six Risk Indicator rows on the Alerts page (Funding Rate Spike, Paper Spot Basis, etc.) are currently hardcoded strings returned identically for every request. Replace them with computed RAG levels derived from live L5F factor scores:
+
+- Pull the current L5F snapshot from the TSLE buffer (the same data the TILT terminal consumes).
+- Compute Risk Indicator levels from the L5F factors. For example: if Resilience drops below a defined threshold, flag "high". If Depth Quality is deteriorating, flag "elevated". If Regime Stability shifts, flag the regime change.
+- The RAG levels (green/amber/red) should reflect the actual current state of the market as measured by the L5F engine, not a static assessment.
+
+### 1.2 Alert Log: Write real entries from the detection engine
+
+The five alert log entries are currently static with fixed timestamps and descriptions. Replace them with actual alert records written by the alert service (`server/services/alert-service.ts`).
+
+The alert service already supports four trigger types: DIVERGENCE, REGIME_CHANGE, POLI_DROP, and DEPTH_DROP. These triggers already exist in the codebase. The missing piece is that the alert service is not being called when the L5F engine or TSLE buffer detects a triggering condition.
+
+Wire the detection logic:
+- When the TSLE buffer detects a regime change (NORMAL to ELEVATED, ELEVATED to STRESSED, etc.), write a REGIME_CHANGE alert to the database via the alert service.
+- When the L5F engine detects a PoLi score dropping below a configurable threshold, write a POLI_DROP alert.
+- When cross-venue depth drops below a threshold, write a DEPTH_DROP alert.
+- When venue-to-venue divergence exceeds the thresholds defined in `shared/venue-config.ts` (DIVERGENCE_THRESHOLDS), write a DIVERGENCE alert.
+
+The Alerts page should then query these real alert records from the database and display them with actual timestamps, actual affected tokens, and actual descriptions of what was detected.
+
+### 1.3 Warning Capacity and Critical Assets: Derive from TSLE
+
+- **Warning Capacity** is currently the hardcoded string "6-8 hours". Replace it with a computed value based on the current EWDS stress indicator levels. When all indicators are green, capacity is high (6-8 hours of advance warning based on validated detection window). When indicators are amber, capacity is moderate. When indicators are red, capacity is reduced. The specific thresholds should be derived from the TSLE buffer's current stress state.
+- **Critical Assets count** is currently hardcoded as "3 of 6". Replace it with a count of how many monitored tokens currently have PoLi scores below a defined threshold (e.g., below 50 or below a configurable level). This should be computed from live PoLi scores.
+
+### 1.4 Alert Timeline chart: Use real data points
+
+The timeline chart currently uses `Math.random()` to generate wave patterns. Replace it with actual historical data from the TSLE buffer's ring buffer or from persisted alert records. If historical data is not yet being persisted, plot the current L5F composite score over the buffer's time window (the TSLE buffer holds approximately one hour of data in a 360-point ring buffer, which is enough to plot a meaningful timeline).
+
+---
+
+## Page 2: RCL — Wire to Live Data
+
+The RCL regulatory view currently pulls all its data from `server/services/rclMock.ts`, which generates synthetic coverage, truth, and provenance data. This entire mock service needs to be replaced.
+
+### 2.1 Coverage panel: Pull from TSLE buffer
+
+- **Instrument**: Use the currently selected token from the token selector.
+- **Venue Count**: Count the number of venues currently returning data for that token from the TSLE buffer, not a hardcoded "3".
+- **Liquidity Types**: Derive from the venue configs (check which venue roles are active: Lit from CEX venues, RFQ from OTC, AMM from DEX venues).
+- **Coverage**: Compute as (venues returning data / total configured venues) as a percentage.
+- **Known Venues**: Total venues configured for that token in venue-config.ts.
+- **Covered Venues**: Venues currently returning data from the TSLE buffer.
+- **Last Ingest**: Actual timestamp of the most recent data point received by the TSLE buffer.
+
+### 2.2 Truth panel: Pull from PoLi engine
+
+- **Status**: VERIFIED if the PoLi engine has a current score and the data passes integrity checks. UNVERIFIED or PENDING if data is stale or insufficient.
+- **Evidence Level**: Compute based on actual venue coverage depth (L1 = single venue, L3 = supervisory sufficiency with 3+ venues, L5 = full cross-venue verification).
+- **Verified At / Valid Until**: Use the actual PoLi snapshot timestamp and its validity window.
+- **Integrity**: Check from the TSLE buffer whether any data quality flags have been raised.
+- **Data Gaps**: Count actual gaps in the TSLE buffer's data stream.
+- **Ingestion Latency (p95)**: Measure from the actual relay response times.
+- **Normalisation**: Report actual normalisation status from the DACT aggregation layer.
+
+### 2.3 Provenance panel: Pull from venue relays
+
+- **Venue cards**: Show every venue that is actively returning data, not a hardcoded list of three. Each card should show: venue name, connection method (relay/rest/amm), active data modules (depth, trades, funding, etc.), normalisation status, last event timestamp, and a real LIS reference ID.
+- **Reference IDs**: Generate real snapshot references from the PoLi engine and DACT buffer, not random strings.
+- **Authoritative references**: Pull from actual PoLi and DACT snapshot identifiers.
+
+### 2.4 Delete rclMock.ts
+
+Once the live data service is in place, delete `server/services/rclMock.ts` entirely. Update `server/routes/rcl.ts` to call the new live service instead.
+
+---
+
+## Page 3: TILT — Confirm Live Data
+
+The TILT terminal should already be showing live data after the venue data pipeline fix from the previous prompt. Verify that:
+
+- The L5F score ring shows a real numeric score, not a dash.
+- The five L5F factors (Depth Quality, Resilience, Fragmentation, Execution Integrity, Regime Stability) show real values.
+- The Cross-Venue Depth Map shows actual venue rows with real depth, spread, and stability data.
+- The Stress and Regime panel shows computed values, not dashes or "Phase 2" placeholders.
+- The footer shows a real count for VENUES ACTIVE and DEPTH RECORDS.
+
+If any TILT data is still showing dashes, placeholders, or "Phase 2" labels, trace the specific data flow for that metric and connect it to the live pipeline.
+
+---
+
+## Implementation Notes
+
+### Creating the live RCL service
+
+Create a new file `server/services/rclLive.ts` (or rename rclMock.ts and rewrite its contents) that:
+
+1. Imports the TSLE buffer service, PoLi engine, and venue config.
+2. Queries the TSLE buffer for the current state of the requested token.
+3. Queries the PoLi engine for the current score and rating.
+4. Queries venue relay status for connection information.
+5. Returns the same data shape that `rclMock.ts` currently returns, so the RCL frontend component does not need to change its data consumption logic.
+
+This approach means the RCL view (`RegulatoryAdgmView.tsx`) does not need any code changes. Only the backend service that feeds it changes from mock to live.
+
+### Wiring alert triggers
+
+The cleanest approach is to add trigger evaluation to the existing data ingestion loop. Wherever the TSLE buffer receives new data and computes updated L5F scores, add a call to the alert service's trigger evaluation:
+
+```typescript
+// Pseudocode - add after L5F score computation
+const alertService = getAlertService();
+await alertService.evaluateTriggers({
+  token: currentToken,
+  poliScore: newPoliScore,
+  l5fFactors: newL5FFactors,
+  regime: newRegimeClassification,
+  venueDepths: currentVenueDepths,
+});
+```
+
+The alert service already has the `evaluateTriggers` pattern. It just needs to be called.
+
+---
+
+## Verification
+
+After all changes:
+
+1. TILT terminal shows live venue data with real scores, depths, and spreads.
+2. RCL view shows live coverage, truth, and provenance data from actual venue connections.
+3. ALERTS page shows risk indicators derived from live L5F scores, real alert log entries (or an empty state if no alerts have triggered), computed warning capacity, and real critical asset counts.
+4. No page anywhere in the platform returns hardcoded, mock, or synthetic data.
+5. If venues are offline or not returning data, pages show an appropriate "awaiting data" or "no data" state rather than invented numbers.
+
+## What NOT to Change
+
+- Do not change the data shapes or API response formats. The frontend components should consume the same data structures they currently expect.
+- Do not change the alert service's database schema or trigger type definitions.
+- Do not change the TSLE buffer's ring buffer architecture.
+- Do not change the PoLi engine's scoring logic.
+- Do not modify any venue relay files (they are the data sources, not the consumers).

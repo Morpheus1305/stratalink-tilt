@@ -14,7 +14,7 @@ import {
   getSnapshot,
   type RclScreenPayload,
   type RclTimeMode,
-} from "../services/rclMock";
+} from "../services/rclLive";
 
 const router = Router();
 

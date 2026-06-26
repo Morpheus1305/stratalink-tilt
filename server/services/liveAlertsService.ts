@@ -1,0 +1,311 @@
+/**
+ * Live Alerts Data Service
+ * Computes all alerts page data from live L5F scores, TSLE buffer,
+ * and persisted alert history. No static fixtures.
+ */
+
+import { computeAnalyticsSnapshot, type TsleAggregate } from './analytics-layer';
+import { tsleBuffer } from './tsle-buffer';
+import { getAlertHistory } from './alert-service';
+import type { AlertsData } from '../../shared/schema';
+
+const TRACKED_ASSETS = ['BTC', 'ETH', 'SOL'] as const;
+const POLI_CRITICAL_THRESHOLD = 50;
+const KNOWN_VENUES = [
+  'binance', 'coinbase', 'kraken', 'okx', 'bybit',
+  'deribit', 'hyperliquid', 'dydx', 'uniswap',
+  'bitget', 'gmx', 'curve', 'otc', 'canton',
+];
+
+// ─── Risk indicator helpers ────────────────────────────────────────────────
+
+function rasLevel(
+  score: number,
+  goodThreshold = 65,
+  warnThreshold = 40,
+): 'low' | 'medium' | 'high' {
+  if (score >= goodThreshold) return 'low';
+  if (score >= warnThreshold) return 'medium';
+  return 'high';
+}
+
+function fmt(v: number): string {
+  return `${v.toFixed(1)}/100`;
+}
+
+function deriveRiskIndicators(
+  snap: TsleAggregate,
+): AlertsData['riskIndicators'] {
+  const regimeLabel =
+    snap.vol_regime === 'STRESS'
+      ? 'STRESSED'
+      : snap.vol_regime === 'ELEVATED'
+      ? 'ELEVATED'
+      : 'NORMAL';
+
+  return [
+    {
+      indicator: 'Depth Quality',
+      observedBehavior: `DQ ${fmt(snap.l5f_depth_quality)} · $${(snap.total_depth_10bps / 1e6).toFixed(1)}M @ 10bps`,
+      ras: rasLevel(snap.l5f_depth_quality),
+    },
+    {
+      indicator: 'Market Resilience',
+      observedBehavior: `R ${fmt(snap.l5f_resilience)} · Decay ${snap.depth_decay_rate.toFixed(2)}%/min`,
+      ras: rasLevel(snap.l5f_resilience),
+    },
+    {
+      indicator: 'Liquidity Fragmentation',
+      observedBehavior: `HHI ${snap.fragmentation_index.toFixed(3)} · F ${fmt(snap.l5f_fragmentation)}`,
+      ras:
+        snap.fragmentation_index > 0.35
+          ? 'high'
+          : snap.fragmentation_index > 0.2
+          ? 'medium'
+          : 'low',
+    },
+    {
+      indicator: 'Execution Integrity',
+      observedBehavior: `EI ${fmt(snap.l5f_exec_integrity)} · Spread σ ${snap.spread_dispersion_bps.toFixed(2)}bps`,
+      ras: rasLevel(snap.l5f_exec_integrity),
+    },
+    {
+      indicator: 'Regime Stability',
+      observedBehavior: `RS ${fmt(snap.l5f_regime_stability)} · Regime: ${regimeLabel}`,
+      ras: rasLevel(snap.l5f_regime_stability, 70, 50),
+    },
+    {
+      indicator: 'Composite PoLi',
+      observedBehavior: `L5F ${fmt(snap.l5f_composite)} · ${snap.venue_count} venues active`,
+      ras: rasLevel(snap.l5f_composite, 65, 45),
+    },
+  ];
+}
+
+function defaultRiskIndicators(): AlertsData['riskIndicators'] {
+  return [
+    { indicator: 'Depth Quality', observedBehavior: 'Awaiting venue data...', ras: 'low' },
+    { indicator: 'Market Resilience', observedBehavior: 'Awaiting venue data...', ras: 'low' },
+    { indicator: 'Liquidity Fragmentation', observedBehavior: 'Awaiting venue data...', ras: 'low' },
+    { indicator: 'Execution Integrity', observedBehavior: 'Awaiting venue data...', ras: 'low' },
+    { indicator: 'Regime Stability', observedBehavior: 'Awaiting venue data...', ras: 'low' },
+    { indicator: 'Composite PoLi', observedBehavior: 'Awaiting venue data...', ras: 'low' },
+  ];
+}
+
+// ─── Warning capacity ─────────────────────────────────────────────────────
+
+function computeWarningCapacity(snap: TsleAggregate | null): string {
+  if (!snap) return 'Awaiting data';
+  switch (snap.vol_regime) {
+    case 'STRESS':    return '0–1 hour';
+    case 'ELEVATED':  return '2–4 hours';
+    default:          return '6–8 hours';
+  }
+}
+
+// ─── Critical assets count ────────────────────────────────────────────────
+
+function countCriticalAssets(): { count: number; total: number } {
+  const total = TRACKED_ASSETS.length;
+  let count = 0;
+  for (const asset of TRACKED_ASSETS) {
+    const snap = computeAnalyticsSnapshot(asset);
+    if (snap && snap.l5f_composite < POLI_CRITICAL_THRESHOLD) count++;
+  }
+  return { count, total };
+}
+
+// ─── Alert timeline from TSLE buffer ─────────────────────────────────────
+
+function buildAlertTimeline(asset: string): AlertsData['alertTimeline'] {
+  const sym = asset.toUpperCase();
+  const BUCKET_MS = 5 * 60 * 1000; // 5-min buckets
+
+  const buckets = new Map<number, number[]>();
+
+  for (const venue of KNOWN_VENUES) {
+    const history = tsleBuffer.getHistory(venue, sym);
+    for (const pt of history) {
+      const bucket = Math.floor(pt.ts / BUCKET_MS) * BUCKET_MS;
+      if (!buckets.has(bucket)) buckets.set(bucket, []);
+      buckets.get(bucket)!.push(pt.poli);
+    }
+  }
+
+  const sorted = Array.from(buckets.entries()).sort(([a], [b]) => a - b);
+
+  if (sorted.length === 0) {
+    // No data yet — return zeros so chart renders as empty, not random
+    const now = Date.now();
+    return Array.from({ length: 20 }, (_, i) => {
+      const t = new Date(now - (20 - i) * BUCKET_MS);
+      return {
+        time: `${String(t.getUTCHours()).padStart(2, '0')}:${String(t.getUTCMinutes()).padStart(2, '0')}`,
+        critical: 0,
+        warning: 0,
+        info: 0,
+      };
+    });
+  }
+
+  return sorted.map(([ts, polis]) => {
+    const avg = polis.reduce((a, b) => a + b, 0) / polis.length;
+    const t = new Date(ts);
+    const time = `${String(t.getUTCHours()).padStart(2, '0')}:${String(t.getUTCMinutes()).padStart(2, '0')}`;
+    return {
+      time,
+      critical: avg < 40 ? Math.round(60 - avg) : 0,
+      warning: avg >= 40 && avg < 65 ? Math.round(75 - avg) : 0,
+      info: avg >= 65 ? Math.round(avg - 55) : 0,
+    };
+  });
+}
+
+// ─── Alert log ────────────────────────────────────────────────────────────
+
+const TYPE_LABELS: Record<string, string> = {
+  DIVERGENCE: 'Divergence',
+  REGIME_CHANGE: 'Regime',
+  POLI_DROP: 'PoLi',
+  DEPTH_DROP: 'Depth',
+};
+
+const SEV_MAP: Record<string, 'HIGH' | 'WARNING' | 'CRITICAL'> = {
+  CRITICAL: 'CRITICAL',
+  HIGH: 'HIGH',
+  MODERATE: 'WARNING',
+  LOW: 'WARNING',
+};
+
+function formatHistoryEntry(h: any, idx: number): AlertsData['alertLog'][number] {
+  const t = new Date(h.triggeredAt);
+  const timeUTC = `${String(t.getUTCHours()).padStart(2, '0')}:${String(t.getUTCMinutes()).padStart(2, '0')}`;
+  const alertType = TYPE_LABELS[h.triggerType] || h.triggerType;
+  const raw: string = (h.signalData as any)?.summary ?? `${h.triggerType} detected on ${h.symbol}`;
+  const description = raw.length > 65 ? raw.slice(0, 62) + '...' : raw;
+  const severity = SEV_MAP[h.severity] || 'INFO';
+  return {
+    id: String(h.id ?? idx),
+    timeUTC,
+    alertType,
+    severity,
+    description,
+    status: 'New',
+  };
+}
+
+/** Build computed alert entries from the current L5F snapshot (no DB write needed). */
+function computedLiveEntries(
+  sym: string,
+  snap: TsleAggregate | null,
+): AlertsData['alertLog'] {
+  if (!snap) return [];
+
+  const now = new Date();
+  const timeUTC = `${String(now.getUTCHours()).padStart(2, '0')}:${String(now.getUTCMinutes()).padStart(2, '0')}`;
+  const entries: AlertsData['alertLog'] = [];
+
+  if (snap.vol_regime === 'STRESS') {
+    entries.push({
+      id: `live-stress-${sym}`,
+      timeUTC,
+      alertType: 'Regime',
+      severity: 'CRITICAL',
+      description: `${sym} in STRESS regime — L5F composite ${snap.l5f_composite.toFixed(1)}`,
+      status: 'New',
+    });
+  } else if (snap.vol_regime === 'ELEVATED') {
+    entries.push({
+      id: `live-elevated-${sym}`,
+      timeUTC,
+      alertType: 'Regime',
+      severity: 'WARNING',
+      description: `${sym} ELEVATED regime — monitoring ${snap.venue_count} venues`,
+      status: 'New',
+    });
+  }
+
+  if (snap.l5f_depth_quality < 40) {
+    entries.push({
+      id: `live-dq-${sym}`,
+      timeUTC,
+      alertType: 'Depth',
+      severity: 'HIGH',
+      description: `${sym} Depth Quality ${snap.l5f_depth_quality.toFixed(1)} — $${(snap.total_depth_10bps / 1e6).toFixed(1)}M @ 10bps`,
+      status: 'New',
+    });
+  }
+
+  if (snap.l5f_resilience < 40) {
+    entries.push({
+      id: `live-r-${sym}`,
+      timeUTC,
+      alertType: 'PoLi',
+      severity: 'WARNING',
+      description: `${sym} Resilience degraded: ${snap.l5f_resilience.toFixed(1)}/100`,
+      status: 'New',
+    });
+  }
+
+  if (snap.l5f_composite < 45) {
+    entries.push({
+      id: `live-poli-${sym}`,
+      timeUTC,
+      alertType: 'PoLi',
+      severity: 'CRITICAL',
+      description: `${sym} Composite PoLi ${snap.l5f_composite.toFixed(1)} — below minimum threshold`,
+      status: 'New',
+    });
+  }
+
+  return entries;
+}
+
+// ─── Main export ──────────────────────────────────────────────────────────
+
+export async function getLiveAlertsData(asset: string = 'BTC'): Promise<AlertsData> {
+  const sym = asset.toUpperCase();
+  const snapshot = computeAnalyticsSnapshot(sym);
+
+  // 1. Risk indicators from live L5F factors
+  const riskIndicators = snapshot
+    ? deriveRiskIndicators(snapshot)
+    : defaultRiskIndicators();
+
+  // 2. Real alert log — DB history first, supplement with live computed entries
+  let alertLog: AlertsData['alertLog'] = [];
+  try {
+    const dbHistory = await getAlertHistory(20);
+    const assetHistory = dbHistory.filter(
+      (h) => !h.symbol || h.symbol === sym || !h.symbol.length,
+    );
+
+    if (assetHistory.length >= 3) {
+      alertLog = assetHistory.slice(0, 10).map(formatHistoryEntry);
+    } else {
+      const liveEntries = computedLiveEntries(sym, snapshot);
+      const dbEntries = assetHistory.map(formatHistoryEntry);
+      alertLog = [...liveEntries, ...dbEntries].slice(0, 10);
+    }
+  } catch {
+    alertLog = computedLiveEntries(sym, snapshot);
+  }
+
+  // 3. Warning capacity from current vol_regime
+  const activeWarningCapacity = computeWarningCapacity(snapshot);
+
+  // 4. Critical asset count from live PoLi scores
+  const criticalAssets = countCriticalAssets();
+
+  // 5. Alert timeline from TSLE buffer ring history
+  const alertTimeline = buildAlertTimeline(sym);
+
+  return {
+    riskIndicators,
+    activeWarningCapacity,
+    criticalAssets,
+    alertTimeline,
+    alertLog,
+  };
+}

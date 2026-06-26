@@ -125,11 +125,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get alerts data
+  // Get alerts data — live from L5F + TSLE buffer + alert history
   app.get("/api/alerts", async (req, res) => {
     try {
       const asset = (req.query.asset as string) || 'BTC';
-      const data = await storage.getAlertsData(asset);
+      const { getLiveAlertsData } = await import("./services/liveAlertsService");
+      const data = await getLiveAlertsData(asset);
       res.json(data);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch alerts data" });
