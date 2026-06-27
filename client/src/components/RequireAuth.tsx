@@ -16,7 +16,7 @@ export function RequireAuth({ children }: RequireAuthProps) {
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      setLocation('/login');
+      setLocation('/');
     }
   }, [isAuthenticated, isLoading, setLocation]);
 
