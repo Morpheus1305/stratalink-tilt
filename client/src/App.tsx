@@ -9,6 +9,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 
 import NotFound from "@/pages/not-found";
 import HeroPage from "@/pages/HeroPage";
+import MethodologyPage from "@/pages/MethodologyPage";
 import Alerts from "@/pages/alerts";
 import LoginPage from "@/pages/LoginPage";
 import VerifyOTPPage from "@/pages/VerifyOTPPage";
@@ -49,6 +50,9 @@ function AppRouter() {
 
       {/* Cover / Hero landing page */}
       <Route path="/" component={HeroPage} />
+
+      {/* Methodology (public) */}
+      <Route path="/methodology" component={MethodologyPage} />
 
       {/* /platform → TILT */}
       <Route path="/platform">
