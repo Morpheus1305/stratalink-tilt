@@ -4,7 +4,7 @@
  * Contract version: rcl_v0.1
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { PlatformTabs } from "@/components/platform-tabs";
@@ -276,6 +276,13 @@ function EvidenceLevelTooltipContent({ level }: { level: EvidenceLevel }) {
 export default function RegulatoryAdgmView() {
   const [selectedInstrument, setSelectedInstrument] = useState("BTC-USD");
 
+  const fmtClock = () => new Date().toLocaleTimeString("en-GB", { hour12: false });
+  const [clockStr, setClockStr] = useState(fmtClock);
+  useEffect(() => {
+    const id = setInterval(() => setClockStr(fmtClock()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
   const instrumentsQuery = useQuery<{ items: RclInstrument[] }>({
     queryKey: ["/api/rcl/v0.1/instruments"],
     staleTime: 60000,
@@ -312,67 +319,164 @@ export default function RegulatoryAdgmView() {
     }
   };
 
+  const displayInstruments = instruments.length > 0
+    ? instruments
+    : [{ instrument: "BTC-USD" }, { instrument: "ETH-USD" }, { instrument: "SOL-USD" }] as RclInstrument[];
+
+  const coveragePct = data?.coverage.coverage_completeness.coverage_pct;
+  const venueCount = data?.coverage.venue_count ?? data?.provenance.venues.length;
+  const evidenceLevel = data?.truth.poli.evidence_level;
+  const poliStatus = data?.truth.poli.status;
+  const integrityState = data?.truth.integrity.overall.state;
+
+  const poliStatusColor = poliStatus === "verified" ? "#00E676" : poliStatus === "degraded" ? "#FFB300" : "#FF5252";
+  const integrityColor = integrityState === "within_controls" ? "#00E676" : integrityState === "elevated_risk" ? "#FFB300" : "#FF5252";
+
+  const tiltVars = {
+    "--tilt-header": "#080D14",
+    "--tilt-border": "#1A2435",
+    "--tilt-accent": "#00BFA5",
+    "--tilt-green": "#00E676",
+    "--tilt-amber": "#FFB300",
+    "--tilt-red": "#FF5252",
+    "--tilt-text": "#D8DEE8",
+    "--tilt-sub": "#7B8EA3",
+    "--tilt-muted": "#4A5B6E",
+    "--tilt-hover": "#131D2B",
+    "--tilt-mono": "'JetBrains Mono', 'SF Mono', 'Fira Code', Consolas, monospace",
+  } as React.CSSProperties;
+
   return (
-    <div className="min-h-screen bg-background flex flex-col" data-testid="regulatory-adgm-page">
+    <div className="tilt-terminal" data-testid="regulatory-adgm-page">
       <DashboardHeader />
       <PlatformTabs />
 
-      <div className="flex-1 p-6 space-y-4 max-w-7xl mx-auto w-full">
-        {/* Header Section */}
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="space-y-1">
-              <h1 className="text-sm font-semibold">Liquidity Truth — Regulatory View</h1>
-              <p className="text-xs text-muted-foreground">
-                ADGM Jurisdiction • Digital Assets — Spot
-              </p>
-              <p className="text-xs text-muted-foreground/80 font-medium">
-                Supervisory Scope (RCL-v0.1): Binance, Coinbase, Kraken
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <select
-                value={selectedInstrument}
-                onChange={(e) => setSelectedInstrument(e.target.value)}
-                className="h-8 px-2 text-sm bg-muted/30 border border-border rounded focus:outline-none focus:ring-1 focus:ring-ring text-foreground"
-                data-testid="select-instrument"
-              >
-                {instruments.length === 0 && (
-                  <option value="BTC-USD">BTC-USD</option>
-                )}
-                {instruments.map((i) => (
-                  <option key={i.instrument} value={i.instrument}>
-                    {i.instrument}
-                  </option>
-                ))}
-              </select>
-
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleRefresh}
-                disabled={screenQuery.isFetching}
-                className="text-muted-foreground"
-                data-testid="button-refresh"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 mr-1 ${screenQuery.isFetching ? "animate-spin" : ""}`} />
-                Load latest snapshot
-              </Button>
-            </div>
+      {/* ── TILT-STYLE INNER HEADERS ────────────────────────────────────────── */}
+      <div style={tiltVars}>
+        {/* Title bar */}
+        <div className="tilt-header">
+          <div className="tilt-logo">STRATA<span>LINK</span></div>
+          <div className="tilt-header-divider" />
+          <div style={{ fontSize: 10, color: "var(--tilt-sub)", letterSpacing: 1 }}>
+            REGULATORY COVERAGE LAYER
           </div>
-
-          {/* Notice Banner */}
-          <div className="bg-muted/20 border border-border rounded px-3 py-2 space-y-1">
-            <p className="text-xs text-muted-foreground">
-              Read-only regulatory view derived from live venue ingestion. This interface renders time-bounded supervisory snapshots.
-            </p>
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-muted-foreground/70">
-              <span><span className="font-medium">UI Status:</span> Non-authoritative (display only)</span>
-              <span><span className="font-medium">Official Records:</span> PoLi snapshots, DACT artifacts, LIS manifests (see references below)</span>
+          <div className="tilt-header-divider" />
+          <div style={{ fontSize: 10, color: "var(--tilt-muted)" }}>RCL v0.1</div>
+          <div style={{ marginLeft: "auto", display: "flex", gap: 16, alignItems: "center" }}>
+            <div style={{ fontSize: 10, color: "var(--tilt-muted)" }}>
+              {venueCount != null ? `${venueCount} VENUES` : "—"} &middot; ADGM
             </div>
+            <div style={{
+              width: 6, height: 6, borderRadius: "50%",
+              background: screenQuery.isFetching ? "#FFB300" : "#00E676",
+              boxShadow: screenQuery.isFetching ? "0 0 6px #FFB300" : "0 0 6px #00E676",
+            }} />
           </div>
         </div>
+
+        {/* Asset / instrument tabs + status bar */}
+        <div className="tilt-topbar">
+          {/* Instrument tabs */}
+          <div className="tilt-asset-tabs">
+            {displayInstruments.map((inst) => (
+              <button
+                key={inst.instrument}
+                data-testid={`tab-instrument-${inst.instrument}`}
+                onClick={() => setSelectedInstrument(inst.instrument)}
+                className={`tilt-asset-tab${selectedInstrument === inst.instrument ? " active" : ""}`}
+              >
+                {inst.instrument}
+              </button>
+            ))}
+          </div>
+
+          <div className="tilt-tb-divider" />
+
+          {/* VENUE COUNT */}
+          <div className="tilt-tb-item">
+            <div className="tilt-tb-label">VENUES</div>
+            <div className="tilt-tb-value">{venueCount ?? "—"}</div>
+          </div>
+          <div className="tilt-tb-divider" />
+
+          {/* COVERAGE */}
+          <div className="tilt-tb-item">
+            <div className="tilt-tb-label">COVERAGE</div>
+            <div className="tilt-tb-value">
+              {coveragePct != null ? `${coveragePct}%` : "—"}
+            </div>
+          </div>
+          <div className="tilt-tb-divider" />
+
+          {/* EVIDENCE LEVEL */}
+          <div className="tilt-tb-item">
+            <div className="tilt-tb-label">EVIDENCE</div>
+            <div className="tilt-tb-value" style={{ color: "var(--tilt-accent)" }}>
+              {evidenceLevel ?? "—"}
+            </div>
+          </div>
+          <div className="tilt-tb-divider" />
+
+          {/* POLI STATUS */}
+          <div className="tilt-tb-item" style={{ minWidth: 90 }}>
+            <div className="tilt-tb-label">POLI STATUS</div>
+            <div style={{
+              fontFamily: "var(--tilt-mono)", fontSize: 11, fontWeight: 700,
+              background: poliStatus === "verified" ? "rgba(0,230,118,0.08)"
+                : poliStatus === "degraded" ? "rgba(255,179,0,0.08)"
+                : poliStatus ? "rgba(255,82,82,0.08)" : "transparent",
+              color: poliStatus ? poliStatusColor : "var(--tilt-muted)",
+              border: poliStatus ? `1px solid ${poliStatusColor}33` : "none",
+              borderRadius: 2, padding: "1px 6px", textTransform: "uppercase",
+            }}>
+              {poliStatus ?? "LOADING"}
+            </div>
+          </div>
+          <div className="tilt-tb-divider" />
+
+          {/* INTEGRITY */}
+          <div className="tilt-tb-item" style={{ minWidth: 80 }}>
+            <div className="tilt-tb-label">INTEGRITY</div>
+            <div style={{
+              fontFamily: "var(--tilt-mono)", fontSize: 11, fontWeight: 700,
+              color: integrityState ? integrityColor : "var(--tilt-muted)",
+              textTransform: "uppercase",
+            }}>
+              {integrityState === "within_controls" ? "NORMAL"
+                : integrityState === "elevated_risk" ? "ELEVATED"
+                : integrityState === "control_breach" ? "BREACH"
+                : integrityState ? integrityState.toUpperCase() : "—"}
+            </div>
+          </div>
+          <div className="tilt-tb-divider" />
+
+          {/* JURISDICTION */}
+          <div className="tilt-tb-item">
+            <div className="tilt-tb-label">JURISDICTION</div>
+            <div className="tilt-tb-value" style={{ fontSize: 11 }}>ADGM</div>
+          </div>
+
+          {/* Refresh + timestamp */}
+          <div className="tilt-tb-timestamp">
+            <button
+              data-testid="button-refresh"
+              onClick={handleRefresh}
+              disabled={screenQuery.isFetching}
+              style={{
+                background: "none", border: "none", cursor: "pointer",
+                marginRight: 10, color: "var(--tilt-sub)", fontSize: 10,
+                opacity: screenQuery.isFetching ? 0.5 : 1,
+                fontFamily: "var(--tilt-mono)", letterSpacing: "0.06em",
+              }}
+            >
+              {screenQuery.isFetching ? "LOADING..." : "REFRESH"}
+            </button>
+            LAST UPDATE&nbsp;<span>{clockStr}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-1 p-6 space-y-4 max-w-7xl mx-auto w-full">
 
         {/* Loading State */}
         {screenQuery.isLoading && (
