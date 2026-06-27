@@ -148,6 +148,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // BTC spot price proxy (CoinGecko) — avoids browser CORS
+  app.get("/api/price/btc", async (_req, res) => {
+    try {
+      const r = await fetch(
+        "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd",
+        { signal: AbortSignal.timeout(4000) }
+      );
+      if (!r.ok) return res.status(502).json({ error: "upstream error" });
+      const json = await r.json() as { bitcoin?: { usd?: number } };
+      const price = json?.bitcoin?.usd ?? null;
+      res.json({ price });
+    } catch {
+      res.status(502).json({ error: "Failed to fetch BTC price" });
+    }
+  });
+
   // Get scorecard data
   app.get("/api/scorecard", async (req, res) => {
     try {

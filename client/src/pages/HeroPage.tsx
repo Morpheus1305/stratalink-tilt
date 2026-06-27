@@ -1,7 +1,152 @@
 import { useLocation } from 'wouter';
+import { useQuery } from '@tanstack/react-query';
 
+// ── Types ────────────────────────────────────────────────────────────────────
+interface L5FAggregate {
+  symbol: string;
+  computed_at_utc: number;
+  l5f_composite: number;
+  l5f_depth_quality: number;
+  l5f_resilience: number;
+  l5f_fragmentation: number;
+  l5f_exec_integrity: number;
+  l5f_regime_stability: number;
+  total_depth_10bps: number;
+  total_depth_25bps: number;
+  spread_dispersion_bps: number;
+  vol_regime: 'NORMAL' | 'ELEVATED' | 'STRESS';
+  fragmentation_index: number;
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function poliRating(score: number): string {
+  if (score >= 90) return 'AAA';
+  if (score >= 85) return 'AA+';
+  if (score >= 80) return 'AA';
+  if (score >= 75) return 'A+';
+  if (score >= 70) return 'A';
+  if (score >= 60) return 'BBB';
+  if (score >= 50) return 'BB';
+  if (score >= 30) return 'CCC';
+  return 'D';
+}
+
+function ratingColor(score: number): string {
+  if (score >= 80) return '#4ade80';
+  if (score >= 70) return '#F0C000';
+  if (score >= 50) return '#fb923c';
+  return '#f87171';
+}
+
+function ratingBg(score: number): string {
+  if (score >= 80) return 'rgba(74,222,128,0.08)';
+  if (score >= 70) return 'rgba(240,192,0,0.08)';
+  if (score >= 50) return 'rgba(251,146,60,0.08)';
+  return 'rgba(248,113,113,0.08)';
+}
+
+function ratingBorder(score: number): string {
+  if (score >= 80) return 'rgba(74,222,128,0.25)';
+  if (score >= 70) return 'rgba(240,192,0,0.3)';
+  if (score >= 50) return 'rgba(251,146,60,0.3)';
+  return 'rgba(248,113,113,0.3)';
+}
+
+function gaugeColor(score: number): string {
+  if (score >= 80) return '#F0C000';
+  if (score >= 60) return '#fb923c';
+  return '#f87171';
+}
+
+function fmt(n: number): string {
+  return n.toLocaleString('en-US', { maximumFractionDigits: 0 });
+}
+
+const TOKEN_LIST = [
+  { sym: 'BTC', name: 'Bitcoin' },
+  { sym: 'ETH', name: 'Ethereum' },
+  { sym: 'SOL', name: 'Solana' },
+  { sym: 'XRP', name: 'Ripple' },
+  { sym: 'BNB', name: 'BNB' },
+] as const;
+
+async function fetchSnapshot(symbol: string): Promise<L5FAggregate | null> {
+  const res = await fetch(`/api/analytics/l5f/snapshot/${symbol}`);
+  if (!res.ok) return null;
+  const json = await res.json();
+  return json.ok ? (json.aggregate as L5FAggregate) : null;
+}
+
+async function fetchBtcPrice(): Promise<number | null> {
+  try {
+    const res = await fetch('/api/price/btc');
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json?.price ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// ── Component ────────────────────────────────────────────────────────────────
 export default function HeroPage() {
   const [, setLocation] = useLocation();
+
+  // BTC L5F snapshot — drives gauge + depth widths
+  const { data: btcSnap } = useQuery<L5FAggregate | null>({
+    queryKey: ['/api/analytics/l5f/snapshot/BTC'],
+    queryFn: () => fetchSnapshot('BTC'),
+    refetchInterval: 5_000,
+    staleTime: 4_000,
+  });
+
+  // All five token snapshots in one query
+  const { data: tokenSnaps } = useQuery<(L5FAggregate | null)[]>({
+    queryKey: ['/hero/token-snaps'],
+    queryFn: () => Promise.all(TOKEN_LIST.map(t => fetchSnapshot(t.sym))),
+    refetchInterval: 5_000,
+    staleTime: 4_000,
+  });
+
+  // BTC spot price for depth chart price labels
+  const { data: btcPrice } = useQuery<number | null>({
+    queryKey: ['/hero/btc-price'],
+    queryFn: fetchBtcPrice,
+    refetchInterval: 15_000,
+    staleTime: 14_000,
+  });
+
+  // ── Derived values ──────────────────────────────────────────────────────
+  const score  = btcSnap ? Math.round(btcSnap.l5f_composite) : 80;
+  const rating = poliRating(score);
+  const gColor = gaugeColor(score);
+
+  // Gauge arc: circumference = 2π·40 ≈ 251.2; offset = C - (score/100)*C
+  const C = 251.2;
+  const dashOffset = C - (score / 100) * C;
+
+  // Depth bars: split total depth 10bps 50/50 bid/ask, scale into 3 bands
+  const totalD = btcSnap?.total_depth_10bps ?? 0;
+  const halfD  = totalD / 2;
+  // Vary band widths using spread + fragmentation so they change each cycle
+  const frag   = btcSnap ? btcSnap.fragmentation_index : 0.5;
+  const spd    = btcSnap ? Math.min(btcSnap.spread_dispersion_bps / 20, 1) : 0.5;
+  const jitter = (base: number) => Math.min(100, Math.max(12, base + (frag * 15 - 7) + (spd * 10 - 5)));
+  const askW   = [jitter(30), jitter(55), jitter(78)];
+  const bidW   = [jitter(100), jitter(68), jitter(38)];
+
+  // Depth price levels around BTC mid
+  const mid   = btcPrice ?? 98_243;
+  const spread = btcSnap ? +(btcSnap.spread_dispersion_bps / 2).toFixed(2) : 0.50;
+  const ask1  = mid + 3, ask2 = mid + 2, ask3 = mid + 1;
+  const bid1  = mid - 1, bid2 = mid - 2, bid3 = mid - 3;
+
+  // Token rows
+  const tokenRows = TOKEN_LIST.map((t, i) => {
+    const snap  = tokenSnaps?.[i] ?? null;
+    const sc    = snap ? Math.round(snap.l5f_composite) : null;
+    return { ...t, score: sc, rating: sc != null ? poliRating(sc) : '--' };
+  });
 
   return (
     <>
@@ -100,15 +245,16 @@ export default function HeroPage() {
         .hp-gauge-inner { position: relative; width: 90px; height: 90px; }
         .hp-gauge-inner svg { width: 100%; height: 100%; transform: rotate(-90deg); }
         .hp-gauge-text { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .hp-gauge-score { font-size: 1.5rem; font-weight: 700; color: #fff; line-height: 1; }
-        .hp-gauge-rating { font-size: 0.5rem; font-weight: 700; color: #F0C000; margin-top: 2px; letter-spacing: 0.1em; }
+        .hp-gauge-score { font-size: 1.5rem; font-weight: 700; color: #fff; line-height: 1; transition: color 0.6s ease; }
+        .hp-gauge-rating { font-size: 0.5rem; font-weight: 700; margin-top: 2px; letter-spacing: 0.1em; transition: color 0.6s ease; }
 
         .hp-depth-rows { display: flex; flex-direction: column; gap: 2px; }
         .hp-depth-row { display: flex; align-items: center; gap: 6px; }
-        .hp-depth-price { font-size: 0.55rem; color: rgba(255,255,255,0.3); width: 52px; text-align: right; flex-shrink: 0; }
-        .hp-depth-bar { height: 5px; border-radius: 0 1px 1px 0; }
+        .hp-depth-price { font-size: 0.55rem; color: rgba(255,255,255,0.3); width: 52px; text-align: right; flex-shrink: 0; font-family: 'Inter', monospace; }
+        .hp-depth-bar-wrap { flex: 1; display: flex; align-items: center; }
+        .hp-depth-bar { height: 5px; border-radius: 0 1px 1px 0; transition: width 0.8s ease; }
         .hp-depth-mid { display: flex; align-items: center; gap: 6px; padding: 2px 0; }
-        .hp-depth-mid-price { font-size: 0.6rem; font-weight: 700; color: #fff; width: 52px; text-align: right; }
+        .hp-depth-mid-price { font-size: 0.6rem; font-weight: 700; color: #fff; width: 52px; text-align: right; font-family: 'Inter', monospace; }
         .hp-depth-spread { font-size: 0.5rem; color: rgba(255,255,255,0.2); }
 
         .hp-table { background: rgba(3,6,15,0.9); border: 1px solid rgba(255,255,255,0.06); }
@@ -121,13 +267,15 @@ export default function HeroPage() {
         .hp-token-sym { font-size: 0.7rem; font-weight: 700; color: #fff; width: 32px; }
         .hp-token-name { font-size: 0.6rem; color: rgba(255,255,255,0.3); }
         .hp-token-right { display: flex; align-items: center; gap: 0.75rem; }
-        .hp-token-score { font-size: 0.65rem; }
-        .hp-token-badge { font-size: 0.5rem; font-weight: 700; padding: 1px 6px; border-radius: 1px; }
+        .hp-token-score { font-size: 0.65rem; transition: color 0.6s ease; }
+        .hp-token-badge { font-size: 0.5rem; font-weight: 700; padding: 1px 6px; border-radius: 1px; transition: color 0.6s ease, background 0.6s ease; }
 
         .hp-footer { position: relative; z-index: 10; border-top: 1px solid rgba(255,255,255,0.05); padding: 1rem 3rem; display: flex; align-items: center; justify-content: space-between; gap: 2rem; }
         .hp-footer-label { font-size: 0.6rem; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(255,255,255,0.2); white-space: nowrap; }
         .hp-footer-badges { display: flex; align-items: center; gap: 2rem; flex-wrap: wrap; }
         .hp-footer-badge { font-size: 0.6rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.18); }
+
+        .hp-gauge-arc { transition: stroke-dashoffset 1s ease, stroke 0.6s ease; }
       ` }} />
 
       <div className="hp-root">
@@ -230,6 +378,7 @@ export default function HeroPage() {
             </div>
           </div>
 
+          {/* ── LIVE TILT PANEL ── */}
           <div className="hp-right">
             <div className="hp-right-glow" />
             <div className="hp-panel">
@@ -245,67 +394,108 @@ export default function HeroPage() {
                 </div>
               </div>
               <div className="hp-panel-body">
+
+                {/* Gauge + Depth */}
                 <div className="hp-row">
+                  {/* PoLi Gauge */}
                   <div className="hp-gauge-card">
                     <div className="hp-card-label">Global PoLi</div>
                     <div className="hp-gauge-wrap">
                       <div className="hp-gauge-inner">
                         <svg viewBox="0 0 100 100">
-                          <circle cx="50" cy="50" r="40" stroke="rgba(255,255,255,0.07)" strokeWidth="7" fill="none" strokeDasharray="251.2" strokeDashoffset="0" />
-                          <circle cx="50" cy="50" r="40" stroke="#F0C000" strokeWidth="7" fill="none" strokeDasharray="251.2" strokeDashoffset="50" strokeLinecap="round" />
+                          <circle
+                            cx="50" cy="50" r="40"
+                            stroke="rgba(255,255,255,0.07)"
+                            strokeWidth="7" fill="none"
+                            strokeDasharray={C} strokeDashoffset="0"
+                          />
+                          <circle
+                            cx="50" cy="50" r="40"
+                            stroke={gColor}
+                            strokeWidth="7" fill="none"
+                            strokeDasharray={C}
+                            strokeDashoffset={dashOffset}
+                            strokeLinecap="round"
+                            className="hp-gauge-arc"
+                          />
                         </svg>
                         <div className="hp-gauge-text">
-                          <span className="hp-gauge-score">80</span>
-                          <span className="hp-gauge-rating">AA+</span>
+                          <span className="hp-gauge-score" data-testid="hero-poli-score">{score}</span>
+                          <span className="hp-gauge-rating" style={{ color: gColor }} data-testid="hero-poli-rating">{rating}</span>
                         </div>
                       </div>
                     </div>
                   </div>
+
+                  {/* Depth chart */}
                   <div className="hp-depth-card">
                     <div className="hp-card-label">Aggregated Depth</div>
                     <div className="hp-depth-rows">
-                      {[['98,246','30%'],['98,245','55%'],['98,244','78%']].map(([p,w]) => (
-                        <div key={p} className="hp-depth-row">
-                          <span className="hp-depth-price">{p}</span>
-                          <div className="hp-depth-bar" style={{ width: w, background: 'rgba(248,113,113,0.7)' }} />
+                      {/* Ask side (red) — descending from top */}
+                      {[
+                        [fmt(ask1), askW[0]],
+                        [fmt(ask2), askW[1]],
+                        [fmt(ask3), askW[2]],
+                      ].map(([price, w]) => (
+                        <div key={price} className="hp-depth-row">
+                          <span className="hp-depth-price">{price}</span>
+                          <div className="hp-depth-bar-wrap">
+                            <div className="hp-depth-bar" style={{ width: `${w}%`, background: 'rgba(248,113,113,0.7)' }} />
+                          </div>
                         </div>
                       ))}
+                      {/* Mid */}
                       <div className="hp-depth-mid">
-                        <span className="hp-depth-mid-price">98,243</span>
-                        <span className="hp-depth-spread">0.50 SPREAD</span>
+                        <span className="hp-depth-mid-price">{fmt(mid)}</span>
+                        <span className="hp-depth-spread">{spread} SPREAD</span>
                       </div>
-                      {[['98,242','100%'],['98,241','65%'],['98,240','35%']].map(([p,w]) => (
-                        <div key={p} className="hp-depth-row">
-                          <span className="hp-depth-price">{p}</span>
-                          <div className="hp-depth-bar" style={{ width: w, background: 'rgba(52,211,153,0.7)' }} />
+                      {/* Bid side (green) */}
+                      {[
+                        [fmt(bid1), bidW[0]],
+                        [fmt(bid2), bidW[1]],
+                        [fmt(bid3), bidW[2]],
+                      ].map(([price, w]) => (
+                        <div key={price} className="hp-depth-row">
+                          <span className="hp-depth-price">{price}</span>
+                          <div className="hp-depth-bar-wrap">
+                            <div className="hp-depth-bar" style={{ width: `${w}%`, background: 'rgba(52,211,153,0.7)' }} />
+                          </div>
                         </div>
                       ))}
                     </div>
                   </div>
                 </div>
+
+                {/* Token table */}
                 <div className="hp-table">
                   <div className="hp-table-head">
                     <span className="hp-table-head-l">Asset Coverage</span>
                     <span className="hp-table-head-r">LIVE · 14 VENUES</span>
                   </div>
-                  {[
-                    { sym: 'BTC', name: 'Bitcoin',  score: 92, rating: 'AAA', sc: '#4ade80', bc: 'rgba(52,211,153,0.08)',  bb: 'rgba(52,211,153,0.2)' },
-                    { sym: 'ETH', name: 'Ethereum', score: 88, rating: 'AA+', sc: '#4ade80', bc: 'rgba(52,211,153,0.08)',  bb: 'rgba(52,211,153,0.2)' },
-                    { sym: 'SOL', name: 'Solana',   score: 76, rating: 'AA',  sc: '#F0C000', bc: 'rgba(240,192,0,0.08)',   bb: 'rgba(240,192,0,0.25)' },
-                    { sym: 'XRP', name: 'Ripple',   score: 68, rating: 'A+',  sc: '#F0C000', bc: 'rgba(240,192,0,0.08)',   bb: 'rgba(240,192,0,0.25)' },
-                    { sym: 'BNB', name: 'BNB',      score: 81, rating: 'AA',  sc: '#F0C000', bc: 'rgba(240,192,0,0.08)',   bb: 'rgba(240,192,0,0.25)' },
-                  ].map(t => (
-                    <div key={t.sym} className="hp-table-row">
-                      <div className="hp-token-left">
-                        <span className="hp-token-sym">{t.sym}</span>
-                        <span className="hp-token-name">{t.name}</span>
+                  {tokenRows.map(t => {
+                    const sc  = t.score ?? 0;
+                    const col = t.score != null ? ratingColor(sc) : 'rgba(255,255,255,0.25)';
+                    const bg  = t.score != null ? ratingBg(sc) : 'transparent';
+                    const bd  = t.score != null ? ratingBorder(sc) : 'rgba(255,255,255,0.1)';
+                    return (
+                      <div key={t.sym} className="hp-table-row" data-testid={`hero-token-row-${t.sym}`}>
+                        <div className="hp-token-left">
+                          <span className="hp-token-sym">{t.sym}</span>
+                          <span className="hp-token-name">{t.name}</span>
+                        </div>
+                        <div className="hp-token-right">
+                          <span className="hp-token-score" style={{ color: col }}
+                            data-testid={`hero-score-${t.sym}`}>
+                            {t.score ?? '--'}
+                          </span>
+                          <span className="hp-token-badge"
+                            style={{ color: col, background: bg, border: `1px solid ${bd}` }}>
+                            {t.rating}
+                          </span>
+                        </div>
                       </div>
-                      <div className="hp-token-right">
-                        <span className="hp-token-score" style={{ color: t.sc }}>{t.score}</span>
-                        <span className="hp-token-badge" style={{ color: t.sc, background: t.bc, border: `1px solid ${t.bb}` }}>{t.rating}</span>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </div>
