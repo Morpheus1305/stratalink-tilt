@@ -381,9 +381,6 @@ export default function IntegrityPage() {
           </div>
 
           <div style={{ marginLeft: "auto", display: "flex", gap: 16, alignItems: "center" }}>
-            <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, fontWeight: 700, color: "#D8DEE8", letterSpacing: "0.06em" }} data-testid="integrity-selected-asset">
-              {asset}
-            </div>
             <div className="tilt-sb-live">
               <div className="tilt-sb-dot tilt-pulse" />
               LIVE

@@ -422,10 +422,6 @@ export default function StrataAI() {
 
         {/* ── TOPBAR ─────────────────────────────────────────────────────────── */}
         <div className="tilt-topbar" data-testid="strata-ai-topbar">
-          <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, fontWeight: 700, color: "var(--tilt-text)", letterSpacing: "0.06em" }} data-testid="strata-selected-asset">
-            {selectedSymbol}
-          </div>
-          <div className="tilt-tb-divider" />
           <div className="tilt-tb-item">
             <div className="tilt-tb-label">PoLi Score</div>
             <div className="tilt-tb-value" style={{ color: agg ? (agg.l5f_composite >= 65 ? "var(--tilt-green)" : agg.l5f_composite >= 50 ? "var(--tilt-accent)" : "var(--tilt-amber)") : "var(--tilt-muted)" }} data-testid="strata-poli">

@@ -375,15 +375,8 @@ export default function RegulatoryAdgmView() {
           </div>
         </div>
 
-        {/* Asset / instrument tabs + status bar */}
+        {/* Status bar */}
         <div className="tilt-topbar">
-          {/* Instrument tabs */}
-          <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, fontWeight: 700, color: "var(--tilt-text)", letterSpacing: "0.06em" }} data-testid="rcl-selected-instrument">
-            {selectedInstrument}
-          </div>
-
-          <div className="tilt-tb-divider" />
-
           {/* VENUE COUNT */}
           <div className="tilt-tb-item">
             <div className="tilt-tb-label">VENUES</div>

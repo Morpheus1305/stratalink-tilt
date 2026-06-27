@@ -364,13 +364,8 @@ export default function Alerts() {
           </div>
         </div>
 
-        {/* ── TOPBAR: token selector + metrics ────────────────────────────── */}
+        {/* ── TOPBAR: metrics ──────────────────────────────────────────────── */}
         <div className="tilt-topbar" data-testid="alerts-topbar">
-          <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, fontWeight: 700, color: "var(--tilt-text)", letterSpacing: "0.06em" }} data-testid="alerts-selected-asset">
-            {asset}
-          </div>
-
-          <div className="tilt-tb-divider" />
           <div className="tilt-tb-item">
             <div className="tilt-tb-label">Market Depth</div>
             <div className="tilt-tb-value tilt-tb-depth" data-testid="alerts-tb-depth">

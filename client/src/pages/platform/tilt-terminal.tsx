@@ -215,11 +215,6 @@ export default function TiltTerminal() {
 
         {/* TOP CONTEXT BAR */}
         <div className="tilt-topbar" data-testid="tilt-topbar">
-          <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, fontWeight: 700, color: "var(--tilt-text)", letterSpacing: "0.06em" }} data-testid="tilt-selected-asset">
-            {selectedSymbol}
-          </div>
-
-          <div className="tilt-tb-divider" />
           <div className="tilt-tb-item">
             <div className="tilt-tb-label">Total Depth +/-10bps</div>
             <div className="tilt-tb-value tilt-tb-depth" data-testid="tilt-depth">
