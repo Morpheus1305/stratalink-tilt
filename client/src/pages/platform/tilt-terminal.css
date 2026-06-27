@@ -450,14 +450,22 @@
 }
 .tilt-attr-table {
   border: 1px solid #1A2435;
-  overflow: hidden;
+  max-height: 220px;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
+.tilt-attr-table::-webkit-scrollbar { width: 4px; }
+.tilt-attr-table::-webkit-scrollbar-track { background: #080D14; }
+.tilt-attr-table::-webkit-scrollbar-thumb { background: #1A2435; border-radius: 2px; }
 .tilt-attr-thead {
   display: grid;
   grid-template-columns: 2fr 1fr 1fr 0.8fr 1.2fr 1.2fr;
   background: #080D14;
   padding: 5px 8px;
   gap: 4px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 .tilt-attr-thead span {
   font-family: var(--tilt-mono);

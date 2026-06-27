@@ -538,7 +538,7 @@ export default function Alerts() {
                     <span>Spread</span>
                     <span>Status</span>
                   </div>
-                  {l5fAgg.venue_slices.slice(0, 6).map((v: any, i: number) => {
+                  {l5fAgg.venue_slices.map((v: any, i: number) => {
                     const ps = v.poli_score ?? 0;
                     const poliColor =
                       ps >= 75 ? "var(--tilt-green)" : ps >= 50 ? "var(--tilt-amber)" : "var(--tilt-red)";
@@ -559,9 +559,6 @@ export default function Alerts() {
                       </div>
                     );
                   })}
-                  {l5fAgg.venue_slices.length > 6 && (
-                    <div className="tilt-attr-more">and {l5fAgg.venue_slices.length - 6} more</div>
-                  )}
                 </div>
               )}
             </div>
