@@ -76,7 +76,8 @@ function poliRating(score: number): string {
   if (score >= 60) return "BBB";
   if (score >= 50) return "BB";
   if (score >= 40) return "B";
-  return "CCC";
+  if (score >= 25) return "CCC";
+  return "D";
 }
 
 function poliStatusLabel(score: number): { label: string; color: string } {
@@ -460,7 +461,7 @@ export default function IntegrityPage() {
             {/* PoLi Score */}
             <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 20px", flexShrink: 0, minWidth: 80 }}>
               <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 2 }}>PoLi Score</div>
-              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 26, fontWeight: 700, color: poliColor, lineHeight: 1 }}>
+              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 14, fontWeight: 700, color: poliColor, lineHeight: 1 }}>
                 {poliScore != null ? Math.round(poliScore) : "—"}
               </div>
             </div>
@@ -470,7 +471,7 @@ export default function IntegrityPage() {
             {/* Rating */}
             <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 20px", flexShrink: 0, minWidth: 72 }}>
               <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 2 }}>Rating</div>
-              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 26, fontWeight: 700, color: TEXT, lineHeight: 1 }}>
+              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 14, fontWeight: 700, color: TEXT, lineHeight: 1 }}>
                 {poliRat ?? "—"}
               </div>
             </div>
@@ -524,7 +525,7 @@ export default function IntegrityPage() {
             {/* PoMI Score */}
             <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 20px", flexShrink: 0, minWidth: 80 }}>
               <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 2 }}>PoMI Score</div>
-              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 26, fontWeight: 700, color: pomiColor, lineHeight: 1 }}>
+              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 14, fontWeight: 700, color: pomiColor, lineHeight: 1 }}>
                 {pomiScore ?? "—"}
               </div>
             </div>
@@ -534,7 +535,7 @@ export default function IntegrityPage() {
             {/* Rating */}
             <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 20px", flexShrink: 0, minWidth: 72 }}>
               <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 2 }}>Rating</div>
-              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 26, fontWeight: 700, color: TEXT, lineHeight: 1 }}>
+              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 14, fontWeight: 700, color: TEXT, lineHeight: 1 }}>
                 {pomiRat ?? "—"}
               </div>
             </div>
