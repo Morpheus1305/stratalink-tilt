@@ -340,11 +340,11 @@ export default function Alerts() {
   })();
 
   return (
-    <div className="tilt-terminal" data-testid="alerts-page" style={{ minHeight: "100vh" }}>
+    <div className="tilt-terminal" data-testid="alerts-page">
       <DashboardHeader />
       <PlatformTabs />
 
-      <div className="tilt-root" style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+      <div className="tilt-root">
 
         {/* ── INNER HEADER BAR ─────────────────────────────────────────────── */}
         <div className="tilt-header" data-testid="alerts-header">

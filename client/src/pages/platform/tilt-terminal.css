@@ -27,15 +27,13 @@
   display: flex;
   flex-direction: column;
   flex: 1;
-  overflow: hidden;
   user-select: none;
 }
 
 .tilt-terminal {
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  overflow: hidden;
+  min-height: 100vh;
 }
 
 /* ─── HEADER ─────────────────────────────────────────────────────────────── */
@@ -48,6 +46,9 @@
   height: 36px;
   flex-shrink: 0;
   gap: 6px;
+  position: sticky;
+  top: 92px;
+  z-index: 30;
 }
 
 .tilt-logo {
@@ -81,6 +82,9 @@
   height: 42px;
   flex-shrink: 0;
   gap: 0;
+  position: sticky;
+  top: 128px;
+  z-index: 29;
 }
 
 .tilt-asset-tabs {
@@ -182,19 +186,17 @@
 
 /* ─── MAIN GRID ──────────────────────────────────────────────────────────── */
 .tilt-main {
-  flex: 1;
   display: grid;
   grid-template-columns: 1fr 284px;
-  grid-template-rows: 1fr 1fr;
+  grid-template-rows: minmax(500px, auto) minmax(500px, auto);
   gap: 1px;
   background: var(--tilt-border);
-  overflow: hidden;
 }
 
 .tilt-panel {
   background: var(--tilt-panel);
   padding: 12px 14px;
-  overflow: hidden;
+  overflow: auto;
   position: relative;
 }
 
