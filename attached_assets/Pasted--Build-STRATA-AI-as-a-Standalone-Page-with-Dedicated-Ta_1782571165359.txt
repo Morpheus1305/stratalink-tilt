@@ -1,0 +1,279 @@
+# Build STRATA AI as a Standalone Page with Dedicated Tab
+
+## Context
+
+STRATA AI is Stratalink's proprietary market intelligence engine. It is Layer 2 in the Liquidity Truth Stack and a standalone product in its own right. It must have its own page and its own tab in the platform navigation, at the same level as TILT, RCL, and ALERTS.
+
+The TILT codebase already contains the detection infrastructure that powers STRATA AI: the divergence detector, the L5F analytical engine, the venue concentration analysis, cross-venue spread dispersion, regime classification, and execution integrity monitoring. This prompt creates the frontend page that surfaces those capabilities as a dedicated market intelligence interface.
+
+---
+
+## Step 1: Add STRATA AI to Navigation
+
+### Update platform-tabs.tsx
+
+Add STRATA AI as the second tab, between TILT and RCL:
+
+```typescript
+const tabs = [
+  { id: "tilt", label: "TILT", path: "/platform/tilt" },
+  { id: "strata-ai", label: "STRATA AI", path: "/platform/strata-ai" },
+  { id: "rcl", label: "RCL", path: "/regulatory/adgm" },
+  { id: "alerts", label: "ALERTS", path: "/platform/alerts" },
+];
+```
+
+### Add route in App.tsx
+
+Add a new route for `/platform/strata-ai` that renders the new STRATA AI page component.
+
+### Create the page file
+
+Create `client/src/pages/platform/strata-ai.tsx` as the new page component.
+
+---
+
+## Step 2: Build the STRATA AI Page
+
+The page uses the same house styling as TILT and RCL. Dark background, monospace data, teal accents, 2px border-radius, no decorative elements.
+
+### Page Header
+
+```
+STRATALINK · STRATA AI                                         [token] ▾    ● LIVE    15:42:28
+Systematic Tokenomics, Risk, and Trading Analytics
+Market intelligence across 14 venues · 6 detection categories · Real-time analysis
+```
+
+- Line 1: "STRATALINK" in 10px monospace, `#4A5B6E`, letter-spacing 0.14em. Separator. "STRATA AI" in 10px monospace, `#00BFA5`, letter-spacing 0.08em. Token selector on the right (same BTC/ETH/SOL selector as TILT). LIVE indicator. Timestamp.
+- Line 2: Subtitle in 14px sans-serif, `#D8DEE8`
+- Line 3: Description in 11px monospace, `#4A5B6E`
+- Background: `#080D14`, bottom border 1px `#1A2435`
+
+### Token Selector Strip
+
+Same as TILT: BTC / ETH / SOL buttons with active state in teal. Below it, a metrics strip showing key market stats for the selected token:
+
+```
+| POLI SCORE  | MARKET DEPTH  | VENUES ACTIVE  | AVG SPREAD    | REGIME           | INTEGRITY    |
+| 49          | $4.8M         | 6              | 2.1 bps       | ● DETERIORATING  | ● ELEVATED   |
+```
+
+Data sourced from the same L5F snapshot endpoint TILT uses.
+
+---
+
+### Section 1: Detection Status Grid
+
+Full-width horizontal grid of six detection categories. This is the primary at-a-glance view.
+
+```
+|  STRATA AI - DETECTION STATUS                                              6 CATEGORIES MONITORED
+```
+
+Six equal columns, 1px-gap grid:
+
+| Category | Label Line 1 | Label Line 2 | Source |
+|----------|-------------|-------------|--------|
+| 1 | CROSS-VENUE | DIVERGENCE | Compare per-venue spreads/depths from TSLE buffer against DIVERGENCE_THRESHOLDS in venue-config.ts |
+| 2 | DEPTH | MANIPULATION | L5F Depth Quality factor. ELEVATED below 40, CRITICAL below 20 |
+| 3 | LIQUIDITY | CONCENTRATION | Per-venue depth distribution. ELEVATED if any venue holds >60% of total depth. CRITICAL above 80% |
+| 4 | SPREAD | ANOMALY | Cross-Venue Spread Dispersion from Structural Integrity. ELEVATED above 3 bps. CRITICAL above 8 bps |
+| 5 | REGIME | INSTABILITY | L5F Regime Stability factor and regime classification. ELEVATED on any non-NORMAL regime. CRITICAL on STRESSED |
+| 6 | EXECUTION | INTEGRITY | L5F Execution Integrity factor. ELEVATED below 60. CRITICAL below 30 |
+
+Each cell displays:
+- Category label: Two lines, 9px monospace, uppercase, `#4A5B6E`
+- RAG status: Coloured dot + status text (NORMAL/ELEVATED/CRITICAL) in 13px monospace, bold
+- Small trend indicator: Arrow or percentage showing direction of change over last hour
+- Background: `#0F151F` normally. Shifts to `rgba(255,179,0,0.06)` when ELEVATED, `rgba(255,82,82,0.06)` when CRITICAL. Subtle but visible.
+
+---
+
+### Section 2: Main Content Area (Two-Column Layout)
+
+Left column (wider, approximately 65%): Active intelligence feed and detection detail.
+Right column (approximately 35%): EWDS indicators and composite assessment.
+
+#### Left Column: Intelligence Feed
+
+```
+|  ACTIVE INTELLIGENCE SIGNALS                                           [count] DETECTED
+```
+
+A scrollable feed of real-time analytical signals, newest first. Show up to 10 signals.
+
+Each signal entry:
+
+```
+16:42:31  ● ELEVATED   LIQUIDITY CONCENTRATION                          BTC-USD
+
+Binance holds 68% of monitored depth for BTC-USD. Single-venue concentration
+exceeds the 60% threshold. Diversity of liquidity sources is insufficient for
+institutional-grade execution assurance.
+
+Venues: BINANCE 68% | COINBASE 15% | KRAKEN 9% | OKX 5% | OTHER 3%
+```
+
+**Signal entry styling:**
+- Header row: Timestamp in monospace `#4A5B6E`, severity dot + label coloured by RAG, category name in monospace `#7B8EA3`, token in monospace `#00BFA5` right-aligned
+- Description: 12px, `#7B8EA3`, line-height 1.5
+- Supporting data: 11px monospace, `#4A5B6E`
+- Card background: `#0F151F`, 1px `#1A2435` border, 2px radius
+- 8px gap between signal cards
+
+**Generating signals:**
+- On each TSLE buffer update and L5F recomputation, evaluate all six detection categories
+- When any category changes status (e.g., NORMAL to ELEVATED or ELEVATED to CRITICAL), generate a signal entry
+- When a category returns to NORMAL from an elevated state, generate a resolution signal
+- Store signals in an in-memory ring buffer (last 50 entries)
+- Each signal should include: timestamp, category, severity, affected token, a descriptive message explaining what was detected, and supporting data where applicable
+
+**Signal descriptions should be specific and actionable, not generic.** Use the actual data values in the descriptions. Examples:
+
+- "Depth Quality dropped to 10.3 (threshold: 40). Orderbook depth across monitored venues is abnormally thin relative to historical norms."
+- "Spread dispersion across 6 venues reached 4.2 bps (threshold: 3 bps). Venue-to-venue pricing is diverging beyond normal arbitrage bounds."
+- "Regime classification shifted from NORMAL to DETERIORATING. L5F composite score at 49, below the institutional stability threshold of 50."
+
+If no signals have been generated, show:
+
+```
+All detection categories within normal parameters. No anomalies detected.
+Last evaluated: [timestamp]
+```
+
+#### Right Column: EWDS and Composite
+
+**EWDS Early Warning Indicators:**
+
+```
+|  EWDS - EARLY WARNING                                                  PANEL 2
+```
+
+Six EWDS indicators stacked vertically (not the horizontal strip from TILT, since this column is narrower):
+
+```
+FUND RATE          0.08%        ●
+PERP BASIS         1.4 bps      ●
+INS FUND           98.4%        ●
+XMRG UTIL          41%          ●
+ALT LIQ            0.84         ●
+ADL COUNT          0            ●
+```
+
+Each row: Label in 10px monospace `#4A5B6E`, value in 14px monospace bold coloured by RAG, dot on the right.
+
+Source: Same EWDS data as the storyboard. If the L5F snapshot includes these metrics, consume them directly. If not, they may need to be sourced from the TSLE buffer's stress indicators.
+
+**Detection Advance Window:**
+
+```
+|  DETECTION ADVANCE WINDOW                                              PANEL 3
+```
+
+```
+ADVANCE WARNING CAPACITY
+6 - 8 HOURS
+Based on validated detection against October 2025 event data.
+Current system confidence: HIGH
+```
+
+The advance warning window is derived from the current EWDS state:
+- All EWDS green: "6 - 8 HOURS" with HIGH confidence
+- Any EWDS amber: "4 - 6 HOURS" with MODERATE confidence (degraded by elevated stress)
+- Any EWDS red: "2 - 4 HOURS" with REDUCED confidence (active stress conditions)
+
+**Composite Market Integrity Score:**
+
+```
+|  STRATA AI COMPOSITE                                                   PANEL 4
+```
+
+A prominent score display, similar in visual weight to the L5F composite on TILT:
+
+- Large score ring (80px) with the composite score
+- Letter rating (using PoLi rating bands)
+- Status label (STABLE / ELEVATED / CRITICAL)
+- "Market integrity assessment across 6 detection categories" in 10px `#4A5B6E`
+
+Computation: Average of the six detection category scores, where NORMAL = 100, ELEVATED = 50, CRITICAL = 10. Apply PoLi rating bands to the result.
+
+---
+
+### Section 3: Detection Category Detail (Collapsible)
+
+Below the main content, add a collapsible section that expands to show the full detail for each of the six detection categories.
+
+```
+▸ DETECTION CATEGORY DETAIL
+```
+
+When expanded, show six rows (one per category):
+
+```
+CROSS-VENUE DIVERGENCE                                          ● NORMAL       Score: 88
+Current spread dispersion: 1.2 bps (threshold: 3.0 bps)
+Venues in range: 6/6
+Last evaluated: 16:42:31 UTC
+
+DEPTH MANIPULATION                                              ● ELEVATED     Score: 42
+Depth Quality factor: 10.3 (threshold: 40)
+Depth concentration: 68% in top venue
+Last evaluated: 16:42:31 UTC
+```
+
+Each row shows the category name, RAG status, a numeric score, the key metric driving the assessment, the threshold it is measured against, and the last evaluation timestamp.
+
+This gives Brian's team the ability to drill into any flagged category and understand exactly what the system detected and why.
+
+---
+
+## Page Footer
+
+Same convention as TILT:
+
+```
+● LIVE DATA   VENUES: 6 ACTIVE   CATEGORIES: 6 MONITORED   SIGNALS: 3 ACTIVE       STRATA AI · MARKET INTELLIGENCE · CONFIDENTIAL
+```
+
+---
+
+## Data Sources Summary
+
+Every data point on this page comes from existing infrastructure:
+
+| Data | Source | Already Available? |
+|------|--------|--------------------|
+| Per-venue depth and spread | TSLE buffer | Yes, used by TILT depth map |
+| L5F factors (Depth Quality, Resilience, Fragmentation, Execution Integrity, Regime Stability) | L5F snapshot endpoint | Yes, used by TILT Panel 1 |
+| Regime classification | L5F engine | Yes, used by TILT Stress & Regime |
+| Spread dispersion | Structural Integrity computation | Yes, used by TILT Panel 3 |
+| Fragmentation Index (HHI) | Structural Integrity computation | Yes, used by TILT Panel 3 |
+| Divergence thresholds | venue-config.ts | Yes, defined in shared config |
+| EWDS indicators | TSLE buffer stress metrics | Check availability; may need to be added to L5F snapshot response |
+
+The STRATA AI page should consume the same L5F snapshot endpoint that TILT uses. If any metrics are not currently in that response (particularly EWDS indicators), add them to the existing endpoint rather than creating a new one.
+
+---
+
+## Verification
+
+After implementation:
+
+1. The platform-tabs strip shows four tabs: TILT, STRATA AI, RCL, ALERTS.
+2. Clicking STRATA AI loads the new page at `/platform/strata-ai`.
+3. The detection status grid shows six categories with RAG statuses derived from live data.
+4. The intelligence feed shows real signal entries with actual timestamps (or an empty state if no anomalies detected).
+5. The EWDS indicators show real values from the venue data pipeline.
+6. The composite score reflects the aggregate state of all six detection categories.
+7. Switching tokens (BTC/ETH/SOL) updates all data on the page.
+8. The page styling is consistent with TILT and RCL (same palette, typography, layout conventions).
+9. Navigating between all four tabs works cleanly with the active tab highlighted.
+
+## What NOT to Change
+
+- Do not modify the TILT terminal page. STRATA AI is a new page, not a modification of TILT.
+- Do not modify the L5F computation logic or the divergence detector algorithms.
+- Do not modify the TSLE buffer or venue relay data flows.
+- Do not modify the RCL or ALERTS pages.
+- Do not change the alert service's database schema or trigger types.

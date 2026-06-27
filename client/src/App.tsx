@@ -14,6 +14,7 @@ import VerifyOTPPage from "@/pages/VerifyOTPPage";
 import AlertConfigPage from "@/pages/alert-config";
 import RegulatoryAdgmView from "@/pages/regulatory/RegulatoryAdgmView";
 import TiltTerminal from "@/pages/platform/tilt-terminal";
+import StrataAI from "@/pages/platform/strata-ai";
 import CLTEvidence from "./pages/clt-evidence";
 
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -45,6 +46,14 @@ function AppRouter() {
         {() => (
           <RequireAuth>
             <TiltTerminal />
+          </RequireAuth>
+        )}
+      </Route>
+
+      <Route path="/platform/strata-ai">
+        {() => (
+          <RequireAuth>
+            <StrataAI />
           </RequireAuth>
         )}
       </Route>

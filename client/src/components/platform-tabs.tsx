@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 
 const tabs = [
   { id: "tilt", label: "TILT", path: "/platform/tilt" },
+  { id: "strata-ai", label: "STRATA AI", path: "/platform/strata-ai" },
   { id: "rcl", label: "RCL", path: "/regulatory/adgm" },
   { id: "alerts", label: "ALERTS", path: "/platform/alerts" },
 ];
