@@ -289,11 +289,11 @@ export default function Alerts() {
 
   // Compute stress signals from live data (l5fAgg + dashboardData)
   const liveStressSignals = (() => {
-    // Convert a query's dataUpdatedAt (ms epoch) to "HH:MM UTC" string.
+    // Convert a query's dataUpdatedAt (ms epoch) to "HH:MM" local time string.
     // Falls back to current time so the display is never blank.
     const toUtcStr = (ms: number) => {
       const d = new Date(ms || Date.now());
-      return `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")} UTC`;
+      return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
     };
     const ts = Date.now();
 
