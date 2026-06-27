@@ -1,0 +1,91 @@
+This is exactly the direction I think STRATA should be taking. Institutions don’t think in terms of “largest by market cap”—they think in terms of systemic risk. A token can be systemically important because its failure propagates through exchanges, custodians, derivatives, lending markets, or tokenized assets.
+
+I’d divide the universe into five categories.
+
+1. Reserve Assets (the foundation)
+
+These underpin the entire crypto market.
+
+* Bitcoin – Primary store of value, largest collateral asset, benchmark for market sentiment.
+* Ethereum – Settlement layer for a huge proportion of DeFi and tokenized assets.
+
+If these move violently, almost everything else follows.
+
+⸻
+
+2. Stablecoin Infrastructure (the market’s cash)
+
+These are arguably the most systemically important assets after BTC and ETH.
+
+* Tether – Largest source of trading liquidity across centralized exchanges.
+* USD Coin – Institutional settlement asset and widely used collateral.
+* Ethena USDe – Increasingly important synthetic dollar in derivatives markets.
+* DAI – Long-established decentralized stablecoin.
+
+If a major stablecoin experiences stress, liquidity can evaporate rapidly across venues.
+
+⸻
+
+3. Exchange & Trading Infrastructure
+
+These concentrate liquidity.
+
+* BNB – Central to the Binance ecosystem.
+* Hyperliquid – Increasingly significant perpetual futures venue.
+* OKB – Key exchange ecosystem token.
+* Cronos – Supports the Crypto.com ecosystem.
+
+Their importance comes from the infrastructure they represent rather than simply their token value.
+
+⸻
+
+4. Financial Infrastructure
+
+These enable capital markets rather than simply being traded.
+
+* Chainlink – Dominant oracle network and increasingly involved in cross-chain interoperability and tokenized asset infrastructure.
+* Maker – Governance of one of crypto’s key lending and stablecoin systems.
+* Aave – Major institutional lending protocol.
+* Uniswap – Largest decentralized exchange ecosystem.
+
+Failure in one of these affects the plumbing of the market rather than just prices.
+
+⸻
+
+5. High-Volume Liquidity Assets
+
+These often transmit volatility rapidly.
+
+* Solana – Major trading ecosystem with very high on-chain activity.
+* XRP – Large institutional awareness and significant global liquidity.
+* Dogecoin – Frequently among the most actively traded assets.
+* Toncoin – Rapid ecosystem growth and increasing market relevance.
+* Cardano – Large capitalization with broad exchange coverage.
+
+⸻
+
+If I were designing STRATA
+
+I wouldn’t create a “Top 20 by Market Cap.”
+
+I’d create an Institutional Liquidity Universe (ILU-20) with weighted inclusion criteria such as:
+
+Factor	Example Weight
+Cross-venue liquidity	30%
+Daily trading volume	20%
+Derivatives open interest	15%
+Stablecoin settlement usage	10%
+Collateral usage	10%
+Custodian support	5%
+Institutional ownership	5%
+Interconnectedness (bridges, DeFi, tokenization)	5%
+
+That approach is much closer to how regulators identify systemically important financial institutions: not by size alone, but by interconnectedness, substitutability, complexity, cross-jurisdictional activity, and market impact.
+
+I think this could become a distinctive STRATA asset
+
+Rather than saying “we monitor the top 100 tokens,” you could say:
+
+“STRATA continuously monitors the Institutional Liquidity Universe (ILU)—the assets that collectively represent over 95% of institutional liquidity and systemic risk across digital asset markets.”
+
+That’s a much stronger message because it shifts the focus from market capitalization to market infrastructure and systemic importance, which aligns closely with how banks, exchanges, regulators, and institutional investors think about risk. It also creates an index that STRATA can own, evolve, and publish over time.

@@ -4,7 +4,6 @@ import type { AlertsData, DashboardData } from "@shared/schema";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { PlatformTabs } from "@/components/platform-tabs";
 import { StressSignalsPanel } from "@/components/stress-signals-panel";
-import { BottomTicker } from "@/components/bottom-ticker";
 import { DateTimeBar } from "@/components/date-time-bar";
 import { TokenSelector } from "@/components/token-selector";
 import { useToken } from "@/contexts/TokenContext";
@@ -848,7 +847,6 @@ export default function Alerts() {
 
       {/* Bottom Bars */}
       <DateTimeBar />
-      <BottomTicker items={dashboardData.tickerItems} />
     </div>
   );
 }
