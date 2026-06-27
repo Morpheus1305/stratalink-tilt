@@ -26,7 +26,7 @@ function feedDepthToTsleBuffer(): void {
 
   for (const [symbol, depth] of Object.entries(cache)) {
     const sym = symbol.toUpperCase();
-    if (!["BTC", "ETH", "SOL"].includes(sym)) continue;
+    // All ILU-20 symbols are now tracked — no symbol filter
 
     const b = depth.bands as any;
 
@@ -146,16 +146,28 @@ async function detectAndWriteAlerts(): Promise<void> {
   }
 }
 
+// ILU-20 symbol groups used across relay venues
+const ILU_BYBIT_SYMBOLS = ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "ADA", "TON",
+                            "LINK", "MKR", "AAVE", "UNI", "HYPE", "OKB", "CRO",
+                            "USDC", "USDE", "DAI"];
+const ILU_DYDX_SYMBOLS  = ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "ADA",
+                            "LINK", "MKR", "AAVE", "UNI"];
+const ILU_HL_SYMBOLS    = ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "ADA",
+                            "LINK", "MKR", "AAVE", "UNI", "HYPE"];
+const ILU_OTC_SYMBOLS   = ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "ADA", "TON",
+                            "LINK", "MKR", "AAVE", "UNI", "HYPE", "OKB", "CRO",
+                            "USDT", "USDC", "USDE", "DAI"];
+
 const RELAY_VENUES: { path: string; symbols: string[] }[] = [
-  { path: "/api/bybit/spot/depth",       symbols: ["BTC", "ETH", "SOL"] },
+  { path: "/api/bybit/spot/depth",       symbols: ILU_BYBIT_SYMBOLS },
   { path: "/api/bitget/spot/depth",      symbols: ["BTC", "ETH", "SOL"] },
-  { path: "/api/dydx/perps/depth",       symbols: ["BTC", "ETH", "SOL"] },
-  { path: "/api/hyperliquid/perps/depth",symbols: ["BTC", "ETH", "SOL"] },
+  { path: "/api/dydx/perps/depth",       symbols: ILU_DYDX_SYMBOLS  },
+  { path: "/api/hyperliquid/perps/depth",symbols: ILU_HL_SYMBOLS    },
   { path: "/api/gmx/perps/depth",        symbols: ["BTC", "ETH"]        },
   { path: "/api/deribit/spot/depth",     symbols: ["BTC", "ETH"]        },
   { path: "/api/uniswap/spot/depth",     symbols: ["BTC", "ETH", "SOL"] },
   { path: "/api/curve/spot/depth",       symbols: ["BTC", "ETH"]        },
-  { path: "/api/otc/spot/depth",         symbols: ["BTC", "ETH", "SOL"] },
+  { path: "/api/otc/spot/depth",         symbols: ILU_OTC_SYMBOLS   },
 ];
 
 /**

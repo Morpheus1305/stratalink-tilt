@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { cn } from "@/lib/utils";
+import { ILUTokenSelector } from "@/components/ilu-token-selector";
 
 const tabs = [
   { id: "tilt",      label: "TILT",       path: "/platform/tilt" },
@@ -19,14 +19,16 @@ export function PlatformTabs() {
 
   return (
     <div
-      className="sticky z-40 flex-shrink-0"
+      className="sticky z-40 flex-shrink-0 flex items-center"
       style={{
         top: 56,
         background: "#080D14",
         borderBottom: "1px solid #1A2435",
+        padding: "0 16px",
       }}
     >
-      <div style={{ display: "flex", padding: "0 16px" }}>
+      {/* Tab buttons */}
+      <div style={{ display: "flex", flex: 1 }}>
         {tabs.map((tab) => {
           const active = isActive(tab.path);
           return (
@@ -56,6 +58,11 @@ export function PlatformTabs() {
             </Link>
           );
         })}
+      </div>
+
+      {/* ILU-20 token selector — right-aligned in the tab row */}
+      <div style={{ display: "flex", alignItems: "center", paddingBottom: 2 }}>
+        <ILUTokenSelector />
       </div>
     </div>
   );

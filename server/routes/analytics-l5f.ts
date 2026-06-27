@@ -25,7 +25,14 @@ function setCache(symbol: string, aggregate: TsleAggregate): void {
   cache.set(symbol, { aggregate, computedAt: Date.now() });
 }
 
-const VALID_SYMBOLS = new Set(['BTC', 'ETH', 'SOL']);
+// All ILU-20 symbols are valid — covers Reserve, Stablecoin, Exchange, Infrastructure, Liquidity tiers
+const VALID_SYMBOLS = new Set([
+  'BTC', 'ETH',                          // Reserve
+  'USDT', 'USDC', 'USDE', 'DAI',         // Stablecoin
+  'BNB', 'HYPE', 'OKB', 'CRO',           // Exchange
+  'LINK', 'MKR', 'AAVE', 'UNI',          // Infrastructure
+  'SOL', 'XRP', 'DOGE', 'TON', 'ADA',   // High-Volume Liquidity
+]);
 
 router.get('/snapshot/:symbol', (req: Request, res: Response) => {
   const symbol = String(req.params.symbol ?? '').toUpperCase();

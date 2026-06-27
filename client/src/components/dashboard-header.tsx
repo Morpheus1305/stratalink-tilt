@@ -2,7 +2,6 @@ import { Button } from "@/components/ui/button";
 import { Bell, Settings, Activity, LogOut } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "wouter";
-import { ILUTokenSelector } from "@/components/ilu-token-selector";
 
 export function DashboardHeader() {
   const { logout } = useAuth();
@@ -15,31 +14,54 @@ export function DashboardHeader() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-card h-14 flex items-center px-4 gap-4">
-      {/* Brand — fixed narrow footprint */}
-      <div className="flex items-center gap-2 shrink-0">
+      {/* Brand */}
+      <div className="flex items-center gap-3 flex-1 min-w-0">
         <span
-          className="font-bold text-xs tracking-widest"
-          style={{ fontFamily: "var(--tilt-mono, monospace)", letterSpacing: "0.12em" }}
+          style={{
+            fontFamily: "'JetBrains Mono', 'SF Mono', Consolas, monospace",
+            fontSize: 16,
+            fontWeight: 800,
+            letterSpacing: "0.10em",
+            color: "#D8DEE8",
+            whiteSpace: "nowrap",
+          }}
         >
-          STRATA<span style={{ color: "var(--tilt-accent, #00BFA5)" }}>LINK</span>
+          STRATA<span style={{ color: "#00BFA5" }}>LINK</span>{" "}
+          <span style={{ fontSize: 10, fontWeight: 500, letterSpacing: "0.15em", color: "#7B8EA3", verticalAlign: "middle" }}>
+            LABS
+          </span>
         </span>
-        <span className="text-muted-foreground text-xs hidden md:block" style={{ fontFamily: "var(--tilt-mono, monospace)", fontSize: 8, letterSpacing: "0.08em" }}>
-          LIQUIDITY INTELLIGENCE TERMINAL
+        <div className="w-px h-5 bg-border shrink-0 hidden sm:block" />
+        <span
+          className="hidden md:block"
+          style={{
+            fontFamily: "'JetBrains Mono', 'SF Mono', Consolas, monospace",
+            fontSize: 9,
+            letterSpacing: "0.18em",
+            color: "#4A5B6E",
+            whiteSpace: "nowrap",
+            textTransform: "uppercase",
+          }}
+        >
+          Institutional Liquidity Intelligence Terminal
         </span>
-      </div>
-
-      <div className="w-px h-5 bg-border shrink-0" />
-
-      {/* ILU-20 token selector — always centred, always accessible */}
-      <div className="flex-1 flex justify-center">
-        <ILUTokenSelector />
       </div>
 
       {/* Right cluster */}
       <div className="flex items-center gap-3 shrink-0">
-        <div className="flex items-center gap-1.5 text-xs font-mono">
-          <Activity className="h-3 w-3 text-chart-3" />
-          <span className="text-chart-3 font-semibold">LIVE</span>
+        <div className="flex items-center gap-1.5">
+          <Activity className="h-3 w-3" style={{ color: "#00E676" }} />
+          <span
+            style={{
+              fontFamily: "'JetBrains Mono', 'SF Mono', Consolas, monospace",
+              fontSize: 10,
+              fontWeight: 700,
+              color: "#00E676",
+              letterSpacing: "0.06em",
+            }}
+          >
+            LIVE
+          </span>
         </div>
 
         <div className="flex items-center gap-1">

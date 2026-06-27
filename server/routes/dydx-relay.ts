@@ -27,20 +27,24 @@ const DYDX_INDEXER = "https://indexer.dydx.trade/v4";
 const TIMEOUT_MS = 5000;
 
 const SYMBOL_MAP: Record<string, string> = {
-  BTC: "BTC-USD",
-  ETH: "ETH-USD",
-  SOL: "SOL-USD",
-  XRP: "XRP-USD",
+  BTC:  "BTC-USD",
+  ETH:  "ETH-USD",
+  SOL:  "SOL-USD",
+  XRP:  "XRP-USD",
   DOGE: "DOGE-USD",
-  AVAX: "AVAX-USD",
-  BNB: "BNB-USD",
-  ARB: "ARB-USD",
-  OP: "OP-USD",
-  MATIC: "MATIC-USD",
-  SUI: "SUI-USD",
+  BNB:  "BNB-USD",
+  ADA:  "ADA-USD",
   LINK: "LINK-USD",
-  ADA: "ADA-USD",
-  DOT: "DOT-USD",
+  MKR:  "MKR-USD",
+  AAVE: "AAVE-USD",
+  UNI:  "UNI-USD",
+  // legacy
+  AVAX: "AVAX-USD",
+  ARB:  "ARB-USD",
+  OP:   "OP-USD",
+  MATIC:"MATIC-USD",
+  SUI:  "SUI-USD",
+  DOT:  "DOT-USD",
   NEAR: "NEAR-USD",
 };
 

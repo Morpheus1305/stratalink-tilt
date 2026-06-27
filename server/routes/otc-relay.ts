@@ -4,13 +4,37 @@ import { tsleBuffer, tsleStateEngine, type LISSnapshot } from "../services/tsle-
 
 const router = Router();
 const TIMEOUT_MS = 5000;
-const SUPPORTED_SYMBOLS = ["BTC", "ETH", "SOL", "XRP", "BNB", "AVAX", "ARB", "OP"];
+// Full ILU-20 coverage + legacy symbols — OTC/RFQ desk provides synthetic depth for all
+const SUPPORTED_SYMBOLS = [
+  "BTC", "ETH",                              // Reserve
+  "USDT", "USDC", "USDE", "DAI",             // Stablecoin
+  "BNB", "HYPE", "OKB", "CRO",              // Exchange
+  "LINK", "MKR", "AAVE", "UNI",             // Infrastructure
+  "SOL", "XRP", "DOGE", "TON", "ADA",       // High-Volume Liquidity
+  "AVAX", "ARB", "OP",                       // legacy
+];
 
 const COINGECKO_IDS: Record<string, string> = {
-  BTC: "bitcoin", ETH: "ethereum", SOL: "solana", XRP: "ripple",
-  BNB: "binancecoin", AVAX: "avalanche-2", ARB: "arbitrum", OP: "optimism",
+  BTC:  "bitcoin",          ETH:  "ethereum",
+  USDT: "tether",           USDC: "usd-coin",
+  USDE: "ethena-usde",      DAI:  "dai",
+  BNB:  "binancecoin",      HYPE: "hyperliquid",
+  OKB:  "okb",              CRO:  "crypto-com-chain",
+  LINK: "chainlink",        MKR:  "maker",
+  AAVE: "aave",             UNI:  "uniswap",
+  SOL:  "solana",           XRP:  "ripple",
+  DOGE: "dogecoin",         TON:  "the-open-network",
+  ADA:  "cardano",
+  AVAX: "avalanche-2",      ARB:  "arbitrum",   OP: "optimism",
 };
-const HARDCODED_FALLBACK: Record<string, number> = { BTC: 65000, ETH: 1900, SOL: 80, XRP: 0.60, BNB: 600, AVAX: 9, ARB: 1.2, OP: 2.5 };
+const HARDCODED_FALLBACK: Record<string, number> = {
+  BTC:  105000, ETH: 3500,
+  USDT: 1.00,   USDC: 1.00,  USDE: 1.00,  DAI: 1.00,
+  BNB:  680,    HYPE: 28,    OKB: 55,     CRO: 0.12,
+  LINK: 18,     MKR: 2200,   AAVE: 220,   UNI: 12,
+  SOL:  180,    XRP: 2.50,   DOGE: 0.38,  TON: 5.5,  ADA: 0.78,
+  AVAX: 42,     ARB: 1.2,    OP: 2.5,
+};
 
 let refPriceCache: Record<string, { price: number; ts: number }> = {};
 
