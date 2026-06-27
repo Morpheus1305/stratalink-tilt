@@ -292,7 +292,6 @@ export default function HeroPage() {
           </div>
           <div className="hp-nav-actions">
             <button className="hp-nav-link" data-testid="nav-methodology" onClick={() => setLocation('/methodology')}>Methodology</button>
-            <button className="hp-nav-link" onClick={() => setLocation('/login')}>Regulators</button>
             <button className="hp-nav-btn" onClick={() => setLocation('/login')}>Client Login</button>
           </div>
         </nav>
