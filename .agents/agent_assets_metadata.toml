@@ -1,5 +1,10 @@
 uploads = []
-generated = []
+
+[[generated]]
+id = "nuWGJkXxcahLz11jDPxFH"
+uri = "file://artifacts/mockup-sandbox/public/images/cinematic-ocean-bg.png"
+type = "image"
+title = "cinematic dark ocean flow"
 
 [[outputs]]
 id = "uDNBGMOxktnkJHtmXEK6L"
