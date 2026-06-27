@@ -227,7 +227,7 @@
 /* ─── PANEL POSITIONS ────────────────────────────────────────────────────── */
 .tilt-p-status    { grid-column: 1; grid-row: 1; }
 .tilt-p-regime    { grid-column: 2; grid-row: 1; }
-.tilt-p-venue     { grid-column: 1; grid-row: 2; display: flex; flex-direction: column; }
+.tilt-p-venue     { grid-column: 1; grid-row: 2; display: flex; flex-direction: column; max-height: 400px; }
 .tilt-p-integrity { grid-column: 2; grid-row: 2; }
 
 /* ─── PANEL TAG ──────────────────────────────────────────────────────────── */
