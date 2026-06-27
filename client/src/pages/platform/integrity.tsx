@@ -587,6 +587,55 @@ export default function IntegrityPage() {
 
         </div>
 
+        {/* ── PoMI COORDINATION FRAMEWORK ─────────────────────────────────── */}
+        <div style={{ background: PANEL, padding: "14px 16px", borderTop: `1px solid ${BORDER}` }} data-testid="integrity-pomi-coord">
+          <SectionHeader
+            title="PoMI — Market Integrity Coordination"
+            right={
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em" }}>
+                  PoMI
+                </span>
+                <ScoreRing score={pomiScore} color={pomiColor} size={36} />
+                <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 14, fontWeight: 700, color: TEXT }}>
+                  {pomiRat ?? "—"}
+                </span>
+              </div>
+            }
+          />
+          <div style={{ fontFamily: "var(--tilt-sans)", fontSize: 11, color: MUTED, marginBottom: 12 }}>
+            Coordinated Stabilisation Telemetry
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 1, background: BORDER }}>
+            {[
+              { pillar: "THRESHOLD DEFINITION", label: thresholdLabel, score: thresholdScore, rag: thresholdRag as Rag },
+              { pillar: "THROTTLE ACTIVATION",  label: throttleLabel,  score: throttleScore,  rag: throttleRag  as Rag },
+              { pillar: "VENUE SYNCHRONISATION",label: venueSyncLabel, score: venueSyncScore, rag: venueSyncRag  as Rag },
+            ].map(p => {
+              const c = ragColor(p.rag);
+              return (
+                <div key={p.pillar} style={{ background: PANEL, padding: "14px 16px" }}>
+                  <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 6 }}>
+                    {p.pillar}
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
+                    <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 12, fontWeight: 700, color: c }}>{p.label}</span>
+                    <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 14, fontWeight: 700, color: c }}>{p.score}</span>
+                  </div>
+                  <div style={{ height: 3, background: BORDER, borderRadius: 1, marginBottom: 6 }}>
+                    <div style={{ height: "100%", width: `${p.score}%`, background: c, borderRadius: 1, transition: "width 1s ease" }} />
+                  </div>
+                  <div style={{ display: "flex", gap: 3 }}>
+                    {Array.from({ length: 10 }, (_, i) => (
+                      <div key={i} style={{ width: 4, height: 4, borderRadius: "50%", background: i < Math.round(p.score / 10) ? c : BORDER }} />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
         {/* ── ROW 3: EXECUTION FEASIBILITY INDEX ──────────────────────────── */}
         <div style={{ background: PANEL, padding: "14px 16px", borderTop: `1px solid ${BORDER}` }} data-testid="integrity-efi">
           <SectionHeader
@@ -720,54 +769,12 @@ export default function IntegrityPage() {
                 </div>
               </>
             )}
-          </div>
-
-          {/* Right: Venue Table + LPI */}
-          <div style={{ flex: 1, background: PANEL, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 14 }}>
-
-            {/* Venue Depth & Spread Monitor */}
-            <div>
-              <SectionHeader title="Venue Depth & Spread Monitor" />
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 70px 80px", gap: "4px 0" }}>
-                {/* Table header */}
-                {["VENUE", "DEPTH", "SPREAD", "STATUS"].map(h => (
-                  <div key={h} style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", padding: "2px 4px", borderBottom: `1px solid ${BORDER}` }}>
-                    {h}
-                  </div>
-                ))}
-
-                {/* Table rows */}
-                {venues.length === 0 ? (
-                  <div style={{ gridColumn: "1 / -1", fontFamily: "var(--tilt-mono)", fontSize: 10, color: MUTED, padding: "8px 4px" }}>
-                    Awaiting venue data…
-                  </div>
-                ) : venues.map(v => {
-                  const depthNorm = maxDepth > 0 ? (v.depth_10bps / maxDepth).toFixed(2) : "—";
-                  const vRag: Rag = v.stability_score >= 70 ? "G" : v.stability_score >= 40 ? "A" : "R";
-                  const vLabel = vRag === "G" ? "GREEN" : vRag === "A" ? "AMBER" : "RED";
-                  return [
-                    <div key={`n-${v.venue_id}`} style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, fontWeight: 700, color: TEXT, padding: "4px 4px" }}>
-                      {v.venue_id.toUpperCase()}
-                    </div>,
-                    <div key={`d-${v.venue_id}`} style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, color: SUB, padding: "4px 4px" }}>
-                      {depthNorm}
-                    </div>,
-                    <div key={`s-${v.venue_id}`} style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, color: SUB, padding: "4px 4px" }}>
-                      {v.spread_bps.toFixed(1)} bps
-                    </div>,
-                    <div key={`st-${v.venue_id}`} style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, fontWeight: 700, color: ragColor(vRag), padding: "4px 4px" }}>
-                      ● {vLabel}
-                    </div>,
-                  ];
-                })}
-              </div>
-            </div>
 
             {/* Liquidation Pressure Index */}
             <div style={{
               background: lpiSt ? `${lpiSt.color}0d` : "transparent",
               border: `1px solid ${lpiSt ? `${lpiSt.color}25` : BORDER}`,
-              borderRadius: 2, padding: "10px 14px",
+              borderRadius: 2, padding: "10px 14px", marginTop: 14,
             }}>
               <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>
                 Liquidation Pressure Index
@@ -783,69 +790,40 @@ export default function IntegrityPage() {
               </div>
             </div>
           </div>
-        </div>
 
-        {/* ── ROW 5: PoMI COORDINATION FRAMEWORK ──────────────────────────── */}
-        <div style={{ background: PANEL, padding: "14px 16px", borderTop: `1px solid ${BORDER}` }} data-testid="integrity-pomi-coord">
-          <SectionHeader
-            title="PoMI — Market Integrity Coordination"
-            right={
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em" }}>
-                  PoMI
-                </span>
-                <ScoreRing score={pomiScore} color={pomiColor} size={36} />
-                <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 14, fontWeight: 700, color: TEXT }}>
-                  {pomiRat ?? "—"}
-                </span>
-              </div>
-            }
-          />
-          <div style={{ fontFamily: "var(--tilt-sans)", fontSize: 11, color: MUTED, marginBottom: 12 }}>
-            Coordinated Stabilisation Telemetry
-          </div>
-
-          {/* 3-column pillar grid */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 1, background: BORDER }}>
-            {[
-              { pillar: "THRESHOLD DEFINITION", label: thresholdLabel, score: thresholdScore, rag: thresholdRag as Rag },
-              { pillar: "THROTTLE ACTIVATION",  label: throttleLabel,  score: throttleScore,  rag: throttleRag  as Rag },
-              { pillar: "VENUE SYNCHRONISATION",label: venueSyncLabel, score: venueSyncScore, rag: venueSyncRag  as Rag },
-            ].map(p => {
-              const c = ragColor(p.rag);
-              return (
-                <div key={p.pillar} style={{ background: PANEL, padding: "14px 16px" }}>
-                  <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 6 }}>
-                    {p.pillar}
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
-                    <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 12, fontWeight: 700, color: c }}>
-                      {p.label}
-                    </span>
-                    <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 14, fontWeight: 700, color: c }}>
-                      {p.score}
-                    </span>
-                  </div>
-                  {/* Progress bar */}
-                  <div style={{ height: 3, background: BORDER, borderRadius: 1, marginBottom: 6 }}>
-                    <div style={{
-                      height: "100%", width: `${p.score}%`,
-                      background: c, borderRadius: 1,
-                      transition: "width 1s ease",
-                    }} />
-                  </div>
-                  {/* Decorative dot strip */}
-                  <div style={{ display: "flex", gap: 3 }}>
-                    {Array.from({ length: 10 }, (_, i) => (
-                      <div key={i} style={{
-                        width: 4, height: 4, borderRadius: "50%",
-                        background: i < Math.round(p.score / 10) ? c : BORDER,
-                      }} />
-                    ))}
-                  </div>
+          {/* Right: Venue Depth & Spread Monitor */}
+          <div style={{ flex: 1, background: PANEL, padding: "14px 16px" }}>
+            <SectionHeader title="Venue Depth & Spread Monitor" />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 70px 80px", gap: "4px 0" }}>
+              {["VENUE", "DEPTH", "SPREAD", "STATUS"].map(h => (
+                <div key={h} style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", padding: "2px 4px", borderBottom: `1px solid ${BORDER}` }}>
+                  {h}
                 </div>
-              );
-            })}
+              ))}
+              {venues.length === 0 ? (
+                <div style={{ gridColumn: "1 / -1", fontFamily: "var(--tilt-mono)", fontSize: 10, color: MUTED, padding: "8px 4px" }}>
+                  Awaiting venue data…
+                </div>
+              ) : venues.map(v => {
+                const depthNorm = maxDepth > 0 ? (v.depth_10bps / maxDepth).toFixed(2) : "—";
+                const vRag: Rag = v.stability_score >= 70 ? "G" : v.stability_score >= 40 ? "A" : "R";
+                const vLabel = vRag === "G" ? "GREEN" : vRag === "A" ? "AMBER" : "RED";
+                return [
+                  <div key={`n-${v.venue_id}`} style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, fontWeight: 700, color: TEXT, padding: "4px 4px" }}>
+                    {v.venue_id.toUpperCase()}
+                  </div>,
+                  <div key={`d-${v.venue_id}`} style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, color: SUB, padding: "4px 4px" }}>
+                    {depthNorm}
+                  </div>,
+                  <div key={`s-${v.venue_id}`} style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, color: SUB, padding: "4px 4px" }}>
+                    {v.spread_bps.toFixed(1)} bps
+                  </div>,
+                  <div key={`st-${v.venue_id}`} style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, fontWeight: 700, color: ragColor(vRag), padding: "4px 4px" }}>
+                    ● {vLabel}
+                  </div>,
+                ];
+              })}
+            </div>
           </div>
         </div>
 
