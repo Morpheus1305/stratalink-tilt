@@ -476,80 +476,124 @@ export class MemStorage implements IStorage {
   private async fetchLiveTickerItems(): Promise<TickerItem[] | null> {
     if (!this.useLiveData) return null;
 
-    try {
-      const symbols = ["BTC", "ETH", "SOL"];
-      const assetsData = await web3DataService.getMultipleAssets(symbols);
+    // CoinGecko IDs for Top 20 tokens by market cap
+    const TOP20_COINGECKO_IDS = [
+      "bitcoin", "ethereum", "tether", "binancecoin", "solana",
+      "usd-coin", "ripple", "dogecoin", "tron", "the-open-network",
+      "cardano", "avalanche-2", "shiba-inu", "chainlink", "polkadot",
+      "bitcoin-cash", "near", "leo-token", "sui", "litecoin",
+    ];
 
-      const items: TickerItem[] = [];
+    // Synthetic depth/spread by market cap rank (index 0 = largest)
+    const DEPTH_BY_RANK  = [1200, 420, 280, 310, 185, 260, 95, 48, 32, 28, 22, 34, 8, 18, 12, 14, 9, 7, 11, 10];
+    const SPREAD_BY_RANK = [0.01, 0.02, 0.01, 0.03, 0.04, 0.01, 0.05, 0.08, 0.10, 0.12, 0.09, 0.07, 0.18, 0.06, 0.11, 0.10, 0.14, 0.16, 0.13, 0.12];
+
+    try {
+      const ids = TOP20_COINGECKO_IDS.join(",");
+      const cgUrl =
+        `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd` +
+        `&ids=${ids}&order=market_cap_desc&per_page=20&page=1&sparkline=false` +
+        `&price_change_percentage=24h`;
+
+      const resp = await fetch(cgUrl, {
+        headers: { Accept: "application/json" },
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!resp.ok) throw new Error(`CoinGecko markets ${resp.status}`);
+
+      const coins: Array<{
+        symbol: string;
+        current_price: number;
+        price_change_percentage_24h: number;
+        total_volume: number;
+        market_cap_rank: number;
+      }> = await resp.json();
+
+      if (!coins.length) throw new Error("Empty CoinGecko markets response");
+
       const now = new Date();
       const timestamp = `${String(now.getUTCHours()).padStart(2, "0")}:${String(now.getUTCMinutes()).padStart(2, "0")} UTC`;
 
-      const assetArray = Array.from(assetsData.entries());
-      for (const [symbol, data] of assetArray) {
-        items.push({
-          id: `ticker-${symbol}-${now.getTime()}`,
-          symbol: `${symbol}/USD`,
-          price: data.price.toFixed(2),
-          change: data.change24h,
-          changePercent: data.change24h.toFixed(2),
-          depth: `${data.depthUSD.toFixed(1)}M`,
-          spread: `${data.spread.toFixed(2)}%`,
-          volume: `${(data.volume24h / 1e9).toFixed(1)}B`,
+      return coins.map((coin, i) => {
+        const sym = coin.symbol.toUpperCase();
+        const rankIdx = Math.min(i, DEPTH_BY_RANK.length - 1);
+        const depthM = DEPTH_BY_RANK[rankIdx];
+        const spreadPct = SPREAD_BY_RANK[rankIdx];
+        const vol = coin.total_volume;
+        const volStr =
+          vol >= 1e9 ? `${(vol / 1e9).toFixed(1)}B`
+          : vol >= 1e6 ? `${(vol / 1e6).toFixed(0)}M`
+          : `${vol.toFixed(0)}`;
+        const chg = coin.price_change_percentage_24h ?? 0;
+        return {
+          id: `ticker-${sym}-${now.getTime()}-${i}`,
+          symbol: `${sym}/USD`,
+          price: coin.current_price.toLocaleString("en-US", { maximumFractionDigits: coin.current_price < 1 ? 6 : 2 }),
+          change: chg,
+          changePercent: chg.toFixed(2),
+          depth: `${depthM}M`,
+          spread: `${spreadPct.toFixed(2)}%`,
+          volume: volStr,
           timestamp,
-        });
-      }
-
-      return items;
+        };
+      });
     } catch (error) {
-      console.error("Error fetching live ticker data, falling back to mock data:", error);
+      console.error("Error fetching live ticker data (CoinGecko markets), falling back to mock data:", error);
       return null;
     }
   }
 
   private generateTickerItems(): TickerItem[] {
-    const variance = () => (Math.random() - 0.5) * 0.5;
+    const v = () => (Math.random() - 0.5) * 0.5;
     const now = new Date();
-    const timestamp = `${String(now.getUTCHours()).padStart(2, "0")}:${String(now.getUTCMinutes()).padStart(2, "0")} UTC`;
+    const ts = `${String(now.getUTCHours()).padStart(2, "0")}:${String(now.getUTCMinutes()).padStart(2, "0")} UTC`;
 
-    const btcPrice = 63421 + Math.floor(variance() * 500);
-    const ethPrice = 3124 + Math.floor(variance() * 50);
-    const solPrice = 142 + Math.floor(variance() * 5);
-
-    return [
-      {
-        id: `ticker-BTC-${now.getTime()}-1`,
-        symbol: "BTC/USD",
-        price: btcPrice.toString(),
-        change: Math.floor(variance() * 200),
-        changePercent: (1.8 + variance()).toFixed(1),
-        depth: `${(42.5 + variance()).toFixed(1)}M`,
-        spread: `${(0.08 + variance() * 0.01).toFixed(2)}%`,
-        volume: `${(1.2 + variance() * 0.1).toFixed(1)}B`,
-        timestamp,
-      },
-      {
-        id: `ticker-ETH-${now.getTime()}-2`,
-        symbol: "ETH/USD",
-        price: ethPrice.toString(),
-        change: Math.floor(variance() * 50),
-        changePercent: (-0.4 + variance()).toFixed(1),
-        depth: `${(28.3 + variance()).toFixed(1)}M`,
-        spread: `${(0.12 + variance() * 0.01).toFixed(2)}%`,
-        volume: `${(845 + variance() * 20).toFixed(0)}M`,
-        timestamp,
-      },
-      {
-        id: `ticker-SOL-${now.getTime()}-3`,
-        symbol: "SOL/USD",
-        price: solPrice.toString(),
-        change: Math.floor(variance() * 10),
-        changePercent: (6.4 + variance() * 2).toFixed(1),
-        depth: `${(15.7 + variance()).toFixed(1)}M`,
-        spread: `${(0.15 + variance() * 0.02).toFixed(2)}%`,
-        volume: `${(423 + variance() * 30).toFixed(0)}M`,
-        timestamp,
-      },
+    const BASE: Array<{ sym: string; price: number; chg: number; depth: number; spread: number; volB: number }> = [
+      { sym: "BTC",  price: 104200, chg:  1.8, depth: 1200, spread: 0.01, volB: 38.2 },
+      { sym: "ETH",  price:  3480,  chg:  0.9, depth:  420, spread: 0.02, volB: 18.4 },
+      { sym: "USDT", price:  1.000, chg:  0.0, depth:  280, spread: 0.01, volB: 62.1 },
+      { sym: "BNB",  price:   720,  chg:  1.2, depth:  310, spread: 0.03, volB:  3.8 },
+      { sym: "SOL",  price:   195,  chg:  2.4, depth:  185, spread: 0.04, volB:  6.9 },
+      { sym: "USDC", price:  1.000, chg:  0.0, depth:  260, spread: 0.01, volB: 10.2 },
+      { sym: "XRP",  price:  2.48,  chg:  3.1, depth:   95, spread: 0.05, volB:  5.6 },
+      { sym: "DOGE", price:  0.285, chg: -0.7, depth:   48, spread: 0.08, volB:  3.1 },
+      { sym: "TRX",  price:  0.274, chg:  0.4, depth:   32, spread: 0.10, volB:  0.9 },
+      { sym: "TON",  price:  5.82,  chg:  1.1, depth:   28, spread: 0.12, volB:  0.4 },
+      { sym: "ADA",  price:  0.88,  chg: -0.5, depth:   22, spread: 0.09, volB:  0.7 },
+      { sym: "AVAX", price: 35.4,   chg:  1.9, depth:   34, spread: 0.07, volB:  0.5 },
+      { sym: "SHIB", price: 0.0000198, chg: -1.2, depth: 8, spread: 0.18, volB: 0.4 },
+      { sym: "LINK", price: 19.8,   chg:  2.3, depth:   18, spread: 0.06, volB:  0.6 },
+      { sym: "DOT",  price:  7.14,  chg: -0.3, depth:   12, spread: 0.11, volB:  0.3 },
+      { sym: "BCH",  price: 482,    chg:  0.8, depth:   14, spread: 0.10, volB:  0.4 },
+      { sym: "NEAR", price:  5.34,  chg:  1.5, depth:    9, spread: 0.14, volB:  0.3 },
+      { sym: "LEO",  price:  8.62,  chg:  0.1, depth:    7, spread: 0.16, volB:  0.1 },
+      { sym: "SUI",  price:  4.21,  chg:  3.8, depth:   11, spread: 0.13, volB:  0.5 },
+      { sym: "LTC",  price: 118,    chg:  0.6, depth:   10, spread: 0.12, volB:  0.4 },
     ];
+
+    return BASE.map((t, i) => {
+      const px = t.price * (1 + v() * 0.002);
+      const chg = t.chg + v() * 0.5;
+      const pxStr = px < 0.001
+        ? px.toFixed(8)
+        : px < 1 ? px.toFixed(6)
+        : px < 10 ? px.toFixed(4)
+        : px.toLocaleString("en-US", { maximumFractionDigits: 2 });
+      const volStr = t.volB >= 1
+        ? `${(t.volB * (1 + v() * 0.05)).toFixed(1)}B`
+        : `${(t.volB * 1000 * (1 + v() * 0.05)).toFixed(0)}M`;
+      return {
+        id: `ticker-${t.sym}-${now.getTime()}-${i}`,
+        symbol: `${t.sym}/USD`,
+        price: pxStr,
+        change: chg,
+        changePercent: chg.toFixed(2),
+        depth: `${t.depth}M`,
+        spread: `${t.spread.toFixed(2)}%`,
+        volume: volStr,
+        timestamp: ts,
+      };
+    });
   }
 
   private generateTimeSeriesPoints(
