@@ -109,9 +109,11 @@ export default function Alerts() {
   const { selectedToken, setSelectedToken } = useToken();
   const asset = selectedToken || "BTC";
 
-  const [clockStr, setClockStr] = useState(() => new Date().toISOString().slice(11, 19));
+  const fmtClock = () =>
+    new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const [clockStr, setClockStr] = useState(fmtClock);
   useEffect(() => {
-    const id = setInterval(() => setClockStr(new Date().toISOString().slice(11, 19)), 1000);
+    const id = setInterval(() => setClockStr(fmtClock()), 1000);
     return () => clearInterval(id);
   }, []);
 

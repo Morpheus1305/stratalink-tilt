@@ -12,14 +12,13 @@ export function DateTimeBar() {
     return () => clearInterval(interval);
   }, []);
 
-  const formattedTime = currentTime.toLocaleString('en-US', {
+  const formattedTime = currentTime.toLocaleString('en-GB', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
-    timeZone: 'UTC',
     timeZoneName: 'short'
   });
 
