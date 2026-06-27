@@ -797,7 +797,7 @@ export default function Alerts() {
                     <td style={{ ...TD_STYLE, color: "var(--tilt-sub)", whiteSpace: "nowrap", fontFamily: "var(--tilt-mono)" }}
                       data-testid={`text-alert-time-${log.id}`}>
                       {log.ts
-                        ? new Date(log.ts).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+                        ? new Date(log.ts).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
                         : log.timeUTC}
                     </td>
                     <td style={{ ...TD_STYLE, color: "var(--tilt-text)", fontWeight: 500 }}
