@@ -8,6 +8,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 import NotFound from "@/pages/not-found";
+import HeroPage from "@/pages/HeroPage";
 import Alerts from "@/pages/alerts";
 import LoginPage from "@/pages/LoginPage";
 import VerifyOTPPage from "@/pages/VerifyOTPPage";
@@ -46,10 +47,8 @@ function AppRouter() {
       {/* CLT Evidence Console (public) */}
       <Route path="/clt/evidence" component={CLTEvidence} />
 
-      {/* Default: redirect to TILT */}
-      <Route path="/">
-        {() => <Redirect to="/platform/tilt" />}
-      </Route>
+      {/* Cover / Hero landing page */}
+      <Route path="/" component={HeroPage} />
 
       {/* /platform → TILT */}
       <Route path="/platform">
