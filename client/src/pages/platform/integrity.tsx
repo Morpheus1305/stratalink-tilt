@@ -436,110 +436,154 @@ export default function IntegrityPage() {
           <EwdsCell label="ADL COUNT"  value={null}                                                   rag="N" />
         </div>
 
-        {/* ── ROW 2: POLI + POMI CARDS ────────────────────────────────────── */}
-        <div style={{ display: "flex", gap: 1, background: BORDER }} data-testid="integrity-poli-pomi">
+        {/* ── ROW 2: POLI + POMI — full-width horizontal bands ────────────── */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 1, background: BORDER }} data-testid="integrity-poli-pomi">
 
-          {/* PoLi Card */}
-          <div style={{ flex: 1, background: PANEL, padding: "14px 16px" }}>
-            <SectionHeader title="PoLi Market Integrity" />
-            <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
-              <ScoreRing score={poliScore} color={poliColor} size={60} />
+          {/* ── PoLi row ── */}
+          <div style={{ display: "flex", alignItems: "stretch", background: PANEL, minHeight: 72 }}>
 
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: "var(--tilt-sans)", fontSize: 13, color: TEXT, fontWeight: 600 }}>
+            {/* Ring + label */}
+            <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "0 16px", flexShrink: 0 }}>
+              <ScoreRing score={poliScore} color={poliColor} size={52} />
+              <div style={{ minWidth: 180 }}>
+                <div style={{ fontFamily: "var(--tilt-sans)", fontSize: 13, color: TEXT, fontWeight: 600, whiteSpace: "nowrap" }}>
                   PoLi Market Integrity
                 </div>
-                <div style={{ fontFamily: "var(--tilt-sans)", fontSize: 11, color: SUB, marginBottom: 10 }}>
+                <div style={{ fontFamily: "var(--tilt-sans)", fontSize: 10, color: SUB, whiteSpace: "nowrap" }}>
                   Cross-venue liquidity integrity monitor
                 </div>
-                <div style={{ display: "flex", gap: 24, marginBottom: 10 }}>
-                  <div>
-                    <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 2 }}>PoLi Score</div>
-                    <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 22, fontWeight: 700, color: poliColor, lineHeight: 1 }}>
-                      {poliScore != null ? Math.round(poliScore) : "—"}
-                    </div>
-                  </div>
-                  <div>
-                    <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 2 }}>Rating</div>
-                    <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 22, fontWeight: 700, color: TEXT, lineHeight: 1 }}>
-                      {poliRat ?? "—"}
-                    </div>
-                  </div>
-                  <div>
-                    <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 2 }}>Market Status</div>
-                    <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 14, fontWeight: 700, color: poliSt?.color ?? SUB }}>
-                      {poliSt?.label ?? "—"}
-                    </div>
-                  </div>
-                </div>
-                <div style={{ fontFamily: "var(--tilt-sans)", fontSize: 11, color: SUB, lineHeight: 1.5, marginBottom: 8 }}>
-                  {poliDescText ?? "Awaiting live data feed…"}
-                </div>
-                <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.06em" }}>
-                  STRATALINK PoLi v1.0
-                </div>
               </div>
+            </div>
+
+            <div style={{ width: 1, background: BORDER, alignSelf: "stretch", flexShrink: 0 }} />
+
+            {/* PoLi Score */}
+            <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 20px", flexShrink: 0, minWidth: 80 }}>
+              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 2 }}>PoLi Score</div>
+              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 26, fontWeight: 700, color: poliColor, lineHeight: 1 }}>
+                {poliScore != null ? Math.round(poliScore) : "—"}
+              </div>
+            </div>
+
+            <div style={{ width: 1, background: BORDER, alignSelf: "stretch", flexShrink: 0 }} />
+
+            {/* Rating */}
+            <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 20px", flexShrink: 0, minWidth: 72 }}>
+              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 2 }}>Rating</div>
+              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 26, fontWeight: 700, color: TEXT, lineHeight: 1 }}>
+                {poliRat ?? "—"}
+              </div>
+            </div>
+
+            <div style={{ width: 1, background: BORDER, alignSelf: "stretch", flexShrink: 0 }} />
+
+            {/* Market Status */}
+            <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 20px", flexShrink: 0, minWidth: 120 }}>
+              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 2 }}>Market Status</div>
+              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 14, fontWeight: 700, color: poliSt?.color ?? SUB }}>
+                {poliSt?.label ?? "—"}
+              </div>
+            </div>
+
+            <div style={{ width: 1, background: BORDER, alignSelf: "stretch", flexShrink: 0 }} />
+
+            {/* Description */}
+            <div style={{ flex: 1, display: "flex", alignItems: "center", padding: "0 20px", minWidth: 0 }}>
+              <div style={{ fontFamily: "var(--tilt-sans)", fontSize: 11, color: SUB, lineHeight: 1.55 }}>
+                {poliDescText ?? "Awaiting live data feed…"}
+              </div>
+            </div>
+
+            <div style={{ width: 1, background: BORDER, alignSelf: "stretch", flexShrink: 0 }} />
+
+            {/* Version tag */}
+            <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "flex-end", padding: "0 16px", flexShrink: 0 }}>
+              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase" }}>STRATALINK</div>
+              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.06em" }}>PoLi v1.0</div>
             </div>
           </div>
 
-          {/* PoMI Card */}
-          <div style={{ flex: 1, background: PANEL, padding: "14px 16px" }}>
-            <SectionHeader title="PoMI Market Integrity" />
-            <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
-              <ScoreRing score={pomiScore} color={pomiColor} size={60} />
+          {/* ── PoMI row ── */}
+          <div style={{ display: "flex", alignItems: "stretch", background: PANEL, minHeight: 72 }}>
 
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: "var(--tilt-sans)", fontSize: 13, color: TEXT, fontWeight: 600 }}>
+            {/* Ring + label */}
+            <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "0 16px", flexShrink: 0 }}>
+              <ScoreRing score={pomiScore} color={pomiColor} size={52} />
+              <div style={{ minWidth: 180 }}>
+                <div style={{ fontFamily: "var(--tilt-sans)", fontSize: 13, color: TEXT, fontWeight: 600, whiteSpace: "nowrap" }}>
                   PoMI Market Integrity
                 </div>
-                <div style={{ fontFamily: "var(--tilt-sans)", fontSize: 11, color: SUB, marginBottom: 10 }}>
+                <div style={{ fontFamily: "var(--tilt-sans)", fontSize: 10, color: SUB, whiteSpace: "nowrap" }}>
                   Coordination integrity monitor
-                </div>
-                <div style={{ display: "flex", gap: 16 }}>
-                  <div>
-                    <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 2 }}>PoMI Score</div>
-                    <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 22, fontWeight: 700, color: pomiColor, lineHeight: 1 }}>
-                      {pomiScore ?? "—"}
-                    </div>
-                  </div>
-                  <div>
-                    <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 2 }}>Rating</div>
-                    <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 22, fontWeight: 700, color: TEXT, lineHeight: 1 }}>
-                      {pomiRat ?? "—"}
-                    </div>
-                  </div>
-                  <div>
-                    <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 2 }}>Status</div>
-                    <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 14, fontWeight: 700, color: pomiSt?.color ?? SUB }}>
-                      {pomiSt?.label ?? "—"}
-                    </div>
-                  </div>
-
-                  {/* Three pillars */}
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4, marginLeft: 8 }}>
-                    {[
-                      { label: "Threshold", status: thresholdLabel, rag: thresholdRag },
-                      { label: "Throttle",  status: throttleLabel,  rag: throttleRag  },
-                      { label: "Venue Sync",status: venueSyncLabel, rag: venueSyncRag },
-                    ].map(p => (
-                      <div key={p.label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <span style={{ width: 6, height: 6, borderRadius: "50%", background: ragColor(p.rag as Rag), flexShrink: 0 }} />
-                        <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 10, color: SUB }}>{p.label}</span>
-                        <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 10, fontWeight: 700, color: ragColor(p.rag as Rag) }}>{p.status}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div style={{ fontFamily: "var(--tilt-sans)", fontSize: 11, color: SUB, lineHeight: 1.5, margin: "8px 0" }}>
-                  {pomiDescText ?? "Awaiting live data feed…"}
-                </div>
-                <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.06em" }}>
-                  STRATALINK PoMi v1.0
                 </div>
               </div>
             </div>
+
+            <div style={{ width: 1, background: BORDER, alignSelf: "stretch", flexShrink: 0 }} />
+
+            {/* PoMI Score */}
+            <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 20px", flexShrink: 0, minWidth: 80 }}>
+              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 2 }}>PoMI Score</div>
+              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 26, fontWeight: 700, color: pomiColor, lineHeight: 1 }}>
+                {pomiScore ?? "—"}
+              </div>
+            </div>
+
+            <div style={{ width: 1, background: BORDER, alignSelf: "stretch", flexShrink: 0 }} />
+
+            {/* Rating */}
+            <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 20px", flexShrink: 0, minWidth: 72 }}>
+              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 2 }}>Rating</div>
+              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 26, fontWeight: 700, color: TEXT, lineHeight: 1 }}>
+                {pomiRat ?? "—"}
+              </div>
+            </div>
+
+            <div style={{ width: 1, background: BORDER, alignSelf: "stretch", flexShrink: 0 }} />
+
+            {/* Status */}
+            <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 20px", flexShrink: 0, minWidth: 120 }}>
+              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 2 }}>Status</div>
+              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 14, fontWeight: 700, color: pomiSt?.color ?? SUB }}>
+                {pomiSt?.label ?? "—"}
+              </div>
+            </div>
+
+            <div style={{ width: 1, background: BORDER, alignSelf: "stretch", flexShrink: 0 }} />
+
+            {/* Three pillars */}
+            <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 5, padding: "0 20px", flexShrink: 0 }}>
+              {[
+                { label: "Threshold", status: thresholdLabel, rag: thresholdRag as Rag },
+                { label: "Throttle",  status: throttleLabel,  rag: throttleRag  as Rag },
+                { label: "Venue Sync",status: venueSyncLabel, rag: venueSyncRag  as Rag },
+              ].map(p => (
+                <div key={p.label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: ragColor(p.rag), flexShrink: 0 }} />
+                  <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 10, color: MUTED, minWidth: 64 }}>{p.label}</span>
+                  <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 10, fontWeight: 700, color: ragColor(p.rag) }}>{p.status}</span>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ width: 1, background: BORDER, alignSelf: "stretch", flexShrink: 0 }} />
+
+            {/* Description */}
+            <div style={{ flex: 1, display: "flex", alignItems: "center", padding: "0 20px", minWidth: 0 }}>
+              <div style={{ fontFamily: "var(--tilt-sans)", fontSize: 11, color: SUB, lineHeight: 1.55 }}>
+                {pomiDescText ?? "Awaiting live data feed…"}
+              </div>
+            </div>
+
+            <div style={{ width: 1, background: BORDER, alignSelf: "stretch", flexShrink: 0 }} />
+
+            {/* Version tag */}
+            <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "flex-end", padding: "0 16px", flexShrink: 0 }}>
+              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase" }}>STRATALINK</div>
+              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.06em" }}>PoMi v1.0</div>
+            </div>
           </div>
+
         </div>
 
         {/* ── ROW 3: EXECUTION FEASIBILITY INDEX ──────────────────────────── */}
