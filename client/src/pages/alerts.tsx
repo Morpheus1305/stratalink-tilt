@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
 import type { AlertsData, DashboardData } from "@shared/schema";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { PlatformTabs } from "@/components/platform-tabs";
@@ -107,6 +108,12 @@ const TD_STYLE: React.CSSProperties = {
 export default function Alerts() {
   const { selectedToken, setSelectedToken } = useToken();
   const asset = selectedToken || "BTC";
+
+  const [clockStr, setClockStr] = useState(() => new Date().toISOString().slice(11, 19));
+  useEffect(() => {
+    const id = setInterval(() => setClockStr(new Date().toISOString().slice(11, 19)), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   const { data: dashboardData, isLoading: dashboardLoading, dataUpdatedAt: dashboardUpdatedAt } = useQuery<DashboardData>({
     queryKey: ["/api/dashboard", asset],
@@ -410,7 +417,7 @@ export default function Alerts() {
           </div>
 
           <div className="tilt-tb-timestamp">
-            LAST SYNC <span style={{ marginLeft: 6 }}>{new Date().toISOString().slice(11, 19)} UTC</span>
+            LAST SYNC <span style={{ marginLeft: 6 }}>{clockStr} UTC</span>
           </div>
         </div>
 

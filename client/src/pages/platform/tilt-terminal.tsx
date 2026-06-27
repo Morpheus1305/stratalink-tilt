@@ -177,9 +177,13 @@ export default function TiltTerminal() {
     null
   ) ?? null;
 
-  const timeStr = agg
-    ? new Date(agg.computed_at_utc).toISOString().slice(11, 23)
-    : "--:--:--.---";
+  const [clockStr, setClockStr] = useState(() =>
+    new Date().toISOString().slice(11, 23)
+  );
+  useEffect(() => {
+    const id = setInterval(() => setClockStr(new Date().toISOString().slice(11, 23)), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   return (
     <div className="tilt-terminal" data-testid="tilt-terminal">
@@ -279,7 +283,7 @@ export default function TiltTerminal() {
           </div>
           <div className="tilt-header-divider" style={{ marginLeft: 12 }} />
           <div className="tilt-tb-timestamp">
-            LAST UPDATE &nbsp;<span data-testid="tilt-time">{timeStr}</span>
+            LAST UPDATE &nbsp;<span data-testid="tilt-time">{clockStr}</span>
           </div>
         </div>
 
