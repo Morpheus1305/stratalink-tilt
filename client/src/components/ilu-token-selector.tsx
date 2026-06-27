@@ -11,13 +11,16 @@ const C = {
   sub:       "#7B8EA3",
   muted:     "#4A5B6E",
   accent:    "#00BFA5",
-  live:      "#00E676",
   catBg:     "#080D14",
   rowHov:    "#131D2B",
   selBg:     "rgba(0,191,165,0.08)",
+  dotLive:   "#00E676",   // green
+  dotLoad:   "#F59E0B",   // amber
+  dotOff:    "#EF4444",   // red
 };
 
-type LiveMap = Record<string, boolean | null>;
+type LiveState = true | false | null;   // null = still loading
+type LiveMap = Record<string, LiveState>;
 
 async function checkLive(symbol: string): Promise<boolean> {
   try {
@@ -27,6 +30,46 @@ async function checkLive(symbol: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+function StatusDot({ state }: { state: LiveState }) {
+  const color =
+    state === null  ? C.dotLoad :
+    state === true  ? C.dotLive :
+                      C.dotOff;
+  const label =
+    state === null  ? "LOADING" :
+    state === true  ? "LIVE"    :
+                      "OFF";
+
+  return (
+    <span
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 5,
+        fontFamily: "var(--tilt-mono, monospace)",
+        fontSize: 10,
+        color,
+        whiteSpace: "nowrap",
+        minWidth: 52,
+        justifyContent: "flex-end",
+      }}
+    >
+      <span
+        style={{
+          display: "inline-block",
+          width: 7,
+          height: 7,
+          borderRadius: "50%",
+          background: color,
+          flexShrink: 0,
+          boxShadow: state === true ? `0 0 5px ${C.dotLive}80` : "none",
+        }}
+      />
+      {label}
+    </span>
+  );
 }
 
 export function ILUTokenSelector() {
@@ -82,7 +125,7 @@ export function ILUTokenSelector() {
           cursor: "pointer",
           userSelect: "none",
           transition: "border-color 0.15s",
-          minWidth: 180,
+          minWidth: 200,
         }}
       >
         <span style={{ fontFamily: "var(--tilt-mono, monospace)", fontSize: 12, fontWeight: 700, color: C.text }}>
@@ -107,21 +150,26 @@ export function ILUTokenSelector() {
         />
       </div>
 
-      {/* Dropdown */}
+      {/* Dropdown — anchored to the RIGHT so it opens inward, never off-screen */}
       {open && (
         <div
           style={{
-            position: "absolute",
-            top: "calc(100% + 4px)",
-            left: 0,
-            zIndex: 9999,
+            position: "fixed",
+            zIndex: 99999,
             background: C.bg,
             border: `1px solid ${C.border}`,
             borderRadius: 2,
-            boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
-            maxHeight: 400,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.6)",
+            maxHeight: "calc(100vh - 120px)",
             overflowY: "auto",
-            minWidth: 280,
+            width: 320,
+            // Position: open below the button, aligned to its right edge
+            top: ref.current
+              ? ref.current.getBoundingClientRect().bottom + 4
+              : 60,
+            right: ref.current
+              ? window.innerWidth - ref.current.getBoundingClientRect().right
+              : 16,
           }}
           data-testid="ilu-token-selector-dropdown"
         >
@@ -130,12 +178,13 @@ export function ILUTokenSelector() {
               {/* Category header */}
               <div style={{
                 background: C.catBg,
-                padding: "6px 12px",
+                padding: "7px 14px",
                 fontFamily: "var(--tilt-mono, monospace)",
                 fontSize: 9,
                 color: C.accent,
                 letterSpacing: "0.08em",
                 textTransform: "uppercase",
+                borderTop: `1px solid ${C.border}`,
               }}>
                 {cat.label}
               </div>
@@ -144,7 +193,7 @@ export function ILUTokenSelector() {
               {cat.tokens.map(token => {
                 const isSelected = token.symbol === selectedToken.symbol;
                 const isHov      = hovered === token.symbol;
-                const liveState  = liveMap[token.symbol];
+                const liveState  = liveMap[token.symbol] ?? null;
 
                 return (
                   <div
@@ -157,26 +206,30 @@ export function ILUTokenSelector() {
                       display: "flex",
                       alignItems: "center",
                       gap: 10,
-                      padding: "7px 12px",
+                      padding: "8px 14px",
                       cursor: "pointer",
                       background: isSelected ? C.selBg : isHov ? C.rowHov : "transparent",
                       borderLeft: isSelected ? `2px solid ${C.accent}` : "2px solid transparent",
                     }}
                   >
-                    <span style={{ fontFamily: "var(--tilt-mono, monospace)", fontSize: 12, fontWeight: 700, color: C.text, minWidth: 36 }}>
-                      {token.symbol}
-                    </span>
-                    <span style={{ fontFamily: "sans-serif", fontSize: 12, color: C.sub, flex: 1 }}>
-                      {token.name}
-                    </span>
                     <span style={{
                       fontFamily: "var(--tilt-mono, monospace)",
-                      fontSize: 10,
-                      color: liveState === true ? C.live : C.muted,
-                      whiteSpace: "nowrap",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: C.text,
+                      minWidth: 40,
                     }}>
-                      {liveState === null ? "···" : liveState ? "● LIVE" : "--"}
+                      {token.symbol}
                     </span>
+                    <span style={{
+                      fontFamily: "sans-serif",
+                      fontSize: 12,
+                      color: C.sub,
+                      flex: 1,
+                    }}>
+                      {token.name}
+                    </span>
+                    <StatusDot state={liveState} />
                   </div>
                 );
               })}
