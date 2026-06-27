@@ -1,0 +1,338 @@
+# Build PoLi/PoMI Market Integrity Page
+
+## Context
+
+This page brings together the two core verification layers of the Liquidity Truth Stack: PoLi (Proof of Liquidity, L4) and PoMI (Proof of Market Integrity, L3). PoLi verifies whether liquidity is real. PoMI is the stability protocol that would coordinate a market response when conditions deteriorate.
+
+PoLi is operational with live data. PoMI is patent-filed and in active development, with its three-pillar framework validated against the October 2025 event data. The page must reflect both states accurately: PoLi data is live, PoMI data is derived from the same live inputs but framed as the protocol framework rather than an active intervention system.
+
+The visual design matches the storyboard aesthetic exactly. This page is what the storyboard would look like if it were running against live markets instead of reconstructing a historical event.
+
+---
+
+## Navigation
+
+Add this page as a view within the TILT tab, or as a fifth tab. The simplest approach is to add it as a sub-route of TILT:
+
+- Route: `/platform/tilt/integrity` or `/platform/integrity`
+- Accessible via a button or link on the main TILT terminal (e.g., a "MARKET INTEGRITY" button in the TILT header area that navigates to this view, with a back button to return to the main TILT terminal)
+
+Alternatively, if it sits better as its own tab, add it to the platform-tabs:
+
+```typescript
+{ id: "integrity", label: "PoLi / PoMI", path: "/platform/integrity" }
+```
+
+Use whichever approach integrates more cleanly with the existing navigation.
+
+---
+
+## Page Structure
+
+The page has six rows of content, all full-width within the main content area. No right sidebar. No chronological timeline header. Just the core analytical components.
+
+### Page Header
+
+```
+STRATALINK · MARKET INTEGRITY VERIFICATION                                    [BTC ▾]  ● LIVE  15:42:28
+PoLi Proof of Liquidity · PoMI Proof of Market Integrity
+```
+
+- "STRATALINK" in 10px monospace, `#4A5B6E`, letter-spacing 0.14em
+- "MARKET INTEGRITY VERIFICATION" in 10px monospace, `#7B8EA3`, letter-spacing 0.08em
+- Token selector on the right (same BTC/ETH/SOL selector as TILT)
+- LIVE indicator and timestamp
+- Subtitle: 13px sans-serif, `#D8DEE8`
+- Background: `#080D14`, bottom border 1px `#1A2435`
+
+### Status Bar
+
+```
+● SYSTEMIC MONITORING   OBSERVATION ACTIVE                    STRATALINK TELEMETRY · [date] · [time] UTC
+```
+
+- Left: Green dot + "SYSTEMIC MONITORING" in 11px monospace, `#7B8EA3`. "OBSERVATION ACTIVE" in 11px monospace, `#00E676` (green).
+- Right: "STRATALINK TELEMETRY" in 10px monospace, `#4A5B6E`. Date and time from current system time.
+- Background: `#0F151F`, 1px `#1A2435` border top and bottom.
+
+When any EWDS indicator or detection category is in an elevated state, the status changes:
+
+- Amber state: "ELEVATED OBSERVATION" in `#FFB300`
+- Red state: "CRITICAL OBSERVATION" in `#FF5252`
+
+Derive the status from the worst-case EWDS indicator for the selected token.
+
+---
+
+### Row 1: EWDS Indicator Strip
+
+Six indicators in a horizontal 1px-gap grid, identical to the storyboard layout:
+
+```
+| FUND RATE  | PERP BASIS | INS FUND  | XMRG UTIL | ALT LIQ  | ADL COUNT |
+| 0.08% ●    | 1.4bps ●   | 98.4% ●   | 41% ●     | 0.84 ●   | 0 ●       |
+```
+
+Each cell:
+- Label: 9px monospace, uppercase, `#4A5B6E`, letter-spacing 0.06em
+- Value: 16px monospace, bold, coloured by RAG (green/amber/red)
+- Dot indicator: Small coloured dot after the value
+- Background: `#0F151F`
+
+**Data source:** These six EWDS metrics need to come from the TSLE buffer's stress indicators for the selected token. If the TSLE buffer does not currently expose these specific metrics individually, derive them from the L5F factors and venue data:
+
+| Indicator | Source | Threshold Logic |
+|-----------|--------|----------------|
+| FUND RATE | Funding rate from perpetual venues (if available in TSLE buffer) | Green < 0.05%, Amber < 0.20%, Red >= 0.20% |
+| PERP BASIS | Perpetual-spot basis from venue comparison | Green < 2 bps, Amber < 8 bps, Red >= 8 bps |
+| INS FUND | Insurance fund level (if available) or proxy from L5F stability | Green > 95%, Amber > 90%, Red <= 90% |
+| XMRG UTIL | Cross-margin utilisation (if available) or proxy from L5F stress | Green < 50%, Amber < 70%, Red >= 70% |
+| ALT LIQ | Altcoin liquidity ratio derived from depth data | Green > 0.7, Amber > 0.4, Red <= 0.4 |
+| ADL COUNT | Auto-deleverage trigger count (if available) or default to 0 | Green = 0, Amber 1-5, Red > 5 |
+
+If a specific metric is not yet available from the data pipeline, show the value as `--` with a dim styling rather than inventing a number. Add a subtle tooltip or label indicating "Awaiting feed" for unavailable metrics.
+
+---
+
+### Row 2: PoLi and PoMI Cards (Side by Side)
+
+Two cards in a horizontal 1px-gap grid, each taking 50% width.
+
+#### Left Card: PoLi Market Integrity
+
+```
+[Score Ring 86]  PoLi Market Integrity                    PoLi Score    RATING    MARKET STATUS
+                 Cross-venue liquidity integrity monitor   86           AA        EARLY STRESS
+
+                 Description text...                                             STRATALINK
+                                                                                 PoLi v1.0
+```
+
+- Score ring: 56px, stroke coloured by RAG, score number centred
+- Title: "PoLi Market Integrity" in 13px sans-serif, `#D8DEE8`
+- Subtitle: "Cross-venue liquidity integrity monitor" in 11px, `#7B8EA3`
+- PoLi Score: Large value (22px monospace, bold, coloured by RAG) with 10px label above
+- Rating: Large value (22px monospace, bold, `#D8DEE8`) with 10px label above
+- Market Status: 14px monospace, bold, coloured by RAG. Derived from PoLi score and regime:
+  - Score >= 85: "STABLE" (green)
+  - Score >= 70: "MONITORING" (green)
+  - Score >= 50: "EARLY STRESS" (amber)
+  - Score >= 30: "FRAGMENTING" (amber)
+  - Score < 30: "CRITICAL" (red)
+- Description: 11px, `#7B8EA3`. One or two lines describing the current state based on the score and detected conditions. Generate dynamically:
+  - High score: "Cross-venue liquidity conditions within normal parameters. No structural deterioration detected."
+  - Medium: "Minor structural deterioration detected across tier-2 venues. Monitoring for escalation."
+  - Low: "Investment-grade integrity conditions deteriorating rapidly. Cross-venue fragmentation accelerating."
+- Version label: "STRATALINK PoLi v1.0" in 9px monospace, `#4A5B6E`
+
+**Data source:** Live PoLi score from the PoLi engine (same as TILT). Rating from the PoLi rating bands.
+
+#### Right Card: PoMI Market Integrity
+
+```
+[Score Ring 92]  PoMI Market Integrity                    PoMI Score    RATING    STATUS
+                 Coordination integrity monitor            92           AAA       STABLE
+
+                 ● Threshold [status]                     Description text...    STRATALINK
+                 ● Throttle  [status]                                            PoMi v1.0
+                 ● Venue Sync [status]
+```
+
+- Same layout as the PoLi card but with the three-pillar status indicators
+- Three status lines showing the PoMI pillars:
+  - **Threshold**: Status derived from EWDS indicator levels. All green = "Ready" (green). Any amber = "Monitoring" (amber). Any red = "Triggered" (red).
+  - **Throttle**: Status derived from regime classification. NORMAL = "Standby" (green). ELEVATED = "Partial" (amber). STRESSED = "Active" (red).
+  - **Venue Sync**: Status derived from cross-venue divergence. Low divergence = "Coordinated" (green). Moderate = "Minor Drift" (amber). High = "Fragmenting" (red).
+- PoMI score: Compute as a weighted average of the three pillar scores (each pillar scored 0-100 based on the thresholds above). This is a framework score showing what PoMI would report, not an active intervention measurement.
+- Description: Dynamic based on PoMI score:
+  - High: "Coordination mechanisms intact. Stability infrastructure operational."
+  - Medium: "Coordination window narrowing. Partial throttle engagement advisable."
+  - Low: "Cross-venue stabilisation integrity compromised. Systemic coordination capacity constrained."
+- Version label: "STRATALINK PoMi v1.0" in 9px monospace, `#4A5B6E`
+
+**Important framing note:** PoMI scores and statuses are derived from live market data using the PoMI framework logic, but PoMI is not actively intervening in markets. The three-pillar display shows what the coordination protocol's assessment would be, based on the patent-filed framework. This distinction does not need to appear on the page itself (the verbal framing during the demo handles it), but it should be understood during implementation.
+
+---
+
+### Row 3: Execution Feasibility Index
+
+A full-width chart panel.
+
+```
+|  EXECUTION FEASIBILITY INDEX                            ● NOMINAL   0.798
+```
+
+- Section label with teal accent bar
+- Right-aligned: RAG dot + status label + numeric value in 16px monospace bold
+- Chart: Line chart showing the Execution Feasibility Index over time (using the TSLE buffer's time window, approximately 1 hour of data)
+- X-axis: Time labels in monospace `#4A5B6E`
+- Y-axis: 0.00 to 1.00 scale
+- Line colour: `#00BFA5` (accent)
+- Dashed reference lines at key thresholds (e.g., 0.80 for nominal, 0.50 for stressed) in `#1A2435`
+- Chart background: `#0F151F`
+
+**Data source:** Compute the Execution Feasibility Index from the L5F factors. A simple approach: normalise the L5F composite score to a 0-1 range (divide by 100). A more sophisticated approach: weight Depth Quality and Execution Integrity more heavily since they directly affect execution feasibility.
+
+**Status labels:**
+- >= 0.80: "NOMINAL" (green)
+- >= 0.50: "DEGRADED" (amber)
+- >= 0.20: "NON-EXECUTABLE" (amber/red)
+- < 0.20: "MARKET FAILURE" (red)
+
+For the chart, plot the historical values from the TSLE buffer's ring buffer. Each data point in the buffer represents a 10-second snapshot over the last hour. If the buffer does not store historical composite scores, compute them from the stored L5F factor values.
+
+If historical data is not available, show just the current value as a single point on the chart with a label, and note "Building history..." in `#4A5B6E` until sufficient data points have accumulated.
+
+---
+
+### Row 4: Cross-Venue Visualisations (Two-Column)
+
+Left column (approximately 50%): Cross-Venue Liquidity Stability heatmap.
+Right column (approximately 50%): Venue Depth and Spread Monitor table plus Liquidation Pressure Index.
+
+#### Left: Cross-Venue Liquidity Stability Heatmap
+
+```
+|  CROSS-VENUE LIQUIDITY STABILITY
+```
+
+A grid visualisation showing venue health over time. Each column represents a venue, each row represents a time interval (e.g., last 6 snapshots). Cells are coloured:
+- Green (`#00E676` at 40% opacity): Venue healthy, depth and spread within normal parameters
+- Amber (`#FFB300` at 40% opacity): Venue stressed, depth declining or spread widening
+- Red (`#FF5252` at 40% opacity): Venue critical, depth collapsed or spread extreme
+- Grey (`#1A2435`): No data
+
+**Data source:** Per-venue depth and spread data from the TSLE buffer, evaluated against thresholds. Use the same venue data that feeds the TILT Cross-Venue Depth Map.
+
+Below the heatmap, show a legend:
+```
+■ STABLE (count)    ■ STRESSED (count)    ■ CRITICAL (count)
+```
+
+If historical per-venue data is not available in the TSLE buffer, show a single row (current state only) rather than a time-series grid.
+
+#### Right Top: Venue Depth and Spread Monitor
+
+```
+|  VENUE DEPTH & SPREAD MONITOR
+```
+
+A compact table showing each active venue:
+
+```
+VENUE          DEPTH       SPREAD      STATUS
+BNC-PERP       0.91        0.8 bps     ● GREEN
+OKX-PERP       0.88        1.1 bps     ● GREEN
+BYB-PERP       0.76        2.4 bps     ● AMBER
+```
+
+- VENUE: Venue identifier in monospace bold
+- DEPTH: Normalised depth score (0-1) or absolute depth value, monospace
+- SPREAD: In basis points, monospace
+- STATUS: RAG dot + label
+
+**Data source:** Same per-venue data as the TILT Cross-Venue Depth Map. Show the same venues, same values.
+
+#### Right Bottom: Liquidation Pressure Index
+
+```
+LIQUIDATION PRESSURE INDEX
+0.12  / 1.00
+Within operational bounds
+```
+
+- Large value: 28px monospace, bold, coloured by RAG
+- Scale: "/ 1.00" in 16px monospace, `#4A5B6E`
+- Description: 11px, `#7B8EA3`
+- Background: Subtle coloured background matching RAG status at 8% opacity
+
+**Data source:** Derive from L5F factors. A simple approach: `1 - (L5F Composite / 100)`. When the L5F composite is high, liquidation pressure is low, and vice versa. A more nuanced approach: weight ADL Count, funding rate, and cross-margin utilisation more heavily.
+
+**Status labels:**
+- <= 0.30: "Within operational bounds" (green)
+- <= 0.60: "Elevated pressure" (amber)
+- <= 0.85: "Critical pressure" (red)
+- > 0.85: "Systemic threshold breached" (red)
+
+---
+
+### Row 5: PoMI Coordination Framework
+
+```
+|  PoMI - Market Integrity Coordination                              PoMI [Score Ring] AAA
+   Coordinated Stabilisation Telemetry
+```
+
+Section label with teal accent bar. PoMI score ring (40px) on the right with rating.
+
+Below, three equal columns in a 1px-gap grid:
+
+```
+| THRESHOLD DEFINITION    | THROTTLE ACTIVATION     | VENUE SYNCHRONISATION     |
+| ACTIVE           96     | STANDBY           91    | COORDINATED          89   |
+| ▬▬▬▬▬▬                  | ▬▬▬▬▬                   | ▬▬▬▬                      |
+```
+
+Each column:
+- Pillar name: 10px monospace, uppercase, `#4A5B6E`, letter-spacing 0.06em
+- Status label: 12px monospace, bold, coloured by RAG:
+  - Threshold: "ACTIVE" (green) / "WEAKENING" (amber) / "BREACHED" (red)
+  - Throttle: "STANDBY" (green) / "PARTIAL" (amber) / "ACTIVE" (red)
+  - Venue Sync: "COORDINATED" (green) / "MINOR DRIFT" (amber) / "FRAGMENTING" (red)
+- Score: 14px monospace, bold, coloured matching status
+- Progress bar: Thin horizontal bar (3px height) showing score as fill percentage. Colour matches status.
+- Small dots below the progress bar (decorative, matching storyboard aesthetic)
+
+**Data source:** Same derivation as described in the PoMI card in Row 2. The three pillars map to:
+- Threshold: Derived from EWDS stress indicator levels
+- Throttle: Derived from regime classification and L5F composite
+- Venue Sync: Derived from cross-venue divergence and spread dispersion
+
+---
+
+### Page Footer
+
+```
+● MONITORING ACTIVE    STRATALINK TELEMETRY    [page_id]            STRATALINK · MARKET INTEGRITY INFRASTRUCTURE
+```
+
+- Left: Green dot + "MONITORING ACTIVE" in `#00E676` 10px monospace
+- Centre: "STRATALINK TELEMETRY" in `#4A5B6E` 10px monospace
+- Right: "STRATALINK · MARKET INTEGRITY INFRASTRUCTURE" in `#4A5B6E` 10px monospace
+
+---
+
+## House Styling Reminder
+
+Every element follows the established house style:
+
+- Backgrounds: `#0B1019` (page), `#0F151F` (panels), `#080D14` (headers)
+- Borders: 1px `#1A2435`, 2px border-radius max
+- Text: `#D8DEE8` (primary), `#7B8EA3` (secondary), `#4A5B6E` (dim)
+- Accent: `#00BFA5`
+- RAG: `#00E676` (green), `#FFB300` (amber), `#FF5252` (red)
+- Typography: JetBrains Mono for all data, system sans-serif for descriptions only
+- No shadows, no gradients, no border-radius > 2px
+
+---
+
+## Verification
+
+After implementation:
+
+1. The page loads at its designated route and is accessible from TILT.
+2. The EWDS strip shows live values (or `--` for unavailable metrics) for the selected token.
+3. The PoLi card shows the live PoLi score, rating, and market status from the PoLi engine.
+4. The PoMI card shows derived scores and pillar statuses from live market data.
+5. The Execution Feasibility Index chart renders with at least the current value.
+6. The venue table shows the same venues and data as the TILT Cross-Venue Depth Map.
+7. The PoMI coordination section shows three pillars with statuses and scores.
+8. Switching tokens updates all data on the page.
+9. The styling matches the storyboard exactly (dark terminal aesthetic, monospace data, teal accents, RAG indicators).
+
+## What NOT to Change
+
+- Do not modify the TILT terminal, STRATA AI, RCL, or ALERTS pages.
+- Do not modify any data computation logic in the L5F engine, PoLi engine, or TSLE buffer.
+- Do not modify venue relay files.
+- Consume data from existing endpoints. Do not create new backend services unless absolutely necessary.

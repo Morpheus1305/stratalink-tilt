@@ -15,6 +15,7 @@ import AlertConfigPage from "@/pages/alert-config";
 import RegulatoryAdgmView from "@/pages/regulatory/RegulatoryAdgmView";
 import TiltTerminal from "@/pages/platform/tilt-terminal";
 import StrataAI from "@/pages/platform/strata-ai";
+import IntegrityPage from "@/pages/platform/integrity";
 import CLTEvidence from "./pages/clt-evidence";
 
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -67,6 +68,14 @@ function AppRouter() {
         {() => (
           <RequireAuth>
             <StrataAI />
+          </RequireAuth>
+        )}
+      </Route>
+
+      <Route path="/platform/integrity">
+        {() => (
+          <RequireAuth>
+            <IntegrityPage />
           </RequireAuth>
         )}
       </Route>
