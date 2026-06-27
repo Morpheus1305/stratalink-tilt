@@ -577,6 +577,9 @@
 }
 .tilt-venue-table thead tr {
   background: var(--tilt-header);
+  position: sticky;
+  top: 0;
+  z-index: 2;
 }
 .tilt-venue-table th {
   font-family: var(--tilt-mono);
