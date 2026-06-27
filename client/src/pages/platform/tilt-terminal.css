@@ -454,7 +454,7 @@
 }
 .tilt-attr-thead {
   display: grid;
-  grid-template-columns: 80px 52px 50px 36px 64px 1fr;
+  grid-template-columns: 2fr 1fr 1fr 0.8fr 1.2fr 1.2fr;
   background: #080D14;
   padding: 5px 8px;
   gap: 4px;
@@ -468,7 +468,7 @@
 }
 .tilt-attr-row {
   display: grid;
-  grid-template-columns: 80px 52px 50px 36px 64px 1fr;
+  grid-template-columns: 2fr 1fr 1fr 0.8fr 1.2fr 1.2fr;
   align-items: center;
   padding: 6px 8px;
   gap: 4px;
