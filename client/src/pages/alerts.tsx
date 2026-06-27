@@ -769,7 +769,7 @@ export default function Alerts() {
               <div className="tilt-panel-accent" />
               <div className="tilt-panel-title">Alert Log</div>
               <span style={{ marginLeft: 8, fontFamily: "var(--tilt-mono)", fontSize: 9, color: "var(--tilt-muted)", letterSpacing: "0.06em" }}>
-                UTC TIMES
+                LOCAL TIME
               </span>
             </div>
           </div>
@@ -777,7 +777,7 @@ export default function Alerts() {
             <table style={{ width: "100%", borderCollapse: "collapse" }} data-testid="table-alert-log">
               <thead>
                 <tr>
-                  <th style={TH_STYLE}>TIME (UTC)</th>
+                  <th style={TH_STYLE}>TIME</th>
                   <th style={TH_STYLE}>ALERT TYPE</th>
                   <th style={{ ...TH_STYLE, textAlign: "center" }}>SEVERITY</th>
                   <th style={TH_STYLE}>DESCRIPTION</th>
@@ -799,7 +799,9 @@ export default function Alerts() {
                   >
                     <td style={{ ...TD_STYLE, color: "var(--tilt-sub)", whiteSpace: "nowrap", fontFamily: "var(--tilt-mono)" }}
                       data-testid={`text-alert-time-${log.id}`}>
-                      {log.timeUTC}
+                      {log.ts
+                        ? new Date(log.ts).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+                        : log.timeUTC}
                     </td>
                     <td style={{ ...TD_STYLE, color: "var(--tilt-text)", fontWeight: 500 }}
                       data-testid={`text-alert-type-${log.id}`}>
