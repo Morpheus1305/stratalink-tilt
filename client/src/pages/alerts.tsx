@@ -105,8 +105,7 @@ const TD_STYLE: React.CSSProperties = {
 
 /* ─── MAIN COMPONENT ──────────────────────────────────────────────────────── */
 export default function Alerts() {
-  const { selectedToken, setSelectedToken } = useToken();
-  const asset = selectedToken || "BTC";
+  const { selectedSymbol: asset } = useToken();
 
   const fmtClock = () =>
     new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -315,7 +314,7 @@ export default function Alerts() {
 
     // --- Signal 3: Market Depth ---
     const depthMetric = dashboardData.liveMetrics.find(m => m.label === "MARKET DEPTH");
-    const depthRaw = depthMetric?.value ?? "";
+    const depthRaw = String(depthMetric?.value ?? "");
     const depthNum = parseFloat(depthRaw.replace(/[^0-9.]/g, "")) || 0;
     const dqScore = l5fAgg?.l5f_depth_quality ?? null;
     const depthSeverity: string = depthNum > 20 || (dqScore != null && dqScore >= 70) ? "success" : depthNum > 8 || (dqScore != null && dqScore >= 45) ? "info" : "warning";
@@ -367,18 +366,8 @@ export default function Alerts() {
 
         {/* ── TOPBAR: token selector + metrics ────────────────────────────── */}
         <div className="tilt-topbar" data-testid="alerts-topbar">
-          {/* Token tabs */}
-          <div className="tilt-asset-tabs">
-            {["BTC", "ETH", "SOL"].map((s) => (
-              <div
-                key={s}
-                className={`tilt-asset-tab ${asset === s ? "active" : ""}`}
-                onClick={() => setSelectedToken(s)}
-                data-testid={`alerts-asset-${s}`}
-              >
-                {s}
-              </div>
-            ))}
+          <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, fontWeight: 700, color: "var(--tilt-text)", letterSpacing: "0.06em" }} data-testid="alerts-selected-asset">
+            {asset}
           </div>
 
           <div className="tilt-tb-divider" />

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { PlatformTabs } from "@/components/platform-tabs";
+import { useToken } from "@/contexts/TokenContext";
 import "./tilt-terminal.css";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -72,7 +73,6 @@ interface EwdsIndicator {
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const SYMBOLS = ["BTC", "ETH", "SOL"];
 const MAX_SIGNALS = 50;
 
 const RAG_COLOR: Record<RagStatus, string> = {
@@ -297,7 +297,7 @@ function computeEwds(agg: TsleAggregate): EwdsIndicator[] {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function StrataAI() {
-  const [currentAsset, setCurrentAsset] = useState("BTC");
+  const { selectedSymbol } = useToken();
   const [agg, setAgg] = useState<TsleAggregate | null>(null);
   const [loading, setLoading] = useState(true);
   const [signals, setSignals] = useState<Signal[]>([]);
@@ -332,11 +332,11 @@ export default function StrataAI() {
     setAgg(null);
     setLoading(true);
     prevStatusRef.current = {};
-    fetchData(currentAsset);
+    fetchData(selectedSymbol);
     if (intervalRef.current) clearInterval(intervalRef.current);
-    intervalRef.current = setInterval(() => fetchData(currentAsset), 5000);
+    intervalRef.current = setInterval(() => fetchData(selectedSymbol), 5000);
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [currentAsset, fetchData]);
+  }, [selectedSymbol, fetchData]);
 
   // Signal generation on each agg update
   useEffect(() => {
@@ -422,11 +422,8 @@ export default function StrataAI() {
 
         {/* ── TOPBAR ─────────────────────────────────────────────────────────── */}
         <div className="tilt-topbar" data-testid="strata-ai-topbar">
-          <div className="tilt-asset-tabs">
-            {SYMBOLS.map(s => (
-              <div key={s} className={`tilt-asset-tab ${currentAsset === s ? "active" : ""}`}
-                onClick={() => setCurrentAsset(s)} data-testid={`strata-asset-${s}`}>{s}</div>
-            ))}
+          <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, fontWeight: 700, color: "var(--tilt-text)", letterSpacing: "0.06em" }} data-testid="strata-selected-asset">
+            {selectedSymbol}
           </div>
           <div className="tilt-tb-divider" />
           <div className="tilt-tb-item">

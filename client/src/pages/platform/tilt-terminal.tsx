@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { PlatformTabs } from "@/components/platform-tabs";
+import { useToken } from "@/contexts/TokenContext";
 import "./tilt-terminal.css";
 
 interface VenueSlice {
@@ -62,8 +63,7 @@ function trendChar(prev: number | undefined, curr: number): { sym: string; cls: 
 }
 
 export default function TiltTerminal() {
-  const SYMBOLS = ["BTC", "ETH", "SOL"];
-  const [currentAsset, setCurrentAsset] = useState("BTC");
+  const { selectedSymbol } = useToken();
   const [agg, setAgg] = useState<TsleAggregate | null>(null);
   const [loading, setLoading] = useState(true);
   const [totalRecords, setTotalRecords] = useState(0);
@@ -91,15 +91,15 @@ export default function TiltTerminal() {
   useEffect(() => {
     setAgg(null);
     setLoading(true);
-    fetchData(currentAsset);
+    fetchData(selectedSymbol);
     if (intervalRef.current) clearInterval(intervalRef.current);
-    intervalRef.current = setInterval(() => fetchData(currentAsset), 5000);
+    intervalRef.current = setInterval(() => fetchData(selectedSymbol), 5000);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [currentAsset, fetchData]);
+  }, [selectedSymbol, fetchData]);
 
-  const prev = prevFactorsRef.current[currentAsset] || {};
+  const prev = prevFactorsRef.current[selectedSymbol] || {};
   const factors = agg
     ? {
         dq: agg.l5f_depth_quality,
@@ -215,17 +215,8 @@ export default function TiltTerminal() {
 
         {/* TOP CONTEXT BAR */}
         <div className="tilt-topbar" data-testid="tilt-topbar">
-          <div className="tilt-asset-tabs">
-            {SYMBOLS.map((s) => (
-              <div
-                key={s}
-                className={`tilt-asset-tab ${currentAsset === s ? "active" : ""}`}
-                onClick={() => setCurrentAsset(s)}
-                data-testid={`tilt-asset-${s}`}
-              >
-                {s}
-              </div>
-            ))}
+          <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, fontWeight: 700, color: "var(--tilt-text)", letterSpacing: "0.06em" }} data-testid="tilt-selected-asset">
+            {selectedSymbol}
           </div>
 
           <div className="tilt-tb-divider" />

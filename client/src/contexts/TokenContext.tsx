@@ -1,26 +1,32 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, ReactNode } from "react";
+import { ILU_TOKENS, type ILUToken } from "../../../shared/ilu-universe";
 
 interface TokenContextType {
-  selectedToken: string;
-  setSelectedToken: (token: string) => void;
+  selectedToken: ILUToken;
+  setSelectedToken: (token: ILUToken) => void;
+  selectedSymbol: string;
+  selectedPair: string;
 }
 
-const TokenContext = createContext<TokenContextType | undefined>(undefined);
+const TokenContext = createContext<TokenContextType | null>(null);
 
 export function TokenProvider({ children }: { children: ReactNode }) {
-  const [selectedToken, setSelectedToken] = useState('BTC');
+  const [selectedToken, setSelectedToken] = useState<ILUToken>(ILU_TOKENS[0]);
 
   return (
-    <TokenContext.Provider value={{ selectedToken, setSelectedToken }}>
+    <TokenContext.Provider value={{
+      selectedToken,
+      setSelectedToken,
+      selectedSymbol: selectedToken.symbol,
+      selectedPair: selectedToken.pair,
+    }}>
       {children}
     </TokenContext.Provider>
   );
 }
 
 export function useToken() {
-  const context = useContext(TokenContext);
-  if (context === undefined) {
-    throw new Error('useToken must be used within a TokenProvider');
-  }
-  return context;
+  const ctx = useContext(TokenContext);
+  if (!ctx) throw new Error("useToken must be used within TokenProvider");
+  return ctx;
 }

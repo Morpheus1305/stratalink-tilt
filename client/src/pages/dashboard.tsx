@@ -10,7 +10,6 @@ import { TimeSeriesChart } from "@/components/time-series-chart";
 import { ReportExportSection } from "@/components/report-export-section";
 import { BottomTicker } from "@/components/bottom-ticker";
 import { DateTimeBar } from "@/components/date-time-bar";
-import { TokenSelector } from "@/components/token-selector";
 import { useToken } from "@/contexts/TokenContext";
 import type { DashboardData, TimeSeriesData } from "@shared/schema";
 import { Card } from "@/components/ui/card";
@@ -19,12 +18,12 @@ import { useState } from "react";
 
 export default function Dashboard() {
   const [selectedTimeframe, setSelectedTimeframe] = useState('1D');
-  const { selectedToken, setSelectedToken } = useToken();
+  const { selectedSymbol } = useToken();
 
   const { data: dashboardData, isLoading: isDashboardLoading } = useQuery<DashboardData>({
-    queryKey: ['/api/dashboard', selectedToken],
+    queryKey: ['/api/dashboard', selectedSymbol],
     queryFn: async () => {
-      const response = await fetch(`/api/dashboard?asset=${selectedToken}`);
+      const response = await fetch(`/api/dashboard?asset=${selectedSymbol}`);
       if (!response.ok) throw new Error('Failed to fetch dashboard data');
       return response.json();
     },
@@ -32,9 +31,9 @@ export default function Dashboard() {
   });
 
   const { data: timeSeriesData, isLoading: isTimeSeriesLoading, error: timeSeriesError } = useQuery<TimeSeriesData>({
-    queryKey: ['/api/time-series', selectedToken, selectedTimeframe],
+    queryKey: ['/api/time-series', selectedSymbol, selectedTimeframe],
     queryFn: async () => {
-      const response = await fetch(`/api/time-series/${selectedTimeframe}?asset=${selectedToken}`);
+      const response = await fetch(`/api/time-series/${selectedTimeframe}?asset=${selectedSymbol}`);
       if (!response.ok) throw new Error('Failed to fetch time series data');
       return response.json();
     },
@@ -82,17 +81,6 @@ export default function Dashboard() {
       <DashboardHeader />
       <PlatformTabs />
 
-      {/* Token Selector Bar */}
-      <div className="border-b border-border px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-muted-foreground">TOKEN:</span>
-          <TokenSelector selectedToken={selectedToken} onChange={setSelectedToken} />
-        </div>
-        <div className="flex items-center gap-2" data-testid="indicator-live-status">
-          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" data-testid="dot-live-indicator" />
-          <span className="text-xs font-mono text-green-500" data-testid="text-live-status">LIVE</span>
-        </div>
-      </div>
 
       {/* Live Metrics Panel */}
       <LiveMetricsPanel metrics={dashboardData.liveMetrics} />

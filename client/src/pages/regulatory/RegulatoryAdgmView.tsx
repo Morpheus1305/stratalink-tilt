@@ -5,6 +5,7 @@
  */
 
 import { useState, useEffect } from "react";
+import { useToken } from "@/contexts/TokenContext";
 import { useQuery } from "@tanstack/react-query";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { PlatformTabs } from "@/components/platform-tabs";
@@ -274,7 +275,7 @@ function EvidenceLevelTooltipContent({ level }: { level: EvidenceLevel }) {
 }
 
 export default function RegulatoryAdgmView() {
-  const [selectedInstrument, setSelectedInstrument] = useState("BTC-USD");
+  const { selectedPair: selectedInstrument } = useToken();
 
   const fmtClock = () => new Date().toLocaleTimeString("en-GB", { hour12: false });
   const [clockStr, setClockStr] = useState(fmtClock);
@@ -377,17 +378,8 @@ export default function RegulatoryAdgmView() {
         {/* Asset / instrument tabs + status bar */}
         <div className="tilt-topbar">
           {/* Instrument tabs */}
-          <div className="tilt-asset-tabs">
-            {displayInstruments.map((inst) => (
-              <button
-                key={inst.instrument}
-                data-testid={`tab-instrument-${inst.instrument}`}
-                onClick={() => setSelectedInstrument(inst.instrument)}
-                className={`tilt-asset-tab${selectedInstrument === inst.instrument ? " active" : ""}`}
-              >
-                {inst.instrument}
-              </button>
-            ))}
+          <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, fontWeight: 700, color: "var(--tilt-text)", letterSpacing: "0.06em" }} data-testid="rcl-selected-instrument">
+            {selectedInstrument}
           </div>
 
           <div className="tilt-tb-divider" />

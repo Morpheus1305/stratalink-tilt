@@ -1,0 +1,411 @@
+# Unified ILU-20 Token Selector Across All Pages
+
+## Directive
+
+The Stratalink platform monitors the Institutional Liquidity Universe (ILU-20): 20 assets selected by systemic importance, not market capitalisation. The token selector must be unified across every page in the platform. When a user selects a token on any page, every other page updates to reflect that token. There must be only one token selection mechanism in the entire platform, and it must offer exactly the ILU-20 tokens.
+
+Remove all existing token selectors, token dropdowns, BTC/ETH/SOL button strips, and any other token selection UI currently on any page. Replace them all with the single unified ILU-20 selector described below.
+
+---
+
+## The ILU-20 Token Universe
+
+The selector offers exactly these 20 tokens, grouped by systemic category:
+
+### Reserve Assets
+| Symbol | Name | Pair |
+|--------|------|------|
+| BTC | Bitcoin | BTC-USD |
+| ETH | Ethereum | ETH-USD |
+
+### Stablecoin Infrastructure
+| Symbol | Name | Pair |
+|--------|------|------|
+| USDT | Tether | USDT-USD |
+| USDC | USD Coin | USDC-USD |
+| USDe | Ethena USDe | USDe-USD |
+| DAI | DAI | DAI-USD |
+
+### Exchange and Trading Infrastructure
+| Symbol | Name | Pair |
+|--------|------|------|
+| BNB | BNB | BNB-USD |
+| HYPE | Hyperliquid | HYPE-USD |
+| OKB | OKB | OKB-USD |
+| CRO | Cronos | CRO-USD |
+
+### Financial Infrastructure
+| Symbol | Name | Pair |
+|--------|------|------|
+| LINK | Chainlink | LINK-USD |
+| MKR | Maker | MKR-USD |
+| AAVE | Aave | AAVE-USD |
+| UNI | Uniswap | UNI-USD |
+
+### High-Volume Liquidity Assets
+| Symbol | Name | Pair |
+|--------|------|------|
+| SOL | Solana | SOL-USD |
+| XRP | XRP | XRP-USD |
+| DOGE | Dogecoin | DOGE-USD |
+| TON | Toncoin | TON-USD |
+| ADA | Cardano | ADA-USD |
+
+No other tokens should be selectable anywhere in the platform. These 20, and only these 20.
+
+---
+
+## Step 1: Create the ILU-20 Configuration
+
+If `shared/ilu-universe.ts` does not already exist, create it:
+
+```typescript
+export interface ILUToken {
+  symbol: string;
+  name: string;
+  pair: string;
+  category: string;
+  categoryLabel: string;
+  systemicRole: string;
+}
+
+export interface ILUCategory {
+  id: string;
+  label: string;
+  shortLabel: string;
+  tokens: ILUToken[];
+}
+
+export const ILU_CATEGORIES: ILUCategory[] = [
+  {
+    id: "reserve",
+    label: "Reserve Assets",
+    shortLabel: "RESERVE",
+    tokens: [
+      { symbol: "BTC", name: "Bitcoin", pair: "BTC-USD", category: "reserve", categoryLabel: "RESERVE", systemicRole: "Primary store of value, largest collateral asset" },
+      { symbol: "ETH", name: "Ethereum", pair: "ETH-USD", category: "reserve", categoryLabel: "RESERVE", systemicRole: "Settlement layer for DeFi and tokenised assets" },
+    ]
+  },
+  {
+    id: "stablecoin",
+    label: "Stablecoin Infrastructure",
+    shortLabel: "STABLECOIN",
+    tokens: [
+      { symbol: "USDT", name: "Tether", pair: "USDT-USD", category: "stablecoin", categoryLabel: "STABLECOIN", systemicRole: "Largest source of trading liquidity" },
+      { symbol: "USDC", name: "USD Coin", pair: "USDC-USD", category: "stablecoin", categoryLabel: "STABLECOIN", systemicRole: "Institutional settlement asset and collateral" },
+      { symbol: "USDe", name: "Ethena USDe", pair: "USDe-USD", category: "stablecoin", categoryLabel: "STABLECOIN", systemicRole: "Synthetic dollar in derivatives markets" },
+      { symbol: "DAI", name: "DAI", pair: "DAI-USD", category: "stablecoin", categoryLabel: "STABLECOIN", systemicRole: "Decentralised stablecoin" },
+    ]
+  },
+  {
+    id: "exchange",
+    label: "Exchange and Trading Infrastructure",
+    shortLabel: "EXCHANGE",
+    tokens: [
+      { symbol: "BNB", name: "BNB", pair: "BNB-USD", category: "exchange", categoryLabel: "EXCHANGE", systemicRole: "Central to the Binance ecosystem" },
+      { symbol: "HYPE", name: "Hyperliquid", pair: "HYPE-USD", category: "exchange", categoryLabel: "EXCHANGE", systemicRole: "Perpetual futures venue" },
+      { symbol: "OKB", name: "OKB", pair: "OKB-USD", category: "exchange", categoryLabel: "EXCHANGE", systemicRole: "Key exchange ecosystem token" },
+      { symbol: "CRO", name: "Cronos", pair: "CRO-USD", category: "exchange", categoryLabel: "EXCHANGE", systemicRole: "Supports the Crypto.com ecosystem" },
+    ]
+  },
+  {
+    id: "infrastructure",
+    label: "Financial Infrastructure",
+    shortLabel: "INFRASTRUCTURE",
+    tokens: [
+      { symbol: "LINK", name: "Chainlink", pair: "LINK-USD", category: "infrastructure", categoryLabel: "INFRASTRUCTURE", systemicRole: "Dominant oracle network" },
+      { symbol: "MKR", name: "Maker", pair: "MKR-USD", category: "infrastructure", categoryLabel: "INFRASTRUCTURE", systemicRole: "Key lending and stablecoin governance" },
+      { symbol: "AAVE", name: "Aave", pair: "AAVE-USD", category: "infrastructure", categoryLabel: "INFRASTRUCTURE", systemicRole: "Major institutional lending protocol" },
+      { symbol: "UNI", name: "Uniswap", pair: "UNI-USD", category: "infrastructure", categoryLabel: "INFRASTRUCTURE", systemicRole: "Largest decentralised exchange" },
+    ]
+  },
+  {
+    id: "liquidity",
+    label: "High-Volume Liquidity Assets",
+    shortLabel: "LIQUIDITY",
+    tokens: [
+      { symbol: "SOL", name: "Solana", pair: "SOL-USD", category: "liquidity", categoryLabel: "LIQUIDITY", systemicRole: "Major trading ecosystem" },
+      { symbol: "XRP", name: "XRP", pair: "XRP-USD", category: "liquidity", categoryLabel: "LIQUIDITY", systemicRole: "Significant global institutional liquidity" },
+      { symbol: "DOGE", name: "Dogecoin", pair: "DOGE-USD", category: "liquidity", categoryLabel: "LIQUIDITY", systemicRole: "Most actively traded meme asset" },
+      { symbol: "TON", name: "Toncoin", pair: "TON-USD", category: "liquidity", categoryLabel: "LIQUIDITY", systemicRole: "Rapid ecosystem growth" },
+      { symbol: "ADA", name: "Cardano", pair: "ADA-USD", category: "liquidity", categoryLabel: "LIQUIDITY", systemicRole: "Large capitalisation, broad exchange coverage" },
+    ]
+  },
+];
+
+export const ILU_TOKENS: ILUToken[] = ILU_CATEGORIES.flatMap(c => c.tokens);
+
+export const ILU_SYMBOLS: string[] = ILU_TOKENS.map(t => t.symbol);
+
+export function getILUToken(symbol: string): ILUToken | undefined {
+  return ILU_TOKENS.find(t => t.symbol === symbol);
+}
+
+export function getILUCategory(symbol: string): ILUCategory | undefined {
+  return ILU_CATEGORIES.find(c => c.tokens.some(t => t.symbol === symbol));
+}
+```
+
+---
+
+## Step 2: Create Global Token State
+
+Create a React context that manages the selected token globally across all pages. Every page consumes this context rather than maintaining its own local token state.
+
+Create `client/src/contexts/TokenContext.tsx`:
+
+```typescript
+import { createContext, useContext, useState, ReactNode } from "react";
+import { ILU_TOKENS, type ILUToken } from "../../shared/ilu-universe";
+
+interface TokenContextType {
+  selectedToken: ILUToken;
+  setSelectedToken: (token: ILUToken) => void;
+  selectedSymbol: string;
+  selectedPair: string;
+}
+
+const TokenContext = createContext<TokenContextType | null>(null);
+
+export function TokenProvider({ children }: { children: ReactNode }) {
+  const [selectedToken, setSelectedToken] = useState<ILUToken>(ILU_TOKENS[0]); // Default to BTC
+
+  return (
+    <TokenContext.Provider value={{
+      selectedToken,
+      setSelectedToken,
+      selectedSymbol: selectedToken.symbol,
+      selectedPair: selectedToken.pair,
+    }}>
+      {children}
+    </TokenContext.Provider>
+  );
+}
+
+export function useToken() {
+  const ctx = useContext(TokenContext);
+  if (!ctx) throw new Error("useToken must be used within TokenProvider");
+  return ctx;
+}
+```
+
+Wrap the entire application in `TokenProvider` at the top level in `App.tsx` or the root layout component, so every page has access to the selected token.
+
+---
+
+## Step 3: Build the ILU-20 Selector Component
+
+Create `client/src/components/ilu-token-selector.tsx`:
+
+This is a dropdown selector that shows all 20 ILU tokens grouped by category.
+
+### Closed State (Default)
+
+When closed, the selector displays the currently selected token:
+
+```
+[BTC] Bitcoin · RESERVE                                            ▾
+```
+
+- Token symbol: 12px monospace, bold, `#D8DEE8`
+- Token name: 12px, `#7B8EA3`
+- Category: 9px monospace, `#4A5B6E`, preceded by a dot separator
+- Dropdown arrow: `#4A5B6E`
+- Background: `#0F151F`, border 1px `#1A2435`, 2px border-radius
+- Hover: Border colour shifts to `#00BFA5`
+
+### Open State (Dropdown Expanded)
+
+When clicked, a dropdown panel appears below showing all 20 tokens grouped by category:
+
+```
+RESERVE ASSETS
+  BTC  Bitcoin                              ● LIVE
+  ETH  Ethereum                             ● LIVE
+
+STABLECOIN INFRASTRUCTURE
+  USDT  Tether                              ● LIVE
+  USDC  USD Coin                            ● LIVE
+  USDe  Ethena USDe                         --
+  DAI   DAI                                 --
+
+EXCHANGE AND TRADING INFRASTRUCTURE
+  BNB   BNB                                 ● LIVE
+  HYPE  Hyperliquid                         ● LIVE
+  OKB   OKB                                 --
+  CRO   Cronos                              --
+
+FINANCIAL INFRASTRUCTURE
+  LINK  Chainlink                           --
+  MKR   Maker                               --
+  AAVE  Aave                                --
+  UNI   Uniswap                             ● LIVE
+
+HIGH-VOLUME LIQUIDITY ASSETS
+  SOL   Solana                              ● LIVE
+  XRP   XRP                                 --
+  DOGE  Dogecoin                            --
+  TON   Toncoin                             --
+  ADA   Cardano                             --
+```
+
+- Category headers: 9px monospace, uppercase, `#00BFA5`, letter-spacing 0.08em, with a subtle background `#080D14`
+- Token rows: Clickable, with hover background `#131D2B`
+- Symbol: 12px monospace, bold, `#D8DEE8`
+- Name: 12px, `#7B8EA3`
+- Status indicator on the right:
+  - "● LIVE" in 10px monospace, `#00E676` if the venue data pipeline is actively returning data for that token
+  - "--" in 10px monospace, `#4A5B6E` if no venue data is currently available
+- Currently selected token: Highlighted with `#00BFA5` left border and subtle accent background
+- Dropdown background: `#0F151F`, border 1px `#1A2435`, 2px border-radius, subtle box-shadow for depth (`0 4px 12px rgba(0,0,0,0.4)`)
+- Dropdown max-height: 400px with overflow-y scroll if needed
+- Close on selection or click outside
+
+### Determining LIVE vs -- Status
+
+Check whether the venue data pipeline is currently returning data for each token. The simplest approach: when the L5F snapshot endpoint is called for a given token's pair, does it return a non-null response with a non-zero depth? If yes, that token is LIVE. If no, it shows "--".
+
+This status check can be done once on dropdown open rather than continuously polling all 20 tokens.
+
+All 20 tokens are always selectable regardless of LIVE status. Selecting a token without active data loads the page with "--" values and "Awaiting venue data" states.
+
+---
+
+## Step 4: Remove All Existing Token Selectors
+
+Search the entire `client/src/` directory for every existing token selection mechanism and remove it. These include:
+
+### TILT Terminal (`tilt-terminal.tsx`)
+- Remove the BTC / ETH / SOL button strip
+- Remove any local state managing the selected token (e.g., `useState` for `selectedToken`, `activeToken`, `currentPair`, or similar)
+- Replace with `useToken()` from the global context
+- All data fetching that uses the selected token/pair should read from `selectedPair` or `selectedSymbol` from the context
+
+### RCL View (`RegulatoryAdgmView.tsx`)
+- Remove the BTC-USD dropdown selector in the header
+- Remove any local token state
+- Replace with `useToken()` from the global context
+- The "Load latest snapshot" button should fetch for the globally selected token
+
+### STRATA AI Page (`strata-ai.tsx`)
+- Remove any token selector if one exists
+- Replace with `useToken()` from the global context
+
+### PoLi/PoMI Page (if already created)
+- Remove any token selector
+- Replace with `useToken()` from the global context
+
+### Alerts Page (`alert-config.tsx`)
+- If there is a token filter or selector, replace with `useToken()` from the global context
+- Alerts should show alerts for the globally selected token by default, with an option to show all tokens
+
+---
+
+## Step 5: Place the Unified Selector
+
+The ILU-20 selector component should appear in one consistent location across all pages. There are two approaches:
+
+### Option A (Recommended): In the shared header bar
+
+Place the selector in `dashboard-header.tsx` so it appears on every page in the same position. This is the cleanest approach because the user always knows where to find it.
+
+```
+STRATALINK LABS LIQUIDITY INTELLIGENCE TERMINAL    [BTC Bitcoin · RESERVE ▾]    ● LIVE    [🔔] [⚙] [→]
+```
+
+The selector sits in the header bar, right of centre, before the LIVE indicator. It is always visible and always accessible regardless of which page tab is active.
+
+### Option B: In a sub-header strip below the platform tabs
+
+Add a thin strip below the platform tabs that shows on every page:
+
+```
+TILT    STRATA AI    RCL    ALERTS
+─────────────────────────────────────────────────────
+TOKEN: [BTC Bitcoin · RESERVE ▾]    14 VENUES · 17 TSLE FEEDS    ● LIVE
+```
+
+Use whichever approach integrates more cleanly with the existing layout. Option A is preferred because it does not add vertical space.
+
+---
+
+## Step 6: Wire Data Fetching to Global Token
+
+Every page that fetches data based on the selected token must read from the global context rather than from local state. This means:
+
+### TILT Terminal
+- The L5F snapshot endpoint call should use `selectedPair` from the context
+- The venue depth data should be for the selected token
+- The TSLE buffer query should be for the selected token
+- All panels (Liquidity Health Core, Cross-Venue Depth Map, Stress and Regime, Structural Integrity) update when the token changes
+
+### STRATA AI Page
+- Detection category evaluation should be for the selected token
+- Intelligence signals should be filtered to the selected token
+- EWDS indicators should be for the selected token
+
+### RCL View
+- The Coverage, Truth, and Provenance panels should reflect the selected token
+- The RCL API call should pass the selected token
+
+### PoLi/PoMI Page
+- All PoLi scores, PoMI assessments, EWDS indicators, venue data should be for the selected token
+
+### Alerts Page
+- Show alerts for the selected token by default
+- Optionally show an "All tokens" toggle to see all alerts
+
+### ILU-20 Ticker
+- The ticker continues to show all 20 tokens regardless of which is selected (the ticker is a market overview, not a detail view)
+- Optionally: highlight the currently selected token in the ticker with a subtle accent border or brighter text
+
+---
+
+## Step 7: Handle Token Changes
+
+When the user selects a new token from the dropdown:
+
+1. The global context updates immediately.
+2. Every page that is currently mounted re-renders with the new token.
+3. Data fetching for the new token begins immediately (new L5F snapshot request, new RCL data request, etc.).
+4. While new data is loading, the page should show a brief loading state or transition rather than showing stale data from the previous token.
+5. If the new token has no active venue data, all data-dependent components show "--" or "Awaiting venue data" states.
+6. The token selection persists across tab navigation. If you select SOL on TILT and then click to STRATA AI, the STRATA AI page shows SOL data.
+
+---
+
+## Step 8: Backend Considerations
+
+The backend endpoints currently accept a token or pair parameter. Verify that:
+
+1. The L5F snapshot endpoint accepts any ILU-20 pair, not just BTC-USD, ETH-USD, and SOL-USD.
+2. The RCL API endpoints accept the selected token as a parameter.
+3. The PoLi engine can compute scores for any token the venue relays provide data for.
+4. For tokens without active venue data, the endpoints return a clear "no data" response (not an error) so the frontend can display the appropriate empty state.
+
+If any endpoint is hardcoded to only accept BTC, ETH, or SOL, update it to accept any ILU-20 token pair. The venue relay system may only return data for a subset of the 20 tokens, but the API layer should accept any of them and return whatever data is available (or an empty response for unmonitored tokens).
+
+---
+
+## Verification
+
+After all changes:
+
+1. The ILU-20 dropdown appears in the header (or sub-header) on every page.
+2. The dropdown shows all 20 tokens grouped by five categories.
+3. Tokens with active venue data show "● LIVE". Tokens without show "--".
+4. Selecting a token on any page updates all other pages.
+5. Navigate from TILT to STRATA AI to RCL to ALERTS. The selected token persists across all four tabs.
+6. Select BTC: all pages show BTC data.
+7. Select SOL: all pages show SOL data.
+8. Select a token without active data (e.g., LINK): all pages show "--" or "Awaiting venue data" states without errors.
+9. No old token selectors (BTC/ETH/SOL buttons, dropdown selectors, etc.) appear anywhere in the platform.
+10. The ILU-20 ticker at the bottom continues to show all 20 tokens regardless of selection.
+
+## What NOT to Change
+
+- Do not modify any venue relay files or data pipeline logic.
+- Do not modify the L5F computation engine or PoLi scoring logic.
+- Do not modify the TSLE buffer architecture.
+- Do not change any API response formats. Only ensure the endpoints accept the ILU-20 pairs as valid input parameters.
+- Do not remove the ILU-20 ticker bar. It operates independently of the token selector.

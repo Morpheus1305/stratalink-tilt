@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { PlatformTabs } from "@/components/platform-tabs";
+import { useToken } from "@/contexts/TokenContext";
 import {
   LineChart, Line, XAxis, YAxis, ReferenceLine, Tooltip, ResponsiveContainer,
 } from "recharts";
@@ -209,8 +210,7 @@ function EfiTooltip({ active, payload, label }: any) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function IntegrityPage() {
-  const SYMBOLS = ["BTC", "ETH", "SOL"];
-  const [asset, setAsset]       = useState("BTC");
+  const { selectedSymbol: asset } = useToken();
   const [agg, setAgg]           = useState<TsleAggregate | null>(null);
   const [latency, setLatency]   = useState<number | null>(null);
   const [clock, setClock]       = useState(() =>
@@ -381,19 +381,8 @@ export default function IntegrityPage() {
           </div>
 
           <div style={{ marginLeft: "auto", display: "flex", gap: 16, alignItems: "center" }}>
-            {/* Token tabs */}
-            <div className="tilt-asset-tabs" style={{ border: "none", paddingLeft: 0, paddingRight: 0 }}>
-              {SYMBOLS.map(s => (
-                <div
-                  key={s}
-                  className={`tilt-asset-tab ${asset === s ? "active" : ""}`}
-                  onClick={() => setAsset(s)}
-                  data-testid={`integrity-asset-${s}`}
-                  style={{ padding: "0 10px" }}
-                >
-                  {s}
-                </div>
-              ))}
+            <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, fontWeight: 700, color: "#D8DEE8", letterSpacing: "0.06em" }} data-testid="integrity-selected-asset">
+              {asset}
             </div>
             <div className="tilt-sb-live">
               <div className="tilt-sb-dot tilt-pulse" />
