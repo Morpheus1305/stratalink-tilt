@@ -468,7 +468,7 @@ export default function TiltTerminal() {
             <div className="tilt-panel-header">
               <div className="tilt-panel-accent" style={{ background: "var(--tilt-green)" }} />
               <div className="tilt-panel-title">Cross-Venue Depth Map</div>
-              <div style={{ marginLeft: 8, fontSize: 10, color: "var(--tilt-muted)" }}>+/- 10bps</div>
+              <div className="tilt-ph-tag" style={{ marginLeft: 0, background: "rgba(0,230,118,0.08)", color: "var(--tilt-green)", borderColor: "rgba(0,230,118,0.2)" }}>+/- 10 bps</div>
               <div className="tilt-ph-tag">PANEL 2</div>
             </div>
             <div style={{ overflow: "auto", flex: 1 }}>
@@ -476,7 +476,7 @@ export default function TiltTerminal() {
                 <thead>
                   <tr>
                     <th style={{ width: 160 }}>Venue</th>
-                    <th>+/-10bps Depth</th>
+                    <th>Depth (10bps)</th>
                     <th>% of Global</th>
                     <th>Regulated</th>
                     <th>Stability</th>
