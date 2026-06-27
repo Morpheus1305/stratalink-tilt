@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { PlatformTabs } from "@/components/platform-tabs";
 import { LiveMetricsPanel } from "@/components/live-metrics-panel";
@@ -28,6 +28,7 @@ export default function Dashboard() {
       return response.json();
     },
     refetchInterval: 10000,
+    placeholderData: keepPreviousData,
   });
 
   const { data: timeSeriesData, isLoading: isTimeSeriesLoading, error: timeSeriesError } = useQuery<TimeSeriesData>({
@@ -38,6 +39,7 @@ export default function Dashboard() {
       return response.json();
     },
     refetchInterval: 30000,
+    placeholderData: keepPreviousData,
   });
 
   if (isDashboardLoading) {

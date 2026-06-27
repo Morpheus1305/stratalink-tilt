@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import type { AlertsData, DashboardData } from "@shared/schema";
 import { DashboardHeader } from "@/components/dashboard-header";
@@ -123,6 +123,7 @@ export default function Alerts() {
       return r.json();
     },
     refetchInterval: 10000,
+    placeholderData: keepPreviousData,
   });
 
   const { data: alertsData, isLoading: alertsLoading } = useQuery<AlertsData>({
@@ -133,6 +134,7 @@ export default function Alerts() {
       return r.json();
     },
     refetchInterval: 15000,
+    placeholderData: keepPreviousData,
   });
 
   const { data: l5fData, dataUpdatedAt: l5fUpdatedAt } = useQuery<{ ok: boolean; aggregate: any }>({
