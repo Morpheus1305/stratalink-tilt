@@ -188,7 +188,7 @@
 .tilt-main {
   display: grid;
   grid-template-columns: 1fr 284px;
-  grid-template-rows: minmax(500px, auto) minmax(500px, auto);
+  grid-template-rows: auto auto;
   gap: 1px;
   background: var(--tilt-border);
 }

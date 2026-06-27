@@ -154,6 +154,8 @@ const RELAY_VENUES: { path: string; symbols: string[] }[] = [
   { path: "/api/gmx/perps/depth",        symbols: ["BTC", "ETH"]        },
   { path: "/api/deribit/spot/depth",     symbols: ["BTC", "ETH"]        },
   { path: "/api/uniswap/spot/depth",     symbols: ["BTC", "ETH", "SOL"] },
+  { path: "/api/curve/spot/depth",       symbols: ["BTC", "ETH"]        },
+  { path: "/api/otc/spot/depth",         symbols: ["BTC", "ETH", "SOL"] },
 ];
 
 /**
