@@ -1,0 +1,344 @@
+# Build TILT Reporting System
+
+## Context
+
+TILT needs a reporting system that serves three use cases: on-demand export from the page you are on, scheduled automated reports delivered via email, and a report history for audit trail. This prompt builds all three layers.
+
+Five report templates are attached to this prompt. They define the exact structure, sections, tables, and data fields that the generated reports must match. Use them as the definitive specification for report output.
+
+The attached templates are:
+1. **TILT_Report_Daily_Liquidity_Summary.docx** - Scheduled daily, covers all supervised tokens
+2. **TILT_Report_Weekly_Integrity_Digest.docx** - Scheduled weekly, trend analysis and intelligence summary
+3. **TILT_Report_Monthly_Supervisory_Overview.docx** - Scheduled monthly, executive overview
+4. **TILT_Report_Token_Liquidity.docx** - On-demand, single token deep dive
+5. **TILT_Report_Incident_Template.docx** - On-demand, incident documentation
+
+---
+
+## Architecture Overview
+
+The reporting system has three layers:
+
+```
+Layer 1: In-page export buttons (frontend, on each data page)
+Layer 2: Reports panel (slide-out panel from header, accessible on every page)
+Layer 3: Backend generation service (server-side, scheduled + on-demand)
+```
+
+---
+
+## Layer 1: In-Page Export Buttons
+
+### What to build
+
+Add a compact export button to the header area of each data page. The button uses a download/document icon with the text "EXPORT" in 10px monospace. Clicking it opens a small dropdown showing the available export options for that page.
+
+### Per-page export options
+
+**Liquidity page (`/platform/tilt`):**
+- "Token Liquidity Report (PDF)" - Generates the Token Liquidity Report for the currently selected ILU-20 token using live data
+- "Cross-Venue Comparison (PDF)" - Generates a venue comparison table for the current token
+
+**STRATA AI page (`/platform/strata-ai`):**
+- "Intelligence Summary (PDF)" - Generates a STRATA AI detection summary for the current token including all six detection categories, recent signals, and EWDS status
+
+**PoLi/PoMI page (`/platform/integrity`):**
+- "Verification Report (PDF)" - Generates the PoLi/PoMI assessment with venue attribution, EWDS indicators, and PoMI pillar status
+
+**RCL page (`/regulatory/adgm`):**
+- "Supervisory Snapshot (PDF)" - Generates the RCL Coverage, Truth, and Provenance data as a PDF
+- "Supervisory Snapshot (JSON)" - Exports the raw RCL data payload as JSON
+
+**Alerts page (`/platform/alerts`):**
+- "Alert History Export (PDF)" - Exports recent alert records
+- "Alert History Export (CSV)" - Exports alert data as CSV for analysis
+
+### Export button styling
+
+Follow the house style:
+- Button: `bg-panel` background, 1px `border`, 2px border-radius, 10px monospace text, `text-secondary` colour
+- Hover: Border shifts to `accent`
+- Dropdown: `bg-panel` background, 1px `border`, subtle shadow (`0 4px 12px rgba(0,0,0,0.4)`), each option as a clickable row with hover state
+- While generating: Show a brief "Generating..." state with a subtle loading indicator, then trigger the browser download
+
+### How the export works
+
+When the user clicks an export option:
+
+1. The frontend calls a backend endpoint (e.g., `POST /api/reports/generate`) with the report type, token, and timestamp.
+2. The backend pulls the current live data from the same sources the frontend consumes (L5F snapshot, PoLi engine, TSLE buffer, alert service, venue relay status).
+3. The backend generates a PDF matching the attached template structure.
+4. The PDF is returned as a download response.
+5. A record of the generated report is saved to the database for the Report History.
+
+---
+
+## Layer 2: Reports Panel (Slide-Out)
+
+### What to build
+
+Add a reports icon to the header bar in `dashboard-header.tsx`, positioned between the notification bell and the settings cog. Use a document/file icon. When clicked, a slide-out panel appears from the right side of the screen (same interaction pattern as a notifications drawer).
+
+### Panel structure
+
+The panel has three sections accessible via small tabs or a segmented control at the top: "SCHEDULED", "HISTORY", and "INCIDENTS".
+
+#### Section 1: Scheduled Reports
+
+Shows three report configurations:
+
+```
+DAILY LIQUIDITY SUMMARY                                    ● ACTIVE
+Next delivery: 29 Jun 2026, 07:00 UTC
+Recipients: [configured emails]
+Tokens: All supervised (5)
+[Configure]  [Generate Now]
+
+WEEKLY INTEGRITY DIGEST                                    ● ACTIVE  
+Next delivery: 04 Jul 2026, 07:00 UTC (Friday)
+Recipients: [configured emails]
+Tokens: All supervised (5)
+[Configure]  [Generate Now]
+
+MONTHLY SUPERVISORY OVERVIEW                               ○ INACTIVE
+Next delivery: 01 Aug 2026, 07:00 UTC
+Recipients: Not configured
+Tokens: All supervised (5)
+[Configure]  [Generate Now]
+```
+
+Each report card shows:
+- Report name in 12px monospace bold, `text-primary`
+- Active/inactive toggle (green dot for active, grey for inactive)
+- Next delivery timestamp in 11px monospace, `text-dim`
+- Recipients list (truncated if long, with count)
+- Token scope
+- "Configure" link that opens a configuration sub-panel
+- "Generate Now" button that triggers immediate generation and download
+
+#### Configuration sub-panel
+
+When "Configure" is clicked, the panel shows:
+- **Delivery time**: Time picker for daily, day-of-week picker for weekly, day-of-month picker for monthly
+- **Email recipients**: Text input for email addresses (comma-separated). Store in the database.
+- **Token scope**: Radio buttons for "All supervised tokens" or "Selected tokens" with a multi-select of ILU-20 tokens
+- **Format**: PDF (default) or PDF + JSON
+- **Active/Inactive toggle**
+- Save and Cancel buttons
+
+#### Section 2: Report History
+
+A chronological list of every report generated (scheduled or on-demand), newest first:
+
+```
+28 Jun 2026, 15:42    Token Liquidity Report     BTC-USD    PDF    [Download]
+28 Jun 2026, 07:00    Daily Liquidity Summary     Portfolio  PDF    [Download]
+27 Jun 2026, 07:00    Daily Liquidity Summary     Portfolio  PDF    [Download]
+25 Jun 2026, 14:20    Incident Report             AVAX-USD   PDF    [Download]
+21 Jun 2026, 07:00    Weekly Integrity Digest      Portfolio  PDF    [Download]
+```
+
+Each row shows: timestamp, report type, token/scope, format, and a download link.
+
+Pagination: Show the 20 most recent reports with a "Load more" button.
+
+The reports are stored as files (PDF) in the server's file system or as blobs in the database, along with metadata (type, token, timestamp, generated_by, delivery_status).
+
+#### Section 3: Incidents
+
+- "New Incident Report" button at the top
+- List of filed incident reports with status (OPEN, RESOLVED, CLOSED)
+- Each incident row shows: date, title, affected token, severity, status
+
+When "New Incident Report" is clicked:
+1. Open a form pre-populated with current system state (selected token, current PoLi score, current regime, active alerts, EWDS status, venue status)
+2. User adds: incident title, description, impact assessment
+3. On submit: generate the incident report PDF using the attached template, save to history, and download
+
+### Panel styling
+
+- Width: 400px
+- Background: `bg-primary` (`#0B1019`)
+- Left border: 1px `border`
+- Header: "REPORTS" in 12px monospace, `accent`, with a close (X) button
+- Tab bar: "SCHEDULED | HISTORY | INCIDENTS" in 10px monospace, active tab in `accent` with bottom border
+- All data in monospace, house style colours
+- Slide-in animation: 0.2s ease-out from right
+- Click outside panel to close
+
+---
+
+## Layer 3: Backend Report Generation Service
+
+### What to build
+
+Create `server/services/reportGenerator.ts` - the service that generates PDF reports from live data.
+
+### PDF generation approach
+
+Use one of these approaches (check what is already available in the project dependencies):
+
+**Option A (preferred): Use the same `docx` library (docx-js) the project already uses.** Generate a .docx file matching the template structure, then convert to PDF using a headless LibreOffice call or a docx-to-pdf library. This produces reports that match the templates exactly.
+
+**Option B: Use `pdfkit` or `pdf-lib`.** Generate PDFs directly. This requires manually laying out each section, table, and text block, but avoids the docx-to-pdf conversion step.
+
+**Option C: Use HTML-to-PDF.** Render the report as an HTML page using the house style, then convert to PDF using `puppeteer` or `playwright`. This leverages existing React/HTML skills and produces clean PDFs.
+
+Choose whichever approach is fastest to implement. The critical requirement is that the output matches the section structure, table layouts, and data fields shown in the attached templates.
+
+### Report generation functions
+
+Create a function for each report type:
+
+```typescript
+async function generateDailyLiquiditySummary(tokens: string[], date: Date): Promise<Buffer>
+async function generateWeeklyIntegrityDigest(tokens: string[], weekEnding: Date): Promise<Buffer>
+async function generateMonthlySupervisoryOverview(tokens: string[], month: Date): Promise<Buffer>
+async function generateTokenLiquidityReport(token: string, timestamp: Date): Promise<Buffer>
+async function generateIncidentReport(incident: IncidentData): Promise<Buffer>
+```
+
+Each function:
+1. Pulls live data from the TSLE buffer, L5F engine, PoLi engine, alert service, and venue relay status
+2. Populates the report template structure with real values
+3. Generates the PDF
+4. Returns the PDF as a Buffer
+
+### Data sources for each report
+
+**Daily Liquidity Summary:**
+- Per-token PoLi scores, ratings, depth, spread, status: from L5F snapshot endpoint for each supervised token
+- EWDS indicators per token: from TSLE buffer stress metrics
+- Alerts from last 24 hours: from alert service database query
+- STRATA AI detection summary: from detection evaluation for each token
+- Supervisory notes: auto-generated text based on which tokens are stressed or elevated
+
+**Weekly Integrity Digest:**
+- Daily PoLi scores for each day of the week: from persisted historical data (if available) or from the current snapshot with trend data
+- Alert activity summary: count by severity from alert service
+- STRATA AI signal counts by category: from detection signal history
+- Venue performance: uptime, latency, gaps from venue relay metrics
+- Key observations and recommendations: auto-generated from the data
+
+**Monthly Supervisory Overview:**
+- Month-start and month-end scores: from persisted data
+- Alert statistics: from alert service
+- STRATA AI monthly summary: from detection signal history
+- Venue reliability: from venue relay metrics
+- System performance: uptime, latency from server metrics
+
+**Token Liquidity Report:**
+- Everything from the L5F snapshot for the selected token
+- PoLi score breakdown (depth, balance, spread components)
+- Per-venue attribution from venue evidence service
+- All six EWDS indicators with thresholds
+- All six STRATA AI detection categories with status
+- Data provenance from RCL data service
+
+### Report metadata and storage
+
+Create a database table for report records:
+
+```sql
+CREATE TABLE report_records (
+  id SERIAL PRIMARY KEY,
+  report_type VARCHAR(50) NOT NULL,  -- 'daily', 'weekly', 'monthly', 'token', 'incident'
+  token_scope VARCHAR(255),           -- 'portfolio' or specific token symbol
+  generated_at TIMESTAMP NOT NULL,
+  generated_by VARCHAR(100),          -- 'scheduled' or user identifier
+  delivery_status VARCHAR(20),        -- 'generated', 'delivered', 'failed'
+  file_path VARCHAR(500),             -- path to stored PDF
+  reference_id VARCHAR(100) NOT NULL, -- unique report reference (e.g., DLS-20260628-001)
+  metadata JSONB                      -- additional data (recipients, config, etc.)
+);
+```
+
+### Scheduled generation
+
+Use `node-cron` (already in the project) to schedule report generation:
+
+```typescript
+// Daily at 07:00 UTC
+cron.schedule('0 7 * * *', async () => {
+  const config = await getScheduledReportConfig('daily');
+  if (config.active) {
+    const pdf = await generateDailyLiquiditySummary(config.tokens, new Date());
+    await storeReport('daily', 'portfolio', pdf);
+    await deliverReport(config.recipients, pdf, 'Daily Liquidity Summary');
+  }
+});
+
+// Weekly on Fridays at 07:00 UTC
+cron.schedule('0 7 * * 5', async () => { ... });
+
+// Monthly on the 1st at 07:00 UTC
+cron.schedule('0 7 1 * *', async () => { ... });
+```
+
+### Email delivery
+
+Use the existing Resend integration for email delivery. Each scheduled report is sent as a PDF attachment with a brief email body:
+
+```
+Subject: TILT Daily Liquidity Summary - 28 June 2026
+Body: Please find attached the Daily Liquidity Summary for your supervised portfolio.
+      Report Reference: DLS-20260628-001
+      Generated: 28 June 2026, 07:00 UTC
+      
+      This report is generated automatically by TILT (The Institutional Liquidity Truth).
+      Stratalink Labs Ltd | Confidential
+Attachment: TILT_Daily_Liquidity_Summary_20260628.pdf
+```
+
+---
+
+## API Endpoints
+
+Create the following endpoints in a new route file `server/routes/reports.ts`:
+
+```
+POST   /api/reports/generate          - Generate an on-demand report (type, token, format)
+GET    /api/reports/history            - List generated reports (paginated)
+GET    /api/reports/download/:id       - Download a specific report by ID
+GET    /api/reports/scheduled          - Get scheduled report configurations
+PUT    /api/reports/scheduled/:type    - Update a scheduled report configuration
+POST   /api/reports/incident           - Create and generate an incident report
+```
+
+All endpoints require authentication. The report generation endpoint should return the PDF as a download response for on-demand exports, and store it for scheduled reports.
+
+---
+
+## Report Branding
+
+Every generated report must include:
+- "STRATALINK LABS LTD" header
+- "TILT - The Institutional Liquidity Truth" sub-header
+- Report title and date
+- Jurisdiction: "ADGM / FSRA"
+- Classification: "Confidential"
+- Unique reference ID (format: TYPE-YYYYMMDD-NNN, e.g., DLS-20260628-001)
+- Standard notice: "This report is generated from independently verified, cross-venue data."
+- Footer with reference ID and "Generated by TILT | Stratalink Labs Ltd | Confidential"
+
+---
+
+## Verification
+
+After implementation:
+
+1. On the Liquidity page, click EXPORT and generate a Token Liquidity Report for BTC. Confirm the PDF downloads, contains real data, and matches the template structure.
+2. On the STRATA AI page, generate an Intelligence Summary. Confirm it reflects current detection states.
+3. On the RCL page, export a Supervisory Snapshot in PDF and JSON. Confirm both work.
+4. Open the Reports panel from the header icon. Confirm three sections (Scheduled, History, Incidents) are present.
+5. Configure the Daily Liquidity Summary with a test email address and click "Generate Now". Confirm the PDF is generated, appears in History, and is delivered via email.
+6. Create a new Incident Report from the Incidents tab. Confirm it pre-populates with current system state and generates a PDF on submit.
+7. Verify that all generated reports appear in the History section with download links.
+8. Verify that the report reference IDs are unique and sequential.
+
+## What NOT to Change
+
+- Do not add a sixth tab to the platform navigation. Reports are accessed via the header icon and in-page export buttons, not via a dedicated tab.
+- Do not modify any data fetching, computation, or display logic on existing pages.
+- Do not modify the L5F engine, PoLi engine, TSLE buffer, or alert service.
+- Do not modify the ILU-20 configuration or token selector.

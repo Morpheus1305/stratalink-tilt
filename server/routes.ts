@@ -29,7 +29,11 @@ import curveRoutes  from "./routes/curve-relay";
 import otcRoutes    from "./routes/otc-relay";
 import analyticsL5fRoutes from "./routes/analytics-l5f";
 import dailyCommentaryRouter from "./api/dailyCommentary";
+import { reportRoutes, generateServerSideReport } from "./routes/reports";
 import { startIngestionLoop } from "../analytics/engines/ingestionManager";
+import { db } from "./db";
+import { scheduledReportConfigs } from "../shared/schema";
+import cron from "node-cron";
 import { 
   loginRequestSchema, 
   verifyOTPRequestSchema, 
@@ -402,8 +406,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // Mount reports routes
+  app.use("/api/reports", reportRoutes);
+
   // Start analytics ingestion loop
   startIngestionLoop();
+
+  // ─── Scheduled report delivery (node-cron) ────────────────────────────────
+  // Daily at 07:00 UTC
+  cron.schedule("0 7 * * *", async () => {
+    try {
+      const configs = await db.select().from(scheduledReportConfigs);
+      for (const cfg of configs) {
+        if (!cfg.active) continue;
+        const type = cfg.id as "daily" | "weekly" | "monthly";
+        const now = new Date();
+        // weekly: only on configured day (5=Friday)
+        if (type === "weekly" && cfg.dayOfWeek !== null && now.getDay() !== cfg.dayOfWeek) continue;
+        // monthly: only on configured day of month
+        if (type === "monthly" && cfg.dayOfMonth !== null && now.getDate() !== cfg.dayOfMonth) continue;
+        await generateServerSideReport(type, {});
+      }
+    } catch (err) {
+      console.error("[Cron] scheduled report error:", err);
+    }
+  });
 
   const httpServer = createServer(app);
 

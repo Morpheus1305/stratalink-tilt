@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { PlatformTabs } from "@/components/platform-tabs";
 import { useToken } from "@/contexts/TokenContext";
+import { ExportButton } from "@/components/export-button";
+import { generateTokenLiquidityPDF, generateCrossVenuePDF } from "@/lib/reportPdfGenerator";
 import "./tilt-terminal.css";
 
 interface VenueSlice {
@@ -202,7 +204,23 @@ export default function TiltTerminal() {
           </div>
           <div className="tilt-header-divider" />
           <div style={{ fontSize: 10, color: "var(--tilt-muted)" }}>TILT v1.0</div>
-          <div style={{ marginLeft: "auto", display: "flex", gap: 16, alignItems: "center" }}>
+          <div style={{ marginLeft: "auto", display: "flex", gap: 12, alignItems: "center" }}>
+            {agg && (
+              <ExportButton
+                options={[
+                  {
+                    label: "Token Liquidity Report",
+                    format: "PDF",
+                    onGenerate: () => generateTokenLiquidityPDF(agg as any, selectedSymbol),
+                  },
+                  {
+                    label: "Cross-Venue Comparison",
+                    format: "PDF",
+                    onGenerate: () => generateCrossVenuePDF(agg as any, selectedSymbol),
+                  },
+                ]}
+              />
+            )}
             <div style={{ fontSize: 10, color: "var(--tilt-muted)" }}>
               14 VENUES &middot; 17 TSLE FEEDS
             </div>

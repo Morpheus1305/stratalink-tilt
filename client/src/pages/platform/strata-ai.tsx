@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { PlatformTabs } from "@/components/platform-tabs";
 import { useToken } from "@/contexts/TokenContext";
+import { ExportButton } from "@/components/export-button";
+import { generateIntelligenceSummaryPDF } from "@/lib/reportPdfGenerator";
 import "./tilt-terminal.css";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -409,7 +411,23 @@ export default function StrataAI() {
           <div style={{ fontSize: 11, color: "var(--tilt-sub)", fontFamily: "var(--tilt-sans)" }}>
             Systematic Tokenomics, Risk and Trading Analytics
           </div>
-          <div style={{ marginLeft: "auto", display: "flex", gap: 16, alignItems: "center" }}>
+          <div style={{ marginLeft: "auto", display: "flex", gap: 12, alignItems: "center" }}>
+            {agg && (
+              <ExportButton
+                options={[
+                  {
+                    label: "Intelligence Summary",
+                    format: "PDF",
+                    onGenerate: () => generateIntelligenceSummaryPDF(
+                      detections as any,
+                      signals as any,
+                      ewdsList as any,
+                      selectedSymbol,
+                    ),
+                  },
+                ]}
+              />
+            )}
             <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 10, color: "var(--tilt-muted)" }}>
               14 VENUES &middot; 6 DETECTION CATEGORIES &middot; REAL-TIME
             </div>

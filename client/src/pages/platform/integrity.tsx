@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { PlatformTabs } from "@/components/platform-tabs";
+import { ExportButton } from "@/components/export-button";
+import { generateVerificationReportPDF } from "@/lib/reportPdfGenerator";
 import { useToken } from "@/contexts/TokenContext";
 import {
   LineChart, Line, XAxis, YAxis, ReferenceLine, Tooltip, ResponsiveContainer,
@@ -380,7 +382,18 @@ export default function IntegrityPage() {
             PoLi Proof of Liquidity · PoMI Proof of Market Integrity
           </div>
 
-          <div style={{ marginLeft: "auto", display: "flex", gap: 16, alignItems: "center" }}>
+          <div style={{ marginLeft: "auto", display: "flex", gap: 12, alignItems: "center" }}>
+            {agg && (
+              <ExportButton
+                options={[
+                  {
+                    label: "Verification Report",
+                    format: "PDF",
+                    onGenerate: () => generateVerificationReportPDF(agg as any, [], [], asset),
+                  },
+                ]}
+              />
+            )}
             <div className="tilt-sb-live">
               <div className="tilt-sb-dot tilt-pulse" />
               LIVE

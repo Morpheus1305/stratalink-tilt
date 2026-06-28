@@ -557,3 +557,47 @@ export const dailyCommentaryResponseSchema = z.object({
 });
 
 export type DailyCommentaryResponse = z.infer<typeof dailyCommentaryResponseSchema>;
+
+// ========================================
+// Report Records & Scheduled Configs
+// ========================================
+
+export const reportRecords = pgTable("report_records", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  reportType: varchar("report_type", { length: 50 }).notNull(),
+  tokenScope: varchar("token_scope", { length: 255 }),
+  generatedAt: timestamp("generated_at").notNull().defaultNow(),
+  generatedBy: varchar("generated_by", { length: 100 }).default("on-demand"),
+  deliveryStatus: varchar("delivery_status", { length: 20 }).notNull().default("generated"),
+  filePath: varchar("file_path", { length: 500 }),
+  referenceId: varchar("reference_id", { length: 100 }).notNull(),
+  metadata: json("metadata").$type<Record<string, unknown>>(),
+});
+
+export const insertReportRecordSchema = z.object({
+  reportType: z.string(),
+  tokenScope: z.string().optional(),
+  generatedBy: z.string().default("on-demand"),
+  deliveryStatus: z.string().default("generated"),
+  filePath: z.string().optional(),
+  referenceId: z.string(),
+  metadata: z.record(z.unknown()).optional(),
+});
+export type InsertReportRecord = z.infer<typeof insertReportRecordSchema>;
+export type SelectReportRecord = typeof reportRecords.$inferSelect;
+
+export const scheduledReportConfigs = pgTable("scheduled_report_configs", {
+  id: varchar("id").primaryKey(),
+  active: boolean("active").notNull().default(false),
+  deliveryTime: varchar("delivery_time", { length: 10 }).notNull().default("07:00"),
+  dayOfWeek: integer("day_of_week"),
+  dayOfMonth: integer("day_of_month"),
+  emailRecipients: text("email_recipients").array(),
+  tokenScope: varchar("token_scope", { length: 50 }).notNull().default("all"),
+  selectedTokens: text("selected_tokens").array(),
+  formatPdf: boolean("format_pdf").notNull().default(true),
+  formatJson: boolean("format_json").notNull().default(false),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export type SelectScheduledConfig = typeof scheduledReportConfigs.$inferSelect;

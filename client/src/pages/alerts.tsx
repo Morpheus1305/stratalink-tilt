@@ -7,7 +7,9 @@ import { StressSignalsPanel } from "@/components/stress-signals-panel";
 import { DateTimeBar } from "@/components/date-time-bar";
 import { TokenSelector } from "@/components/token-selector";
 import { useToken } from "@/contexts/TokenContext";
-import { Download, Filter } from "lucide-react";
+import { Filter } from "lucide-react";
+import { ExportButton } from "@/components/export-button";
+import { generateAlertHistoryPDF, exportAlertHistoryCSV } from "@/lib/reportPdfGenerator";
 import {
   AreaChart,
   Area,
@@ -355,7 +357,43 @@ export default function Alerts() {
           </div>
           <div className="tilt-header-divider" />
           <div style={{ fontSize: 10, color: "var(--tilt-muted)" }}>ALERT v1.0</div>
-          <div style={{ marginLeft: "auto", display: "flex", gap: 16, alignItems: "center" }}>
+          <div style={{ marginLeft: "auto", display: "flex", gap: 12, alignItems: "center" }}>
+            <ExportButton
+              options={[
+                {
+                  label: "Alert History Export",
+                  format: "PDF",
+                  onGenerate: async () => {
+                    const mapped = liveAlertLog.map((e: any) => ({
+                      timeUTC: typeof e.ts === "number"
+                        ? new Date(e.ts).toISOString().slice(0, 16)
+                        : (e.timeUTC || e.time || new Date().toISOString().slice(0, 16)),
+                      alertType: e.alertType || e.type || e.trigger || "ALERT",
+                      severity: e.severity || e.level || "INFO",
+                      description: e.description || e.message || e.detail || "",
+                      status: e.status || "fired",
+                    }));
+                    await generateAlertHistoryPDF(mapped, asset);
+                  },
+                },
+                {
+                  label: "Alert History CSV",
+                  format: "CSV",
+                  onGenerate: async () => {
+                    const mapped = liveAlertLog.map((e: any) => ({
+                      timeUTC: typeof e.ts === "number"
+                        ? new Date(e.ts).toISOString().slice(0, 16)
+                        : (e.timeUTC || e.time || new Date().toISOString().slice(0, 16)),
+                      alertType: e.alertType || e.type || e.trigger || "ALERT",
+                      severity: e.severity || e.level || "INFO",
+                      description: e.description || e.message || e.detail || "",
+                      status: e.status || "fired",
+                    }));
+                    exportAlertHistoryCSV(mapped, asset);
+                  },
+                },
+              ]}
+            />
             <div style={{ fontSize: 10, color: "var(--tilt-muted)" }}>
               {alertsData.alertLog?.length ?? 0} EVENTS &middot; {totalWarnings} ACTIVE
             </div>
