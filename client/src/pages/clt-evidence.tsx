@@ -1,6 +1,7 @@
 // client/src/pages/clt-evidence.tsx
 import React, { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { PlatformFooter } from "@/components/platform-footer";
 
 // Same-origin (Express serves the SPA + /api).
 const API_BASE = "";
@@ -748,9 +749,7 @@ curl -sS "$BASE/api/lis/binance/depth?symbol=$SYMBOL" >/dev/null`}
           </div>
         </div>
 
-        <div className="mt-8 text-center text-xs text-slate-500">
-          CLT Evidence Console • Ladder-first • Phase 1 backend frozen (DEPTH_BANDS + L3 divergence + L4 integrity)
-        </div>
+        <PlatformFooter />
       </div>
     </div>
   );

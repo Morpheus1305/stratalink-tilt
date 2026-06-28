@@ -6,6 +6,7 @@ import { useToken } from "@/contexts/TokenContext";
 import { ExportButton } from "@/components/export-button";
 import { generateIntelligenceSummaryPDF } from "@/lib/reportPdfGenerator";
 import "./tilt-terminal.css";
+import { PlatformFooter } from "@/components/platform-footer";
 
 const LiveClock = memo(function LiveClock() {
   const [clockStr, setClockStr] = useState(() =>
@@ -750,17 +751,10 @@ export default function StrataAI() {
         </div>
 
         {/* ── STATUS BAR ─────────────────────────────────────────────────────── */}
-        <div className="tilt-statusbar" data-testid="strata-statusbar">
-          <div className="tilt-sb-live"><div className="tilt-sb-dot tilt-pulse" />LIVE DATA</div>
-          <div className="tilt-sb-item">VENUES: {agg?.venue_count ?? 0} ACTIVE</div>
-          <div className="tilt-sb-item">CATEGORIES: 6 MONITORED</div>
-          <div className="tilt-sb-item" style={{ color: activeSignals > 0 ? "var(--tilt-amber)" : "var(--tilt-muted)" }}>
-            SIGNALS: {activeSignals} ACTIVE
-          </div>
-          <div style={{ marginLeft: "auto", fontFamily: "var(--tilt-mono)", fontSize: 9, color: "var(--tilt-muted)", letterSpacing: "0.08em" }}>
-            STRATA AI &middot; MARKET INTELLIGENCE &middot; CONFIDENTIAL
-          </div>
-        </div>
+        <PlatformFooter
+          venueCount={agg?.venue_count ?? null}
+          testId="strata-statusbar"
+        />
 
       </div>
     </div>

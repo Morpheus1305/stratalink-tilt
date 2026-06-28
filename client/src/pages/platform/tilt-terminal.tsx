@@ -6,6 +6,7 @@ import { useToken } from "@/contexts/TokenContext";
 import { ExportButton } from "@/components/export-button";
 import { generateTokenLiquidityPDF, generateCrossVenuePDF } from "@/lib/reportPdfGenerator";
 import "./tilt-terminal.css";
+import { PlatformFooter } from "@/components/platform-footer";
 
 const LiveClock = memo(function LiveClock() {
   const [clockStr, setClockStr] = useState(() =>
@@ -670,28 +671,11 @@ export default function TiltTerminal() {
         </div>
 
         {/* STATUS BAR */}
-        <div className="tilt-statusbar" data-testid="tilt-statusbar">
-          <div className="tilt-sb-live">
-            <div className="tilt-sb-dot tilt-pulse" />
-            LIVE DATA
-          </div>
-          <div className="tilt-sb-item">
-            VENUES: <span data-testid="tilt-sb-venues">{agg?.venue_count ?? "—"} ACTIVE</span>
-          </div>
-          <div className="tilt-sb-item">
-            FEEDS: <span>17 TSLE</span>
-          </div>
-          <div className="tilt-sb-item">
-            LATENCY: <span data-testid="tilt-sb-lat">{latencyRef.current != null ? latencyRef.current + "ms" : "—"}</span>
-          </div>
-          <div className="tilt-sb-item">
-            DEPTH RECORDS: <span data-testid="tilt-sb-recs">{totalRecordsRef.current}</span>
-          </div>
-          <div style={{ marginLeft: "auto" }} className="tilt-sb-item">
-            STRATALINK TILT &middot; PHASE 1 INSTITUTIONAL PREVIEW &middot;{" "}
-            <span>CONFIDENTIAL</span>
-          </div>
-        </div>
+        <PlatformFooter
+          venueCount={agg?.venue_count ?? null}
+          latency={latencyRef.current}
+          testId="tilt-statusbar"
+        />
       </div>
     </div>
   );

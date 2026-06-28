@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, memo } from "react";
+import { PlatformFooter } from "@/components/platform-footer";
 import { MicrostructureFeedProvider } from "@/contexts/MicrostructureFeed";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
@@ -248,9 +249,7 @@ function AnalyticsPageInner() {
           batchFactors={batchFactors}
         />
 
-        <footer className="mt-6 text-xs text-muted-foreground">
-          STRATA • Liquidity Truth Layer — Internal institutional prototype
-        </footer>
+        <PlatformFooter />
       </div>
     </div>
   );

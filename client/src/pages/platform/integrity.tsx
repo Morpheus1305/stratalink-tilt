@@ -8,6 +8,7 @@ import {
   LineChart, Line, XAxis, YAxis, ReferenceLine, Tooltip, ResponsiveContainer,
 } from "recharts";
 import "./tilt-terminal.css";
+import { PlatformFooter } from "@/components/platform-footer";
 
 // ─── Palette constants (mirror tilt-terminal.css vars) ───────────────────────
 const G    = "#00E676";
@@ -850,24 +851,11 @@ export default function IntegrityPage() {
         </div>
 
         {/* ── FOOTER ──────────────────────────────────────────────────────── */}
-        <div className="tilt-statusbar" data-testid="integrity-footer">
-          <div className="tilt-sb-live">
-            <div className="tilt-sb-dot tilt-pulse" />
-            MONITORING ACTIVE
-          </div>
-          <div className="tilt-sb-item">
-            STRATALINK TELEMETRY
-          </div>
-          <div className="tilt-sb-item">
-            VENUES: <span>{agg?.venue_count ?? "—"} ACTIVE</span>
-          </div>
-          <div className="tilt-sb-item">
-            LATENCY: <span>{latency != null ? `${latency}ms` : "—"}</span>
-          </div>
-          <div style={{ marginLeft: "auto" }} className="tilt-sb-item">
-            STRATALINK · MARKET INTEGRITY INFRASTRUCTURE
-          </div>
-        </div>
+        <PlatformFooter
+          venueCount={agg?.venue_count ?? null}
+          latency={latency}
+          testId="integrity-footer"
+        />
 
       </div>
     </div>

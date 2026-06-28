@@ -4,7 +4,7 @@ import type { AlertsData, DashboardData } from "@shared/schema";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { PlatformTabs } from "@/components/platform-tabs";
 import { StressSignalsPanel } from "@/components/stress-signals-panel";
-import { DateTimeBar } from "@/components/date-time-bar";
+import { PlatformFooter } from "@/components/platform-footer";
 import { TokenSelector } from "@/components/token-selector";
 import { useToken } from "@/contexts/TokenContext";
 import { Filter, Download } from "lucide-react";
@@ -844,33 +844,9 @@ export default function Alerts() {
           </div>
         </div>
 
-        {/* ── STATUS BAR ───────────────────────────────────────────────────── */}
-        <div className="tilt-statusbar" data-testid="alerts-statusbar">
-          <div className="tilt-sb-live">
-            <div className="tilt-sb-dot tilt-pulse" />
-            LIVE DATA
-          </div>
-          <div className="tilt-sb-item">
-            ASSET: <span data-testid="alerts-sb-asset">{asset}</span>
-          </div>
-          <div className="tilt-sb-item">
-            ACTIVE WARNINGS: <span data-testid="alerts-sb-warnings" style={{ color: "var(--tilt-amber)" }}>{totalWarnings}</span>
-          </div>
-          <div className="tilt-sb-item">
-            CRITICAL: <span data-testid="alerts-sb-critical" style={{ color: "var(--tilt-red)" }}>{critCount}/{critTotal}</span>
-          </div>
-          <div className="tilt-sb-item">
-            LOG ENTRIES: <span data-testid="alerts-sb-entries">{alertsData.alertLog?.length ?? 0}</span>
-          </div>
-          <div style={{ marginLeft: "auto" }} className="tilt-sb-item">
-            STRATALINK ALERTS &middot; PHASE 1 INSTITUTIONAL PREVIEW &middot; <span>CONFIDENTIAL</span>
-          </div>
-        </div>
+        <PlatformFooter testId="alerts-statusbar" />
 
       </div>
-
-      {/* Bottom Bars */}
-      <DateTimeBar />
     </div>
   );
 }
