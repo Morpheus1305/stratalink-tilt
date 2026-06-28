@@ -84,7 +84,7 @@ export default function TiltTerminal() {
   const totalRecordsRef = useRef(0);
   const prevFactorsRef = useRef<Record<string, Record<string, number>>>({});
 
-  const { data: agg = null, isLoading: loading } = useQuery<TsleAggregate | null>({
+  const { data: rawAgg = null, isLoading: loading } = useQuery<TsleAggregate | null>({
     queryKey: ["/api/analytics/l5f/snapshot", selectedSymbol],
     queryFn: async () => {
       const t0 = performance.now();
@@ -101,6 +101,28 @@ export default function TiltTerminal() {
     placeholderData: keepPreviousData,
     staleTime: 4000,
   });
+  const agg: TsleAggregate | null = rawAgg ? {
+    ...rawAgg,
+    spread_dispersion_bps: rawAgg.spread_dispersion_bps ?? 0,
+    l5f_depth_quality:     rawAgg.l5f_depth_quality     ?? 0,
+    depth_decay_rate:      rawAgg.depth_decay_rate       ?? 0,
+    fragmentation_index:   rawAgg.fragmentation_index    ?? 0,
+    regulated_depth_share: rawAgg.regulated_depth_share  ?? 0,
+    spread_elasticity:     rawAgg.spread_elasticity       ?? 0,
+    withdrawal_velocity:   rawAgg.withdrawal_velocity     ?? 0,
+    l5f_regime_stability:  rawAgg.l5f_regime_stability    ?? 0,
+    l5f_exec_integrity:    rawAgg.l5f_exec_integrity      ?? 0,
+    l5f_composite:         rawAgg.l5f_composite           ?? 0,
+    venue_count:           rawAgg.venue_count             ?? 0,
+    total_depth_10bps:     rawAgg.total_depth_10bps       ?? 0,
+    venue_slices:          (rawAgg.venue_slices ?? []).map((v: any) => ({
+      ...v,
+      spread_bps:       v.spread_bps       ?? 0,
+      depth_10bps:      v.depth_10bps      ?? 0,
+      depth_share_pct:  v.depth_share_pct  ?? 0,
+      stability_score:  v.stability_score  ?? 0,
+    })),
+  } : null;
 
   const prev = prevFactorsRef.current[selectedSymbol] || {};
   const factors = agg

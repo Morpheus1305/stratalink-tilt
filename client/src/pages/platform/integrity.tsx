@@ -234,7 +234,30 @@ export default function IntegrityPage() {
       const data = await resp.json();
       setLatency(Math.round(performance.now() - t0));
       if (data.ok && data.aggregate) {
-        const a: TsleAggregate = data.aggregate;
+        const raw = data.aggregate;
+        const a: TsleAggregate = {
+          ...raw,
+          spread_dispersion_bps: raw.spread_dispersion_bps ?? 0,
+          l5f_depth_quality:     raw.l5f_depth_quality     ?? 0,
+          depth_decay_rate:      raw.depth_decay_rate       ?? 0,
+          fragmentation_index:   raw.fragmentation_index    ?? 0,
+          regulated_depth_share: raw.regulated_depth_share  ?? 0,
+          spread_elasticity:     raw.spread_elasticity       ?? 0,
+          withdrawal_velocity:   raw.withdrawal_velocity     ?? 0,
+          l5f_regime_stability:  raw.l5f_regime_stability    ?? 0,
+          l5f_exec_integrity:    raw.l5f_exec_integrity      ?? 0,
+          l5f_composite:         raw.l5f_composite           ?? 0,
+          venue_count:           raw.venue_count             ?? 0,
+          total_depth_10bps:     raw.total_depth_10bps       ?? 0,
+          vol_regime:            raw.vol_regime              ?? "NORMAL",
+          venue_slices:          (raw.venue_slices ?? []).map((v: any) => ({
+            ...v,
+            spread_bps:       v.spread_bps       ?? 0,
+            depth_10bps:      v.depth_10bps      ?? 0,
+            depth_share_pct:  v.depth_share_pct  ?? 0,
+            stability_score:  v.stability_score  ?? 0,
+          })),
+        };
         setAgg(a);
 
         // EFI ring buffer (max 60 pts ≈ 10 min at 10 s)
