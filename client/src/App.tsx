@@ -23,9 +23,16 @@ import CLTEvidence from "./pages/clt-evidence";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { TokenProvider } from "@/contexts/TokenContext";
 import { MicrostructureFeedProvider } from "@/contexts/MicrostructureFeed";
+import { UIStateProvider, useUIState } from "@/contexts/UIStateContext";
+import { ReportsPanel } from "@/components/reports-panel";
 import { RequireAuth } from "@/components/RequireAuth";
 import { BottomTicker } from "@/components/bottom-ticker";
 import type { DashboardData } from "@shared/schema";
+
+function GlobalReportsPanel() {
+  const { showReports, closeReports } = useUIState();
+  return <ReportsPanel isOpen={showReports} onClose={closeReports} />;
+}
 
 function GlobalTicker() {
   const { data } = useQuery<DashboardData>({
@@ -129,11 +136,14 @@ export default function App() {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <TokenProvider>
-            <TooltipProvider>
-              <Toaster />
-              <AppRouter />
-              <GlobalTicker />
-            </TooltipProvider>
+            <UIStateProvider>
+              <TooltipProvider>
+                <Toaster />
+                <AppRouter />
+                <GlobalTicker />
+                <GlobalReportsPanel />
+              </TooltipProvider>
+            </UIStateProvider>
           </TokenProvider>
         </AuthProvider>
       </QueryClientProvider>

@@ -1,14 +1,13 @@
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Bell, Settings, Activity, LogOut, FileText } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "wouter";
-import { ReportsPanel } from "./reports-panel";
+import { useUIState } from "@/contexts/UIStateContext";
 
 export function DashboardHeader() {
   const { logout } = useAuth();
   const [, setLocation] = useLocation();
-  const [showReports, setShowReports] = useState(false);
+  const { openReports } = useUIState();
 
   const handleLogout = () => {
     logout();
@@ -16,8 +15,7 @@ export function DashboardHeader() {
   };
 
   return (
-    <>
-      <header className="sticky top-0 z-50 border-b border-border bg-card h-14 flex items-center px-4 gap-4">
+    <header className="sticky top-0 z-50 border-b border-border bg-card h-14 flex items-center px-4 gap-4">
         {/* Brand */}
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <span
@@ -77,7 +75,7 @@ export function DashboardHeader() {
               size="icon"
               data-testid="button-reports"
               title="Reports"
-              onClick={() => setShowReports(true)}
+              onClick={openReports}
             >
               <FileText className="h-4 w-4" />
             </Button>
@@ -97,7 +95,6 @@ export function DashboardHeader() {
         </div>
       </header>
 
-      <ReportsPanel isOpen={showReports} onClose={() => setShowReports(false)} />
     </>
   );
 }
