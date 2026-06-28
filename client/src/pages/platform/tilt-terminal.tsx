@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useCallback, memo } from "react";
+import { useState, useEffect, useRef, memo } from "react";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { PlatformTabs } from "@/components/platform-tabs";
 import { useToken } from "@/contexts/TokenContext";
@@ -79,39 +80,27 @@ function trendChar(prev: number | undefined, curr: number): { sym: string; cls: 
 
 export default function TiltTerminal() {
   const { selectedSymbol } = useToken();
-  const [agg, setAgg] = useState<TsleAggregate | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [totalRecords, setTotalRecords] = useState(0);
-  const [latency, setLatency] = useState<number | null>(null);
+  const latencyRef = useRef<number | null>(null);
+  const totalRecordsRef = useRef(0);
   const prevFactorsRef = useRef<Record<string, Record<string, number>>>({});
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fetchData = useCallback(async (symbol: string) => {
-    const t0 = performance.now();
-    try {
-      const resp = await fetch(`/api/analytics/l5f/snapshot/${symbol}`);
+  const { data: agg = null, isLoading: loading } = useQuery<TsleAggregate | null>({
+    queryKey: ["/api/analytics/l5f/snapshot", selectedSymbol],
+    queryFn: async () => {
+      const t0 = performance.now();
+      const resp = await fetch(`/api/analytics/l5f/snapshot/${selectedSymbol}`);
       const data = await resp.json();
-      const ms = Math.round(performance.now() - t0);
-      setLatency(ms);
+      latencyRef.current = Math.round(performance.now() - t0);
       if (data.ok && data.aggregate) {
-        setAgg(data.aggregate);
-        setTotalRecords((p) => p + (data.aggregate.venue_count || 1));
-        setLoading(false);
+        totalRecordsRef.current += (data.aggregate.venue_count || 1);
+        return data.aggregate as TsleAggregate;
       }
-    } catch {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!agg) setLoading(true);
-    fetchData(selectedSymbol);
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    intervalRef.current = setInterval(() => fetchData(selectedSymbol), 5000);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [selectedSymbol, fetchData]); // eslint-disable-line react-hooks/exhaustive-deps
+      return null;
+    },
+    refetchInterval: 5000,
+    placeholderData: keepPreviousData,
+    staleTime: 4000,
+  });
 
   const prev = prevFactorsRef.current[selectedSymbol] || {};
   const factors = agg
@@ -671,10 +660,10 @@ export default function TiltTerminal() {
             FEEDS: <span>17 TSLE</span>
           </div>
           <div className="tilt-sb-item">
-            LATENCY: <span data-testid="tilt-sb-lat">{latency != null ? latency + "ms" : "—"}</span>
+            LATENCY: <span data-testid="tilt-sb-lat">{latencyRef.current != null ? latencyRef.current + "ms" : "—"}</span>
           </div>
           <div className="tilt-sb-item">
-            DEPTH RECORDS: <span data-testid="tilt-sb-recs">{totalRecords}</span>
+            DEPTH RECORDS: <span data-testid="tilt-sb-recs">{totalRecordsRef.current}</span>
           </div>
           <div style={{ marginLeft: "auto" }} className="tilt-sb-item">
             STRATALINK TILT &middot; PHASE 1 INSTITUTIONAL PREVIEW &middot;{" "}

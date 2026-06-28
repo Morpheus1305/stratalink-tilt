@@ -1,5 +1,5 @@
 import { useLocation } from 'wouter';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 interface L5FAggregate {
@@ -98,6 +98,7 @@ export default function HeroPage() {
     queryFn: () => fetchSnapshot('BTC'),
     refetchInterval: 5_000,
     staleTime: 4_000,
+    placeholderData: keepPreviousData,
   });
 
   // All five token snapshots in one query
@@ -106,6 +107,7 @@ export default function HeroPage() {
     queryFn: () => Promise.all(TOKEN_LIST.map(t => fetchSnapshot(t.sym))),
     refetchInterval: 5_000,
     staleTime: 4_000,
+    placeholderData: keepPreviousData,
   });
 
   // BTC spot price for depth chart price labels

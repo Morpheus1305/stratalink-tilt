@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useCallback, memo } from "react";
+import { useState, useEffect, useRef, memo } from "react";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { PlatformTabs } from "@/components/platform-tabs";
 import { useToken } from "@/contexts/TokenContext";
@@ -313,37 +314,29 @@ function computeEwds(agg: TsleAggregate): EwdsIndicator[] {
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function StrataAI() {
   const { selectedSymbol } = useToken();
-  const [agg, setAgg] = useState<TsleAggregate | null>(null);
-  const [loading, setLoading] = useState(true);
   const [signals, setSignals] = useState<Signal[]>([]);
   const [detailOpen, setDetailOpen] = useState(false);
 
-  const intervalRef   = useRef<ReturnType<typeof setInterval> | null>(null);
   const prevStatusRef = useRef<Record<string, RagStatus>>({});
   const signalBufRef  = useRef<Signal[]>([]);
 
-
-  const fetchData = useCallback(async (symbol: string) => {
-    try {
-      const resp = await fetch(`/api/analytics/l5f/snapshot/${symbol}`);
-      const data = await resp.json();
-      if (data.ok && data.aggregate) {
-        setAgg(data.aggregate);
-        setLoading(false);
-      }
-    } catch {
-      setLoading(false);
-    }
-  }, []);
-
+  // Reset per-symbol state when symbol changes
   useEffect(() => {
-    if (!agg) setLoading(true);
     prevStatusRef.current = {};
-    fetchData(selectedSymbol);
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    intervalRef.current = setInterval(() => fetchData(selectedSymbol), 5000);
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [selectedSymbol, fetchData]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedSymbol]);
+
+  const { data: agg = null, isLoading: loading } = useQuery<TsleAggregate | null>({
+    queryKey: ["/api/analytics/l5f/snapshot", selectedSymbol],
+    queryFn: async () => {
+      const resp = await fetch(`/api/analytics/l5f/snapshot/${selectedSymbol}`);
+      const data = await resp.json();
+      if (data.ok && data.aggregate) return data.aggregate as TsleAggregate;
+      return null;
+    },
+    refetchInterval: 5000,
+    placeholderData: keepPreviousData,
+    staleTime: 4000,
+  });
 
   // Signal generation on each agg update
   useEffect(() => {
