@@ -363,31 +363,38 @@ export default function RegulatoryAdgmView() {
           </div>
           <div className="tilt-header-divider" />
           <div style={{ fontSize: 10, color: "var(--tilt-muted)" }}>RCL v0.2</div>
-          <div className="tilt-header-divider" />
-          <span
-            onClick={handleExportJson}
-            style={{
-              fontSize: 10, color: data ? "var(--tilt-sub)" : "var(--tilt-muted)",
-              cursor: data ? "pointer" : "default", letterSpacing: "0.05em",
-              fontFamily: "var(--tilt-mono)", userSelect: "none",
-            }}
-            data-testid="button-export-json"
-          >
-            ↓ JSON
-          </span>
-          <div className="tilt-header-divider" />
-          <span
-            onClick={handleExportPdf}
-            style={{
-              fontSize: 10, color: data ? "var(--tilt-sub)" : "var(--tilt-muted)",
-              cursor: data ? "pointer" : "default", letterSpacing: "0.05em",
-              fontFamily: "var(--tilt-mono)", userSelect: "none",
-            }}
-            data-testid="button-export-pdf"
-          >
-            ↓ PDF
-          </span>
-          <div style={{ marginLeft: "auto", display: "flex", gap: 16, alignItems: "center" }}>
+          <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center" }}>
+            <button
+              onClick={handleExportJson}
+              disabled={!data}
+              data-testid="button-export-json"
+              style={{
+                display: "flex", alignItems: "center", gap: 5,
+                background: "var(--tilt-panel)", border: "1px solid var(--tilt-border)",
+                borderRadius: 2, padding: "3px 9px",
+                fontSize: 9, letterSpacing: "0.08em", fontFamily: "var(--tilt-mono)",
+                color: data ? "var(--tilt-green)" : "var(--tilt-muted)",
+                cursor: data ? "pointer" : "default", outline: "none",
+              }}
+            >
+              &#x2B07; EXPORT JSON
+            </button>
+            <button
+              onClick={handleExportPdf}
+              disabled={!data}
+              data-testid="button-export-pdf"
+              style={{
+                display: "flex", alignItems: "center", gap: 5,
+                background: "var(--tilt-panel)", border: "1px solid var(--tilt-border)",
+                borderRadius: 2, padding: "3px 9px",
+                fontSize: 9, letterSpacing: "0.08em", fontFamily: "var(--tilt-mono)",
+                color: data ? "var(--tilt-green)" : "var(--tilt-muted)",
+                cursor: data ? "pointer" : "default", outline: "none",
+              }}
+            >
+              &#x2B07; EXPORT PDF
+            </button>
+            <div style={{ width: 1, height: 12, background: "var(--tilt-border)" }} />
             <div style={{ fontSize: 10, color: "var(--tilt-muted)" }}>
               {venueCount != null ? `${venueCount} VENUES` : "—"} &middot; ADGM
             </div>
