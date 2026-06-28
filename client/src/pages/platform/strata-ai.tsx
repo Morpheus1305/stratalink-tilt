@@ -130,7 +130,22 @@ function poliRating(score: number): string {
 }
 
 // ─── Detection logic ──────────────────────────────────────────────────────────
-function computeDetections(agg: TsleAggregate, evalTime: string): DetectionCategory[] {
+function computeDetections(_agg: TsleAggregate, evalTime: string): DetectionCategory[] {
+  const agg: TsleAggregate = {
+    ..._agg,
+    spread_dispersion_bps: _agg.spread_dispersion_bps || 0,
+    l5f_depth_quality:     _agg.l5f_depth_quality     || 0,
+    depth_decay_rate:      _agg.depth_decay_rate       || 0,
+    fragmentation_index:   _agg.fragmentation_index    || 0,
+    regulated_depth_share: _agg.regulated_depth_share  || 0,
+    spread_elasticity:     _agg.spread_elasticity       || 0,
+    withdrawal_velocity:   _agg.withdrawal_velocity     || 0,
+    l5f_regime_stability:  _agg.l5f_regime_stability    || 0,
+    l5f_exec_integrity:    _agg.l5f_exec_integrity      || 0,
+    l5f_composite:         _agg.l5f_composite           || 0,
+    venue_count:           _agg.venue_count             || 0,
+    total_depth_10bps:     _agg.total_depth_10bps       || 0,
+  };
   const topShare = agg.venue_slices?.[0]?.depth_share_pct ?? 0;
   const topVenue = agg.venue_slices?.[0]?.venue_id?.toUpperCase() ?? "—";
   const venuesInRange = agg.venue_slices?.filter(v => v.spread_bps > 0 && v.spread_bps < 10).length ?? 0;
@@ -189,7 +204,22 @@ function computeDetections(agg: TsleAggregate, evalTime: string): DetectionCateg
 }
 
 // ─── Signal factory ───────────────────────────────────────────────────────────
-function makeSignal(cat: DetectionCategory, symbol: string, agg: TsleAggregate): Signal {
+function makeSignal(cat: DetectionCategory, symbol: string, _agg: TsleAggregate): Signal {
+  const agg: TsleAggregate = {
+    ..._agg,
+    spread_dispersion_bps: _agg.spread_dispersion_bps || 0,
+    l5f_depth_quality:     _agg.l5f_depth_quality     || 0,
+    depth_decay_rate:      _agg.depth_decay_rate       || 0,
+    fragmentation_index:   _agg.fragmentation_index    || 0,
+    regulated_depth_share: _agg.regulated_depth_share  || 0,
+    spread_elasticity:     _agg.spread_elasticity       || 0,
+    withdrawal_velocity:   _agg.withdrawal_velocity     || 0,
+    l5f_regime_stability:  _agg.l5f_regime_stability    || 0,
+    l5f_exec_integrity:    _agg.l5f_exec_integrity      || 0,
+    l5f_composite:         _agg.l5f_composite           || 0,
+    venue_count:           _agg.venue_count             || 0,
+    total_depth_10bps:     _agg.total_depth_10bps       || 0,
+  };
   const topV = agg.venue_slices?.[0];
   const topName = topV?.venue_id?.toUpperCase() ?? "—";
 
@@ -293,7 +323,16 @@ function makeSignal(cat: DetectionCategory, symbol: string, agg: TsleAggregate):
 }
 
 // ─── EWDS derivation ──────────────────────────────────────────────────────────
-function computeEwds(agg: TsleAggregate): EwdsIndicator[] {
+function computeEwds(_agg: TsleAggregate): EwdsIndicator[] {
+  const agg: TsleAggregate = {
+    ..._agg,
+    spread_dispersion_bps: _agg.spread_dispersion_bps || 0,
+    spread_elasticity:     _agg.spread_elasticity       || 0,
+    withdrawal_velocity:   _agg.withdrawal_velocity     || 0,
+    l5f_regime_stability:  _agg.l5f_regime_stability    || 0,
+    fragmentation_index:   _agg.fragmentation_index    || 0,
+    l5f_composite:         _agg.l5f_composite           || 0,
+  };
   const fundRate   = Math.abs(agg.spread_elasticity * 0.06 + 0.02);
   const perpBasis  = agg.spread_dispersion_bps * 0.55;
   const insFund    = Math.min(100, 48 + agg.l5f_regime_stability * 0.52);
