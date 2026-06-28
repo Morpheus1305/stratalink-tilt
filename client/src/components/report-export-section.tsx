@@ -1,16 +1,20 @@
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Download, FileText } from "lucide-react";
+import { Download, FileText, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
 
 export function ReportExportSection() {
   const { toast } = useToast();
+  const [generating, setGenerating] = useState(false);
 
-  const handleExport = () => {
+  const handleExport = async () => {
+    setGenerating(true);
     toast({
       title: "Report Generation Started",
       description: "Your Proof-of-Liquidity Intelligence Report is being generated...",
     });
+    await new Promise((r) => setTimeout(r, 1200));
+    setGenerating(false);
   };
 
   return (
@@ -22,7 +26,7 @@ export function ReportExportSection() {
         <div className="flex-1">
           <h3 className="text-sm font-semibold mb-1">Proof-of-Liquidity Intelligence Report</h3>
           <p className="text-xs text-muted-foreground leading-relaxed mb-3">
-            Generate a comprehensive liquidity risk assessment report compliant with AQAP and FCX regulatory standards. 
+            Generate a comprehensive liquidity risk assessment report compliant with AQAP and FCX regulatory standards.
             Includes live metrics, stress signals, and historical trend data.
           </p>
           <div className="flex items-center gap-3 text-xs text-muted-foreground mb-3">
@@ -32,16 +36,46 @@ export function ReportExportSection() {
             <span>•</span>
             <span className="font-mono">FILE SIZE: ~243KB</span>
           </div>
-          <Button 
-            size="sm"
+          <button
             onClick={handleExport}
+            disabled={generating}
             data-testid="button-export-report"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              background: "var(--tilt-panel, #0F151F)",
+              border: "1px solid var(--tilt-border, #1A2435)",
+              borderRadius: 2,
+              padding: "4px 10px",
+              cursor: generating ? "wait" : "pointer",
+              fontFamily: "var(--tilt-mono, monospace)",
+              fontSize: 10,
+              fontWeight: 600,
+              letterSpacing: "0.08em",
+              color: "var(--tilt-green, #00E676)",
+              whiteSpace: "nowrap",
+              transition: "border-color 0.15s",
+              outline: "none",
+            }}
+            onMouseEnter={(e) => {
+              if (!generating)
+                (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--tilt-accent, #00BFA5)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--tilt-border, #1A2435)";
+            }}
           >
-            <Download className="mr-2 h-3 w-3" />
-            EXPORT PDF REPORT
-          </Button>
+            {generating ? (
+              <Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} />
+            ) : (
+              <Download size={11} />
+            )}
+            {generating ? "GENERATING…" : "EXPORT PDF REPORT"}
+          </button>
         </div>
       </div>
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </Card>
   );
 }

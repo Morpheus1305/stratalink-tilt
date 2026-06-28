@@ -57,7 +57,7 @@ export function ExportButton({ options, className = "" }: ExportButtonProps) {
           fontSize: 10,
           fontWeight: 600,
           letterSpacing: "0.08em",
-          color: "var(--tilt-sub, #7B8EA3)",
+          color: "var(--tilt-green, #00E676)",
           whiteSpace: "nowrap",
           transition: "border-color 0.15s",
         }}
