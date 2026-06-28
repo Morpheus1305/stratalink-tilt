@@ -11,7 +11,7 @@ export function DashboardHeader() {
 
   const handleLogout = () => {
     logout();
-    setLocation("/login");
+    setLocation("/");
   };
 
   return (
