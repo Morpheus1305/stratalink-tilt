@@ -7,7 +7,7 @@ import { StressSignalsPanel } from "@/components/stress-signals-panel";
 import { DateTimeBar } from "@/components/date-time-bar";
 import { TokenSelector } from "@/components/token-selector";
 import { useToken } from "@/contexts/TokenContext";
-import { Filter } from "lucide-react";
+import { Filter, Download } from "lucide-react";
 import { ExportButton } from "@/components/export-button";
 import { generateAlertHistoryPDF, exportAlertHistoryCSV } from "@/lib/reportPdfGenerator";
 import {
