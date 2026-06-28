@@ -210,7 +210,7 @@ export default function HeroPage() {
 
         .hp-headline { margin-bottom: 1.75rem; line-height: 0.88; }
         .hp-headline-pre { font-family: 'Cormorant Garamond', serif; font-weight: 300; font-style: italic; font-size: clamp(1.75rem, 3vw, 3rem); color: rgba(255,255,255,0.52); display: block; letter-spacing: 0.02em; margin-bottom: 0.08em; }
-        .hp-headline-mid { font-family: 'Cormorant Garamond', serif; font-weight: 300; font-style: italic; font-size: clamp(1.75rem, 3vw, 3rem); color: rgba(255,255,255,0.52); display: block; letter-spacing: 0.02em; margin-bottom: 0.08em; }
+        .hp-headline-mid { font-family: 'Cormorant Garamond', serif; font-weight: 300; font-style: italic; font-size: clamp(1.75rem, 3vw, 3rem); color: #00d4ff; display: block; letter-spacing: 0.02em; margin-bottom: 0.08em; }
         .hp-headline-main { font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: clamp(3.5rem, 7.5vw, 7rem); color: #fff; display: block; letter-spacing: -0.01em; text-shadow: 0 0 80px rgba(255,255,255,0.06); }
 
         .hp-body { font-size: 0.875rem; color: rgba(255,255,255,0.42); line-height: 1.8; max-width: 28rem; margin-bottom: 2rem; border-left: 1px solid rgba(255,255,255,0.08); padding-left: 1.5rem; font-weight: 300; letter-spacing: 0.02em; }
