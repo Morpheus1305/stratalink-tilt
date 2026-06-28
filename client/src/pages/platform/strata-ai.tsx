@@ -1,10 +1,23 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, memo } from "react";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { PlatformTabs } from "@/components/platform-tabs";
 import { useToken } from "@/contexts/TokenContext";
 import { ExportButton } from "@/components/export-button";
 import { generateIntelligenceSummaryPDF } from "@/lib/reportPdfGenerator";
 import "./tilt-terminal.css";
+
+const LiveClock = memo(function LiveClock() {
+  const [clockStr, setClockStr] = useState(() =>
+    new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+  );
+  useEffect(() => {
+    const id = setInterval(() =>
+      setClockStr(new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" }))
+    , 1000);
+    return () => clearInterval(id);
+  }, []);
+  return <span>{clockStr}</span>;
+});
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface VenueSlice {
@@ -309,13 +322,6 @@ export default function StrataAI() {
   const prevStatusRef = useRef<Record<string, RagStatus>>({});
   const signalBufRef  = useRef<Signal[]>([]);
 
-  const fmtClock = () =>
-    new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-  const [clockStr, setClockStr] = useState(fmtClock);
-  useEffect(() => {
-    const id = setInterval(() => setClockStr(fmtClock()), 1000);
-    return () => clearInterval(id);
-  }, []);
 
   const fetchData = useCallback(async (symbol: string) => {
     try {
@@ -331,14 +337,13 @@ export default function StrataAI() {
   }, []);
 
   useEffect(() => {
-    setAgg(null);
-    setLoading(true);
+    if (!agg) setLoading(true);
     prevStatusRef.current = {};
     fetchData(selectedSymbol);
     if (intervalRef.current) clearInterval(intervalRef.current);
     intervalRef.current = setInterval(() => fetchData(selectedSymbol), 5000);
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [selectedSymbol, fetchData]);
+  }, [selectedSymbol, fetchData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Signal generation on each agg update
   useEffect(() => {
@@ -433,7 +438,7 @@ export default function StrataAI() {
             </div>
             <div className="tilt-sb-live"><div className="tilt-sb-dot tilt-pulse" />LIVE</div>
             <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 10, color: "var(--tilt-muted)", letterSpacing: "0.06em" }}>
-              <span style={{ color: "var(--tilt-sub)" }}>{clockStr}</span>
+              <LiveClock />
             </div>
           </div>
         </div>
@@ -474,7 +479,7 @@ export default function StrataAI() {
             </div>
           </div>
           <div className="tilt-tb-timestamp" style={{ marginLeft: "auto" }}>
-            LAST UPDATE &nbsp;<span>{clockStr}</span>
+            LAST UPDATE &nbsp;<LiveClock />
           </div>
         </div>
 

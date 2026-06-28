@@ -1,10 +1,23 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, memo } from "react";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { PlatformTabs } from "@/components/platform-tabs";
 import { useToken } from "@/contexts/TokenContext";
 import { ExportButton } from "@/components/export-button";
 import { generateTokenLiquidityPDF, generateCrossVenuePDF } from "@/lib/reportPdfGenerator";
 import "./tilt-terminal.css";
+
+const LiveClock = memo(function LiveClock() {
+  const [clockStr, setClockStr] = useState(() =>
+    new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+  );
+  useEffect(() => {
+    const id = setInterval(() =>
+      setClockStr(new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" }))
+    , 1000);
+    return () => clearInterval(id);
+  }, []);
+  return <span data-testid="tilt-time">{clockStr}</span>;
+});
 
 interface VenueSlice {
   venue_id: string;
@@ -91,15 +104,14 @@ export default function TiltTerminal() {
   }, []);
 
   useEffect(() => {
-    setAgg(null);
-    setLoading(true);
+    if (!agg) setLoading(true);
     fetchData(selectedSymbol);
     if (intervalRef.current) clearInterval(intervalRef.current);
     intervalRef.current = setInterval(() => fetchData(selectedSymbol), 5000);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [selectedSymbol, fetchData]);
+  }, [selectedSymbol, fetchData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const prev = prevFactorsRef.current[selectedSymbol] || {};
   const factors = agg
@@ -178,14 +190,6 @@ export default function TiltTerminal() {
     (best, v) => (v.price_leadership_score > (best?.price_leadership_score || 0) ? v : best),
     null
   ) ?? null;
-
-  const fmtClock = () =>
-    new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  const [clockStr, setClockStr] = useState(fmtClock);
-  useEffect(() => {
-    const id = setInterval(() => setClockStr(fmtClock()), 1000);
-    return () => clearInterval(id);
-  }, []);
 
   return (
     <div className="tilt-terminal" data-testid="tilt-terminal">
@@ -287,7 +291,7 @@ export default function TiltTerminal() {
           </div>
           <div className="tilt-header-divider" style={{ marginLeft: 12 }} />
           <div className="tilt-tb-timestamp">
-            LAST UPDATE &nbsp;<span data-testid="tilt-time">{clockStr}</span>
+            LAST UPDATE &nbsp;<LiveClock />
           </div>
         </div>
 

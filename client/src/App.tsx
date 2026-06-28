@@ -22,7 +22,6 @@ import CLTEvidence from "./pages/clt-evidence";
 
 import { AuthProvider } from "@/contexts/AuthContext";
 import { TokenProvider } from "@/contexts/TokenContext";
-import { MicrostructureFeedProvider } from "@/contexts/MicrostructureFeed";
 import { UIStateProvider, useUIState } from "@/contexts/UIStateContext";
 import { ReportsPanel } from "@/components/reports-panel";
 import { RequireAuth } from "@/components/RequireAuth";
@@ -132,21 +131,19 @@ export default function App() {
   }, [theme]);
 
   return (
-    <MicrostructureFeedProvider>
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <TokenProvider>
-            <UIStateProvider>
-              <TooltipProvider>
-                <Toaster />
-                <AppRouter />
-                <GlobalTicker />
-                <GlobalReportsPanel />
-              </TooltipProvider>
-            </UIStateProvider>
-          </TokenProvider>
-        </AuthProvider>
-      </QueryClientProvider>
-    </MicrostructureFeedProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <TokenProvider>
+          <UIStateProvider>
+            <TooltipProvider>
+              <Toaster />
+              <AppRouter />
+              <GlobalTicker />
+              <GlobalReportsPanel />
+            </TooltipProvider>
+          </UIStateProvider>
+        </TokenProvider>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }

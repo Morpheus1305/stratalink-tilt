@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, memo } from "react";
+import { MicrostructureFeedProvider } from "@/contexts/MicrostructureFeed";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -95,7 +96,7 @@ function pushSeries(map: SeriesMap, key: string, value: number): SeriesMap {
 
 /* ===================== PAGE ===================== */
 
-export default function AnalyticsPage() {
+function AnalyticsPageInner() {
   const [selectedToken, setSelectedToken] = useState("BTC");
 
   /* 🔌 LIS state */
@@ -252,5 +253,13 @@ export default function AnalyticsPage() {
         </footer>
       </div>
     </div>
+  );
+}
+
+export default function AnalyticsPage() {
+  return (
+    <MicrostructureFeedProvider>
+      <AnalyticsPageInner />
+    </MicrostructureFeedProvider>
   );
 }
