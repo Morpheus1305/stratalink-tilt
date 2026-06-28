@@ -1,0 +1,82 @@
+# Report System Corrections: Naming Convention and Template Alignment
+
+## Problem
+
+The reporting system needs two fixes. First, the report file naming must follow a consistent convention that maps directly to the menu option that generates it. Second, every generated report must match the structure of the attached templates exactly, not an invented format.
+
+Eight report templates are attached. These are the definitive specification. Delete any report generation code that does not match these templates and rebuild from the templates.
+
+## Fix 1: Score Scaling
+
+All PoLi scores, L5F factor scores, and PoMI scores are stored internally as integers (multiplied by 100 for precision). Before rendering in any report, divide by 100.
+
+- A stored value of 4940 displays as 49.40
+- A stored value of 9920 displays as 99.20
+- A stored value of 10000 displays as 100.0
+
+The rating band logic must also use the scaled value. 49.40 is a B rating (40-49 band), not AAA.
+
+Apply this correction to every numeric score in every report type.
+
+## Fix 2: Naming Convention
+
+Every report type has a fixed filename pattern. The code must use these exact patterns so that the filename on disk and in the download matches the report type and the menu option that triggered it.
+
+### Naming Convention Table
+
+| Menu Location | Menu Option Text | Report Type ID | Filename Pattern | Reference ID Pattern |
+|---|---|---|---|---|
+| Liquidity page | "Token Liquidity Report (PDF)" | `token_liquidity` | `TILT_Report_Token_Liquidity_[TOKEN]_[YYYYMMDD].pdf` | `TLR-[TOKEN]-[YYYYMMDD]-[NNN]` |
+| Liquidity page | "Cross-Venue Comparison (PDF)" | `cross_venue_comparison` | `TILT_Report_Cross_Venue_Comparison_[TOKEN]_[YYYYMMDD].pdf` | `CVC-[TOKEN]-[YYYYMMDD]-[NNN]` |
+| STRATA AI page | "Intelligence Summary (PDF)" | `strata_ai_intelligence` | `TILT_Report_STRATA_AI_Intelligence_Summary_[TOKEN]_[YYYYMMDD].pdf` | `SAI-[TOKEN]-[YYYYMMDD]-[NNN]` |
+| PoLi/PoMI page | "Verification Report (PDF)" | `poli_pomi_verification` | `TILT_Report_PoLi_PoMI_Verification_[TOKEN]_[YYYYMMDD].pdf` | `VER-[TOKEN]-[YYYYMMDD]-[NNN]` |
+| RCL page | "Supervisory Snapshot (PDF)" | `rcl_snapshot_pdf` | `TILT_Report_RCL_Supervisory_Snapshot_[TOKEN]_[YYYYMMDD].pdf` | `RCL-[TOKEN]-[YYYYMMDD]-[NNN]` |
+| RCL page | "Supervisory Snapshot (JSON)" | `rcl_snapshot_json` | `TILT_Report_RCL_Supervisory_Snapshot_[TOKEN]_[YYYYMMDD].json` | `RCL-[TOKEN]-[YYYYMMDD]-[NNN]` |
+| Alerts page | "Alert History Export (PDF)" | `alert_history_pdf` | `TILT_Report_Alert_History_[YYYYMMDD].pdf` | `ALH-[YYYYMMDD]-[NNN]` |
+| Alerts page | "Alert History Export (CSV)" | `alert_history_csv` | `TILT_Report_Alert_History_[YYYYMMDD].csv` | `ALH-[YYYYMMDD]-[NNN]` |
+| Scheduled | Daily Liquidity Summary | `daily_liquidity` | `TILT_Report_Daily_Liquidity_Summary_[YYYYMMDD].pdf` | `DLS-[YYYYMMDD]-[NNN]` |
+| Scheduled | Weekly Integrity Digest | `weekly_integrity` | `TILT_Report_Weekly_Integrity_Digest_[YYYYMMDD].pdf` | `WID-[YYYYMMDD]-[NNN]` |
+| Scheduled | Monthly Supervisory Overview | `monthly_overview` | `TILT_Report_Monthly_Supervisory_Overview_[YYYYMM].pdf` | `MSO-[YYYYMM]-[NNN]` |
+| Incidents | Incident Report | `incident` | `TILT_Report_Incident_[YYYYMMDD]_[NNN].pdf` | `IR-[YYYYMMDD]-[NNN]` |
+
+Where:
+- `[TOKEN]` = the ILU-20 token symbol (e.g., BTC, ETH, SOL)
+- `[YYYYMMDD]` = the report date (e.g., 20260628)
+- `[YYYYMM]` = the report month for monthly reports (e.g., 202606)
+- `[NNN]` = a sequential counter per day per report type, zero-padded to 3 digits (e.g., 001, 002)
+
+### Where to Apply
+
+1. **In the backend report generation service:** When generating the PDF, set the filename to the pattern above. This is the filename that appears in the Content-Disposition header when the browser downloads the file.
+
+2. **In the database report_records table:** Store the `report_type` using the Report Type ID from the table above. Store the filename using the Filename Pattern. Store the reference using the Reference ID Pattern.
+
+3. **In the Reports panel history:** Display the filename as stored in the database. The download link should trigger a download with the correct filename.
+
+4. **In the export dropdown menus:** The menu option text must match the "Menu Option Text" column exactly.
+
+## Fix 3: Template Alignment
+
+For each report type, the generated PDF must match the section structure, table layouts, column definitions, and data fields shown in the corresponding attached template. Specifically:
+
+- **Token Liquidity Report:** Match `TILT_Report_Token_Liquidity.docx` - Sections: Token Overview, PoLi Score Breakdown, Venue Attribution, EWDS Indicators, STRATA AI Assessment, Data Provenance.
+- **Cross-Venue Comparison:** Match `TILT_Report_Cross_Venue_Comparison.docx` - Sections: Summary, Venue Comparison Table, Concentration Analysis, Spread Analysis, Regulatory Venue Classification, Data Provenance.
+- **STRATA AI Intelligence Summary:** Match `TILT_Report_STRATA_AI_Intelligence_Summary.docx` - Sections: Detection Status Overview, EWDS Early Warning Status, Recent Intelligence Signals, Venue Integrity Analysis, Supervisory Assessment, Data Provenance.
+- **PoLi/PoMI Verification:** Match `TILT_Report_PoLi_PoMI_Verification.docx` - Sections: PoLi Assessment, PoMI Assessment (with Three-Pillar Status), EWDS Stress Indicators, Venue Attribution, Execution Feasibility, Data Provenance.
+- **Daily Liquidity Summary:** Match `TILT_Report_Daily_Liquidity_Summary.docx`
+- **Weekly Integrity Digest:** Match `TILT_Report_Weekly_Integrity_Digest.docx`
+- **Monthly Supervisory Overview:** Match `TILT_Report_Monthly_Supervisory_Overview.docx`
+- **Incident Report:** Match `TILT_Report_Incident_Template.docx`
+
+If the current report generation code produces a different structure from the template, replace it with code that matches the template.
+
+## Verification
+
+After corrections:
+
+1. Generate each report type from its menu option.
+2. Confirm the downloaded filename matches the naming pattern.
+3. Confirm the report content matches the attached template structure.
+4. Confirm all scores are displayed as decimal values (divided by 100), not raw integers.
+5. Confirm the rating bands are correct (49.40 = B, not AAA).
+6. Check the Reports panel history. Confirm filenames and reference IDs follow the convention.

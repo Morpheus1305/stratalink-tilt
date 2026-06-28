@@ -387,9 +387,9 @@ export default function IntegrityPage() {
               <ExportButton
                 options={[
                   {
-                    label: "Verification Report",
+                    label: "Verification Report (PDF)",
                     format: "PDF",
-                    onGenerate: () => generateVerificationReportPDF(agg as any, [], [], asset),
+                    onGenerate: async () => { await generateVerificationReportPDF(agg as any, [], [], asset); },
                   },
                 ]}
               />

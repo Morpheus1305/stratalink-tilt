@@ -209,14 +209,14 @@ export default function TiltTerminal() {
               <ExportButton
                 options={[
                   {
-                    label: "Token Liquidity Report",
+                    label: "Token Liquidity Report (PDF)",
                     format: "PDF",
-                    onGenerate: () => generateTokenLiquidityPDF(agg as any, selectedSymbol),
+                    onGenerate: async () => { await generateTokenLiquidityPDF(agg as any, selectedSymbol); },
                   },
                   {
-                    label: "Cross-Venue Comparison",
+                    label: "Cross-Venue Comparison (PDF)",
                     format: "PDF",
-                    onGenerate: () => generateCrossVenuePDF(agg as any, selectedSymbol),
+                    onGenerate: async () => { await generateCrossVenuePDF(agg as any, selectedSymbol); },
                   },
                 ]}
               />

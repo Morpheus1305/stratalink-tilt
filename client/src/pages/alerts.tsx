@@ -361,7 +361,7 @@ export default function Alerts() {
             <ExportButton
               options={[
                 {
-                  label: "Alert History Export",
+                  label: "Alert History Export (PDF)",
                   format: "PDF",
                   onGenerate: async () => {
                     const mapped = liveAlertLog.map((e: any) => ({
@@ -377,7 +377,7 @@ export default function Alerts() {
                   },
                 },
                 {
-                  label: "Alert History CSV",
+                  label: "Alert History Export (CSV)",
                   format: "CSV",
                   onGenerate: async () => {
                     const mapped = liveAlertLog.map((e: any) => ({

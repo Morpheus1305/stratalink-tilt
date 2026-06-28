@@ -416,14 +416,14 @@ export default function StrataAI() {
               <ExportButton
                 options={[
                   {
-                    label: "Intelligence Summary",
+                    label: "Intelligence Summary (PDF)",
                     format: "PDF",
-                    onGenerate: () => generateIntelligenceSummaryPDF(
+                    onGenerate: async () => { await generateIntelligenceSummaryPDF(
                       detections as any,
                       signals as any,
                       ewdsList as any,
                       selectedSymbol,
-                    ),
+                    ); },
                   },
                 ]}
               />
