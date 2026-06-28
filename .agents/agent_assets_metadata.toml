@@ -11,3 +11,21 @@ id = "uDNBGMOxktnkJHtmXEK6L"
 uri = "file://stratalink-tilt-source.zip"
 type = "unspecified"
 title = "StrataLink TILT — Full Source Export"
+
+[[outputs]]
+id = "h8A4ock8us9wbUlPtM0wd"
+uri = "file://attached_assets/TILT_Report_Daily_Liquidity_Summary_1782659867535.docx"
+type = "word_document"
+title = "TILT_Report_Daily_Liquidity_Summary.docx"
+
+[[outputs]]
+id = "l0ofQJY_dSD5jTxvGGHAO"
+uri = "file://attached_assets/TILT_Report_Weekly_Integrity_Digest_1782659867535.docx"
+type = "word_document"
+title = "TILT_Report_Weekly_Integrity_Digest.docx"
+
+[[outputs]]
+id = "_NGjge2EfEjCgwE6BM6Oi"
+uri = "file://attached_assets/TILT_Report_Monthly_Supervisory_Overview_1782659867535.docx"
+type = "word_document"
+title = "TILT_Report_Monthly_Supervisory_Overview.docx"
