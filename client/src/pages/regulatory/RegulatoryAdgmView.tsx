@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { FileJson, FileText, RefreshCw, AlertCircle, CheckCircle, AlertTriangle, Info } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { generateRCLPDF } from "@/lib/pdfExport";
+import { PlatformFooter } from "@/components/platform-footer";
 
 type RclSeverity = "green" | "amber" | "red";
 
@@ -670,8 +671,8 @@ export default function RegulatoryAdgmView() {
               <div>Generated At: {formatTime(data.meta.generated_at)}</div>
               <div>Snapshot Ref: {data.provenance.reference_ids.snapshot_ref}</div>
               <div className="border-t border-border my-1.5" />
-              <div>Supervisory Scope: <span className="text-green-500/80">Limited pilot — DSU = {"{Binance, Coinbase, Kraken}"}</span></div>
-              <div>Data Status: <span className="text-green-500/80">Live ingestion — RCL-v0.1</span></div>
+              <div>Supervisory Scope: <span className="text-green-500/80">RCL-v0.2 — {data.coverage.coverage_completeness.covered_venues} venues active across {data.coverage.coverage_completeness.known_venues} configured ({data.coverage.coverage_completeness.coverage_pct}%)</span></div>
+              <div>Data Status: <span className="text-green-500/80">Live ingestion — RCL-v0.2</span></div>
               <div>Access: Regulator ({data.access_context.jurisdiction}) — Permissions: {data.access_context.scopes.join(", ")} (observation only)</div>
               <div className="text-muted-foreground/60">Compliance: Annex A (Declared Supervisory Universe) • Annex B (Expansion Governance)</div>
             </div>
@@ -701,6 +702,10 @@ export default function RegulatoryAdgmView() {
           </div>
         )}
       </div>
+      <PlatformFooter
+        venueCount={data?.coverage?.venue_count ?? null}
+        testId="rcl-footer"
+      />
     </div>
   );
 }

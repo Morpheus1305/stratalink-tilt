@@ -1,0 +1,94 @@
+# Fix RCL Venue Coverage: Show All Active Venues
+
+## Problem
+
+The RCL Provenance panel currently shows only 3 hardcoded venues (Binance, Coinbase, Kraken). The TILT terminal footer shows 13 active venues. The RCL view must show the same venues as TILT. A regulatory view that claims to provide cross-venue supervisory visibility but only shows 3 of 13 active venues is incomplete and misleading.
+
+## Root Cause
+
+The RCL backend is still serving data from `server/services/rclMock.ts` (or a derivative of it) which has a hardcoded venue list. This mock service must be fully replaced with a live data service that pulls from the same sources the TILT terminal uses.
+
+## What To Fix
+
+### 1. Replace the RCL data source
+
+The RCL API route (`server/routes/rcl.ts`) must call a live data service instead of the mock. The live service should:
+
+- **Coverage panel:** Query the TSLE buffer for the currently selected token. Count how many venues are actively returning data. Report the actual venue count, coverage percentage (active venues / total configured venues from venue-config.ts), liquidity types present (Lit from CEX, RFQ from OTC, AMM from DEX), and the timestamp of the most recent data point received.
+
+- **Truth panel:** Query the PoLi engine for the current score and rating. Pull real integrity metrics from the TSLE buffer: actual data gap count, measured p95 ingestion latency, actual normalisation status. Compute the evidence level from the real venue count (L1 = 1 venue, L3 = 3+ venues, L5 = all configured venues active).
+
+- **Provenance panel:** Show every venue that is actively returning data, not a hardcoded subset. For each active venue, show:
+  - Venue name (from venue-config.ts)
+  - Connection method (relay, rest, amm - from venue-config.ts)
+  - Active data modules (depth, trades, funding - based on what the relay is actually returning)
+  - Normalisation status (complete, partial, or pending)
+  - Last event timestamp (actual timestamp of the most recent data point from that venue)
+  - LIS Reference ID (generated from the actual data snapshot, not a random string)
+
+### 2. Where to get the venue list
+
+The TILT terminal already knows which venues are active. Find how TILT determines this (likely by querying the TSLE buffer or checking venue relay status) and use the exact same source for RCL. The venue list should be dynamic: if a venue goes offline, it disappears from the Provenance panel (or shows as "OFFLINE"). If a new venue comes online, it appears automatically.
+
+Check these files for how TILT gets its venue data:
+- `server/services/venueLiquidity.ts` - may aggregate venue status
+- `server/services/tsle-buffer.ts` - the TSLE buffer stores per-venue data
+- `shared/venue-config.ts` - defines all configured venues
+- The L5F snapshot endpoint - the response likely includes per-venue data that feeds the Cross-Venue Depth Map
+
+### 3. Delete or replace rclMock.ts
+
+If `server/services/rclMock.ts` still exists:
+- Create a new file `server/services/rclLive.ts` that implements the live data logic described above
+- Update `server/routes/rcl.ts` to import and call `rclLive.ts` instead of `rclMock.ts`
+- Delete `rclMock.ts`
+- The new service must return the same data shape as the mock so that `RegulatoryAdgmView.tsx` does not need frontend changes
+
+If `rclMock.ts` has already been replaced but the replacement still has a hardcoded venue list, update it to pull dynamically from the TSLE buffer.
+
+### 4. Update the RCL Coverage panel venue count
+
+The Coverage panel currently shows:
+```
+Venue Count: 3
+Known Venues: 3
+Covered Venues: 3
+```
+
+After the fix it should show the real numbers, for example:
+```
+Venue Count: 13
+Known Venues: 14 (from venue-config.ts)
+Covered Venues: 13
+Coverage: 93%
+```
+
+### 5. Update the RCL header text
+
+The RCL page header currently reads:
+```
+Supervisory Scope (RCL-v0.1): Binance, Coinbase, Kraken
+```
+
+This hardcoded venue list must be replaced with a dynamic list of all active venues, or replaced with a count-based summary:
+```
+Supervisory Scope (RCL-v0.2): 13 venues active across 14 configured
+```
+
+## Verification
+
+After the fix:
+
+1. Open the RCL page. The Provenance panel should show venue cards for every active venue (matching the count shown in the TILT footer).
+2. The Coverage panel should show the real venue count and coverage percentage.
+3. The header should reflect the actual venue scope, not a hardcoded list of three.
+4. Switch to a different ILU-20 token. The venue list should update to show which venues are active for that token (the venue set may differ per token).
+5. Compare the venue count on the RCL page to the "VENUES: X ACTIVE" count in the TILT footer. They should match for the same token.
+6. Confirm that `rclMock.ts` is deleted or no longer imported anywhere.
+
+## What NOT to Change
+
+- Do not modify the RCL frontend component layout (Coverage, Truth, Provenance three-panel structure stays the same).
+- Do not modify the TSLE buffer, venue relays, or PoLi engine.
+- Do not modify the TILT terminal or any other pages.
+- Only change the data source that feeds the RCL view from mock/hardcoded to live/dynamic.

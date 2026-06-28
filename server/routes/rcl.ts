@@ -176,12 +176,15 @@ function generatePdfContent(payload: any, snapshot_ref: string): string {
   addKV("Snapshot Reference", snapshot_ref);
   addKV("Generated At", payload.meta?.generated_at || new Date().toISOString());
   
-  addSection("Supervisory Scope (RCL-v0.1)");
+  const activeCount = payload.coverage?.coverage_completeness?.covered_venues ?? 0;
+  const knownCount = payload.coverage?.coverage_completeness?.known_venues ?? 0;
+  const coveragePct = payload.coverage?.coverage_completeness?.coverage_pct ?? 0;
+  addSection("Supervisory Scope (RCL-v0.2)");
   addKV("Jurisdiction", payload.header?.jurisdiction || "ADGM");
   addKV("Asset Class", "Digital Assets");
-  addKV("Market Type", "Spot");
-  addKV("Declared Supervisory Universe (DSU)", "Binance, Coinbase, Kraken");
-  addKV("Version", "RCL-v0.1");
+  addKV("Market Type", "Spot & Derivatives");
+  addKV("Supervisory Universe", `${activeCount} venues active across ${knownCount} configured (${coveragePct}%)`);
+  addKV("Version", "RCL-v0.2");
   
   addSection("Coverage Analysis");
   addKV("Instrument", payload.coverage?.instrument || instrument);

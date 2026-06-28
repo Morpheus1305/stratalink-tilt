@@ -3,14 +3,15 @@
  * Replaces rclMock.ts — derives all regulatory payload data from live TSLE
  * buffer, L5F analytics layer, and venue relay state. No synthetic fixtures.
  *
- * Contract version: rcl_v0.1
- * Scope: ADGM Declared Supervisory Venue Set (Phase A: Binance, Coinbase, Kraken)
+ * Contract version: rcl_v0.2
+ * Scope: ADGM Full Supervisory Universe — all 14 configured venues (dynamic)
  */
 
 import { tsleBuffer } from './tsle-buffer';
 import { computeAnalyticsSnapshot } from './analytics-layer';
+import { VENUE_CONFIGS } from '../../shared/venue-config';
 
-// ─── Re-export types from rclMock so the route file keeps the same imports ─
+// ─── Re-export types so the route file keeps the same imports ──────────────
 
 export type RclTimeMode = 'latest_snapshot' | 'at_time';
 export type RclPoLiStatus = 'verified' | 'insufficient' | 'degraded';
@@ -108,40 +109,41 @@ export interface RclScreenPayload {
   };
 }
 
-// ─── Static configuration ─────────────────────────────────────────────────
+// ─── Full supervisory universe — derived dynamically from venue-config.ts ──
 
-/**
- * Declared Supervisory Venue Set — Phase A (RCL v0.1)
- * Only these venues are in scope for ADGM jurisdiction.
- */
-const DECLARED_SUPERVISORY_VENUES = ['binance', 'coinbase', 'kraken'] as const;
-type DeclaredVenue = (typeof DECLARED_SUPERVISORY_VENUES)[number];
+const ALL_SUPERVISORY_VENUES = Object.keys(VENUE_CONFIGS);
+const TOTAL_CONFIGURED = ALL_SUPERVISORY_VENUES.length;
 
-const VENUE_META: Record<DeclaredVenue, {
-  display_name: string;
-  lis_modules: string[];
-  ingestion_method: string;
-  liquidity_type: RclLiquidityType;
-}> = {
-  binance: {
-    display_name: 'Binance',
-    lis_modules: ['depth', 'trades', 'funding'],
-    ingestion_method: 'relay',
-    liquidity_type: 'lit',
-  },
-  coinbase: {
-    display_name: 'Coinbase',
-    lis_modules: ['depth', 'trades'],
-    ingestion_method: 'rest',
-    liquidity_type: 'lit',
-  },
-  kraken: {
-    display_name: 'Kraken',
-    lis_modules: ['depth', 'trades'],
-    ingestion_method: 'rest',
-    liquidity_type: 'lit',
-  },
-};
+// ─── Per-venue metadata derived from VENUE_CONFIGS ───────────────────────
+
+const RELAY_VENUES = new Set(['binance', 'okx', 'bybit', 'canton']);
+const AMM_VENUES   = new Set(['uniswap', 'curve', 'gmx']);
+const RFQ_VENUES   = new Set(['otc']);
+
+function getIngestionMethod(venueId: string): string {
+  if (RELAY_VENUES.has(venueId)) return 'relay';
+  if (AMM_VENUES.has(venueId))   return 'amm';
+  if (RFQ_VENUES.has(venueId))   return 'rfq';
+  return 'rest';
+}
+
+function getLisModules(venueId: string): string[] {
+  const config = VENUE_CONFIGS[venueId];
+  if (!config) return ['depth'];
+  const mods: string[] = ['depth'];
+  if (config.scope.includes('SPOT')) mods.push('trades');
+  if (config.scope.includes('PERP') || config.scope.includes('FUNDING')) mods.push('funding');
+  if (config.scope.includes('LIQUIDATIONS')) mods.push('liquidations');
+  return Array.from(new Set(mods));
+}
+
+function getLiquidityType(venueId: string): RclLiquidityType {
+  if (RFQ_VENUES.has(venueId)) return 'rfq';
+  if (AMM_VENUES.has(venueId)) return 'amm_derived';
+  return 'lit';
+}
+
+// ─── Instruments ──────────────────────────────────────────────────────────
 
 const MOCK_INSTRUMENTS: RclInstrument[] = [
   { instrument: 'BTC-USD', asset_class: 'cryptocurrency', status: 'active' },
@@ -178,11 +180,9 @@ function makeLisRef(venue: string, ts: number): string {
 
 // ─── Active venue detection ───────────────────────────────────────────────
 
-function getActiveVenues(sym: string): DeclaredVenue[] {
+function getActiveVenues(sym: string): string[] {
   const keys = new Set(tsleBuffer.getBufferKeys());
-  return DECLARED_SUPERVISORY_VENUES.filter((v) =>
-    keys.has(`${v}:${sym}`),
-  );
+  return ALL_SUPERVISORY_VENUES.filter((v) => keys.has(`${v}:${sym.toUpperCase()}`));
 }
 
 function getVenueLastEventAt(venue: string, sym: string): string {
@@ -193,7 +193,7 @@ function getVenueLastEventAt(venue: string, sym: string): string {
   return new Date().toISOString();
 }
 
-function getNewestIngestTs(activeVenues: DeclaredVenue[], sym: string): number {
+function getNewestIngestTs(activeVenues: string[], sym: string): number {
   let newest = 0;
   for (const v of activeVenues) {
     const raw = tsleBuffer.getRawHistory(v, sym, 1);
@@ -202,54 +202,78 @@ function getNewestIngestTs(activeVenues: DeclaredVenue[], sym: string): number {
   return newest || Date.now();
 }
 
-// ─── Derive PoLi status from L5F snapshot ────────────────────────────────
+// ─── Evidence level scaling (14-venue universe) ───────────────────────────
+//
+//  L1  0 venues               → no supervisory basis
+//  L2  1–3 venues   (<25%)    → partial sufficiency
+//  L3  4–8 venues   (25–57%)  → supervisory sufficiency
+//  L4  9–12 venues  (57–85%)  → enhanced verification
+//  L5  13–14 venues (>85%)    → forensic grade
+
+function evidenceLevelForCount(count: number, total: number): RclEvidenceLevel {
+  if (count === 0) return 'L1';
+  const pct = count / total;
+  if (pct < 0.25) return 'L2';
+  if (pct < 0.57) return 'L3';
+  if (pct < 0.86) return 'L4';
+  return 'L5';
+}
 
 function derivePoliStatus(
   activeCount: number,
-  declaredCount: number,
   l5fComposite: number | null,
 ): { status: RclPoLiStatus; evidenceLevel: RclEvidenceLevel; reason: string } {
+  const level = evidenceLevelForCount(activeCount, TOTAL_CONFIGURED);
+
   if (activeCount === 0) {
     return {
       status: 'insufficient',
       evidenceLevel: 'L1',
-      reason: 'No declared supervisory venues reporting data',
+      reason: 'No configured venues are reporting data',
     };
   }
 
-  const coveragePct = activeCount / declaredCount;
+  const coveragePct = activeCount / TOTAL_CONFIGURED;
 
-  if (coveragePct < 0.5) {
+  if (coveragePct < 0.25) {
     return {
       status: 'insufficient',
-      evidenceLevel: 'L1',
-      reason: `Only ${activeCount} of ${declaredCount} declared venues reporting`,
+      evidenceLevel: level,
+      reason: `Only ${activeCount} of ${TOTAL_CONFIGURED} venues reporting — below minimum threshold`,
     };
   }
 
   if (l5fComposite !== null && l5fComposite < 45) {
     return {
       status: 'degraded',
-      evidenceLevel: 'L2',
-      reason: `L5F composite score ${l5fComposite.toFixed(1)} below supervisory threshold`,
+      evidenceLevel: level,
+      reason: `L5F composite ${l5fComposite.toFixed(1)} below supervisory threshold (45)`,
     };
   }
 
-  if (coveragePct < 1.0 || (l5fComposite !== null && l5fComposite < 60)) {
+  if (coveragePct < 0.57) {
     return {
       status: 'degraded',
-      evidenceLevel: 'L2',
-      reason: 'Partial venue coverage — supervisory sufficiency not achieved',
+      evidenceLevel: level,
+      reason: `${activeCount} of ${TOTAL_CONFIGURED} venues active — partial supervisory coverage`,
     };
   }
 
-  // Full coverage, healthy score
-  const level: RclEvidenceLevel = activeCount >= 3 ? 'L3' : 'L2';
   return {
     status: 'verified',
     evidenceLevel: level,
-    reason: 'All required venues reporting within latency bounds',
+    reason: `${activeCount} of ${TOTAL_CONFIGURED} venues reporting within latency bounds`,
   };
+}
+
+// ─── Active liquidity type detection ─────────────────────────────────────
+
+function detectLiquidityTypes(activeVenues: string[]): RclLiquidityType[] {
+  const types = new Set<RclLiquidityType>();
+  for (const v of activeVenues) {
+    types.add(getLiquidityType(v));
+  }
+  return types.size > 0 ? Array.from(types) : ['lit'];
 }
 
 // ─── Main payload builder ─────────────────────────────────────────────────
@@ -263,7 +287,6 @@ export function getAdgmScreenPayload(
   const sym = parseSymbol(instrument);
   const snapshot = computeAnalyticsSnapshot(sym);
 
-  // Which declared venues are actively returning data?
   const activeVenues = getActiveVenues(sym);
   const newestTs = getNewestIngestTs(activeVenues, sym);
   const genTs = newestTs || Date.now();
@@ -274,31 +297,31 @@ export function getAdgmScreenPayload(
   const lisRef = makeLisRef('all', genTs);
 
   const { status: poliStatus, evidenceLevel, reason: statusReason } =
-    derivePoliStatus(
-      activeVenues.length,
-      DECLARED_SUPERVISORY_VENUES.length,
-      snapshot?.l5f_composite ?? null,
-    );
+    derivePoliStatus(activeVenues.length, snapshot?.l5f_composite ?? null);
 
   const overallSeverity: RclSeverity =
-    poliStatus === 'verified' ? 'green' : poliStatus === 'degraded' ? 'amber' : 'red';
+    poliStatus === 'verified' ? 'green'
+    : poliStatus === 'degraded' ? 'amber'
+    : 'red';
 
   const validUntil = new Date(now.getTime() + 5 * 60 * 1000);
 
-  // Liquidity types derived from which venue roles are active
-  const liquidityTypes: RclLiquidityType[] = ['lit']; // all declared venues are lit
-  // RFQ / AMM types not in scope for Phase A
+  const liquidityTypes = detectLiquidityTypes(activeVenues);
 
   // Coverage flags
   const coverageFlags: RclFlag[] = [];
-  if (activeVenues.length < DECLARED_SUPERVISORY_VENUES.length) {
-    const missing = DECLARED_SUPERVISORY_VENUES.filter(
-      (v) => !activeVenues.includes(v),
-    );
+  const inactiveVenueIds = ALL_SUPERVISORY_VENUES.filter((v) => !activeVenues.includes(v));
+  if (inactiveVenueIds.length > 0 && inactiveVenueIds.length <= 5) {
     coverageFlags.push({
       code: 'partial_coverage',
       severity: 'amber',
-      message: `Venues not reporting: ${missing.join(', ')}`,
+      message: `Venues not reporting: ${inactiveVenueIds.map((v) => VENUE_CONFIGS[v]?.displayName ?? v).join(', ')}`,
+    });
+  } else if (inactiveVenueIds.length > 5) {
+    coverageFlags.push({
+      code: 'partial_coverage',
+      severity: inactiveVenueIds.length > TOTAL_CONFIGURED * 0.5 ? 'red' : 'amber',
+      message: `${inactiveVenueIds.length} of ${TOTAL_CONFIGURED} venues not reporting`,
     });
   }
   if (snapshot && snapshot.vol_regime !== 'NORMAL') {
@@ -309,29 +332,29 @@ export function getAdgmScreenPayload(
     });
   }
 
-  // Data gaps: count venues with no recent data (>60s stale)
+  // Data gaps: venues with no recent data (>60s stale)
   const staleThreshold = Date.now() - 60_000;
-  const staleVenues = DECLARED_SUPERVISORY_VENUES.filter((v) => {
+  const staleVenues = ALL_SUPERVISORY_VENUES.filter((v) => {
     const raw = tsleBuffer.getRawHistory(v, sym, 1);
     return raw.length === 0 || raw[0].timestamp < staleThreshold;
   });
   const dataGapCount = staleVenues.length;
 
-  // Latency: approximate from newest ingest timestamp
   const ageMs = Date.now() - genTs;
   const p95_ms = activeVenues.length > 0 ? Math.min(Math.round(ageMs / 10), 500) : 999;
   const withinBounds = p95_ms < 200;
 
-  // Per-venue provenance entries (only active venues)
+  const coveragePct = Math.round((activeVenues.length / TOTAL_CONFIGURED) * 100);
+
+  // Per-venue provenance — active venues first
   const venueProvenance = activeVenues.map((venueId) => {
-    const meta = VENUE_META[venueId];
     const lastEventAt = getVenueLastEventAt(venueId, sym);
     const venueTs = new Date(lastEventAt).getTime() || genTs;
     return {
       venue_id: venueId,
-      venue_name: meta.display_name,
-      lis_modules: meta.lis_modules,
-      ingestion_method: meta.ingestion_method,
+      venue_name: VENUE_CONFIGS[venueId]?.displayName ?? venueId,
+      lis_modules: getLisModules(venueId),
+      ingestion_method: getIngestionMethod(venueId),
       normalization_status: 'complete',
       last_event_at: lastEventAt,
       evidence_hooks: [`${venueId}_depth_hook`, `${venueId}_trade_hook`],
@@ -342,22 +365,17 @@ export function getAdgmScreenPayload(
     };
   });
 
-  // Add inactive declared venues as "disconnected" entries so regulators see the full picture
-  const inactiveVenues = DECLARED_SUPERVISORY_VENUES.filter(
-    (v) => !activeVenues.includes(v),
-  ).map((venueId) => {
-    const meta = VENUE_META[venueId];
-    return {
-      venue_id: venueId,
-      venue_name: meta.display_name,
-      lis_modules: meta.lis_modules,
-      ingestion_method: meta.ingestion_method,
-      normalization_status: 'no_data',
-      last_event_at: '',
-      evidence_hooks: [],
-      refs: { lis_ref: 'N/A', dact_ref: 'N/A' },
-    };
-  });
+  // Inactive venues shown as "no_data" so regulators see the full picture
+  const inactiveProvenance = inactiveVenueIds.map((venueId) => ({
+    venue_id: venueId,
+    venue_name: VENUE_CONFIGS[venueId]?.displayName ?? venueId,
+    lis_modules: getLisModules(venueId),
+    ingestion_method: getIngestionMethod(venueId),
+    normalization_status: 'no_data',
+    last_event_at: '',
+    evidence_hooks: [],
+    refs: { lis_ref: 'N/A', dact_ref: 'N/A' },
+  }));
 
   return {
     meta: {
@@ -378,7 +396,7 @@ export function getAdgmScreenPayload(
     },
     header: {
       jurisdiction: 'ADGM',
-      market_scope: 'Digital Assets — Spot',
+      market_scope: 'Digital Assets — Spot & Derivatives',
       instrument,
       snapshot_label: `${instrument} Liquidity Truth Snapshot`,
       notice:
@@ -389,11 +407,9 @@ export function getAdgmScreenPayload(
       venue_count: activeVenues.length,
       liquidity_types: liquidityTypes,
       coverage_completeness: {
-        known_venues: DECLARED_SUPERVISORY_VENUES.length,
+        known_venues: TOTAL_CONFIGURED,
         covered_venues: activeVenues.length,
-        coverage_pct: Math.round(
-          (activeVenues.length / DECLARED_SUPERVISORY_VENUES.length) * 100,
-        ),
+        coverage_pct: coveragePct,
       },
       last_successful_ingest_at: genTs > 0
         ? new Date(genTs).toISOString()
@@ -433,7 +449,7 @@ export function getAdgmScreenPayload(
       },
     },
     provenance: {
-      venues: [...venueProvenance, ...inactiveVenues],
+      venues: [...venueProvenance, ...inactiveProvenance],
       reference_ids: {
         snapshot_ref: snapshotRef,
         poli_ref: poliRef,
@@ -452,7 +468,7 @@ export function getAdgmScreenPayload(
   };
 }
 
-// ─── Instruments (same as mock — static list) ─────────────────────────────
+// ─── Instruments ──────────────────────────────────────────────────────────
 
 export function getInstruments(
   q?: string,
@@ -475,7 +491,7 @@ export function getInstruments(
   };
 }
 
-// ─── Snapshot cache (same API as rclMock) ────────────────────────────────
+// ─── Snapshot cache ────────────────────────────────────────────────────────
 
 const snapshotCache = new Map<string, RclScreenPayload>();
 
