@@ -270,10 +270,11 @@ export default function HeroPage() {
         .hp-token-score { font-size: 0.65rem; transition: color 0.6s ease; }
         .hp-token-badge { font-size: 0.5rem; font-weight: 700; padding: 1px 6px; border-radius: 1px; transition: color 0.6s ease, background 0.6s ease; }
 
-        .hp-footer { position: relative; z-index: 10; border-top: 1px solid rgba(255,255,255,0.05); padding: 1rem 3rem; display: flex; align-items: center; justify-content: space-between; gap: 2rem; }
-        .hp-footer-label { font-size: 0.6rem; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(255,255,255,0.2); white-space: nowrap; }
-        .hp-footer-badges { display: flex; align-items: center; gap: 2rem; flex-wrap: wrap; }
-        .hp-footer-badge { font-size: 0.6rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.18); }
+        .hp-footer { position: relative; z-index: 10; border-top: 1px solid rgba(255,255,255,0.05); padding: 1rem 3rem; display: flex; align-items: center; flex-wrap: nowrap; gap: 1.5rem; overflow: hidden; }
+        .hp-footer-label { font-size: 0.6rem; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(255,255,255,0.2); white-space: nowrap; flex-shrink: 0; }
+        .hp-footer-sep { width: 1px; height: 0.9rem; background: rgba(255,255,255,0.12); flex-shrink: 0; }
+        .hp-footer-badges { display: flex; align-items: center; flex: 1; justify-content: space-between; flex-wrap: nowrap; min-width: 0; }
+        .hp-footer-badge { font-size: 0.6rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.18); white-space: nowrap; }
 
         .hp-gauge-arc { transition: stroke-dashoffset 1s ease, stroke 0.6s ease; }
       ` }} />
@@ -503,6 +504,7 @@ export default function HeroPage() {
 
         <footer className="hp-footer">
           <span className="hp-footer-label">Trusted by</span>
+          <div className="hp-footer-sep" />
           <div className="hp-footer-badges">
             {['Central Clearing Counterparties', 'Tier-1 Exchanges', 'Regulatory Bodies', 'Institutional Risk Desks', 'Digital Asset Protocols'].map(b => (
               <span key={b} className="hp-footer-badge">{b}</span>
