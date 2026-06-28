@@ -10,8 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { PlatformTabs } from "@/components/platform-tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { FileJson, FileText, RefreshCw, AlertCircle, CheckCircle, AlertTriangle, Info } from "lucide-react";
+import { RefreshCw, AlertCircle, CheckCircle, AlertTriangle, Info } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { generateRCLPDF } from "@/lib/pdfExport";
 import { PlatformFooter } from "@/components/platform-footer";
@@ -363,7 +362,31 @@ export default function RegulatoryAdgmView() {
             REGULATORY COVERAGE LAYER
           </div>
           <div className="tilt-header-divider" />
-          <div style={{ fontSize: 10, color: "var(--tilt-muted)" }}>RCL v0.1</div>
+          <div style={{ fontSize: 10, color: "var(--tilt-muted)" }}>RCL v0.2</div>
+          <div className="tilt-header-divider" />
+          <span
+            onClick={handleExportJson}
+            style={{
+              fontSize: 10, color: data ? "var(--tilt-sub)" : "var(--tilt-muted)",
+              cursor: data ? "pointer" : "default", letterSpacing: "0.05em",
+              fontFamily: "var(--tilt-mono)", userSelect: "none",
+            }}
+            data-testid="button-export-json"
+          >
+            ↓ JSON
+          </span>
+          <div className="tilt-header-divider" />
+          <span
+            onClick={handleExportPdf}
+            style={{
+              fontSize: 10, color: data ? "var(--tilt-sub)" : "var(--tilt-muted)",
+              cursor: data ? "pointer" : "default", letterSpacing: "0.05em",
+              fontFamily: "var(--tilt-mono)", userSelect: "none",
+            }}
+            data-testid="button-export-pdf"
+          >
+            ↓ PDF
+          </span>
           <div style={{ marginLeft: "auto", display: "flex", gap: 16, alignItems: "center" }}>
             <div style={{ fontSize: 10, color: "var(--tilt-muted)" }}>
               {venueCount != null ? `${venueCount} VENUES` : "—"} &middot; ADGM
@@ -663,9 +686,9 @@ export default function RegulatoryAdgmView() {
           </div>
         )}
 
-        {/* Footer: Export Buttons */}
+        {/* Footer: Metadata */}
         {data && (
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-border">
+          <div className="pt-4 border-t border-border">
             <div className="text-[10px] font-mono text-muted-foreground space-y-0.5">
               <div>Contract Version: {data.meta.contract_version}</div>
               <div>Generated At: {formatTime(data.meta.generated_at)}</div>
@@ -677,28 +700,6 @@ export default function RegulatoryAdgmView() {
               <div className="text-muted-foreground/60">Compliance: Annex A (Declared Supervisory Universe) • Annex B (Expansion Governance)</div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleExportJson}
-                disabled={!data.export.available}
-                data-testid="button-export-json"
-              >
-                <FileJson className="w-3.5 h-3.5 mr-1" />
-                Export JSON
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleExportPdf}
-                disabled={!data.export.available}
-                data-testid="button-export-pdf"
-              >
-                <FileText className="w-3.5 h-3.5 mr-1" />
-                Export PDF
-              </Button>
-            </div>
           </div>
         )}
       </div>

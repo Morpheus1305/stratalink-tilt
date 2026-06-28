@@ -302,26 +302,6 @@ export const VENUE_CONFIGS: Record<string, VenueConfig> = {
       "DeFi liquidity fragmentation",
     ],
   },
-  canton: {
-    venue: "CANTON",
-    displayName: "Canton Network",
-    role: "REFERENCE_ADJACENT",
-    confidence: "HIGH",
-    scope: ["SPOT"],
-    available: true,
-    description: "Digital Asset's Canton Network provides cryptographically attested liquidity data anchored on-chain. Depth derived from formal Daml contract attestations with provenance guarantees.",
-    usedFor: [
-      "PoLi attestation anchoring (L5 trust tier)",
-      "Regulatory-grade provenance verification",
-      "Formal liquidity attestation cross-checks",
-      "Canton-anchored depth signals",
-    ],
-    notUsedFor: [
-      "Real-time orderbook depth",
-      "Derivatives analysis",
-      "High-frequency spread signals",
-    ],
-  },
 };
 
 /**
