@@ -18,7 +18,7 @@ const TEST_USERS = [
     password: 'SecurePass234',
     name: 'Alex Williams',
     role: 'viewer',
-    staticOtpPin: '12345',
+    staticOtpPin: '123456',
   },
 ];
 
