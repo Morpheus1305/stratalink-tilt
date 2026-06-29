@@ -192,22 +192,31 @@ export default function Alerts() {
 
   const isLoading = dashboardLoading || alertsLoading;
 
-  if (isLoading) {
+  if (isLoading || !dashboardData || !alertsData) {
     return (
-      <div style={{ minHeight: "100vh", background: "#0B1019", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ fontFamily: "var(--tilt-mono, monospace)", fontSize: 11, color: "#4A5B6E", letterSpacing: "0.10em" }}>
-          LOADING ALERTS...
+      <div className="tilt-terminal">
+        <DashboardHeader />
+        <PlatformTabs />
+        <div className="tilt-root" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: 400 }}>
+          {isLoading ? (
+            <div style={{ fontFamily: "var(--tilt-mono, monospace)", fontSize: 11, color: "var(--tilt-muted)", letterSpacing: "0.10em" }}>
+              LOADING ALERTS…
+            </div>
+          ) : (
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontFamily: "var(--tilt-mono, monospace)", fontSize: 11, color: "var(--tilt-red)", letterSpacing: "0.10em", marginBottom: 12 }}>
+                FAILED TO LOAD ALERT DATA
+              </div>
+              <button
+                onClick={() => window.location.reload()}
+                style={{ fontFamily: "var(--tilt-mono, monospace)", fontSize: 9, letterSpacing: "0.08em", color: "var(--tilt-green)", background: "var(--tilt-panel)", border: "1px solid var(--tilt-border)", borderRadius: 2, padding: "4px 10px", cursor: "pointer" }}
+              >
+                RETRY
+              </button>
+            </div>
+          )}
         </div>
-      </div>
-    );
-  }
-
-  if (!dashboardData || !alertsData) {
-    return (
-      <div style={{ minHeight: "100vh", background: "#0B1019", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ fontFamily: "var(--tilt-mono, monospace)", fontSize: 11, color: "#FF5252", letterSpacing: "0.10em" }}>
-          ERROR: FAILED TO LOAD DATA
-        </div>
+        <PlatformFooter />
       </div>
     );
   }

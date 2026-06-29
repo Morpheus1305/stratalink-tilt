@@ -68,10 +68,20 @@ export default function Dashboard() {
 
   if (!dashboardData) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center space-y-3">
-          <div className="text-destructive text-sm font-semibold">Failed to load dashboard data</div>
-          <p className="text-muted-foreground text-xs">Please refresh the page to try again</p>
+      <div className="min-h-screen bg-background flex flex-col">
+        <DashboardHeader />
+        <PlatformTabs />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center space-y-3">
+            <div className="text-destructive text-sm font-semibold">Failed to load dashboard data</div>
+            <p className="text-muted-foreground text-xs">Please refresh the page to try again</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="text-xs text-muted-foreground underline hover:text-foreground transition-colors"
+            >
+              Retry
+            </button>
+          </div>
         </div>
       </div>
     );
