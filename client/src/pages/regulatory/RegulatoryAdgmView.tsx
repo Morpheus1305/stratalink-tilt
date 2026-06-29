@@ -359,7 +359,7 @@ export default function RegulatoryAdgmView() {
           <div className="tilt-logo">STRATA<span>LINK</span></div>
           <div className="tilt-header-divider" />
           <div style={{ fontSize: 10, color: "var(--tilt-sub)", letterSpacing: 1 }}>
-            REGULATORY COVERAGE LAYER
+            REGULATORY CONSUMPTION LAYER
           </div>
           <div className="tilt-header-divider" />
           <div style={{ fontSize: 10, color: "var(--tilt-muted)" }}>RCL v0.2</div>
