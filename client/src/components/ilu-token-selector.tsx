@@ -216,6 +216,7 @@ export function ILUTokenSelector() {
       {/* Dropdown */}
       {open && (
         <div
+          className="ilu-dropdown-scroll"
           style={{
             position: "fixed",
             zIndex: 99999,
@@ -224,7 +225,7 @@ export function ILUTokenSelector() {
             borderRadius: 2,
             boxShadow: "0 8px 24px rgba(0,0,0,0.6)",
             maxHeight: "calc(100vh - 120px)",
-            overflowY: "auto",
+            overflowY: "scroll",
             width: 340,
             top: ref.current
               ? ref.current.getBoundingClientRect().bottom + 4

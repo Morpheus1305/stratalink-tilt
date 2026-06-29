@@ -762,3 +762,10 @@
 .tilt-root ::-webkit-scrollbar       { width: 4px; }
 .tilt-root ::-webkit-scrollbar-track { background: var(--tilt-panel); }
 .tilt-root ::-webkit-scrollbar-thumb { background: var(--tilt-border); border-radius: 1px; }
+
+/* ─── ILU DROPDOWN SCROLLBAR ─────────────────────────────────────────────── */
+.ilu-dropdown-scroll::-webkit-scrollbar       { width: 6px; }
+.ilu-dropdown-scroll::-webkit-scrollbar-track { background: #080D14; }
+.ilu-dropdown-scroll::-webkit-scrollbar-thumb { background: #1A2435; border-radius: 1px; }
+.ilu-dropdown-scroll::-webkit-scrollbar-thumb:hover { background: #00BFA5; }
+.ilu-dropdown-scroll { scrollbar-width: thin; scrollbar-color: #1A2435 #080D14; }
