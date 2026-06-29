@@ -292,7 +292,7 @@ export default function HeroPage() {
           <div className="hp-nav-brand">
             <span className="hp-nav-wordmark">StrataLink Labs</span>
             <span className="hp-nav-pipe">|</span>
-            <span className="hp-nav-subtitle">Institutional Liquidity Terminal</span>
+            <span className="hp-nav-subtitle">The Institutional Liquidity Truth Terminal</span>
           </div>
           <div className="hp-nav-actions">
             <button className="hp-nav-link" data-testid="nav-methodology" onClick={() => setLocation('/methodology')}>Methodology</button>

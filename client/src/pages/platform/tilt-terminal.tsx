@@ -216,7 +216,7 @@ export default function TiltTerminal() {
           </div>
           <div className="tilt-header-divider" />
           <div style={{ fontSize: 10, color: "var(--tilt-sub)", letterSpacing: 1 }}>
-            INSTITUTIONAL LIQUIDITY TERMINAL
+            THE INSTITUTIONAL LIQUIDITY TRUTH TERMINAL
           </div>
           <div className="tilt-header-divider" />
           <div style={{ fontSize: 10, color: "var(--tilt-muted)" }}>TILT v1.0</div>

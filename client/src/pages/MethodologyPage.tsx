@@ -177,7 +177,7 @@ export default function MethodologyPage() {
           <div className="mp-nav-brand" onClick={() => setLocation('/')}>
             <span className="mp-nav-wordmark">StrataLink Labs</span>
             <span className="mp-nav-pipe">|</span>
-            <span className="mp-nav-subtitle">Institutional Liquidity Terminal</span>
+            <span className="mp-nav-subtitle">The Institutional Liquidity Truth Terminal</span>
           </div>
           <div className="mp-nav-actions">
             <button className="mp-nav-link mp-nav-link-active" data-testid="nav-methodology-active">Methodology</button>
