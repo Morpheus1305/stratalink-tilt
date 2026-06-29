@@ -57,7 +57,7 @@ export function TokenSelector({ selectedToken, onChange }: TokenSelectorProps) {
           )}
         </SelectValue>
       </SelectTrigger>
-      <SelectContent data-testid="select-token-content">
+      <SelectContent className="max-h-[420px] overflow-y-auto" data-testid="select-token-content">
         {tokens.map((token) => (
           <SelectItem 
             key={token.symbol} 
