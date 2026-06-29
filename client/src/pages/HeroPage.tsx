@@ -290,8 +290,10 @@ export default function HeroPage() {
 
         <nav className="hp-nav">
           <div className="hp-nav-brand">
-            <img src="/images/stratalink-logo.png" alt="StrataLink" style={{ height: 28, width: "auto" }} />
-            <span className="hp-nav-wordmark">StrataLink Labs</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <img src="/images/stratalink-logo.png" alt="StrataLink" style={{ height: 24, width: "auto" }} />
+              <span className="hp-nav-wordmark">StrataLink Labs</span>
+            </div>
             <span className="hp-nav-pipe">|</span>
             <span className="hp-nav-subtitle">The Institutional Liquidity Truth Terminal</span>
           </div>
