@@ -263,14 +263,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "User not found" });
       }
 
-      // PROTOTYPE ONLY: Fixed OTP code verification
-      // This is intentionally using a fixed code (291305) for demonstration purposes
-      // In production, use dynamic OTP codes with proper email/SMS delivery
+      // Per-user static OTP pin (stored in users.static_otp_pin)
+      // Falls back to shared fixed code for accounts without a personal pin
       const FIXED_OTP = '291305';
+      const userPin = (user as any).staticOtpPin as string | null | undefined;
       const isDevelopment = process.env.NODE_ENV !== 'production';
       const isDevBypass = isDevelopment && otpCode === '000000';
-      
-      const isValid = otpCode === FIXED_OTP || isDevBypass;
+
+      const isValid = isDevBypass
+        || (userPin ? otpCode === userPin : otpCode === FIXED_OTP);
 
       if (!isValid) {
         await storage.incrementLoginAttempts(user.id);
@@ -280,7 +281,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isDevBypass) {
         console.log('[AUTH] Development OTP bypass used (code: 000000)');
       } else {
-        console.log('[AUTH] Fixed OTP verified (code: 291305)');
+        console.log(`[AUTH] OTP verified for ${user.email}`);
       }
 
       await storage.resetLoginAttempts(user.id);

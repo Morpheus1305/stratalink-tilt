@@ -272,6 +272,7 @@ export const users = pgTable("users", {
   twoFactorMethod: varchar("two_factor_method", { length: 20 }),
   totpSecret: text("totp_secret"),
   backupCodes: text("backup_codes").array(),
+  staticOtpPin: varchar("static_otp_pin", { length: 10 }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   lastLogin: timestamp("last_login"),
 });
