@@ -175,6 +175,7 @@ export default function MethodologyPage() {
         {/* ── NAV ── */}
         <nav className="mp-nav">
           <div className="mp-nav-brand" onClick={() => setLocation('/')}>
+            <img src="/images/stratalink-logo.png" alt="StrataLink" style={{ height: 28, width: "auto" }} />
             <span className="mp-nav-wordmark">StrataLink Labs</span>
             <span className="mp-nav-pipe">|</span>
             <span className="mp-nav-subtitle">The Institutional Liquidity Truth Terminal</span>
