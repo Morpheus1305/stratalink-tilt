@@ -290,7 +290,7 @@ export default function HeroPage() {
 
         <nav className="hp-nav">
           <div className="hp-nav-brand">
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <img src="/images/stratalink-logo.png" alt="StrataLink" style={{ height: 24, width: "auto" }} />
               <span className="hp-nav-wordmark">StrataLink Labs</span>
             </div>

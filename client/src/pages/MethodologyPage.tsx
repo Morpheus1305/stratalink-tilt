@@ -175,7 +175,7 @@ export default function MethodologyPage() {
         {/* ── NAV ── */}
         <nav className="mp-nav">
           <div className="mp-nav-brand" onClick={() => setLocation('/')}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <img src="/images/stratalink-logo.png" alt="StrataLink" style={{ height: 24, width: "auto" }} />
               <span className="mp-nav-wordmark">StrataLink Labs</span>
             </div>
