@@ -107,8 +107,9 @@ export function DashboardHeader() {
         </div>
 
         {/* Right cluster */}
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2 shrink-0">
+          {/* LIVE indicator — pushed left of the orbit */}
+          <div className="flex items-center gap-1.5 mr-2">
             <Activity className="h-3 w-3" style={{ color: "#00E676" }} />
             <span
               style={{
@@ -123,7 +124,13 @@ export function DashboardHeader() {
             </span>
           </div>
 
-          <LiveOrbit />
+          {/* Orbit — padded so overflow:visible content clears neighbours */}
+          <div className="px-4 flex items-center justify-center">
+            <LiveOrbit />
+          </div>
+
+          {/* Thin separator */}
+          <div className="w-px h-5 bg-border mx-1 shrink-0" />
 
           <div className="flex items-center gap-1">
             <Button variant="ghost" size="icon" data-testid="button-notifications">
