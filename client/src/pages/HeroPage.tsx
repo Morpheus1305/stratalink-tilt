@@ -189,8 +189,8 @@ export default function HeroPage() {
         .hp-nav-actions { display: flex; align-items: center; gap: 1.5rem; }
         .hp-nav-link { font-size: 0.65rem; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase; color: rgba(255,255,255,0.38); background: none; border: none; cursor: pointer; padding: 0; font-family: 'Inter', sans-serif; }
         .hp-nav-link:hover { color: rgba(255,255,255,0.7); }
-        .hp-nav-btn { font-size: 0.65rem; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase; color: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.12); padding: 0.5rem 1.25rem; background: rgba(255,255,255,0.04); cursor: pointer; font-family: 'Inter', sans-serif; }
-        .hp-nav-btn:hover { background: rgba(255,255,255,0.08); }
+        .hp-nav-btn { font-size: 0.65rem; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase; color: #00BFA5; border: 1px solid #00BFA5; padding: 0.5rem 1.25rem; background: transparent; cursor: pointer; font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace; }
+        .hp-nav-btn:hover { background: rgba(0,191,165,0.08); }
 
         .hp-main { position: relative; z-index: 10; flex: 1; display: flex; min-height: 0; }
 
