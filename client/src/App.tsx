@@ -19,6 +19,7 @@ import TiltTerminal from "@/pages/platform/tilt-terminal";
 import StrataAI from "@/pages/platform/strata-ai";
 import IntegrityPage from "@/pages/platform/integrity";
 import CLTEvidence from "./pages/clt-evidence";
+import RequestAccessPage from "@/pages/RequestAccessPage";
 
 import { AuthProvider } from "@/contexts/AuthContext";
 import { TokenProvider } from "@/contexts/TokenContext";
@@ -59,6 +60,9 @@ function AppRouter() {
 
       {/* Methodology (public) */}
       <Route path="/methodology" component={MethodologyPage} />
+
+      {/* Request Access / Contact */}
+      <Route path="/request-access" component={RequestAccessPage} />
 
       {/* /platform → TILT */}
       <Route path="/platform">

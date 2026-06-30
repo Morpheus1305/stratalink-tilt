@@ -367,7 +367,7 @@ export default function HeroPage() {
               <button
                 className="hp-cta-primary"
                 data-testid="button-hero-request-access"
-                onClick={() => setLocation('/login')}
+                onClick={() => setLocation('/request-access')}
               >
                 Request Access
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
