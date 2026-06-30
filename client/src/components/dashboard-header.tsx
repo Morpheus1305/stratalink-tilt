@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Bell, Settings, Activity, LogOut, FileText } from "lucide-react";
+import { Bell, Settings, Activity, LogOut, FileText, HelpCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "wouter";
 import { useUIState } from "@/contexts/UIStateContext";
@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useSettings } from "@/contexts/SettingsContext";
 import { NotificationPanel, type AlertLogEntry } from "@/components/notification-panel";
 import { SettingsPanel } from "@/components/settings-panel";
+import { HelpPanel } from "@/components/help-panel";
 
 // ── localStorage helpers ────────────────────────────────────────────────────
 
@@ -80,6 +81,7 @@ export function DashboardHeader() {
 
   const [notifOpen, setNotifOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [acknowledgedIds, setAcknowledgedIds] = useState<Set<string>>(loadAckedIds);
   const [bellFlash, setBellFlash] = useState(false);
   // Use a ref so updating "seen" HIGH IDs never causes a re-render
@@ -185,7 +187,7 @@ export function DashboardHeader() {
                 variant="ghost"
                 size="icon"
                 data-testid="button-notifications"
-                onClick={() => { setNotifOpen(o => !o); setSettingsOpen(false); }}
+                onClick={() => { setNotifOpen(o => !o); setSettingsOpen(false); setHelpOpen(false); }}
                 style={bellFlash ? { animation: "bell-flash 0.4s ease-in-out 4" } : undefined}
               >
                 <Bell className="h-4 w-4" />
@@ -218,12 +220,23 @@ export function DashboardHeader() {
               <FileText className="h-4 w-4" />
             </Button>
 
+            {/* Help */}
+            <Button
+              variant="ghost"
+              size="icon"
+              data-testid="button-help"
+              title="Help & Documentation"
+              onClick={() => { setHelpOpen(o => !o); setNotifOpen(false); setSettingsOpen(false); }}
+            >
+              <HelpCircle className="h-4 w-4" />
+            </Button>
+
             {/* Settings cog */}
             <Button
               variant="ghost"
               size="icon"
               data-testid="button-settings"
-              onClick={() => { setSettingsOpen(o => !o); setNotifOpen(false); }}
+              onClick={() => { setSettingsOpen(o => !o); setNotifOpen(false); setHelpOpen(false); }}
             >
               <Settings className="h-4 w-4" />
             </Button>
@@ -253,6 +266,9 @@ export function DashboardHeader() {
       )}
       {settingsOpen && (
         <SettingsPanel onClose={() => setSettingsOpen(false)} />
+      )}
+      {helpOpen && (
+        <HelpPanel onClose={() => setHelpOpen(false)} />
       )}
 
       <style>{`
