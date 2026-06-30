@@ -29,3 +29,9 @@ id = "_NGjge2EfEjCgwE6BM6Oi"
 uri = "file://attached_assets/TILT_Report_Monthly_Supervisory_Overview_1782659867535.docx"
 type = "word_document"
 title = "TILT_Report_Monthly_Supervisory_Overview.docx"
+
+[[outputs]]
+id = "W8RTtFbNrL-U4ixrgpqqj"
+uri = "file://tilt-terminal-export.zip"
+type = "unspecified"
+title = "TILT Terminal — Source Code Export"
