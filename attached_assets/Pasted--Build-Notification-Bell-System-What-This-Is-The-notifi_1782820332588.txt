@@ -1,0 +1,210 @@
+# Build Notification Bell System
+
+## What This Is
+
+The notification bell icon in the header bar (`dashboard-header.tsx`) is currently non-functional. It needs to become a live notification system that shows recent alerts without requiring the user to navigate away from their current page.
+
+This is not a replacement for the Alerts page. The Alerts page is where users configure alert rules, set thresholds, and review full alert history. The bell is where users see what has just happened, acknowledge it, and decide whether to act, all without leaving whatever page they are working on.
+
+---
+
+## Component 1: Badge Count on the Bell Icon
+
+### What to build
+
+Add a small badge to the bell icon showing the count of unacknowledged alerts. The badge is visible from every page since the header is shared across the entire platform.
+
+### Badge styling
+
+- Position: Top-right of the bell icon, overlapping slightly
+- Shape: Circle (or rounded rectangle if the count exceeds 9)
+- Background: `#FF5252` (red)
+- Text: White, 9px bold monospace
+- Size: 16px diameter for single digit, expands for double digits
+- Content: The count of alerts that have not been acknowledged by the user
+- If count is 0: Badge is hidden entirely (not shown as "0")
+- If count exceeds 99: Show "99+"
+
+### Data source
+
+Query the alert service for alerts where `acknowledged = false` for the current user session. Poll every 10 seconds (same cadence as the TILT data polling) or subscribe to a server-sent event if the alert service supports push notification.
+
+### Persistence
+
+Acknowledged state should persist for the session. If the user refreshes the page, previously acknowledged alerts should not reappear as unacknowledged. Store the acknowledgement state either in the database (preferred, per-user) or in localStorage as a fallback.
+
+---
+
+## Component 2: Notification Slide-Out Panel
+
+### What to build
+
+When the bell icon is clicked, a slide-out panel appears from the right side of the screen. This panel shows recent alerts in reverse chronological order.
+
+### Panel layout
+
+```
+NOTIFICATIONS                                    [Mark All Read]  [X]
+─────────────────────────────────────────────────────────────────────
+
+● HIGH    AVAX-USD    POLI_DROP                         2 min ago
+PoLi score dropped below 50. Cross-venue depth 
+declining across all monitored venues.
+                                        [Acknowledge]  [View Detail]
+
+● MEDIUM  SOL-USD     REGIME_CHANGE                    47 min ago
+Regime shifted from NORMAL to ELEVATED.
+Funding rate rising.
+                                        [Acknowledge]  [View Detail]
+
+● LOW     ETH-USD     DEPTH_DROP                      3 hours ago
+Bybit ETH depth dropped 12% in 30 minutes.
+Subsequently recovered.                          [Acknowledged ✓]
+
+─────────────────────────────────────────────────────────────────────
+Showing 3 of 12 notifications              [View All in Alerts →]
+```
+
+### Panel styling
+
+- Width: 400px
+- Background: `#0B1019` (bg-primary)
+- Left border: 1px `#1A2435`
+- Slide-in animation: 0.2s ease-out from right
+- Close: Click the X button, click outside the panel, or press Escape
+- Header: "NOTIFICATIONS" in 12px monospace, `#00BFA5` (accent), with "Mark All Read" link and close button
+
+### Notification entry styling
+
+Each notification entry contains:
+
+**Header row:**
+- Severity dot and label: 10px monospace, bold. HIGH = `#FF5252`, MEDIUM = `#FFB300`, LOW = `#448AFF`
+- Token symbol: 11px monospace, `#00BFA5`
+- Alert type: 10px monospace, `#4A5B6E`
+- Time ago: 10px monospace, `#4A5B6E`, right-aligned. Show relative time ("2 min ago", "47 min ago", "3 hours ago", "Yesterday 14:22"). Switch to absolute timestamp after 24 hours.
+
+**Description:**
+- 11px, `#7B8EA3`, line-height 1.4
+- Maximum 2 lines. If the description is longer, truncate with "..." and the full text is visible when "View Detail" is clicked.
+
+**Action buttons:**
+- "Acknowledge" button: 10px monospace, `#4A5B6E` text, `#0F151F` background, 1px `#1A2435` border, 2px radius. On click: marks the alert as acknowledged, updates the badge count, and changes the button to "Acknowledged" with a tick mark in `#00E676`.
+- "View Detail" link: 10px monospace, `#00BFA5`. On click: navigates to the Alerts page with that specific alert highlighted or filtered. Closes the notification panel.
+
+**Acknowledged state:**
+- Acknowledged notifications show "Acknowledged" with a green tick instead of action buttons
+- They remain visible in the panel but with slightly dimmed styling (`#4A5B6E` text instead of `#7B8EA3`)
+- They sort below unacknowledged notifications
+
+**Separator:**
+- 1px `#1A2435` border between entries
+
+### Footer
+
+- Left: "Showing X of Y notifications" in 10px monospace, `#4A5B6E`
+- Right: "View All in Alerts" link in 10px monospace, `#00BFA5`. Navigates to the Alerts page and closes the panel.
+
+### Panel behaviour
+
+- Show the 10 most recent notifications by default
+- Unacknowledged notifications sort above acknowledged ones, then by timestamp (newest first)
+- "Mark All Read" acknowledges all visible notifications in one action and resets the badge to 0
+- The panel refreshes its content each time it is opened (pulls latest from the alert service)
+- If there are no notifications: show "No notifications" in 11px monospace, `#4A5B6E`, centred
+
+---
+
+## Component 3: Real-Time Alert Delivery
+
+### How notifications arrive
+
+The notification system consumes the same alert records that the Alerts page displays. When the alert service writes a new alert to the database (triggered by a DIVERGENCE, REGIME_CHANGE, POLI_DROP, or DEPTH_DROP condition), that alert automatically appears in the notification panel and increments the badge count.
+
+### Implementation approach
+
+**Option A (polling, simpler):** The notification component polls a lightweight endpoint every 10 seconds:
+
+```
+GET /api/notifications/unread?since=[last_check_timestamp]
+```
+
+Returns any new alerts since the last check. The frontend maintains the notification list in React state and updates the badge count.
+
+**Option B (server-sent events, better UX):** The server pushes new alerts to connected clients via SSE:
+
+```
+GET /api/notifications/stream
+```
+
+The client opens a persistent connection. When a new alert is written, the server pushes it to all connected clients. The frontend appends it to the notification list and increments the badge. This gives instant notification without polling delay.
+
+Use Option A if the project does not already have SSE infrastructure. Use Option B if SSE or WebSocket connections are already established (check whether the TILT terminal uses WebSocket for any live data).
+
+### API endpoints
+
+```
+GET  /api/notifications/recent       - Returns the 20 most recent alerts with acknowledged status
+GET  /api/notifications/unread-count  - Returns the count of unacknowledged alerts (for badge)
+POST /api/notifications/acknowledge   - Body: { alertId: string } - Marks a single alert as acknowledged
+POST /api/notifications/acknowledge-all - Marks all alerts as acknowledged
+```
+
+### Database changes
+
+Add an `acknowledged` boolean column and an `acknowledged_at` timestamp column to the existing alerts table (or create a separate `notification_state` table that references alert IDs if you prefer not to modify the alerts schema).
+
+```sql
+ALTER TABLE alerts ADD COLUMN acknowledged BOOLEAN DEFAULT FALSE;
+ALTER TABLE alerts ADD COLUMN acknowledged_at TIMESTAMP;
+```
+
+---
+
+## Component 4: Sound and Visual Flash (Optional)
+
+When a HIGH severity alert arrives:
+
+- The bell icon briefly flashes (a subtle pulse animation, 2 cycles, using `#FF5252`)
+- Optionally: a brief browser notification if the user has granted notification permissions (do not request permissions proactively; only use if already granted)
+
+Do not add sound. Institutional environments often have shared workspaces where unexpected sounds are disruptive.
+
+---
+
+## Interaction with Other Pages
+
+### TILT terminal
+
+The TILT terminal should not duplicate the notification system. If there is any existing alert display on the TILT page (other than the STRATA AI intelligence feed, which is different), it should reference the notification system rather than maintaining a separate alert display.
+
+### STRATA AI page
+
+The STRATA AI intelligence feed shows detection signals, which are different from alerts. Signals are transient analytical observations. Alerts are persistent triggered notifications. The bell shows alerts, not signals. They are complementary but distinct.
+
+### Alerts page
+
+The "View Detail" link in the notification panel navigates to the Alerts page. When arriving from a notification click, the Alerts page should highlight or scroll to the specific alert that was clicked. If the Alerts page supports filtering, apply a filter showing only that alert's token and type.
+
+---
+
+## Verification
+
+After implementation:
+
+1. Trigger an alert condition (e.g., by waiting for a PoLi score to drop below threshold, or by manually creating a test alert record in the database).
+2. Confirm the badge count appears on the bell icon.
+3. Click the bell. Confirm the slide-out panel appears with the alert entry showing severity, token, type, time, and description.
+4. Click "Acknowledge" on the alert. Confirm the button changes to "Acknowledged" and the badge count decreases by 1.
+5. Click "View Detail". Confirm navigation to the Alerts page with the relevant alert visible.
+6. Click "Mark All Read". Confirm all notifications show as acknowledged and the badge disappears.
+7. Navigate between TILT, STRATA AI, RCL, and PoLi/PoMI pages. Confirm the badge count persists across all pages.
+8. Refresh the browser. Confirm previously acknowledged alerts remain acknowledged.
+9. If no alerts exist, click the bell. Confirm "No notifications" is shown.
+
+## What NOT to Change
+
+- Do not modify the Alerts page functionality or layout. The bell notification is a complementary system, not a replacement.
+- Do not modify the alert service's trigger logic or threshold evaluation.
+- Do not modify the STRATA AI intelligence feed. Signals and alerts are separate systems.
+- Do not add a sixth tab. The bell is a header icon, not a page.
