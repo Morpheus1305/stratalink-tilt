@@ -57,8 +57,9 @@ export default function LoginPage() {
           title: 'Login successful',
           description: 'Welcome to StrataLink Labs Terminal',
         });
-        
-        setLocation('/platform');
+
+        const lastRoute = localStorage.getItem('stratalink_last_route');
+        setLocation(lastRoute ?? '/platform');
       }
     } catch (error: any) {
       toast({

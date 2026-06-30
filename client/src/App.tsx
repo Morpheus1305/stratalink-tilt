@@ -30,6 +30,20 @@ import { RequireAuth } from "@/components/RequireAuth";
 import { BottomTicker } from "@/components/bottom-ticker";
 import type { DashboardData } from "@shared/schema";
 
+const LAST_ROUTE_KEY = 'stratalink_last_route';
+const PLATFORM_PREFIXES = ['/platform', '/regulatory'];
+
+/** Saves the current route to localStorage whenever it's a platform page. */
+function RouteWatcher() {
+  const [location] = useLocation();
+  useEffect(() => {
+    if (PLATFORM_PREFIXES.some(p => location.startsWith(p))) {
+      localStorage.setItem(LAST_ROUTE_KEY, location);
+    }
+  }, [location]);
+  return null;
+}
+
 function ScrollToTop() {
   const [location] = useLocation();
   useEffect(() => {
@@ -152,6 +166,7 @@ export default function App() {
             <TooltipProvider>
               <Toaster />
               <ScrollToTop />
+              <RouteWatcher />
               <AppRouter />
               <GlobalTicker />
               <GlobalReportsPanel />

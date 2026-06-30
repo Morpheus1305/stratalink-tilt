@@ -41,7 +41,8 @@ export default function VerifyOTPPage() {
   useEffect(() => {
     // Check authentication first (highest priority)
     if (!authLoading && isAuthenticated) {
-      setLocation('/platform');
+      const lastRoute = localStorage.getItem('stratalink_last_route');
+      setLocation(lastRoute ?? '/platform');
       return;
     }
     
