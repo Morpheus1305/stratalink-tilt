@@ -1,0 +1,67 @@
+# Fix: STRATA AI Detection Grid vs Active Intelligence Signals Contradiction
+
+## Priority
+BLOCKER — must be fixed before the 2 July ADGM demo. This is the most visible
+contradiction on the platform: two panels on the same screen tell opposite
+stories.
+
+## Observed Bug
+On the STRATA AI tab (`/platform/strata-ai`), the Detection Status grid at
+the top of the page shows:
+- Cross-Venue Divergence: CRITICAL (score 15)
+- Depth Manipulation: CRITICAL (score 9)
+- Liquidity Concentration: NORMAL (score 90)
+- Spread Anomaly: CRITICAL (score 12)
+- Regime Instability: NORMAL (score 100)
+- Execution Integrity: ELEVATED (score 34)
+
+Directly underneath, the "Active Intelligence Signals" panel (Panel 1) reads:
+> "0 DETECTED — All detection categories within normal parameters. No
+> anomalies detected."
+
+Both panels are rendering from the same poll cycle (same `Last evaluated`
+timestamp as the detection grid's `LAST UPDATE`), so this is not a timing/lag
+issue — it is two different code paths disagreeing about the same state.
+
+## Likely Root Cause
+The Detection Status grid and the Active Intelligence Signals panel are
+almost certainly reading from two different fields or computing severity
+with two different thresholds:
+- The grid likely reads the live per-category score directly and applies its
+  own CRITICAL/ELEVATED/NORMAL band logic.
+- The signals panel likely reads a separate `signals` or `alerts` array that
+  is either (a) populated by a different/stale endpoint, (b) gated behind a
+  feature flag that isn't wired up yet, or (c) filtering on a threshold that
+  doesn't match the grid's bands, so genuine CRITICAL conditions never
+  produce a signal entry.
+
+## Fix Instructions
+1. Find the component(s) backing the STRATA AI page (likely
+   `client/src/pages/platform/strata-ai.tsx` or similar) and locate where
+   the Detection Status grid and the Active Intelligence Signals panel each
+   source their data.
+2. Confirm both panels consume the same underlying detection-category data
+   structure (the same six categories, same scores, same timestamp). If they
+   currently hit two different API calls or two different slices of state,
+   consolidate them onto one source of truth.
+3. If the signals panel is meant to list one entry per category that is
+   ELEVATED or CRITICAL, implement that mapping directly from the same
+   six-category array the grid uses, rather than a separate
+   `signals`/`alerts` collection that may not be populated.
+4. Remove or fix any hardcoded/mock fallback text ("All detection categories
+   within normal parameters. No anomalies detected.") that renders
+   regardless of actual state — this should only show when all six
+   categories are genuinely NORMAL.
+5. After the fix, when any category is ELEVATED or CRITICAL, the Active
+   Intelligence Signals panel must list that category with its score and
+   severity, matching the grid exactly.
+
+## Verification
+- Load the STRATA AI tab while at least one category is CRITICAL or
+  ELEVATED and confirm the Active Intelligence Signals panel lists a
+  corresponding entry (not "0 DETECTED").
+- Load the STRATA AI tab when all six categories are genuinely NORMAL and
+  confirm the panel correctly shows the "no anomalies detected" state in
+  that case only.
+- Confirm the STRATA AI Composite ring's label (e.g. CRITICAL) stays
+  consistent with both the grid and the signals panel after the fix.

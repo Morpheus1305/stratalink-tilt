@@ -1,0 +1,49 @@
+# Fix: RCL Version Label Mismatch (Header vs Footer Metadata)
+
+## Priority
+BLOCKER — must be fixed before the 2 July ADGM demo. This is on the page
+ADGM/FSRA will scrutinise most closely (the regulator-facing audit layer),
+so a version inconsistency here is reputationally costly.
+
+## Observed Bug
+On the RCL tab (`/regulatory/adgm`):
+- The page header reads: "REGULATORY CONSUMPTION LAYER · RCL v0.2"
+- The footer metadata block (below the venue connector cards) reads:
+  "Contract Version: rcl_v0.1"
+
+Both labels are visible in the same screen without scrolling away from
+either, so this is highly likely to be noticed during a live walkthrough.
+
+## Likely Root Cause
+Two separate places in the codebase hardcode a version string instead of
+both reading from one constant:
+- The page header version label is probably a hardcoded string literal in
+  the RCL page component (e.g. `client/src/pages/regulatory/RegulatoryAdgmView.tsx`).
+- The footer metadata block's "Contract Version" is probably sourced from a
+  backend response field (e.g. `contract_version` from `server/routes/rcl.ts`
+  or similar) that was bumped to `v0.2` on the frontend without the backend
+  constant being updated to match, or vice versa.
+
+## Fix Instructions
+1. Search the RCL page component and its backend route
+   (`server/routes/rcl.ts` or equivalent) for every place a version string
+   like `"v0.1"`, `"v0.2"`, `"rcl_v0.1"`, or `"rcl_v0.2"` appears.
+2. Establish a single source of truth for the RCL contract/build version
+   (a shared constant, e.g. in `shared/venue-config.ts` or a new
+   `shared/rcl-version.ts`), and have both the page header label and the
+   footer "Contract Version" metadata read from that one constant.
+3. Confirm which version number is actually correct given the current state
+   of the RCL build (v0.1 or v0.2) — do not just pick one to silence the
+   mismatch; verify which reflects the real deployed contract/schema
+   version, since this number may also appear in exported PDF/JSON reports
+   and should be consistent there too.
+4. Check the EXPORT JSON and EXPORT PDF outputs from this page for the same
+   version string and confirm they now match the corrected value.
+
+## Verification
+- Load the RCL tab and confirm the header version label and the footer
+  "Contract Version" line show the identical version number.
+- Run EXPORT JSON and EXPORT PDF and confirm the version number inside the
+  exported files also matches.
+- Confirm the "Supervisory Scope" and "Data Status" lines at the bottom of
+  the page reference the same corrected version where applicable.

@@ -39,7 +39,7 @@ export interface RclInstrument {
 
 export interface RclScreenPayload {
   meta: {
-    contract_version: 'rcl_v0.1';
+    contract_version: 'rcl_v0.2';
     generated_at: string;
     time_mode: RclTimeMode;
     authoritative_record: false;
@@ -379,7 +379,7 @@ export function getAdgmScreenPayload(
 
   return {
     meta: {
-      contract_version: 'rcl_v0.1',
+      contract_version: 'rcl_v0.2',
       generated_at: now.toISOString(),
       time_mode: timeMode,
       authoritative_record: false,

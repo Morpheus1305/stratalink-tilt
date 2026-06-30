@@ -1,0 +1,65 @@
+# Fix: Alert Timeline Chart vs Alert Log Contradiction
+
+## Priority
+BLOCKER — must be fixed before the 2 July ADGM demo. The timeline chart and
+the alert log sit on the same screen and visibly disagree.
+
+## Observed Bug
+On the ALERTS tab (`/platform/alerts`):
+- The "ALERT TIMELINE — BTC" chart (Panel 3) renders a flat line with a
+  tooltip reading `critical : 0` and `warning : 0` at the most recent point
+  on the timeline (14:30).
+- Directly below it, the "ALERT LOG" table is continuously populated with
+  CRITICAL and HIGH severity "Depth" and "Divergence" entries, arriving in a
+  tight repeating loop (e.g. multiple entries stamped 15:31:06, 15:31:01,
+  15:30:56, each pairing a CRITICAL Depth alert with a Divergence alert).
+- Separately, the same alert log shows what appears to be duplicate entries:
+  identical timestamp + alert type + description combinations appearing
+  3–4 times in a row (e.g. four separate "15:31:06 / Depth / SOL Depth
+  Quality 37.6" style rows).
+
+## Likely Root Cause
+Two distinct issues, both worth checking in the same pass:
+
+1. **Timeline vs log mismatch**: the timeline chart is almost certainly
+   aggregating from a different data source or a stale/cached window than
+   the live alert log feed — e.g. the chart may be reading a `daily_summary`
+   or `hourly_buckets` endpoint that hasn't been wired to the same live
+   alert stream the log table polls, so it never increments above zero.
+
+2. **Duplicate log entries**: the alert log is likely re-emitting the same
+   alert on every poll cycle rather than only emitting it once when the
+   underlying condition is first breached (or re-breached after clearing).
+   This points to either (a) the backend alert-generation logic not
+   deduplicating by a stable alert key (asset + category + breach window),
+   or (b) the frontend polling logic appending each poll's full result set
+   to the log rather than diffing against what's already shown.
+
+## Fix Instructions
+1. Locate the alert-generation service (likely
+   `server/services/alert-service.ts` per the existing codebase) and the
+   ALERTS page component and its timeline chart component.
+2. Confirm the timeline chart and the alert log both read from the same
+   alert event stream/table. If the chart aggregates from a separate
+   rollup, point it at the same live source the log uses, bucketed by time
+   rather than recomputed independently.
+3. Add deduplication to alert emission: an alert for a given asset +
+   category + breach condition should only be logged once when the
+   condition is newly breached, not re-emitted on every 5-second poll while
+   the condition persists. If repeated emission is intentional (e.g. a
+   "still breached" heartbeat), change the log UI to collapse these into a
+   single row with a "first seen / last seen" range rather than one row per
+   poll cycle.
+4. Once deduplication is in place, recheck that the timeline chart's
+   critical/warning counts for the most recent time bucket reflect the
+   actual number of distinct active CRITICAL/WARNING alerts in the log
+   table for that same window.
+
+## Verification
+- Load the ALERTS tab while live CRITICAL/HIGH alerts are present in the log
+  and confirm the timeline chart's tooltip for the current time bucket shows
+  a non-zero critical/warning count consistent with the log.
+- Watch the alert log across several poll cycles and confirm the same
+  underlying condition does not produce a new duplicate row on every cycle.
+- Confirm the "10 EVENTS · 10 ACTIVE" header count (or equivalent) reflects
+  the deduplicated, not the raw polled, count.

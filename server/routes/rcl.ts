@@ -43,7 +43,7 @@ function requireBearerToken(req: Request, res: Response, next: NextFunction) {
 
 router.get("/meta", (_req: Request, res: Response) => {
   res.json({
-    contract_version: "rcl_v0.1",
+    contract_version: "rcl_v0.2",
     jurisdiction: "ADGM",
     description: "Regulatory Consumption Layer - Read-only market integrity view",
     endpoints: [

@@ -580,12 +580,12 @@ export default function StrataAI() {
               <div className="tilt-panel-accent" style={{ background: "var(--tilt-accent)" }} />
               <div className="tilt-panel-title">Active Intelligence Signals</div>
               <div className="tilt-ph-tag" style={{ marginLeft: 0, background: "rgba(0,191,165,0.08)", color: "var(--tilt-accent)", borderColor: "rgba(0,191,165,0.2)" }}>
-                {signals.length} DETECTED
+                {detections.filter(d => d.status !== "NORMAL").length} DETECTED
               </div>
               <div className="tilt-ph-tag">PANEL 1</div>
             </div>
             <div style={{ overflowY: "auto", flex: 1, maxHeight: 420, padding: "0 14px 14px" }} data-testid="strata-signals-feed">
-              {signals.length === 0 ? (
+              {detections.filter(d => d.status !== "NORMAL").length === 0 ? (
                 <div style={{ padding: "24px 0", textAlign: "center" }}>
                   <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, color: "var(--tilt-green)", marginBottom: 6 }}>
                     ● All detection categories within normal parameters. No anomalies detected.
@@ -596,17 +596,17 @@ export default function StrataAI() {
                 </div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {signals.map(sig => (
-                    <div key={sig.id} style={{ background: "var(--tilt-panel2)", border: "1px solid var(--tilt-border)", borderRadius: 2, padding: "10px 12px" }} data-testid={`strata-signal-${sig.severity.toLowerCase()}`}>
+                  {detections.filter(d => d.status !== "NORMAL").map(cat => (
+                    <div key={cat.id} style={{ background: "var(--tilt-panel2)", border: "1px solid var(--tilt-border)", borderRadius: 2, padding: "10px 12px" }} data-testid={`strata-signal-${cat.status.toLowerCase()}`}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
-                        <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 10, color: "var(--tilt-muted)" }}>{fmtTime(sig.ts)}</span>
-                        <span style={{ color: RAG_COLOR[sig.severity], fontSize: 8 }}>●</span>
-                        <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, fontWeight: 700, color: RAG_COLOR[sig.severity] }}>{sig.severity}</span>
-                        <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, color: "var(--tilt-sub)", letterSpacing: "0.05em" }}>{sig.category}</span>
-                        <span style={{ marginLeft: "auto", fontFamily: "var(--tilt-mono)", fontSize: 11, color: "var(--tilt-accent)" }}>{sig.symbol}-USD</span>
+                        <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 10, color: "var(--tilt-muted)" }}>{agg ? fmtTime(agg.computed_at_utc) : "—"}</span>
+                        <span style={{ color: RAG_COLOR[cat.status], fontSize: 8 }}>●</span>
+                        <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, fontWeight: 700, color: RAG_COLOR[cat.status] }}>{cat.status}</span>
+                        <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, color: "var(--tilt-sub)", letterSpacing: "0.05em" }}>{cat.label1} {cat.label2}</span>
+                        <span style={{ marginLeft: "auto", fontFamily: "var(--tilt-mono)", fontSize: 11, color: "var(--tilt-accent)" }}>{agg?.symbol ?? selectedSymbol}-USD</span>
                       </div>
-                      <p style={{ fontSize: 12, color: "var(--tilt-sub)", lineHeight: 1.55, margin: "0 0 6px" }}>{sig.message}</p>
-                      <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 10, color: "var(--tilt-muted)" }}>{sig.supporting}</div>
+                      <p style={{ fontSize: 12, color: "var(--tilt-sub)", lineHeight: 1.55, margin: "0 0 6px" }}>{cat.detail}</p>
+                      <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 10, color: "var(--tilt-muted)" }}>Score: {cat.score} | {cat.metricLabel}: {cat.metricValue} (threshold: {cat.threshold})</div>
                     </div>
                   ))}
                 </div>

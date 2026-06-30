@@ -5,7 +5,6 @@
  */
 
 import { computeAnalyticsSnapshot, type TsleAggregate } from './analytics-layer';
-import { tsleBuffer } from './tsle-buffer';
 import { getAlertHistory } from './alert-service';
 import type { AlertsData } from '../../shared/schema';
 
@@ -18,6 +17,11 @@ const POLI_CRITICAL_THRESHOLD = 50;
 // is the live feed for the frontend. Lost on process restart — by design.
 
 const RING_MAX = 200;
+
+// ─── Heartbeat cooldown — prevent flooding the ring buffer ────────────────
+// One heartbeat per symbol per severity-level per 60s.
+const heartbeatCooldown = new Map<string, { ts: number; level: string }>();
+const HEARTBEAT_COOLDOWN_MS = 60_000;
 
 export interface AlertLogEntry {
   id: string;
@@ -57,20 +61,26 @@ export function pushIngestCycleAlerts(sym: string, snap: TsleAggregate): void {
   const regimeLabel = snap.vol_regime === 'STRESS' ? 'STRESSED'
     : snap.vol_regime === 'ELEVATED' ? 'ELEVATED' : 'NORMAL';
 
-  // Heartbeat — one per symbol per cycle, always written
+  // Heartbeat — throttled: at most once per symbol per severity-level per 60s
   const poliSev: AlertLogEntry['severity'] =
     snap.l5f_composite < 35 ? 'CRITICAL'
     : snap.l5f_composite < 50 ? 'HIGH'
     : snap.l5f_composite < 65 ? 'WARNING'
     : 'INFO';
 
-  pushAlertEntry({
-    alertType: 'Divergence',
-    severity: poliSev,
-    description: `L5F ${sym}: composite ${snap.l5f_composite.toFixed(1)}, DQ ${snap.l5f_depth_quality.toFixed(1)}, R ${snap.l5f_resilience.toFixed(1)}, regime ${regimeLabel} — ${snap.venue_count} ve...`,
-    status: 'NEW',
-    timeUTC: '', // overwritten inside pushAlertEntry
-  });
+  const now = Date.now();
+  const cooldownKey = sym;
+  const lastHB = heartbeatCooldown.get(cooldownKey);
+  if (!lastHB || now - lastHB.ts >= HEARTBEAT_COOLDOWN_MS || lastHB.level !== poliSev) {
+    pushAlertEntry({
+      alertType: 'Divergence',
+      severity: poliSev,
+      description: `L5F ${sym}: composite ${snap.l5f_composite.toFixed(1)}, DQ ${snap.l5f_depth_quality.toFixed(1)}, R ${snap.l5f_resilience.toFixed(1)}, regime ${regimeLabel} — ${snap.venue_count} venues`,
+      status: 'NEW',
+      timeUTC: '',
+    });
+    heartbeatCooldown.set(cooldownKey, { ts: now, level: poliSev });
+  }
 
   // Condition-triggered entries
   if (snap.vol_regime === 'STRESS') {
@@ -111,11 +121,6 @@ export function pushIngestCycleAlerts(sym: string, snap: TsleAggregate): void {
     });
   }
 }
-const KNOWN_VENUES = [
-  'binance', 'coinbase', 'kraken', 'okx', 'bybit',
-  'deribit', 'hyperliquid', 'dydx', 'uniswap',
-  'bitget', 'gmx', 'curve', 'otc', 'canton',
-];
 
 // ─── Risk indicator helpers ────────────────────────────────────────────────
 
@@ -216,50 +221,45 @@ function countCriticalAssets(): { count: number; total: number } {
   return { count, total };
 }
 
-// ─── Alert timeline from TSLE buffer ─────────────────────────────────────
+// ─── Alert timeline from ring buffer ──────────────────────────────────────
+// Buckets ring buffer entries by 5-min window, counting by severity.
+// This ensures the timeline chart reflects the same events as the alert log.
 
-function buildAlertTimeline(asset: string): AlertsData['alertTimeline'] {
-  const sym = asset.toUpperCase();
+function buildAlertTimeline(_asset: string): AlertsData['alertTimeline'] {
   const BUCKET_MS = 5 * 60 * 1000; // 5-min buckets
+  const now = Date.now();
 
-  const buckets = new Map<number, number[]>();
+  // Build empty 20-bucket scaffold (last 100 minutes)
+  const BUCKET_COUNT = 20;
+  const bucketMap = new Map<number, { critical: number; warning: number; info: number }>();
+  for (let i = 0; i < BUCKET_COUNT; i++) {
+    const bucketTs = Math.floor((now - (BUCKET_COUNT - 1 - i) * BUCKET_MS) / BUCKET_MS) * BUCKET_MS;
+    bucketMap.set(bucketTs, { critical: 0, warning: 0, info: 0 });
+  }
 
-  for (const venue of KNOWN_VENUES) {
-    const history = tsleBuffer.getHistory(venue, sym);
-    for (const pt of history) {
-      const bucket = Math.floor(pt.ts / BUCKET_MS) * BUCKET_MS;
-      if (!buckets.has(bucket)) buckets.set(bucket, []);
-      buckets.get(bucket)!.push(pt.poli);
+  // Tally ring buffer entries into buckets
+  for (const entry of ringBuffer) {
+    const bucketTs = Math.floor(entry.ts / BUCKET_MS) * BUCKET_MS;
+    if (!bucketMap.has(bucketTs)) continue; // outside the 100-min window
+    const b = bucketMap.get(bucketTs)!;
+    if (entry.severity === 'CRITICAL' || entry.severity === 'HIGH') {
+      b.critical += 1;
+    } else if (entry.severity === 'WARNING') {
+      b.warning += 1;
+    } else {
+      b.info += 1;
     }
   }
 
-  const sorted = Array.from(buckets.entries()).sort(([a], [b]) => a - b);
-
-  if (sorted.length === 0) {
-    // No data yet — return zeros so chart renders as empty, not random
-    const now = Date.now();
-    return Array.from({ length: 20 }, (_, i) => {
-      const t = new Date(now - (20 - i) * BUCKET_MS);
+  return Array.from(bucketMap.entries())
+    .sort(([a], [b]) => a - b)
+    .map(([ts, counts]) => {
+      const t = new Date(ts);
       return {
         time: `${String(t.getUTCHours()).padStart(2, '0')}:${String(t.getUTCMinutes()).padStart(2, '0')}`,
-        critical: 0,
-        warning: 0,
-        info: 0,
+        ...counts,
       };
     });
-  }
-
-  return sorted.map(([ts, polis]) => {
-    const avg = polis.reduce((a, b) => a + b, 0) / polis.length;
-    const t = new Date(ts);
-    const time = `${String(t.getUTCHours()).padStart(2, '0')}:${String(t.getUTCMinutes()).padStart(2, '0')}`;
-    return {
-      time,
-      critical: avg < 40 ? Math.round(60 - avg) : 0,
-      warning: avg >= 40 && avg < 65 ? Math.round(75 - avg) : 0,
-      info: avg >= 65 ? Math.round(avg - 55) : 0,
-    };
-  });
 }
 
 // ─── Alert log ────────────────────────────────────────────────────────────
