@@ -9,8 +9,8 @@ function PulseDot() {
     <svg width="16" height="16" viewBox="0 0 16 16" style={{ flexShrink: 0 }} aria-hidden="true">
       <defs>
         <radialGradient id="pd-glow" cx="50%" cy="50%" r="50%">
-          <stop offset="0%"   stopColor="#3B82F6" stopOpacity="0.5" />
-          <stop offset="100%" stopColor="#3B82F6" stopOpacity="0" />
+          <stop offset="0%"   stopColor="#00E676" stopOpacity="0.5" />
+          <stop offset="100%" stopColor="#00E676" stopOpacity="0" />
         </radialGradient>
       </defs>
       {/* Outer glow halo */}
@@ -18,7 +18,7 @@ function PulseDot() {
         <animate attributeName="opacity" values="0.2;0.8;0.2" dur="2s" repeatCount="indefinite" />
       </circle>
       {/* Core dot */}
-      <circle cx="8" cy="8" r="4" fill="#3B82F6">
+      <circle cx="8" cy="8" r="4" fill="#00E676">
         <animate attributeName="r"       values="3.5;4.5;3.5" dur="2s" repeatCount="indefinite" />
         <animate attributeName="opacity" values="0.5;1;0.5"   dur="2s" repeatCount="indefinite" />
       </circle>
