@@ -1,0 +1,453 @@
+# Build Help System
+
+## What to Build
+
+Add a help icon to the header bar in `dashboard-header.tsx`. The icon is a "?" character or a question mark circle icon from the lucide-react icon library (`HelpCircle`). Position it between the settings cog and the sign-out arrow, so the header utility icons read left to right: Bell, Reports, Settings, Help, Sign Out.
+
+When clicked, a slide-out panel appears from the right (same pattern as the notification bell, reports panel, and settings panel) containing a self-contained support hub.
+
+---
+
+## Header Icon
+
+```
+[Bell 🔔]  [Reports 📄]  [Settings ⚙]  [? Help]  [→ Sign Out]
+```
+
+- Icon: `HelpCircle` from lucide-react, or a simple "?" character styled as a circle
+- Size: Same as the other header icons (20px)
+- Colour: `#7B8EA3` (text-secondary), shifts to `#00BFA5` (accent) on hover
+- No badge count (help is not a notification system)
+
+---
+
+## Help Panel Structure
+
+The panel has a left navigation list and a right content area, similar to the settings panel.
+
+### Panel styling
+
+- Width: 520px (slightly wider than settings to accommodate documentation content)
+- Background: `#0B1019`
+- Left border: 1px `#1A2435`
+- Slide-in animation: 0.2s ease-out from right
+- Close: X button, click outside, or Escape key
+- Header: "HELP" in 12px monospace, `#00BFA5`, with close button
+- Section navigation: Vertical list on the left (140px wide), 11px monospace, `#7B8EA3`, active section with `#00BFA5` text and 2px left accent bar
+
+### Navigation sections
+
+```
+QUICK START
+USER GUIDE
+GLOSSARY
+DATA DICTIONARY
+FAQ
+WHAT'S NEW
+SYSTEM STATUS
+CONTACT SUPPORT
+```
+
+---
+
+## Section 1: Quick Start
+
+A condensed version of the Quick Start Guide embedded directly in the panel. Not a PDF download, but the actual content rendered as HTML within the panel.
+
+### Content
+
+```
+QUICK START                                              TILT v1.2.0
+
+Get operational in 10 minutes.
+
+1. UNDERSTAND THE FIVE TABS
+
+   LIQUIDITY     Real-time liquidity health across venues
+   STRATA AI     Market intelligence and manipulation detection
+   PoLi / PoMI   Verification and stability protocols
+   RCL           Regulatory supervisory view
+   ALERTS        Alert configuration and history
+
+2. SELECT A TOKEN
+
+   The ILU-20 selector in the header shows all 20 tokens
+   in the Institutional Liquidity Universe. Select any
+   token. All pages update to reflect that token.
+
+3. YOUR MORNING REVIEW
+
+   Open LIQUIDITY. Check the L5F score (green = healthy).
+   Scan the EWDS indicators (all green = no stress).
+   Check STRATA AI detection grid (all NORMAL = no anomalies).
+   Check ALERTS bell for new notifications.
+   If everything is green, your review is complete.
+
+4. WHEN SOMETHING IS FLAGGED
+
+   ELEVATED (amber): Review the detail. Monitor.
+   CRITICAL (red): Investigate. Consider escalation.
+   Click into STRATA AI for intelligence signals.
+   Cross-reference with LIQUIDITY for venue-level data.
+
+5. INVESTIGATING A PAST EVENT
+
+   Use the RCL tab. Full audit trail from source to display.
+   Export supervisory snapshots as PDF or JSON.
+```
+
+- Render as styled content within the panel, not as a downloadable document
+- Use the house style: monospace for data terms, `#D8DEE8` for primary text, `#7B8EA3` for descriptions, `#00BFA5` for section numbers and key terms
+- Each numbered step is collapsible (click to expand/collapse) to keep the panel manageable
+
+---
+
+## Section 2: User Guide
+
+A searchable, browsable version of the User Guide content organised by page.
+
+### Layout
+
+```
+USER GUIDE                                        [Search... 🔍]
+
+LIQUIDITY PAGE
+  ▸ Metrics Strip
+  ▸ Panel 1: Liquidity Health Core
+  ▸ Venue Liquidity Attribution
+  ▸ Panel 2: Cross-Venue Depth Map
+  ▸ Panel 3: Stress and Regime
+  ▸ Panel 4: Structural Integrity
+
+STRATA AI PAGE
+  ▸ Detection Status Grid
+  ▸ Intelligence Feed
+  ▸ EWDS Early Warning Indicators
+  ▸ Composite Market Integrity Score
+
+PoLi / PoMI PAGE
+  ▸ PoLi Card
+  ▸ PoMI Card
+  ▸ Execution Feasibility Index
+  ▸ Venue Depth and Spread Monitor
+  ▸ PoMI Coordination Framework
+
+RCL PAGE
+  ▸ Coverage Panel
+  ▸ Truth Panel
+  ▸ Provenance Panel
+  ▸ Export
+
+ALERTS PAGE
+  ▸ Alert Types
+  ▸ Alert Configuration
+```
+
+- Each item is expandable. Clicking "Panel 1: Liquidity Health Core" expands to show the full description from the User Guide document.
+- Search bar at the top: Type a term (e.g., "fragmentation") and matching sections are highlighted/filtered.
+- Search matches against section titles and content text.
+- Content is stored as a structured JSON/TypeScript configuration file (`shared/help-content.ts`) so it can be updated without changing component code.
+
+---
+
+## Section 3: Glossary
+
+A searchable alphabetical list of every metric, indicator, and term.
+
+### Layout
+
+```
+GLOSSARY                                          [Search... 🔍]
+
+[A] [D] [E] [F] [I] [L] [P] [R] [S] [T]     (alphabet quick nav)
+
+A
+ADL COUNT
+Auto-deleverage trigger count. The number of auto-deleveraging
+events on derivatives venues. Non-zero values indicate active
+liquidation cascades.
+
+ALT LIQ
+Altcoin liquidity ratio. Measures the liquidity of the selected
+token relative to BTC liquidity. Declining ratio indicates fragility.
+
+D
+DACT
+Digital Assets Consolidated Tape. The real-time multi-venue data
+aggregation layer (L1) that normalises venue data into a single
+canonical schema.
+
+DEPTH QUALITY
+L5F factor measuring orderbook depth at defined basis point
+thresholds. Higher scores indicate deeper, more robust orderbooks.
+...
+```
+
+- Alphabetical listing with quick-nav letter buttons at the top
+- Search bar filters entries in real time as the user types
+- Each entry: Term in 12px monospace bold `#D8DEE8`, definition in 11px `#7B8EA3`
+- Content sourced from the Glossary document, stored in `shared/help-content.ts`
+
+---
+
+## Section 4: Data Dictionary
+
+Similar format to the Glossary but organised by page rather than alphabetically, showing data lineage for each metric.
+
+### Layout
+
+```
+DATA DICTIONARY                                   [Search... 🔍]
+
+LIQUIDITY PAGE
+  Total Depth
+    Source:     TSLE buffer
+    Computed:   Sum of all venue depths at configured bps threshold
+    Updates:    Every 5 seconds
+  
+  L5F Composite
+    Source:     L5F engine
+    Computed:   0.30*DQ + 0.20*R + 0.15*(100-F) + 0.20*EI + 0.15*RS
+    Updates:    Every 5 seconds
+
+STRATA AI PAGE
+  Cross-Venue Divergence
+    Source:     TSLE buffer
+    Computed:   Compare per-venue spreads against thresholds
+    Thresholds: ELEVATED >3 bps, CRITICAL >8 bps
+    Updates:    Every 5 seconds
+...
+```
+
+- Organised by page, then by metric
+- Each entry shows: Source, Computation method, Update frequency, Thresholds (if applicable)
+- Search bar filters across all entries
+- Content from the Data Dictionary document, stored in `shared/help-content.ts`
+
+---
+
+## Section 5: FAQ
+
+Question-and-answer format with expandable entries.
+
+### Layout
+
+```
+FAQ                                               [Search... 🔍]
+
+GENERAL
+  ▸ What is TILT?
+  ▸ Where does the data come from?
+  ▸ Why are some tokens showing '--'?
+  ▸ How often does the data update?
+
+SCORES AND RATINGS
+  ▸ What does a PoLi score of 47 mean?
+  ▸ What is the difference between L5F and PoLi?
+  ▸ What is the STRATA AI Composite?
+
+REGULATORY USE
+  ▸ What is the RCL?
+  ▸ Can I export data for reports?
+  ▸ What is the evidence level?
+  ▸ What does 'read-only by design' mean?
+
+ALERTS AND DETECTION
+  ▸ How far in advance can STRATA AI detect problems?
+  ▸ What should I do when I see a red alert?
+```
+
+- Questions are collapsible. Click to expand and see the answer.
+- Search filters questions and answers.
+- Content from the FAQ document, stored in `shared/help-content.ts`
+
+---
+
+## Section 6: What's New
+
+Shows the latest release notes so users know what has changed.
+
+### Layout
+
+```
+WHAT'S NEW                                    Current: TILT v1.2.0
+
+v1.2.0  -  28 June 2026  -  Feature Release
+  ● Notification bell with real-time alert delivery
+  ● Settings panel with timezone and supervised portfolio
+  ● Help system (you are here)
+
+v1.1.0  -  25 June 2026  -  Feature Release
+  ● STRATA AI standalone page with 6 detection categories
+  ● ILU-20 ticker bar across all pages
+  ● PoLi/PoMI verification page
+
+v1.0.0  -  22 June 2026  -  Initial Release
+  ● TILT terminal with L5F scoring
+  ● RCL regulatory view
+  ● Alert system
+```
+
+- Show the 5 most recent releases in reverse chronological order
+- Each release is expandable to show full release notes
+- Bullet points show the key changes in each release
+- The current version is highlighted at the top
+- Content can be stored as a static array in the codebase, updated with each deployment. Or read from a `release-notes.json` file.
+
+---
+
+## Section 7: System Status
+
+A compact version of the system status from the Settings panel. This gives users a quick way to check whether the system is healthy without opening Settings.
+
+### Content
+
+Pull from the same `/api/system/status` endpoint used by the Settings panel. Show:
+
+```
+SYSTEM STATUS                                    [Refresh ↻]
+
+Platform:      TILT v1.2.0          ● OPERATIONAL
+Venues:        13 / 14 active       ● OPERATIONAL  
+TSLE Buffer:   360 points           ● OPERATIONAL
+L5F Engine:    Last: [timestamp]    ● OPERATIONAL
+PoLi Engine:   Last: [timestamp]    ● OPERATIONAL
+Alert Service: 4 rules active       ● OPERATIONAL
+Canton Node:   AWS Frankfurt        ● ONLINE
+
+All systems operational.
+```
+
+- Green dot for operational, amber for degraded, red for offline
+- Refresh button to pull latest status
+- "All systems operational" summary line (or "X systems degraded" if any are not green)
+
+---
+
+## Section 8: Contact Support
+
+```
+CONTACT SUPPORT
+
+For technical issues or questions during the pilot:
+
+  Email:     support@stratalink.ai
+  Response:  Within 1 business day (HIGH: 4 hours)
+
+  Primary Contact
+  Rob McDermott, Founder and CEO
+  robert@stratalink.ai
+  +44 7986 121134
+
+Pilot Check-ins
+  Fortnightly via Google Meet
+  Next scheduled: [date from calendar]
+
+To report an issue, include:
+  - What you observed
+  - Which page and token
+  - When it happened
+  - A screenshot if possible
+
+You can also create an Incident Report from the
+Reports panel (document icon in the header).
+```
+
+- Static content (not dynamically generated)
+- Contact details should be configurable (stored in a config file, not hardcoded in the component)
+- The "Next scheduled" check-in date can be static text updated manually, or pulled from a config
+
+---
+
+## Contextual Help Integration
+
+In addition to the help panel, add small "?" icons next to key metrics across all pages. These are the contextual help tooltips specified in the In-App Help Specification document.
+
+### Implementation
+
+- Add a reusable `HelpTooltip` component that accepts a `helpKey` string
+- The component renders a small "?" icon (12px, `#4A5B6E`, hover: `#00BFA5`)
+- On hover or click, a tooltip appears showing the help text for that key
+- Help text is sourced from `shared/help-content.ts` using the key
+- The tooltip includes a "Learn more" link that opens the Help panel to the relevant Glossary or User Guide section
+
+### Where to place contextual help icons
+
+- Next to the L5F Composite score label
+- Next to each L5F factor name (Depth Quality, Resilience, Fragmentation, Execution Integrity, Regime Stability)
+- Next to the Regime Classification label
+- Next to each EWDS indicator label
+- Next to each STRATA AI detection category label
+- Next to the PoLi Score and PoMI Score labels
+- Next to the Evidence Level label on the RCL page
+- Next to the Execution Feasibility Index label
+- Next to the Fragmentation Index label
+
+Do not overdo it. Only place help icons next to terms that a new user would not immediately understand. Do not place them next to obvious labels like "Venue" or "Spread".
+
+---
+
+## Help Content Storage
+
+Create `shared/help-content.ts` as a single structured file containing all help content:
+
+```typescript
+export const HELP_CONTENT = {
+  quickStart: { ... },
+  userGuide: {
+    liquidity: {
+      metricsStrip: { title: "Metrics Strip", content: "..." },
+      panel1: { title: "Liquidity Health Core", content: "..." },
+      ...
+    },
+    strataAi: { ... },
+    poliPomi: { ... },
+    rcl: { ... },
+    alerts: { ... },
+  },
+  glossary: [
+    { term: "ADL COUNT", definition: "..." },
+    { term: "ALT LIQ", definition: "..." },
+    ...
+  ],
+  dataDictionary: { ... },
+  faq: { ... },
+  tooltips: {
+    l5f_composite: "The Liquidity 5-Factor Score...",
+    depth_quality: "Measures orderbook depth...",
+    ...
+  },
+  releaseNotes: [ ... ],
+  contactSupport: { ... },
+};
+```
+
+This file is the single source of truth for all help content. The help panel, contextual tooltips, and any future help features all consume from this file.
+
+Populate it with the content from the attached documentation: Quick Start Guide, User Guide, Glossary, Data Dictionary, and FAQ.
+
+---
+
+## Verification
+
+After implementation:
+
+1. The "?" help icon appears in the header between settings and sign-out.
+2. Clicking it opens the help panel with all 8 sections navigable.
+3. Quick Start shows the condensed onboarding guide with collapsible steps.
+4. User Guide is searchable and browsable by page with expandable sections.
+5. Glossary is searchable with alphabet quick-nav.
+6. Data Dictionary shows source, computation, and update frequency for each metric.
+7. FAQ has expandable question/answer entries.
+8. What's New shows recent release notes.
+9. System Status shows live system health (matching the Settings panel status).
+10. Contact Support shows Stratalink contact details.
+11. Contextual "?" tooltips appear next to key metrics on each page and show relevant help text on hover.
+12. Search works across User Guide, Glossary, Data Dictionary, and FAQ.
+
+## What NOT to Change
+
+- Do not modify any existing page layouts or data logic.
+- Do not modify the other header utilities (bell, reports, settings).
+- Do not add a sixth tab. Help is a header icon, not a page.
+- Do not duplicate content. All help text lives in `shared/help-content.ts` and is consumed from there.
