@@ -1,4 +1,4 @@
-import { Switch, Route, Redirect } from "wouter";
+import { Switch, Route, Redirect, useLocation } from "wouter";
 import { useEffect, useState } from "react";
 
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
@@ -28,6 +28,14 @@ import { ReportsPanel } from "@/components/reports-panel";
 import { RequireAuth } from "@/components/RequireAuth";
 import { BottomTicker } from "@/components/bottom-ticker";
 import type { DashboardData } from "@shared/schema";
+
+function ScrollToTop() {
+  const [location] = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location]);
+  return null;
+}
 
 function GlobalReportsPanel() {
   const { showReports, closeReports } = useUIState();
@@ -141,6 +149,7 @@ export default function App() {
           <UIStateProvider>
             <TooltipProvider>
               <Toaster />
+              <ScrollToTop />
               <AppRouter />
               <GlobalTicker />
               <GlobalReportsPanel />
