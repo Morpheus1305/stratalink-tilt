@@ -184,7 +184,6 @@ export default function MethodologyPage() {
           </div>
           <div className="mp-nav-actions">
             <button className="mp-nav-link mp-nav-link-active" data-testid="nav-methodology-active">Methodology</button>
-            <button className="mp-nav-link" onClick={() => setLocation('/')}>Regulators</button>
             <button className="mp-nav-btn" onClick={() => setLocation('/login')}>Client Login</button>
           </div>
         </nav>
