@@ -4,69 +4,23 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "wouter";
 import { useUIState } from "@/contexts/UIStateContext";
 
-function LiveOrbit() {
+function PulseDot() {
   return (
-    <svg
-      width="60"
-      height="40"
-      viewBox="-30 -20 60 40"
-      overflow="visible"
-      style={{ flexShrink: 0 }}
-      aria-hidden="true"
-    >
+    <svg width="16" height="16" viewBox="0 0 16 16" style={{ flexShrink: 0 }} aria-hidden="true">
       <defs>
-        {/* Paths that satellites follow — mpath is the reliable approach */}
-        <path id="lo-path-outer" d="M 22,0 A 22,10 0 1,1 21.999,0.001" fill="none" />
-        <path id="lo-path-inner" d="M 12,0 A 12,5.5 0 1,1 11.999,0.001" fill="none" />
-        {/* Radial glow for the sun */}
-        <radialGradient id="lo-sun-glow" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#00BFA5" stopOpacity="0.6" />
-          <stop offset="60%" stopColor="#00BFA5" stopOpacity="0.15" />
-          <stop offset="100%" stopColor="#00BFA5" stopOpacity="0" />
+        <radialGradient id="pd-glow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%"   stopColor="#3B82F6" stopOpacity="0.5" />
+          <stop offset="100%" stopColor="#3B82F6" stopOpacity="0" />
         </radialGradient>
       </defs>
-
-      {/* Outer orbit ring */}
-      <ellipse cx="0" cy="0" rx="22" ry="10"
-        fill="none"
-        stroke="rgba(0,191,165,0.40)"
-        strokeWidth="0.7"
-        strokeDasharray="2 2.5"
-      />
-
-      {/* Inner orbit ring */}
-      <ellipse cx="0" cy="0" rx="12" ry="5.5"
-        fill="none"
-        stroke="rgba(0,191,165,0.25)"
-        strokeWidth="0.6"
-        strokeDasharray="1.5 2"
-      />
-
-      {/* Sun glow halo */}
-      <circle cx="0" cy="0" r="10" fill="url(#lo-sun-glow)">
-        <animate attributeName="r" values="8;11;8" dur="2.5s" repeatCount="indefinite" />
+      {/* Outer glow halo */}
+      <circle cx="8" cy="8" r="7" fill="url(#pd-glow)">
+        <animate attributeName="opacity" values="0.2;0.8;0.2" dur="2s" repeatCount="indefinite" />
       </circle>
-
-      {/* Sun — bright central star */}
-      <circle cx="0" cy="0" r="5" fill="#00E5C8">
-        <animate attributeName="r" values="4.5;5.5;4.5" dur="2.5s" repeatCount="indefinite" />
-        <animate attributeName="opacity" values="0.85;1;0.85" dur="2.5s" repeatCount="indefinite" />
-      </circle>
-      {/* Sun core highlight */}
-      <circle cx="-1.5" cy="-1.5" r="2" fill="rgba(255,255,255,0.35)" />
-
-      {/* Outer planet — grey-white, large */}
-      <circle r="3.2" fill="#C8D4E0">
-        <animateMotion dur="4s" repeatCount="indefinite" rotate="auto">
-          <mpath href="#lo-path-outer" />
-        </animateMotion>
-      </circle>
-
-      {/* Inner planet — cyan-tinted, small, faster */}
-      <circle r="2" fill="#5EEAD4">
-        <animateMotion dur="2.2s" repeatCount="indefinite" rotate="auto">
-          <mpath href="#lo-path-inner" />
-        </animateMotion>
+      {/* Core dot */}
+      <circle cx="8" cy="8" r="4" fill="#3B82F6">
+        <animate attributeName="r"       values="3.5;4.5;3.5" dur="2s" repeatCount="indefinite" />
+        <animate attributeName="opacity" values="0.5;1;0.5"   dur="2s" repeatCount="indefinite" />
       </circle>
     </svg>
   );
@@ -119,8 +73,7 @@ export function DashboardHeader() {
 
         {/* Right cluster */}
         <div className="flex items-center gap-2 shrink-0">
-          {/* LIVE indicator — pushed left of the orbit */}
-          <div className="flex items-center gap-1.5 mr-2">
+          <div className="flex items-center gap-1.5">
             <Activity className="h-3 w-3" style={{ color: "#00E676" }} />
             <span
               style={{
@@ -135,10 +88,7 @@ export function DashboardHeader() {
             </span>
           </div>
 
-          {/* Orbit — padded so overflow:visible content clears neighbours */}
-          <div className="px-4 flex items-center justify-center">
-            <LiveOrbit />
-          </div>
+          <PulseDot />
 
           {/* Thin separator */}
           <div className="w-px h-5 bg-border mx-1 shrink-0" />
