@@ -616,7 +616,7 @@ export default function MethodologyPage() {
             <button
               className="mp-btn-primary"
               data-testid="button-methodology-request-access"
-              onClick={() => setLocation('/login')}
+              onClick={() => setLocation('/request-access')}
             >
               Request Access
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
