@@ -7,10 +7,11 @@ import { useUIState } from "@/contexts/UIStateContext";
 function LiveOrbit() {
   return (
     <svg
-      width="44"
-      height="28"
-      viewBox="-22 -14 44 28"
-      style={{ flexShrink: 0, display: "block" }}
+      width="52"
+      height="36"
+      viewBox="-26 -18 52 36"
+      overflow="visible"
+      style={{ flexShrink: 0 }}
       aria-hidden="true"
     >
       {/* Outer orbit ring — dashed ellipse */}
@@ -29,19 +30,19 @@ function LiveOrbit() {
         strokeWidth="0.6"
         strokeDasharray="1.5 2.5"
       />
-      {/* Central planet — pulsing cyan dot */}
-      <circle cx="0" cy="0" r="3.8" fill="#00BFA5" opacity="0.92">
-        <animate attributeName="opacity" values="0.7;1;0.7" dur="2.4s" repeatCount="indefinite" />
-        <animate attributeName="r" values="3.4;4.0;3.4" dur="2.4s" repeatCount="indefinite" />
-      </circle>
       {/* Glow behind central planet */}
       <circle cx="0" cy="0" r="6" fill="rgba(0,191,165,0.12)">
         <animate attributeName="r" values="5;7;5" dur="2.4s" repeatCount="indefinite" />
         <animate attributeName="opacity" values="0.12;0.22;0.12" dur="2.4s" repeatCount="indefinite" />
       </circle>
+      {/* Central planet — pulsing cyan dot */}
+      <circle cx="0" cy="0" r="3.8" fill="#00BFA5" opacity="0.92">
+        <animate attributeName="opacity" values="0.7;1;0.7" dur="2.4s" repeatCount="indefinite" />
+        <animate attributeName="r" values="3.4;4.0;3.4" dur="2.4s" repeatCount="indefinite" />
+      </circle>
       {/* Outer orbiting satellite */}
       <circle r="2.8" fill="#D8DEE8">
-        <animate attributeName="opacity" values="0.6;1;0.6" dur="3s" repeatCount="indefinite" begin="0s" />
+        <animate attributeName="opacity" values="0.6;1;0.6" dur="3s" repeatCount="indefinite" />
         <animateMotion
           dur="3s"
           repeatCount="indefinite"
