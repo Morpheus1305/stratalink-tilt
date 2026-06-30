@@ -1,11 +1,13 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Bell, Settings, Activity, LogOut, FileText } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "wouter";
 import { useUIState } from "@/contexts/UIStateContext";
 import { useQuery } from "@tanstack/react-query";
+import { useSettings } from "@/contexts/SettingsContext";
 import { NotificationPanel, type AlertLogEntry } from "@/components/notification-panel";
+import { SettingsPanel } from "@/components/settings-panel";
 
 // ── localStorage helpers ────────────────────────────────────────────────────
 
@@ -23,12 +25,16 @@ function loadAckedIds(): Set<string> {
 
 function saveAckedIds(ids: Set<string>) {
   try {
-    // Keep at most 500 IDs to prevent unbounded growth
     const arr = Array.from(ids).slice(-500);
     localStorage.setItem(LS_KEY, JSON.stringify(arr));
-  } catch {
-    // quota exceeded — ignore
-  }
+  } catch {}
+}
+
+// ── Symbol extraction (mirrors notification-panel.tsx) ─────────────────────
+
+function extractSymbol(desc: string): string | null {
+  const first = (desc ?? "").split(/[\s:|]/)[0];
+  return /^[A-Z]{2,6}$/.test(first) ? first : null;
 }
 
 // ── PulseDot ────────────────────────────────────────────────────────────────
@@ -53,49 +59,79 @@ function PulseDot() {
   );
 }
 
+// ── Severity mapping ────────────────────────────────────────────────────────
+// Alert entry severity → settings key used for filtering
+
+function entryMatchesSeverityFilter(entry: AlertLogEntry, severities: string[]): boolean {
+  // CRITICAL + HIGH → "HIGH" filter key; WARNING → "WARNING"; INFO → "INFO"
+  if ((entry.severity === "CRITICAL" || entry.severity === "HIGH") && severities.includes("HIGH")) return true;
+  if (entry.severity === "WARNING" && severities.includes("WARNING")) return true;
+  if (entry.severity === "INFO" && severities.includes("INFO")) return true;
+  return false;
+}
+
 // ── DashboardHeader ─────────────────────────────────────────────────────────
 
 export function DashboardHeader() {
   const { logout } = useAuth();
   const [, setLocation] = useLocation();
   const { openReports } = useUIState();
+  const { settings } = useSettings();
 
-  const [panelOpen, setPanelOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [acknowledgedIds, setAcknowledgedIds] = useState<Set<string>>(loadAckedIds);
-  // Track whether the bell should flash (new HIGH/CRITICAL unread since last open)
   const [bellFlash, setBellFlash] = useState(false);
-  const [prevHighIds, setPrevHighIds] = useState<Set<string>>(new Set());
+  // Use a ref so updating "seen" HIGH IDs never causes a re-render
+  const prevHighIdsRef = useRef<Set<string>>(new Set());
 
-  // Poll the alert log every 10 s
+  // Poll alert log every 10 s
   const { data: logData } = useQuery<{ entries: AlertLogEntry[] }>({
     queryKey: ["/api/alerts/log"],
     refetchInterval: 10_000,
     staleTime: 5_000,
   });
 
-  const entries: AlertLogEntry[] = logData?.entries ?? [];
+  const allEntries: AlertLogEntry[] = logData?.entries ?? [];
 
-  // Unread count = entries not in acknowledgedIds
-  const unreadCount = entries.filter((e) => !acknowledgedIds.has(e.id)).length;
+  // Stringify arrays so useMemo doesn't thrash on every render
+  const sevKey = settings.notificationSeverities.join(",");
+  const scopeKey = settings.notificationScope;
+  const supKey = settings.supervisedTokens.join(",");
 
-  // Flash bell when a new HIGH/CRITICAL alert arrives that hasn't been seen
+  // Apply notification filters from settings
+  const filteredEntries = useMemo(() => {
+    return allEntries.filter(entry => {
+      if (!entryMatchesSeverityFilter(entry, settings.notificationSeverities)) return false;
+      if (settings.notificationScope === "supervised") {
+        const sym = extractSymbol(entry.description);
+        if (sym && !settings.supervisedTokens.includes(sym)) return false;
+      }
+      return true;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allEntries, sevKey, scopeKey, supKey]);
+
+  const unreadCount = filteredEntries.filter(e => !acknowledgedIds.has(e.id)).length;
+
+  // Bell flash on new HIGH/CRITICAL unread — ref-based, no state loop
   useEffect(() => {
     const highUnread = new Set(
-      entries
-        .filter((e) => (e.severity === "HIGH" || e.severity === "CRITICAL") && !acknowledgedIds.has(e.id))
-        .map((e) => e.id)
+      filteredEntries
+        .filter(e => (e.severity === "HIGH" || e.severity === "CRITICAL") && !acknowledgedIds.has(e.id))
+        .map(e => e.id)
     );
-    const hasNew = Array.from(highUnread).some((id) => !prevHighIds.has(id));
+    const hasNew = Array.from(highUnread).some(id => !prevHighIdsRef.current.has(id));
+    prevHighIdsRef.current = highUnread;
     if (hasNew && highUnread.size > 0) {
       setBellFlash(true);
-      const timer = setTimeout(() => setBellFlash(false), 2000);
-      return () => clearTimeout(timer);
+      const t = setTimeout(() => setBellFlash(false), 2000);
+      return () => clearTimeout(t);
     }
-    setPrevHighIds(highUnread);
-  }, [entries]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [filteredEntries, acknowledgedIds]);
 
   const acknowledge = useCallback((id: string) => {
-    setAcknowledgedIds((prev) => {
+    setAcknowledgedIds(prev => {
       const next = new Set(prev);
       next.add(id);
       saveAckedIds(next);
@@ -104,20 +140,16 @@ export function DashboardHeader() {
   }, []);
 
   const acknowledgeAll = useCallback(() => {
-    setAcknowledgedIds((prev) => {
+    setAcknowledgedIds(prev => {
       const next = new Set(prev);
-      entries.forEach((e) => next.add(e.id));
+      filteredEntries.forEach(e => next.add(e.id));
       saveAckedIds(next);
       return next;
     });
-  }, [entries]);
+  }, [filteredEntries]);
 
-  const handleLogout = () => {
-    logout();
-    setLocation("/");
-  };
+  const handleLogout = () => { logout(); setLocation("/"); };
 
-  // Badge label
   const badgeLabel = unreadCount > 99 ? "99+" : String(unreadCount);
 
   return (
@@ -125,33 +157,12 @@ export function DashboardHeader() {
       <header className="sticky top-0 z-50 border-b border-border bg-card h-14 flex items-center px-4 gap-4">
         {/* Brand */}
         <div className="flex items-center gap-3 flex-1 min-w-0">
-          <span
-            style={{
-              fontFamily: "'JetBrains Mono', 'SF Mono', Consolas, monospace",
-              fontSize: 16,
-              fontWeight: 800,
-              letterSpacing: "0.10em",
-              color: "#D8DEE8",
-              whiteSpace: "nowrap",
-            }}
-          >
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 16, fontWeight: 800, letterSpacing: "0.10em", color: "#D8DEE8", whiteSpace: "nowrap" }}>
             STRATA<span style={{ color: "#00BFA5" }}>LINK</span>{" "}
-            <span style={{ fontSize: 10, fontWeight: 500, letterSpacing: "0.15em", color: "#7B8EA3", verticalAlign: "middle" }}>
-              LABS
-            </span>
+            <span style={{ fontSize: 10, fontWeight: 500, letterSpacing: "0.15em", color: "#7B8EA3", verticalAlign: "middle" }}>LABS</span>
           </span>
           <div className="w-px h-5 bg-border shrink-0 hidden sm:block" />
-          <span
-            className="hidden md:block"
-            style={{
-              fontFamily: "'JetBrains Mono', 'SF Mono', Consolas, monospace",
-              fontSize: 9,
-              letterSpacing: "0.18em",
-              color: "#4A5B6E",
-              whiteSpace: "nowrap",
-              textTransform: "uppercase",
-            }}
-          >
+          <span className="hidden md:block" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.18em", color: "#4A5B6E", whiteSpace: "nowrap", textTransform: "uppercase" }}>
             Institutional Liquidity Intelligence Terminal
           </span>
         </div>
@@ -160,32 +171,21 @@ export function DashboardHeader() {
         <div className="flex items-center gap-2 shrink-0">
           <div className="flex items-center gap-1.5">
             <Activity className="h-3 w-3" style={{ color: "#00E676" }} />
-            <span
-              style={{
-                fontFamily: "'JetBrains Mono', 'SF Mono', Consolas, monospace",
-                fontSize: 10,
-                fontWeight: 700,
-                color: "#00E676",
-                letterSpacing: "0.06em",
-              }}
-            >
-              LIVE
-            </span>
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 700, color: "#00E676", letterSpacing: "0.06em" }}>LIVE</span>
           </div>
 
           <PulseDot />
 
-          {/* Thin separator */}
           <div className="w-px h-5 bg-border mx-1 shrink-0" />
 
           <div className="flex items-center gap-1">
-            {/* Bell with badge */}
+            {/* Notification bell with badge */}
             <div style={{ position: "relative", display: "inline-flex" }}>
               <Button
                 variant="ghost"
                 size="icon"
                 data-testid="button-notifications"
-                onClick={() => setPanelOpen((o) => !o)}
+                onClick={() => { setNotifOpen(o => !o); setSettingsOpen(false); }}
                 style={bellFlash ? { animation: "bell-flash 0.4s ease-in-out 4" } : undefined}
               >
                 <Bell className="h-4 w-4" />
@@ -193,26 +193,15 @@ export function DashboardHeader() {
               {unreadCount > 0 && (
                 <span
                   aria-label={`${unreadCount} unread notifications`}
-                  style={{
-                    position: "absolute",
-                    top: 2,
-                    right: 2,
-                    minWidth: unreadCount > 9 ? 18 : 16,
-                    height: 16,
-                    borderRadius: 8,
-                    background: "#FF5252",
-                    color: "#fff",
-                    fontFamily: "JetBrains Mono, monospace",
-                    fontSize: 9,
-                    fontWeight: 700,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    padding: "0 3px",
-                    pointerEvents: "none",
-                    lineHeight: 1,
-                  }}
                   data-testid="notification-badge"
+                  style={{
+                    position: "absolute", top: 2, right: 2,
+                    minWidth: unreadCount > 9 ? 18 : 16, height: 16,
+                    borderRadius: 8, background: "#FF5252", color: "#fff",
+                    fontFamily: "JetBrains Mono, monospace", fontSize: 9, fontWeight: 700,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    padding: "0 3px", pointerEvents: "none", lineHeight: 1,
+                  }}
                 >
                   {badgeLabel}
                 </span>
@@ -228,9 +217,17 @@ export function DashboardHeader() {
             >
               <FileText className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" data-testid="button-settings">
+
+            {/* Settings cog */}
+            <Button
+              variant="ghost"
+              size="icon"
+              data-testid="button-settings"
+              onClick={() => { setSettingsOpen(o => !o); setNotifOpen(false); }}
+            >
               <Settings className="h-4 w-4" />
             </Button>
+
             <Button
               variant="ghost"
               size="icon"
@@ -244,15 +241,18 @@ export function DashboardHeader() {
         </div>
       </header>
 
-      {/* Slide-out notification panel */}
-      {panelOpen && (
+      {/* Panels */}
+      {notifOpen && (
         <NotificationPanel
-          entries={entries}
+          entries={filteredEntries}
           acknowledgedIds={acknowledgedIds}
           onAcknowledge={acknowledge}
           onAcknowledgeAll={acknowledgeAll}
-          onClose={() => setPanelOpen(false)}
+          onClose={() => setNotifOpen(false)}
         />
+      )}
+      {settingsOpen && (
+        <SettingsPanel onClose={() => setSettingsOpen(false)} />
       )}
 
       <style>{`

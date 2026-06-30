@@ -30,6 +30,7 @@ import otcRoutes    from "./routes/otc-relay";
 import analyticsL5fRoutes from "./routes/analytics-l5f";
 import dailyCommentaryRouter from "./api/dailyCommentary";
 import { reportRoutes, generateServerSideReport } from "./routes/reports";
+import systemStatusRoutes from "./routes/system-status";
 import { startIngestionLoop } from "../analytics/engines/ingestionManager";
 import { db } from "./db";
 import { scheduledReportConfigs } from "../shared/schema";
@@ -409,6 +410,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mount reports routes
   app.use("/api/reports", reportRoutes);
+
+  // Mount system status routes
+  app.use("/api/system", systemStatusRoutes);
 
   // Start analytics ingestion loop
   startIngestionLoop();

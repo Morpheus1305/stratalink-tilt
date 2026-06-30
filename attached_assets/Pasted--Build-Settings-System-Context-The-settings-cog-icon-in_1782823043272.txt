@@ -1,0 +1,434 @@
+# Build Settings System
+
+## Context
+
+The settings cog icon in the header bar (`dashboard-header.tsx`) is currently non-functional. It needs to become a comprehensive settings interface that controls display preferences, supervised portfolio configuration, notification preferences, report delivery, session management, and system status. Settings must be persisted in the database per user and applied consistently across every page in the platform.
+
+---
+
+## Settings Panel Design
+
+When the user clicks the settings cog, a slide-out panel appears from the right side (same interaction pattern as the notification bell and reports panel). The panel has six sections accessible via a vertical navigation list on the left side of the panel, with the content area on the right.
+
+### Panel styling
+
+- Width: 480px
+- Background: `#0B1019` (bg-primary)
+- Left border: 1px `#1A2435`
+- Slide-in animation: 0.2s ease-out from right
+- Close: X button, click outside, or Escape key
+- Header: "SETTINGS" in 12px monospace, `#00BFA5`, with close button
+- Section navigation: Vertical list on the left (120px wide), 11px monospace, `#7B8EA3`, active section highlighted with `#00BFA5` text and a 2px left accent bar
+- Content area: Right side, scrollable
+- Save button: Fixed at the bottom of the panel. "SAVE CHANGES" in 11px monospace, `#0B1019` text on `#00BFA5` background, 2px radius. Only enabled when changes have been made.
+- All inputs follow house style: `#0F151F` background, 1px `#1A2435` border, 2px radius, `#D8DEE8` text, monospace for data inputs
+
+---
+
+## Section 1: Display Preferences
+
+### Timezone
+
+```
+TIMEZONE
+[UTC+4 Abu Dhabi, Dubai (Gulf Standard Time)  ▾]
+All timestamps across the platform will display in this timezone.
+```
+
+- Dropdown selector with common timezones, defaulting to UTC
+- Pre-populated options should include: UTC, UTC+1 (London/BST), UTC+4 (Abu Dhabi/GST), UTC+8 (Singapore/HKT), UTC-5 (New York/EST), UTC-4 (New York/EDT)
+- The selected timezone must be applied to every timestamp displayed anywhere in the platform:
+  - TILT terminal: "LAST UPDATE" timestamp
+  - STRATA AI: Intelligence signal timestamps
+  - PoLi/PoMI: Snapshot timestamps
+  - RCL: Verified At, Valid Until, Last Event timestamps in Provenance cards
+  - Alerts page: Alert timestamps
+  - Notification bell: Alert timestamps and relative time calculations ("2 min ago")
+  - Reports panel: Report history timestamps
+  - ILU-20 ticker: If timestamps are shown
+  - Generated reports: All timestamps in PDFs
+  - Page footer: Clock display
+
+### Number Format
+
+```
+NUMBER FORMAT
+Decimal separator:  [. (Period)]  ▾
+Thousands separator: [, (Comma)]  ▾
+
+Preview: $14,200,000.00  |  0.08%  |  1.4 bps
+```
+
+- Two dropdown selectors for decimal and thousands separators
+- Options: Period/Comma, Comma/Period (European), Comma/Space
+- Applied to all numeric values across the platform (depths, scores, percentages, spreads)
+- Show a live preview below the selectors so the user can confirm the format looks right
+
+### Default Token
+
+```
+DEFAULT TOKEN ON LOGIN
+[BTC  Bitcoin · RESERVE  ▾]
+This token will be selected when you sign in.
+```
+
+- Dropdown showing the ILU-20 tokens (same grouped format as the main token selector)
+- When the user signs in, the global token context is set to this token instead of always defaulting to BTC
+- Stored per user in the database
+
+### Theme
+
+```
+THEME
+[Dark (Default)]  ▾
+```
+
+- For now, only "Dark" is available. Include the selector as a placeholder for future light/high-contrast themes.
+- Show as disabled/greyed with "Dark (Default)" selected and a note: "Additional themes coming soon"
+
+---
+
+## Section 2: Supervised Portfolio
+
+This is the most important setting for the ADGM pilot. It defines which ILU-20 tokens are within the user's supervisory responsibility.
+
+```
+SUPERVISED PORTFOLIO
+Select the tokens within your supervisory scope. Scheduled reports
+and the RCL supervisory view will focus on these tokens.
+
+RESERVE ASSETS
+  [x] BTC  Bitcoin
+  [x] ETH  Ethereum
+
+STABLECOIN INFRASTRUCTURE
+  [ ] USDT  Tether
+  [ ] USDC  USD Coin
+  [ ] USDe  Ethena USDe
+  [ ] DAI   DAI
+
+EXCHANGE AND TRADING INFRASTRUCTURE
+  [ ] BNB   BNB
+  [ ] HYPE  Hyperliquid
+  [ ] OKB   OKB
+  [ ] CRO   Cronos
+
+FINANCIAL INFRASTRUCTURE
+  [ ] LINK  Chainlink
+  [ ] MKR   Maker
+  [ ] AAVE  Aave
+  [ ] UNI   Uniswap
+
+HIGH-VOLUME LIQUIDITY ASSETS
+  [x] SOL   Solana
+  [x] XRP   XRP
+  [ ] DOGE  Dogecoin
+  [ ] TON   Toncoin
+  [x] ADA   Cardano
+
+Selected: 5 of 20                    [Select All]  [Clear All]
+```
+
+- Checkboxes grouped by ILU category
+- Each token shows symbol and name
+- Tokens with active venue data show a green dot. Tokens without show a grey dot.
+- Counter at the bottom showing "X of 20" selected
+- "Select All" and "Clear All" buttons
+
+### Where the supervised portfolio is consumed
+
+This setting must feed into every relevant part of the platform:
+
+1. **Scheduled reports (Daily, Weekly, Monthly):** Cover only the supervised tokens. The report generation service reads the supervised portfolio from the user's settings.
+
+2. **RCL view:** The Coverage panel should reference the supervised portfolio. "Supervised Instruments: 5" should match the count set here.
+
+3. **STRATA AI page:** The ILU-20 portfolio section should highlight which tokens are in the supervised set (e.g., with a subtle border or marker).
+
+4. **Alerts:** Alert rules can be configured globally or per supervised token. The supervised portfolio defines the default scope for alert monitoring.
+
+5. **Notification bell:** By default, only show notifications for supervised tokens. Include an option (in Notification Preferences below) to see alerts for all ILU-20 tokens.
+
+### Database storage
+
+```sql
+CREATE TABLE user_settings (
+  user_id INTEGER PRIMARY KEY REFERENCES users(id),
+  timezone VARCHAR(50) DEFAULT 'UTC',
+  decimal_separator VARCHAR(5) DEFAULT '.',
+  thousands_separator VARCHAR(5) DEFAULT ',',
+  default_token VARCHAR(10) DEFAULT 'BTC',
+  supervised_tokens TEXT[] DEFAULT ARRAY['BTC','ETH','SOL','XRP','AVAX'],
+  notification_severities TEXT[] DEFAULT ARRAY['HIGH','MEDIUM','LOW'],
+  notification_email VARCHAR(255),
+  notification_email_enabled BOOLEAN DEFAULT FALSE,
+  notification_scope VARCHAR(20) DEFAULT 'supervised',
+  report_email VARCHAR(255),
+  report_email_enabled BOOLEAN DEFAULT FALSE,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+---
+
+## Section 3: Notification Preferences
+
+```
+NOTIFICATION PREFERENCES
+
+Alert Severities
+Show notifications for:
+  [x] HIGH    (Critical threshold breaches)
+  [x] MEDIUM  (Elevated conditions, regime changes)
+  [x] LOW     (Transient events, recovered conditions)
+
+Notification Scope
+  (o) Supervised tokens only
+  ( ) All ILU-20 tokens
+
+Email Notifications
+  [ ] Send email for HIGH severity alerts
+  Email: [_________________________]
+  
+  Note: Email delivery uses the same address as report delivery 
+  unless specified separately here.
+```
+
+- Severity checkboxes: Determine which alert severities appear in the bell notification panel and increment the badge count
+- Scope radio: "Supervised tokens only" filters notifications to the supervised portfolio. "All ILU-20 tokens" shows notifications for every token.
+- Email toggle and address: When enabled, HIGH severity alerts are also delivered via email using the Resend integration.
+
+### Integration
+
+- The notification bell component reads these preferences when filtering which alerts to display
+- The badge count only counts alerts matching the configured severities and scope
+- The notification polling endpoint accepts severity and token scope as parameters
+
+---
+
+## Section 4: Report Delivery
+
+```
+REPORT DELIVERY
+
+Email Address
+  [suha.almubarak@adgm.gov.ae____________]
+
+Scheduled Reports
+  [x] Daily Liquidity Summary      Delivery: [07:00] UTC
+  [x] Weekly Integrity Digest       Delivery: [Friday] at [07:00] UTC
+  [ ] Monthly Supervisory Overview  Delivery: 1st of month at [07:00] UTC
+
+Report Format
+  (o) PDF only
+  ( ) PDF + JSON
+
+Report Scope
+  (o) Supervised portfolio (5 tokens)
+  ( ) All ILU-20 tokens (20 tokens)
+```
+
+- Email address field for report delivery
+- Per-report enable/disable toggles with configurable delivery times
+- Delivery time uses the timezone set in Display Preferences
+- Report format selector (PDF or PDF + JSON)
+- Report scope: supervised portfolio (from Section 2) or all ILU-20
+
+### Integration
+
+- The scheduled report generation service (node-cron jobs) reads these settings before each run
+- If no email is configured, reports are still generated and stored in the Report History but not delivered
+- The Reports slide-out panel should show these same settings (or link to the settings panel) to avoid duplication. If settings exist in both places, they must stay in sync.
+
+---
+
+## Section 5: Session and Security
+
+```
+SESSION AND SECURITY
+
+Current Session
+  Signed in as: [user email]
+  Session started: [timestamp]
+  
+Password
+  [Change Password]
+
+Sessions
+  [Sign Out of All Sessions]
+  This will end all active sessions across all devices.
+
+[Sign Out]
+```
+
+- Display current session info
+- "Change Password" opens a sub-panel with current password, new password, confirm new password fields
+- "Sign Out of All Sessions" invalidates all active sessions for the user (useful if they suspect unauthorised access)
+- "Sign Out" button signs out the current session (same as the existing sign-out icon in the header, but also accessible here)
+
+---
+
+## Section 6: System Status
+
+```
+SYSTEM STATUS
+
+Platform
+  Version:          TILT v1.2.0
+  Environment:      Production
+  Last Updated:     [deployment timestamp]
+
+Data Pipeline
+  Venues Active:    13 / 14
+  TSLE Buffer:      ● OPERATIONAL (360 points, 58 min history)
+  L5F Engine:       ● OPERATIONAL (last computed: [timestamp])
+  PoLi Engine:      ● OPERATIONAL (last scored: [timestamp])
+  Alert Service:    ● OPERATIONAL (4 rules active)
+
+Canton Network
+  Validator Node:   ● ONLINE (AWS Frankfurt)
+  Last Attestation: [timestamp or "Pending - MVP build"]
+  Network Status:   Canton MainNet operational
+
+Venue Connectivity
+  Binance:        ● ONLINE    Latency: 45ms
+  Coinbase:       ● ONLINE    Latency: 62ms
+  Kraken:         ● ONLINE    Latency: 58ms
+  OKX:            ● ONLINE    Latency: 71ms
+  Bybit:          ● ONLINE    Latency: 55ms
+  Hyperliquid:    ● ONLINE    Latency: 48ms
+  Uniswap:        ● ONLINE    Latency: 82ms
+  dYdX:           ● ONLINE    Latency: 67ms
+  Deribit:        ● ONLINE    Latency: 73ms
+  GMX:            ● ONLINE    Latency: 91ms
+  Curve:          ● ONLINE    Latency: 85ms
+  Bitget:         ● ONLINE    Latency: 64ms
+  OTC:            ● ONLINE    Latency: 110ms
+  Canton:         ○ OFFLINE   (Relay removed - Canton is destination only)
+```
+
+- This section is read-only (no editable settings)
+- All values are pulled from live system status endpoints
+- Venue connectivity shows each venue from venue-config.ts with its current status and latency
+- Colour coding: green dot for ONLINE, red dot for OFFLINE, amber dot for DEGRADED (high latency or intermittent)
+- Refresh button at the top of the section to pull latest status
+
+### API endpoint for system status
+
+```
+GET /api/system/status
+```
+
+Returns:
+- Platform version, environment, last deployment timestamp
+- TSLE buffer status (point count, time window)
+- L5F engine last computation timestamp
+- PoLi engine last scoring timestamp
+- Alert service status (rule count)
+- Per-venue connectivity (online/offline, latency)
+- Canton validator node status
+
+---
+
+## Global Integration: Settings Context
+
+### Create a Settings React Context
+
+Similar to the Token Context, create a Settings Context that provides user settings to every component in the platform.
+
+Create `client/src/contexts/SettingsContext.tsx`:
+
+```typescript
+interface UserSettings {
+  timezone: string;
+  decimalSeparator: string;
+  thousandsSeparator: string;
+  defaultToken: string;
+  supervisedTokens: string[];
+  notificationSeverities: string[];
+  notificationScope: 'supervised' | 'all';
+  notificationEmail: string | null;
+  notificationEmailEnabled: boolean;
+  reportEmail: string | null;
+  reportEmailEnabled: boolean;
+}
+```
+
+Wrap the application in `SettingsProvider` at the top level (alongside `TokenProvider`).
+
+### Where settings are consumed
+
+Every component that displays a timestamp must read the timezone from settings and format accordingly.
+
+Every component that displays a number must read the decimal/thousands separators and format accordingly.
+
+Create two utility functions available globally:
+
+```typescript
+function formatTimestamp(date: Date, settings: UserSettings): string
+function formatNumber(value: number, settings: UserSettings, options?: { decimals?: number, prefix?: string, suffix?: string }): string
+```
+
+These functions are called everywhere a timestamp or number is displayed. This ensures consistency. Do not format timestamps or numbers inline. Always use the utility functions.
+
+### Pages that consume specific settings
+
+| Setting | Consumed By |
+|---------|------------|
+| Timezone | Every page (all timestamps), reports, notifications, alerts |
+| Number format | Every page (all numeric values), reports |
+| Default token | App.tsx (set token context on login) |
+| Supervised portfolio | Scheduled report generation, RCL supervised count, STRATA AI portfolio highlight, alert default scope, notification filtering |
+| Notification severities | Notification bell badge count and panel filtering |
+| Notification scope | Notification bell token filtering |
+| Notification email | Alert service email delivery |
+| Report email | Report generation service email delivery |
+| Report schedule | Report generation cron jobs |
+
+### Loading settings on login
+
+When the user signs in:
+1. Fetch their settings from `GET /api/settings`
+2. Populate the Settings Context
+3. Set the Token Context to the user's default token
+4. The rest of the application renders with the correct timezone, format, and portfolio
+
+If no settings exist for the user (first login), create a default settings record with sensible defaults (UTC timezone, period decimal, BTC default token, empty supervised portfolio).
+
+---
+
+## API Endpoints
+
+```
+GET    /api/settings              - Returns current user settings
+PUT    /api/settings              - Updates user settings (full or partial)
+GET    /api/system/status         - Returns system status (read-only)
+POST   /api/settings/password     - Change password (current + new)
+POST   /api/settings/sign-out-all - Invalidate all sessions
+```
+
+All endpoints require authentication.
+
+---
+
+## Verification
+
+After implementation:
+
+1. Click the settings cog. Confirm the panel opens with all six sections.
+2. Change timezone to UTC+4. Save. Confirm every timestamp on every page (TILT, STRATA AI, PoLi/PoMI, RCL, Alerts, notification bell, reports panel) now displays in UTC+4.
+3. Change the decimal separator. Save. Confirm numeric values across all pages use the new format.
+4. Set the default token to ETH. Sign out and sign back in. Confirm ETH is selected on login.
+5. Configure a supervised portfolio of 5 tokens. Save. Generate a Daily Liquidity Summary from the Reports panel. Confirm the report only covers the 5 supervised tokens.
+6. Check the RCL page. Confirm it shows "5 supervised instruments" (or similar) matching the portfolio setting.
+7. Set notification scope to "Supervised tokens only". Trigger an alert for a non-supervised token. Confirm it does not appear in the bell notification panel.
+8. Open System Status. Confirm venue connectivity matches the TILT footer venue count. Confirm all status indicators show live values.
+9. Refresh the browser. Confirm all settings persist.
+10. Sign out and sign in as a different user (if possible). Confirm settings are per-user.
+
+## What NOT to Change
+
+- Do not modify any data computation logic (L5F, PoLi, STRATA AI, TSLE buffer).
+- Do not modify venue relay files.
+- Do not modify the existing page layouts or component structures.
+- Only add the settings panel, the settings context, the formatting utility functions, and the integration points where settings are consumed.

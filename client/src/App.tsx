@@ -24,6 +24,7 @@ import RequestAccessPage from "@/pages/RequestAccessPage";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { TokenProvider } from "@/contexts/TokenContext";
 import { UIStateProvider, useUIState } from "@/contexts/UIStateContext";
+import { SettingsProvider } from "@/contexts/SettingsContext";
 import { ReportsPanel } from "@/components/reports-panel";
 import { RequireAuth } from "@/components/RequireAuth";
 import { BottomTicker } from "@/components/bottom-ticker";
@@ -145,6 +146,7 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <SettingsProvider>
         <TokenProvider>
           <UIStateProvider>
             <TooltipProvider>
@@ -156,6 +158,7 @@ export default function App() {
             </TooltipProvider>
           </UIStateProvider>
         </TokenProvider>
+        </SettingsProvider>
       </AuthProvider>
     </QueryClientProvider>
   );
