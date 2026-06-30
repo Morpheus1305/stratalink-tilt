@@ -7,55 +7,66 @@ import { useUIState } from "@/contexts/UIStateContext";
 function LiveOrbit() {
   return (
     <svg
-      width="52"
-      height="36"
-      viewBox="-26 -18 52 36"
+      width="60"
+      height="40"
+      viewBox="-30 -20 60 40"
       overflow="visible"
       style={{ flexShrink: 0 }}
       aria-hidden="true"
     >
-      {/* Outer orbit ring — dashed ellipse */}
-      <ellipse
-        cx="0" cy="0" rx="18" ry="8"
+      <defs>
+        {/* Paths that satellites follow — mpath is the reliable approach */}
+        <path id="lo-path-outer" d="M 22,0 A 22,10 0 1,1 21.999,0.001" fill="none" />
+        <path id="lo-path-inner" d="M 12,0 A 12,5.5 0 1,1 11.999,0.001" fill="none" />
+        {/* Radial glow for the sun */}
+        <radialGradient id="lo-sun-glow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#00BFA5" stopOpacity="0.6" />
+          <stop offset="60%" stopColor="#00BFA5" stopOpacity="0.15" />
+          <stop offset="100%" stopColor="#00BFA5" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+
+      {/* Outer orbit ring */}
+      <ellipse cx="0" cy="0" rx="22" ry="10"
         fill="none"
-        stroke="rgba(0,191,165,0.18)"
-        strokeWidth="0.8"
-        strokeDasharray="2 3"
+        stroke="rgba(0,191,165,0.40)"
+        strokeWidth="0.7"
+        strokeDasharray="2 2.5"
       />
-      {/* Inner orbit ring — faint second ellipse for depth */}
-      <ellipse
-        cx="0" cy="0" rx="10" ry="4.5"
+
+      {/* Inner orbit ring */}
+      <ellipse cx="0" cy="0" rx="12" ry="5.5"
         fill="none"
-        stroke="rgba(0,191,165,0.09)"
+        stroke="rgba(0,191,165,0.25)"
         strokeWidth="0.6"
-        strokeDasharray="1.5 2.5"
+        strokeDasharray="1.5 2"
       />
-      {/* Glow behind central planet */}
-      <circle cx="0" cy="0" r="6" fill="rgba(0,191,165,0.12)">
-        <animate attributeName="r" values="5;7;5" dur="2.4s" repeatCount="indefinite" />
-        <animate attributeName="opacity" values="0.12;0.22;0.12" dur="2.4s" repeatCount="indefinite" />
+
+      {/* Sun glow halo */}
+      <circle cx="0" cy="0" r="10" fill="url(#lo-sun-glow)">
+        <animate attributeName="r" values="8;11;8" dur="2.5s" repeatCount="indefinite" />
       </circle>
-      {/* Central planet — pulsing cyan dot */}
-      <circle cx="0" cy="0" r="3.8" fill="#00BFA5" opacity="0.92">
-        <animate attributeName="opacity" values="0.7;1;0.7" dur="2.4s" repeatCount="indefinite" />
-        <animate attributeName="r" values="3.4;4.0;3.4" dur="2.4s" repeatCount="indefinite" />
+
+      {/* Sun — bright central star */}
+      <circle cx="0" cy="0" r="5" fill="#00E5C8">
+        <animate attributeName="r" values="4.5;5.5;4.5" dur="2.5s" repeatCount="indefinite" />
+        <animate attributeName="opacity" values="0.85;1;0.85" dur="2.5s" repeatCount="indefinite" />
       </circle>
-      {/* Outer orbiting satellite */}
-      <circle r="2.8" fill="#D8DEE8">
-        <animate attributeName="opacity" values="0.6;1;0.6" dur="3s" repeatCount="indefinite" />
-        <animateMotion
-          dur="3s"
-          repeatCount="indefinite"
-          path="M 18,0 A 18,8 0 1,1 17.999,0.01 Z"
-        />
+      {/* Sun core highlight */}
+      <circle cx="-1.5" cy="-1.5" r="2" fill="rgba(255,255,255,0.35)" />
+
+      {/* Outer planet — grey-white, large */}
+      <circle r="3.2" fill="#C8D4E0">
+        <animateMotion dur="4s" repeatCount="indefinite" rotate="auto">
+          <mpath href="#lo-path-outer" />
+        </animateMotion>
       </circle>
-      {/* Inner orbiting satellite — opposite phase */}
-      <circle r="1.8" fill="rgba(0,191,165,0.7)">
-        <animateMotion
-          dur="3s"
-          repeatCount="indefinite"
-          path="M -10,0 A 10,4.5 0 1,1 -9.999,0.01 Z"
-        />
+
+      {/* Inner planet — cyan-tinted, small, faster */}
+      <circle r="2" fill="#5EEAD4">
+        <animateMotion dur="2.2s" repeatCount="indefinite" rotate="auto">
+          <mpath href="#lo-path-inner" />
+        </animateMotion>
       </circle>
     </svg>
   );
