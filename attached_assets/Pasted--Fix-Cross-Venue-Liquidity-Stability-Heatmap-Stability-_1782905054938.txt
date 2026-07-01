@@ -1,0 +1,113 @@
+# Fix: Cross-Venue Liquidity Stability Heatmap — Stability Score Calculation
+
+## Priority
+DEMO-DAY FIX — needed before the 2 July ADGM pilot call.
+
+## Root Cause
+The stability scores currently displayed in the Cross-Venue Liquidity
+Stability heatmap are binary: venues score either exactly 0 (CRITICAL/RED)
+or exactly 80 (STABLE/GREEN) with nothing in between. Cross-referencing
+with the Venue Depth and Spread Monitor confirms the pattern:
+
+  Regulated: YES → stability 80 → GREEN
+  Regulated: NO  → stability 0  → RED
+
+The stability score is acting as a proxy for the regulated/unregulated
+flag rather than reflecting actual liquidity conditions. This produces a
+misleading picture: Hyperliquid ($14M depth, 0.2bps spread — a
+well-functioning market) scores CRITICAL alongside Uniswap ($47M depth,
+30bps spread — genuinely stressed) for completely different underlying
+reasons. A regulator audience will notice this and ask why 8 of 13 venues
+are CRITICAL.
+
+## Required Fix
+Replace the binary regulated-flag-based stability score with a three-factor
+composite that reflects actual liquidity conditions per venue. The regulated
+flag should be ONE input — a meaningful one — but not the only one.
+
+### Composite Stability Score (0–100, per venue)
+
+  STABILITY = (0.40 × Depth Score) + (0.35 × Spread Score) + (0.25 × Regulated Bonus)
+
+Where:
+
+**Depth Score (0–100)**
+Source: the depth value already shown in the Venue Depth & Spread Monitor
+(normalised relative to the largest venue by depth at any given moment).
+
+  Depth Score = min(100, (venue_depth / max_venue_depth) × 100)
+
+  e.g. if GMX has $72M and the max is $72M, GMX Depth Score = 100
+       if Bybit has $0.2M, Bybit Depth Score = 0.3
+
+**Spread Score (0–100)**
+Source: the spread value (bps) already shown in the Venue Depth & Spread
+Monitor.
+
+  Spread Score = max(0, 100 − (spread_bps × 5))
+
+  e.g. spread 0.0bps → Score 100
+       spread 5.0bps → Score 75
+       spread 10.0bps → Score 50
+       spread 20.0bps → Score 0 (floor)
+       spread 30.0bps → Score 0
+
+**Regulated Bonus (0 or 100)**
+  Regulated: YES → 100
+  Regulated: NO  → 0
+
+This gives regulated venues a structural advantage (which is correct from
+a supervisory perspective) without overriding the depth and spread signal
+entirely.
+
+### Resulting Thresholds for Heatmap Colour
+
+  STABLE (GREEN #00E676):   composite score ≥ 60
+  STRESSED (AMBER #FFB300): composite score 35–59
+  CRITICAL (RED #FF5252):   composite score < 35
+
+### Expected Outcome with Live Data
+Under this formula, the current live data would produce approximately:
+
+  GMX:  Depth 100, Spread ~83 (3.4bps), Regulated 0 → ~87 × 0.75 = ~65 → STABLE
+  UNI:  Depth 66, Spread 0 (30bps capped), Regulated 0 → ~26 → CRITICAL
+  HYP:  Depth 20, Spread ~99 (0.2bps), Regulated 0 → ~54 → STRESSED
+  KRK:  Depth 14, Spread 100 (0bps), Regulated 100 → ~67 → STABLE
+  OKX:  Depth 5, Spread 100 (0bps), Regulated 0 → ~54 → STRESSED or low STABLE
+  DYD:  Depth 4, Spread ~99 (0.2bps), Regulated 0 → ~51 → STRESSED
+  OTC:  Depth 3, Spread ~87 (2.5bps), Regulated 0 → ~46 → STRESSED
+  BIN:  Depth 2, Spread 100 (0bps), Regulated 100 → ~60 → STABLE (marginal)
+  BYB:  Depth 0.3, Spread ~90 (2.0bps), Regulated 0 → ~32 → CRITICAL
+  CRV:  Depth 0.4, Spread 100 (0bps), Regulated 0 → ~40 → STRESSED
+
+This produces a more meaningful distribution: 3–4 STABLE, 4–5 STRESSED,
+2–3 CRITICAL — proportionate to actual conditions rather than treating
+every offshore venue as equivalent to a crisis.
+
+## Implementation Notes
+- The depth and spread values are already available in the per-venue data
+  that feeds the Venue Depth & Spread Monitor table on the same page —
+  no new data fetching required.
+- max_venue_depth should be computed dynamically from the current snapshot,
+  not hardcoded.
+- The Regulated flag is already available in the venue configuration
+  (shared/venue-config.ts or equivalent).
+- Update the STABILITY value displayed inside each heatmap square to show
+  the new composite score (0–100) rather than the binary 0/80.
+- Update the Venue Depth & Spread Monitor STATUS column to derive from
+  the same composite score thresholds, so the table and the heatmap
+  always agree.
+
+## Verification
+1. Open PoLi / PoMI tab and confirm heatmap scores are no longer binary
+   (no longer all 0 or all 80) — scores should show a range of values.
+2. Confirm Hyperliquid (0.2bps spread, meaningful depth) scores higher
+   than Uniswap (30bps spread) — it should be STRESSED rather than the
+   same CRITICAL as Uniswap.
+3. Confirm GMX (largest venue by depth) scores STABLE or high STRESSED
+   rather than CRITICAL.
+4. Confirm the STABLE / STRESSED / CRITICAL legend counts reflect a
+   meaningful distribution (not 8 CRITICAL out of 13 under normal
+   live conditions).
+5. Confirm the Venue Depth & Spread Monitor STATUS dots agree with the
+   heatmap colours for the same venue.

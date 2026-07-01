@@ -854,8 +854,8 @@ export default function IntegrityPage() {
                 }}>
                   {venues.map(v => {
                     const stability = v.stability_score;
-                    const isStable   = stability >= 70 && v.depth_10bps > 0;
-                    const isStressed = stability >= 40 && stability < 70 && v.depth_10bps > 0;
+                    const isStable   = stability >= 60;
+                    const isStressed = stability >= 35 && stability < 60;
                     const sqBg = isStable   ? "rgba(0,230,118,0.82)"
                                : isStressed ? "rgba(255,179,0,0.82)"
                                :              "rgba(255,82,82,0.82)";
@@ -993,7 +993,7 @@ export default function IntegrityPage() {
                 </div>
               ) : venues.map(v => {
                 const depthM = (v.depth_10bps / 1_000_000).toFixed(1);
-                const vRag: Rag = v.stability_score >= 70 ? "G" : v.stability_score >= 40 ? "A" : "R";
+                const vRag: Rag = v.stability_score >= 60 ? "G" : v.stability_score >= 35 ? "A" : "R";
                 const vLabel = vRag === "G" ? "GREEN" : vRag === "A" ? "AMBER" : "RED";
                 const ticker = VENUE_TICKER[v.venue_id] ?? v.venue_id.toUpperCase().slice(0, 6);
                 return [

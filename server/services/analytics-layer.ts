@@ -307,6 +307,13 @@ function buildVenueSlices(
   latestByVenue: Map<string, any>,
   total_depth_10bps: number
 ): VenueSlice[] {
+  // Pre-compute max depth across all venues for normalisation
+  let maxDepth = 0;
+  for (const [, snap] of latestByVenue) {
+    const d = getBand(snap, 'pct_0.1');
+    if (d > maxDepth) maxDepth = d;
+  }
+
   return [...latestByVenue.entries()]
     .sort(([, a], [, b]) => getBand(b, 'pct_0.1') - getBand(a, 'pct_0.1'))
     .map(([venue, snap]) => {
@@ -316,8 +323,15 @@ function buildVenueSlices(
       const is_regulated = REGULATED.has(venue);
       const w = venueWeight(venue);
 
-      const tsleConf: number = (snap as any).tsle?.confidence ?? 0.80;
-      const stability_score = clamp(tsleConf * 100);
+      // ── Composite Stability Score (0–100) ───────────────────────────────
+      // STABILITY = 0.40×DepthScore + 0.35×SpreadScore + 0.25×RegulatedBonus
+      const depthScore  = maxDepth > 0 ? Math.min(100, (d10 / maxDepth) * 100) : 0;
+      const spreadScore = Math.max(0, 100 - spreadBps * 5);
+      const regBonus    = is_regulated ? 100 : 0;
+      const stability_score = clamp(
+        0.40 * depthScore + 0.35 * spreadScore + 0.25 * regBonus
+      );
+      // ────────────────────────────────────────────────────────────────────
 
       const weight_class: 'HIGH' | 'MEDIUM' | 'LOW' =
         w >= 0.14 ? 'HIGH' : w >= 0.08 ? 'MEDIUM' : 'LOW';
