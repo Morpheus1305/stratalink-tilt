@@ -441,9 +441,9 @@ export default function IntegrityPage() {
   const maxDepth = Math.max(...venues.map(v => v.depth_10bps), 1);
 
   // ── Venue stability grid counts (current snapshot) ────────────────────────
-  const stableN   = venues.filter(v => v.stability_score >= 70).length;
-  const stressedN = venues.filter(v => v.stability_score >= 40 && v.stability_score < 70).length;
-  const criticalN = venues.filter(v => v.stability_score < 40).length;
+  const stableN   = venues.filter(v => v.stability_score >= 60).length;
+  const stressedN = venues.filter(v => v.stability_score >= 35 && v.stability_score < 60).length;
+  const criticalN = venues.filter(v => v.stability_score < 35).length;
 
   // ── FRBD computation ──────────────────────────────────────────────────────
   // Funding Rate Basis Divergence severity based on max-min spread across venues

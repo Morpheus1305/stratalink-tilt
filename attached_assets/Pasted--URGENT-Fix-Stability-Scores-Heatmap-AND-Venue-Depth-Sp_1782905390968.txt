@@ -1,0 +1,159 @@
+# URGENT: Fix Stability Scores — Heatmap AND Venue Depth & Spread Monitor
+
+## Priority
+DEMO-DAY — this must be applied before the 2 July ADGM call. The previous
+version of this prompt did not take effect. Both the heatmap and the venue
+table still use a binary regulated/unregulated flag as the stability score.
+
+## The Problem (Two Panels, Same Root Cause)
+
+### Panel 1: Cross-Venue Liquidity Stability Heatmap
+Every venue square shows a score of either exactly 0 or exactly 80.
+There is no gradient. The mapping is:
+  Regulated = YES → 80 → GREEN
+  Regulated = NO  → 0  → RED
+
+### Panel 2: Venue Depth & Spread Monitor (STATUS column)
+The STATUS dot (GREEN or RED) follows the exact same pattern:
+  Regulated = YES → GREEN
+  Regulated = NO  → RED
+
+This means GMX ($72M depth, 4.2bps spread) shows RED/CRITICAL and
+Hyperliquid ($13.8M depth, 0.2bps spread) shows RED/CRITICAL — both
+are well-functioning venues with real depth and tight spreads. They
+score CRITICAL solely because they are unregulated.
+
+A regulator will immediately ask: "Why are 8 of 13 venues critical?"
+The honest answer right now is "because they're offshore" — but the
+visual implies a system-wide liquidity crisis, which it is not.
+
+---
+
+## The Fix
+
+### Step 1: Find where the stability score is computed
+
+Search the codebase for where the stability value (the number shown
+inside each heatmap square, and the STATUS column in the venue table)
+is calculated. Look for:
+- A field called `stability`, `stabilityScore`, `venueStability`, or
+  similar
+- Any logic that checks `regulated`, `isRegulated`, `venue.regulated`,
+  or the venue's regulatory status
+- The values 80 and 0 being assigned based on a boolean condition
+
+This is likely in one of these files:
+- server/services/poliEngine.ts
+- server/routes/rcl.ts
+- A venue scoring utility
+- The PoLi/PoMI page component itself
+
+### Step 2: Replace the binary logic with a composite score
+
+DELETE any logic that looks like:
+  if (venue.regulated) { stability = 80 } else { stability = 0 }
+  or
+  stability = venue.regulated ? 80 : 0
+
+REPLACE IT with this composite calculation:
+
+```typescript
+function computeVenueStability(venue: {
+  depth: number;      // in dollars, e.g. 72000000
+  spread: number;     // in bps, e.g. 4.2
+  regulated: boolean;
+}, maxDepth: number): number {
+  // Depth component (0-100): venue depth relative to the largest venue
+  const depthScore = maxDepth > 0
+    ? Math.min(100, (venue.depth / maxDepth) * 100)
+    : 0;
+
+  // Spread component (0-100): tighter spread = higher score
+  const spreadScore = Math.max(0, 100 - (venue.spread * 5));
+
+  // Regulated bonus: 100 if regulated, 0 if not
+  const regulatedBonus = venue.regulated ? 100 : 0;
+
+  // Composite: depth 40%, spread 35%, regulated 25%
+  const composite = (0.40 * depthScore) + (0.35 * spreadScore) + (0.25 * regulatedBonus);
+
+  return Math.round(composite);
+}
+```
+
+Call this function for every venue, passing the maximum depth across all
+active venues as `maxDepth`.
+
+### Step 3: Apply the composite score to BOTH panels
+
+**Heatmap square colour AND score label:**
+  composite >= 60 → GREEN (#00E676), label = composite value
+  composite 35-59 → AMBER (#FFB300), label = composite value
+  composite < 35  → RED (#FF5252), label = composite value
+
+**Venue Depth & Spread Monitor STATUS column:**
+  composite >= 60 → GREEN dot
+  composite 35-59 → AMBER dot
+  composite < 35  → RED dot
+
+Both panels MUST use the same composite score so they always agree.
+
+### Step 4: Update the legend count
+
+The STABLE / STRESSED / CRITICAL legend below the heatmap must count
+venues using the same thresholds:
+  STABLE = count of venues with composite >= 60
+  STRESSED = count of venues with composite 35-59
+  CRITICAL = count of venues with composite < 35
+
+---
+
+## Expected Results with Current Live Data
+
+With the current live BTC data visible in the screenshot:
+
+| Venue | Depth   | Spread | Reg | Depth% | SpreadSc | RegBonus | Composite | State    |
+|-------|---------|--------|-----|--------|----------|----------|-----------|----------|
+| GMX   | $72.0M  | 4.2bps | NO  | 100    | 79       | 0        | 68        | STABLE   |
+| UNI   | $47.6M  | 30.0bps| NO  | 66     | 0        | 0        | 26        | CRITICAL |
+| HYP   | $13.8M  | 0.2bps | NO  | 19     | 99       | 0        | 42        | STRESSED |
+| OKX   | $5.9M   | 0.0bps | NO  | 8      | 100      | 0        | 38        | STRESSED |
+| KRK   | $3.8M   | 0.0bps | YES | 5      | 100      | 100      | 62        | STABLE   |
+| BGT   | $3.3M   | 0.0bps | NO  | 5      | 100      | 0        | 37        | STRESSED |
+| OTC   | $2.9M   | 2.5bps | NO  | 4      | 88       | 0        | 32        | CRITICAL |
+| DYD   | $2.6M   | 2.9bps | NO  | 4      | 86       | 0        | 32        | CRITICAL |
+| BIN   | $2.0M   | 0.0bps | YES | 3      | 100      | 100      | 61        | STABLE   |
+| COI   | $1.6M   | 0.0bps | YES | 2      | 100      | 100      | 61        | STABLE   |
+| BYB   | $0.1M   | 3.0bps | NO  | 0      | 85       | 0        | 30        | CRITICAL |
+| DER   | $0.0M   | 3.1bps | YES | 0      | 84       | 100      | 55        | STRESSED |
+| CRV   | $0.0M   | 0.0bps | NO  | 0      | 100      | 0        | 35        | STRESSED |
+
+Result: ~4 STABLE, ~5 STRESSED, ~4 CRITICAL
+This is a meaningful distribution that reflects actual liquidity conditions.
+
+---
+
+## What NOT To Do
+- Do NOT keep any logic that assigns stability = 0 or stability = 80
+  based solely on the regulated flag
+- Do NOT compute heatmap colour from a different source than the venue
+  table STATUS — they must use the same composite
+- Do NOT hardcode venue scores — they must be computed dynamically from
+  live depth and spread values
+
+---
+
+## Verification
+1. Open PoLi / PoMI tab and confirm heatmap scores are NO LONGER all 0
+   or all 80 — they should show a range of values (e.g. 26, 38, 42, 55,
+   61, 68).
+2. Confirm GMX (largest depth, moderate spread) shows STABLE/GREEN — not
+   CRITICAL/RED.
+3. Confirm Hyperliquid (moderate depth, very tight spread) shows
+   STRESSED/AMBER — not CRITICAL/RED.
+4. Confirm Uniswap (30bps spread) shows CRITICAL/RED — this one IS
+   genuinely stressed.
+5. Confirm the STATUS dots in the Venue Depth & Spread Monitor match the
+   heatmap colours for every venue.
+6. Confirm the STABLE/STRESSED/CRITICAL legend counts match the visible
+   square colours.
