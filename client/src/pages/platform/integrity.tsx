@@ -959,15 +959,15 @@ export default function IntegrityPage() {
                     Cross-Margin Contagion Risk
                   </div>
                   <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
-                    <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 28, fontWeight: 700, color: lpiSt?.color ?? SUB }}>
+                    <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 10, fontWeight: 700, color: lpiSt?.color ?? SUB }}>
                       {lpi != null ? lpi.toFixed(2) : "—"}
                     </span>
-                    <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 28, fontWeight: 400, color: MUTED }}>/ 1.00</span>
+                    <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 10, fontWeight: 400, color: MUTED }}>/ 1.00</span>
                     {lpiDelta != null && (
                       <span style={{
-                        fontFamily: "var(--tilt-mono)", fontSize: 22, fontWeight: 700,
+                        fontFamily: "var(--tilt-mono)", fontSize: 10, fontWeight: 700,
                         color: lpiDelta > 0.001 ? R : lpiDelta < -0.001 ? T : SUB,
-                        marginLeft: 8,
+                        marginLeft: 4,
                       }}>
                         {lpiDelta > 0 ? "+" : ""}{lpiDelta.toFixed(3)}
                       </span>
