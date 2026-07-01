@@ -1,0 +1,114 @@
+# Fix: PoLi / PoMI Page — Heatmap Redesign + EFI/FRBD Side-by-Side Layout
+
+## Priority
+DEMO-DAY FIX — needed before the 2 July ADGM pilot call.
+
+---
+
+## Issue 1: Cross-Venue Liquidity Stability — Wrong Visualisation Type
+
+### What is currently shown
+A flat horizontal bar or row of coloured rectangles stretched across the
+full width of the panel — essentially a timeline or bar representation.
+The legend shows STABLE (5) / STRESSED (0) / CRITICAL (7) but the chart
+itself does not make it easy to see which specific venue is in which state.
+
+### What it should look like
+A grid of squares — one square per venue — where:
+- Each square represents one of the 13 configured ILU-20 venues
+- The colour of each square reflects the current stability state of that
+  venue: GREEN = stable, AMBER = stressed, RED = critical
+- The squares are arranged in a compact grid (suggested: 7 columns x 2 rows
+  for 13 venues, or similar aspect ratio that fits cleanly in the panel)
+- Each square should be labelled with a short venue ticker (e.g. GMX,
+  UNI, HYP, KRK, OKX, DYD, OTC, COI, BIN, BGT, BYB, DER, CRV)
+- The grid updates in real time as venue stability states change
+- The STABLE / STRESSED / CRITICAL legend beneath the grid counts the
+  squares in each state and matches the visual
+
+### Implementation notes
+- The stability state for each venue is already computed — the Venue Depth
+  & Spread Monitor table on the same page has a STATUS column (GREEN/RED)
+  per venue. Extend this to include an AMBER/STRESSED threshold so the
+  three-state grid can distinguish stressed from critical.
+- If a three-state threshold does not yet exist, use the following as a
+  starting point: a venue is STABLE if its depth score is above 60 and
+  spread is below 5bps; STRESSED if depth 40–60 or spread 5–15bps;
+  CRITICAL if depth below 40 or spread above 15bps.
+- The grid should use the house colour palette:
+  GREEN = #00E676, AMBER = #FFB300, RED = #FF5252
+  Background per square = #0F151F with 2px border #1A2435
+
+---
+
+## Issue 2: Execution Feasibility Index + Funding Rate Basis Divergence — Side by Side
+
+### Current state
+The Execution Feasibility Index (EFI) chart takes the full width of the
+page and currently renders as a near-flat line labelled "BUILDING
+HISTORY..." with minimal plotted data.
+
+### Required layout
+Place two charts side by side in the middle section of the PoLi/PoMI page,
+each taking 50% of the page width:
+
+**Left panel — Execution Feasibility Index (existing)**
+- Keep the existing EFI chart and its NON-EXECUTABLE / value label
+- The chart should show a time-series line of the EFI value over the last
+  15–30 minutes of available data (not just the most recent few seconds)
+- X-axis: rolling time window. Y-axis: 0.00 to 1.00
+- If EFI is below 0.40, the line colour should shift to RED (#FF5252)
+- Label: "EXECUTION FEASIBILITY INDEX" with the current value and
+  NON-EXECUTABLE / EXECUTABLE status indicator top-right
+
+**Right panel — Funding Rate Basis Divergence (new)**
+- A multi-line time-series chart showing the funding rate per venue over
+  the same time window as the EFI chart
+- Source: the EWDS Fund Rate and Perp Basis data already feeds into this
+  page — extend it to show per-venue funding rates as separate lines
+  rather than a single aggregate
+- Show the top 3–5 perp venues by volume (e.g. Binance, OKX, Bybit) as
+  distinct coloured lines
+- X-axis: same rolling time window as EFI. Y-axis: funding rate %
+- Label: "FUNDING RATE BASIS DIVERGENCE" with a severity indicator
+  (NORMAL / ELEVATED / CRITICAL) based on divergence between the highest
+  and lowest venue funding rate — ELEVATED if spread > 0.05%,
+  CRITICAL if > 0.15%
+- If per-venue funding rate data is not yet available from individual venue
+  relays, render the panel with the aggregate Fund Rate line and a
+  "PER-VENUE BREAKDOWN — PHASE 2" label rather than leaving it empty
+
+---
+
+## Design Reference
+The target layout and styling is shown in the attached reference image
+(PoLi/PoMI page dated OCT 14, 2025 — the October 2025 reconstruction
+view). Key styling points to mirror:
+- Darker background for the chart panels (#080D14 or equivalent)
+- Chart lines are thin (1–1.5px), high contrast against the dark background
+- The EFI chart line declines dramatically toward the right when under
+  stress — the current "BUILDING HISTORY" flat line is acceptable if data
+  is genuinely sparse, but the chart area itself should not appear empty
+- The FRBD chart shows 2–3 lines diverging upward over time (venue funding
+  rates separating during stress)
+- Both chart panels have a severity/status label top-right (e.g. CRITICAL
+  in red, ELEVATED in amber)
+- The Venue Depth & Spread Monitor on the right side of the page should
+  remain as-is (table format, all 13 venues)
+- The Cross-Venue Liquidity Stability heatmap grid sits below the two
+  charts, full width
+
+---
+
+## Verification
+1. Open the PoLi/PoMI tab and confirm the Cross-Venue Liquidity Stability
+   section shows a grid of venue squares (not a bar/timeline), with at
+   least some squares in RED given current live conditions, and the
+   STABLE/STRESSED/CRITICAL count in the legend matching the visual.
+2. Confirm the EFI and FRBD charts appear side by side at 50%/50% width,
+   both with visible chart areas (not empty or "BUILDING HISTORY" only).
+3. Confirm Curve Finance appears as a square in the heatmap grid — this
+   was previously missing from the venue list on this page (see also
+   Replit_Fix_PoLiPoMI_Venue_Count_Mismatch.md).
+4. Confirm the overall page layout and dark styling are consistent with the
+   design reference.

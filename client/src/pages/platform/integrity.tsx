@@ -23,6 +23,32 @@ const PANEL = "#0F151F";
 const HDR   = "#080D14";
 const BORDER = "#1A2435";
 
+// ─── Venue short tickers ──────────────────────────────────────────────────────
+const VENUE_TICKER: Record<string, string> = {
+  binance:    "BIN",
+  coinbase:   "COI",
+  kraken:     "KRK",
+  okx:        "OKX",
+  bybit:      "BYB",
+  bitget:     "BGT",
+  dydx:       "DYD",
+  hyperliquid:"HYP",
+  gmx:        "GMX",
+  uniswap:    "UNI",
+  curve:      "CRV",
+  deribit:    "DER",
+  otc:        "OTC",
+};
+
+// ─── FRBD perp venue colours ──────────────────────────────────────────────────
+const FRBD_COLORS: Record<string, string> = {
+  Binance:     "#F3BA2F",
+  OKX:         "#00BFA5",
+  Bybit:       "#FFA500",
+  Hyperliquid: "#9B59B6",
+  dYdX:        "#E74C3C",
+};
+
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 interface VenueSlice {
   venue_id: string;
@@ -226,6 +252,10 @@ export default function IntegrityPage() {
   const vhRef = useRef<VenueSlice[][]>([]);
   const [venueHist, setVenueHist] = useState<VenueSlice[][]>([]);
 
+  const fundHistRef  = useRef<Record<string, any>[]>([]);
+  const [fundHist, setFundHist]   = useState<Record<string, any>[]>([]);
+  const [fundVenues, setFundVenues] = useState<string[]>([]);
+
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchData = useCallback(async (sym: string) => {
@@ -261,12 +291,12 @@ export default function IntegrityPage() {
         };
         setAgg(a);
 
-        // EFI ring buffer (max 60 pts ≈ 10 min at 10 s)
+        // EFI ring buffer (max 180 pts ≈ 15 min at 5 s)
         const efi = computeEfi(a);
         const tLabel = new Date().toLocaleTimeString("en-GB", {
           hour: "2-digit", minute: "2-digit", second: "2-digit",
         });
-        const next = [...efiHistRef.current.slice(-59), { time: tLabel, efi }];
+        const next = [...efiHistRef.current.slice(-179), { time: tLabel, efi }];
         efiHistRef.current = next;
         setEfiHist([...next]);
 
@@ -278,13 +308,38 @@ export default function IntegrityPage() {
         }
       }
     } catch { /* silent */ }
+
+    // Funding rate history for FRBD chart
+    try {
+      const fResp = await fetch(`/api/funding/snapshot?symbol=${sym}`);
+      if (fResp.ok) {
+        const fData = await fResp.json();
+        if (fData.venues?.length > 0) {
+          const tLbl = new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+          const point: Record<string, any> = { time: tLbl };
+          const seen: string[] = [];
+          for (const v of fData.venues as { venue: string; rate: number }[]) {
+            const pct = parseFloat((v.rate * 100).toFixed(5));
+            point[v.venue] = pct;
+            seen.push(v.venue);
+          }
+          const nextFund = [...fundHistRef.current.slice(-179), point];
+          fundHistRef.current = nextFund;
+          setFundHist([...nextFund]);
+          setFundVenues(prev => seen.length > 0 ? seen.slice(0, 5) : prev);
+        }
+      }
+    } catch { /* silent */ }
   }, []);
 
   useEffect(() => {
     efiHistRef.current = [];
     vhRef.current = [];
+    fundHistRef.current = [];
     setEfiHist([]);
     setVenueHist([]);
+    setFundHist([]);
+    setFundVenues([]);
     setAgg(null);
     fetchData(asset);
     if (timerRef.current) clearInterval(timerRef.current);
@@ -367,15 +422,29 @@ export default function IntegrityPage() {
   )) : null;
   const lpiSt = lpi != null ? lpiLabel(lpi) : null;
 
-  // ── Venue table ───────────────────────────────────────────────────────────
-  const venues = (agg?.venue_slices ?? []).slice(0, 12);
+  // ── Venue table (all venues including Curve) ──────────────────────────────
+  const venues = agg?.venue_slices ?? [];
   const maxDepth = Math.max(...venues.map(v => v.depth_10bps), 1);
 
-  // ── Heatmap venue ids from history ────────────────────────────────────────
-  const heatVenueIds = Array.from(new Set(venueHist.flatMap(r => r.map(v => v.venue_id)))).slice(0, 10);
+  // ── Venue stability grid counts (current snapshot) ────────────────────────
   const stableN   = venues.filter(v => v.stability_score >= 70).length;
   const stressedN = venues.filter(v => v.stability_score >= 40 && v.stability_score < 70).length;
   const criticalN = venues.filter(v => v.stability_score < 40).length;
+
+  // ── FRBD computation ──────────────────────────────────────────────────────
+  // Funding Rate Basis Divergence severity based on max-min spread across venues
+  const latestFund = fundHist[fundHist.length - 1] ?? null;
+  const fundRates  = latestFund
+    ? fundVenues.map(v => latestFund[v] as number).filter(x => x != null && !isNaN(x))
+    : [];
+  const frbdSpread = fundRates.length >= 2
+    ? Math.max(...fundRates) - Math.min(...fundRates)
+    : 0;
+  const frbdSeverity = frbdSpread > 0.15 ? { label: "CRITICAL", color: R }
+    : frbdSpread > 0.05            ? { label: "ELEVATED", color: A }
+    : fundRates.length > 0         ? { label: "NORMAL",   color: G }
+    : null;
+  const frbdBuilding = fundHist.length < 3;
 
   // ── Date string ───────────────────────────────────────────────────────────
   const dateStr = new Date().toLocaleDateString("en-US", {
@@ -659,131 +728,201 @@ export default function IntegrityPage() {
           </div>
         </div>
 
-        {/* ── ROW 3: EXECUTION FEASIBILITY INDEX ──────────────────────────── */}
-        <div style={{ background: PANEL, padding: "14px 16px", borderTop: `1px solid ${BORDER}` }} data-testid="integrity-efi">
-          <SectionHeader
-            title="Execution Feasibility Index"
-            right={
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                {currentEfiSt && (
-                  <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, color: currentEfiSt.color, letterSpacing: "0.08em" }}>
-                    ● {currentEfiSt.label}
+        {/* ── ROW 3: EFI + FRBD SIDE BY SIDE ──────────────────────────────── */}
+        <div style={{ display: "flex", gap: 1, background: BORDER, borderTop: `1px solid ${BORDER}` }} data-testid="integrity-efi-frbd">
+
+          {/* ── Left: Execution Feasibility Index ── */}
+          <div style={{ flex: 1, background: PANEL, padding: "14px 16px", minWidth: 0 }}>
+            <SectionHeader
+              title="Execution Feasibility Index"
+              right={
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  {currentEfiSt && (
+                    <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, color: currentEfiSt.color, letterSpacing: "0.08em" }}>
+                      ● {currentEfiSt.label}
+                    </span>
+                  )}
+                  <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 16, fontWeight: 700, color: currentEfiSt?.color ?? SUB }}>
+                    {currentEfi != null ? currentEfi.toFixed(3) : "—"}
                   </span>
-                )}
-                <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 16, fontWeight: 700, color: currentEfiSt?.color ?? SUB }}>
-                  {currentEfi != null ? currentEfi.toFixed(3) : "—"}
-                </span>
+                </div>
+              }
+            />
+            {efiBuilding && (
+              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, marginBottom: 6, letterSpacing: "0.06em" }}>
+                BUILDING HISTORY…
               </div>
-            }
-          />
-          {efiBuilding && (
-            <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, marginBottom: 6, letterSpacing: "0.06em" }}>
-              BUILDING HISTORY…
+            )}
+            <div style={{ height: 140, background: HDR, borderRadius: 2 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={efiHist} margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
+                  <XAxis
+                    dataKey="time"
+                    tick={{ fontFamily: "var(--tilt-mono)", fontSize: 8, fill: MUTED }}
+                    interval="preserveStartEnd"
+                    tickLine={false}
+                    axisLine={{ stroke: BORDER }}
+                  />
+                  <YAxis
+                    domain={[0, 1]}
+                    tick={{ fontFamily: "var(--tilt-mono)", fontSize: 8, fill: MUTED }}
+                    tickLine={false}
+                    axisLine={false}
+                    width={28}
+                    tickFormatter={(v: number) => v.toFixed(2)}
+                  />
+                  <ReferenceLine y={0.80} stroke={BORDER} strokeDasharray="3 3" />
+                  <ReferenceLine y={0.50} stroke={BORDER} strokeDasharray="3 3" />
+                  <Tooltip content={<EfiTooltip />} />
+                  <Line
+                    type="monotone"
+                    dataKey="efi"
+                    stroke={currentEfi != null && currentEfi < 0.40 ? R : T}
+                    strokeWidth={1.5}
+                    dot={false}
+                    isAnimationActive={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
             </div>
-          )}
-          <div style={{ height: 120 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={efiHist} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
-                <XAxis
-                  dataKey="time"
-                  tick={{ fontFamily: "var(--tilt-mono)", fontSize: 8, fill: MUTED }}
-                  interval="preserveStartEnd"
-                  tickLine={false}
-                  axisLine={{ stroke: BORDER }}
-                />
-                <YAxis
-                  domain={[0, 1]}
-                  tick={{ fontFamily: "var(--tilt-mono)", fontSize: 8, fill: MUTED }}
-                  tickLine={false}
-                  axisLine={false}
-                  width={28}
-                  tickFormatter={(v: number) => v.toFixed(2)}
-                />
-                <ReferenceLine y={0.80} stroke={BORDER} strokeDasharray="3 3" />
-                <ReferenceLine y={0.50} stroke={BORDER} strokeDasharray="3 3" />
-                <Tooltip content={<EfiTooltip />} />
-                <Line
-                  type="monotone"
-                  dataKey="efi"
-                  stroke={T}
-                  strokeWidth={1.5}
-                  dot={false}
-                  isAnimationActive={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+          </div>
+
+          {/* ── Right: Funding Rate Basis Divergence ── */}
+          <div style={{ flex: 1, background: PANEL, padding: "14px 16px", minWidth: 0 }}>
+            <SectionHeader
+              title="Funding Rate Basis Divergence"
+              right={
+                frbdSeverity ? (
+                  <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, color: frbdSeverity.color, letterSpacing: "0.08em" }}>
+                    ● {frbdSeverity.label}
+                  </span>
+                ) : (
+                  <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, color: MUTED, letterSpacing: "0.08em" }}>
+                    ● AWAITING FEED
+                  </span>
+                )
+              }
+            />
+            {frbdBuilding && (
+              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, marginBottom: 6, letterSpacing: "0.06em" }}>
+                {fundVenues.length === 0 ? "PER-VENUE BREAKDOWN — PHASE 2" : "BUILDING HISTORY…"}
+              </div>
+            )}
+            <div style={{ height: 140, background: HDR, borderRadius: 2 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={fundHist} margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
+                  <XAxis
+                    dataKey="time"
+                    tick={{ fontFamily: "var(--tilt-mono)", fontSize: 8, fill: MUTED }}
+                    interval="preserveStartEnd"
+                    tickLine={false}
+                    axisLine={{ stroke: BORDER }}
+                  />
+                  <YAxis
+                    tick={{ fontFamily: "var(--tilt-mono)", fontSize: 8, fill: MUTED }}
+                    tickLine={false}
+                    axisLine={false}
+                    width={38}
+                    tickFormatter={(v: number) => `${v.toFixed(3)}%`}
+                  />
+                  <Tooltip
+                    contentStyle={{ background: HDR, border: `1px solid ${BORDER}`, borderRadius: 2 }}
+                    labelStyle={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED }}
+                    itemStyle={{ fontFamily: "var(--tilt-mono)", fontSize: 10 }}
+                    formatter={(value: any, name: string) => [`${(value as number).toFixed(4)}%`, name]}
+                  />
+                  {fundVenues.map((vName) => (
+                    <Line
+                      key={vName}
+                      type="monotone"
+                      dataKey={vName}
+                      stroke={FRBD_COLORS[vName] ?? SUB}
+                      strokeWidth={1.5}
+                      dot={false}
+                      isAnimationActive={false}
+                      connectNulls
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+            {fundVenues.length > 0 && (
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 8 }}>
+                {fundVenues.map(vName => (
+                  <div key={vName} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <div style={{ width: 16, height: 2, background: FRBD_COLORS[vName] ?? SUB }} />
+                    <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED }}>{vName}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* ── ROW 4: HEATMAP + VENUE TABLE ────────────────────────────────── */}
+        {/* ── ROW 4: VENUE STABILITY GRID + VENUE TABLE ───────────────────── */}
         <div style={{ display: "flex", gap: 1, background: BORDER, borderTop: `1px solid ${BORDER}` }} data-testid="integrity-row4">
 
-          {/* Left: Cross-Venue Liquidity Stability Heatmap */}
+          {/* Left: Cross-Venue Liquidity Stability — Venue Grid */}
           <div style={{ flex: 1, background: PANEL, padding: "14px 16px" }}>
             <SectionHeader title="Cross-Venue Liquidity Stability" />
 
-            {venueHist.length === 0 ? (
+            {venues.length === 0 ? (
               <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 10, color: MUTED, padding: "20px 0" }}>
                 Awaiting venue data…
               </div>
             ) : (
               <>
-                {/* Heatmap grid: rows = time snapshots, cols = venues */}
-                <div style={{ overflowX: "auto" }}>
-                  <div style={{
-                    display: "grid",
-                    gridTemplateColumns: `80px repeat(${heatVenueIds.length}, 1fr)`,
-                    gap: 1,
-                    marginBottom: 8,
-                    minWidth: 300,
-                  }}>
-                    {/* Header row */}
-                    <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 8, color: MUTED, padding: "2px 4px" }} />
-                    {heatVenueIds.map(vid => (
-                      <div key={vid} style={{
-                        fontFamily: "var(--tilt-mono)", fontSize: 8, color: MUTED,
-                        textAlign: "center", padding: "2px 4px",
-                        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-                      }}>
-                        {vid.toUpperCase().slice(0, 8)}
+                {/* Venue square grid — 7 columns */}
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(7, 1fr)",
+                  gap: 6,
+                  marginBottom: 12,
+                }}>
+                  {venues.map(v => {
+                    const stability = v.stability_score;
+                    const isStable   = stability >= 70;
+                    const isStressed = stability >= 40 && stability < 70;
+                    const sqColor    = isStable ? G : isStressed ? A : R;
+                    const sqBg       = isStable ? "rgba(0,230,118,0.10)"
+                                     : isStressed ? "rgba(255,179,0,0.10)"
+                                     : "rgba(255,82,82,0.10)";
+                    const ticker = VENUE_TICKER[v.venue_id] ?? v.venue_id.toUpperCase().slice(0, 3);
+                    return (
+                      <div
+                        key={v.venue_id}
+                        title={`${v.venue_id}: stability ${stability.toFixed(0)} · spread ${v.spread_bps.toFixed(1)}bps`}
+                        style={{
+                          background: sqBg,
+                          border: `2px solid ${sqColor}`,
+                          borderRadius: 2,
+                          padding: "8px 4px",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          gap: 4,
+                        }}
+                      >
+                        <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, fontWeight: 700, color: sqColor, letterSpacing: "0.06em" }}>
+                          {ticker}
+                        </span>
+                        <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 8, color: MUTED }}>
+                          {stability.toFixed(0)}
+                        </span>
                       </div>
-                    ))}
-
-                    {/* Data rows (newest last) */}
-                    {venueHist.map((row, ri) => {
-                      const isLatest = ri === venueHist.length - 1;
-                      const age = venueHist.length - 1 - ri;
-                      return [
-                        <div key={`lbl-${ri}`} style={{
-                          fontFamily: "var(--tilt-mono)", fontSize: 8, color: isLatest ? T : MUTED,
-                          padding: "3px 4px", display: "flex", alignItems: "center",
-                        }}>
-                          {isLatest ? "NOW" : `-${age * 5}s`}
-                        </div>,
-                        ...heatVenueIds.map(vid => {
-                          const slice = row.find(v => v.venue_id === vid);
-                          return (
-                            <div key={`cell-${ri}-${vid}`} style={{
-                              background: heatCell(slice?.stability_score),
-                              height: 18,
-                              borderRadius: 1,
-                            }} title={slice ? `${vid}: stability ${slice.stability_score.toFixed(0)}` : "No data"} />
-                          );
-                        }),
-                      ];
-                    })}
-                  </div>
+                    );
+                  })}
                 </div>
 
                 {/* Legend */}
-                <div style={{ display: "flex", gap: 16, marginTop: 8 }}>
+                <div style={{ display: "flex", gap: 16, marginBottom: 14 }}>
                   {[
-                    { color: "rgba(0,230,118,0.6)", label: `STABLE (${stableN})` },
-                    { color: "rgba(255,179,0,0.6)", label: `STRESSED (${stressedN})` },
-                    { color: "rgba(255,82,82,0.6)", label: `CRITICAL (${criticalN})` },
+                    { color: G, bg: "rgba(0,230,118,0.6)",   label: `STABLE (${stableN})` },
+                    { color: A, bg: "rgba(255,179,0,0.6)",   label: `STRESSED (${stressedN})` },
+                    { color: R, bg: "rgba(255,82,82,0.6)",   label: `CRITICAL (${criticalN})` },
                   ].map(l => (
                     <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                      <div style={{ width: 10, height: 10, background: l.color, borderRadius: 1 }} />
+                      <div style={{ width: 10, height: 10, background: l.bg, border: `1px solid ${l.color}`, borderRadius: 1 }} />
                       <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.06em" }}>
                         {l.label}
                       </span>
@@ -797,7 +936,7 @@ export default function IntegrityPage() {
             <div style={{
               background: lpiSt ? `${lpiSt.color}0d` : "transparent",
               border: `1px solid ${lpiSt ? `${lpiSt.color}25` : BORDER}`,
-              borderRadius: 2, padding: "10px 14px", marginTop: 14,
+              borderRadius: 2, padding: "10px 14px",
             }}>
               <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>
                 Liquidation Pressure Index
@@ -814,7 +953,7 @@ export default function IntegrityPage() {
             </div>
           </div>
 
-          {/* Right: Venue Depth & Spread Monitor */}
+          {/* Right: Venue Depth & Spread Monitor (all venues) */}
           <div style={{ flex: 1, background: PANEL, padding: "14px 16px" }}>
             <SectionHeader title="Venue Depth & Spread Monitor" />
             <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 70px 80px", gap: "4px 0" }}>
@@ -828,18 +967,19 @@ export default function IntegrityPage() {
                   Awaiting venue data…
                 </div>
               ) : venues.map(v => {
-                const depthNorm = maxDepth > 0 ? (v.depth_10bps / maxDepth).toFixed(2) : "—";
+                const depthM = (v.depth_10bps / 1_000_000).toFixed(1);
                 const vRag: Rag = v.stability_score >= 70 ? "G" : v.stability_score >= 40 ? "A" : "R";
                 const vLabel = vRag === "G" ? "GREEN" : vRag === "A" ? "AMBER" : "RED";
+                const ticker = VENUE_TICKER[v.venue_id] ?? v.venue_id.toUpperCase().slice(0, 6);
                 return [
                   <div key={`n-${v.venue_id}`} style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, fontWeight: 700, color: TEXT, padding: "4px 4px" }}>
-                    {v.venue_id.toUpperCase()}
+                    {ticker}
                   </div>,
                   <div key={`d-${v.venue_id}`} style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, color: SUB, padding: "4px 4px" }}>
-                    {depthNorm}
+                    ${depthM}M
                   </div>,
                   <div key={`s-${v.venue_id}`} style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, color: SUB, padding: "4px 4px" }}>
-                    {v.spread_bps.toFixed(1)} bps
+                    {v.spread_bps.toFixed(1)}bps
                   </div>,
                   <div key={`st-${v.venue_id}`} style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, fontWeight: 700, color: ragColor(vRag), padding: "4px 4px" }}>
                     ● {vLabel}
