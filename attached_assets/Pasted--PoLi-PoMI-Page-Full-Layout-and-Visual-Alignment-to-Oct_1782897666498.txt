@@ -1,0 +1,229 @@
+# PoLi / PoMI Page — Full Layout and Visual Alignment to October 2025 Reference
+
+## Priority
+DEMO-DAY FIX — needed before the 2 July ADGM pilot call.
+
+## Strategic Context (Read First)
+The ADGM counterparts (Brian, Suha, Shengliang) will have already seen
+"The Great Perps Unwind" — a documentary-style video built on the October
+2025 liquidation event data, which shows the PoLi/PoMI page in a specific
+visual state. The current live page looks materially different from that
+reference. If they see a different layout, different chart types, and
+different panel arrangement on the live platform, they will question whether
+the film and the platform are actually the same system. That doubt is
+irrecoverable mid-demo.
+
+The goal is: same page structure, same chart types, same panel arrangement,
+same styling as the October 2025 reference — with live current data feeding
+in. Values will naturally differ (live vs reconstruction) but the
+architecture of the page must be visually identical.
+
+The October 2025 reference image shows the following layout (top to bottom):
+
+  [Systemic Monitoring banner]
+  [EWDS indicator row — Fund Rate, Perp Basis, Ins Fund, Xmrg Util, Alt Liq, ADL Count]
+  [PoLi score card] [PoMI score card]
+  [EFI chart — left 50%] [FRBD chart — right 50%]
+  [Cross-Venue Liquidity Stability heatmap grid — left 60%] [Venue Depth & Spread Monitor — right 40%]
+  [Cross-Margin Contagion Risk panel — right 40%, below Venue Depth]
+  [PoMI Market Integrity Coordination — full width, 3 sub-indicators]
+
+This is the layout to implement. Each section is specified in detail below.
+
+---
+
+## Section 1: EWDS Indicator Row
+No change needed — Fund Rate, Perp Basis, Ins Fund are already populating.
+Confirm Xmrg Util, Alt Liq and ADL Count show live values or a clean
+"N/A" rather than a blank field. In the October 2025 reference these all
+showed non-zero values (Xmrg Util 67%, Alt Liq 0.72, ADL Count 12).
+
+---
+
+## Section 2: PoLi and PoMI Score Cards
+No change needed to the card structure — these are rendering correctly.
+Confirm both cards sit side by side on one row as they do now.
+
+---
+
+## Section 3: EFI + FRBD — Two Charts Side by Side (CRITICAL CHANGE)
+
+### Current state
+The Execution Feasibility Index chart takes the full page width and shows
+a near-flat line labelled "BUILDING HISTORY..." The Funding Rate Basis
+Divergence chart does not exist on the page.
+
+### Required state
+Remove the full-width EFI layout. Replace with two charts at 50% width each,
+side by side, on the same row.
+
+---
+
+### Left panel: Execution Feasibility Index
+
+**Data**: The EFI value is already computed (currently 0.380, NON-EXECUTABLE).
+The chart should plot EFI as a time-series line over a rolling 30-minute
+window minimum. Do not wait for data to accumulate before showing the
+chart area — seed the chart with whatever history is available, even if
+only 2–3 minutes deep. The "BUILDING HISTORY..." label should appear as a
+small greyed note below the chart if history is genuinely short, not as
+the primary content of the chart area.
+
+**Styling (from October 2025 reference)**:
+- Chart background: #080D14
+- Line colour: WHITE (#D8DEE8) when above threshold, RED (#FF5252) when
+  below 0.40 (critical)
+- Y-axis: 0.00 to 1.00, labelled at 0.25 intervals
+- X-axis: time labels, rolling window
+- A horizontal dashed threshold line at 0.40 in amber (#FFB300)
+- Top-right label: severity badge (NON-EXECUTABLE in red when below 0.40,
+  EXECUTABLE in green when above) + current value (e.g. 0.380)
+- Title: "EXECUTION FEASIBILITY INDEX" in the house label style
+- In the October 2025 reference the line declines from ~0.95 at -8h to
+  ~0.52 at the most recent point — the live version will show whatever
+  the actual current trend is
+
+---
+
+### Right panel: Funding Rate Basis Divergence
+
+**Data**: This chart shows per-venue funding rates as separate time-series
+lines over the same rolling window. The data source is the EWDS funding
+rate feed — extend it from a single aggregate to per-venue lines for the
+main perp venues (Binance, OKX, Bybit as a minimum — these are the three
+venues shown in the October 2025 reference as BNC, OKX, BYB).
+
+If per-venue funding rates are not yet broken out by the individual relay
+feeds, use the following fallback: show the single aggregate Fund Rate
+line in white and add a note "PER-VENUE BREAKDOWN — PHASE 2" in small
+greyed text below the chart. The chart must still render and fill the 50%
+panel — do not leave an empty panel or a placeholder box.
+
+**Styling (from October 2025 reference)**:
+- Chart background: #080D14
+- Three lines in distinct colours: Bybit in RED (#FF5252), Binance in
+  TEAL (#00BFA5), OKX in grey (#7B8EA3)
+- Y-axis: funding rate %, labelled at appropriate intervals
+- X-axis: same rolling time window as EFI
+- A horizontal dashed zero-line in dim grey (#4A5B6E)
+- In the October 2025 reference the lines diverge upward to the right,
+  with Bybit (BYB) highest and OKX lowest — the live version shows
+  current funding rate data
+- Top-right label: severity badge (NORMAL / ELEVATED / CRITICAL) based on
+  maximum divergence between venues:
+    - NORMAL: max spread between venues < 0.05%
+    - ELEVATED: 0.05% to 0.15%
+    - CRITICAL: > 0.15%
+- Title: "FUNDING RATE BASIS DIVERGENCE" in the house label style
+
+---
+
+## Section 4: Cross-Venue Liquidity Stability Heatmap (CRITICAL CHANGE)
+
+### Current state
+A flat horizontal bar-style visualisation that does not clearly map
+individual venues to individual cells.
+
+### Required state
+A grid of squares — one square per venue — where the colour represents
+the stability state of that specific venue in real time.
+
+**Grid layout**: 13 venues in a 7-column x 2-row grid (or closest
+reasonable fit). Each cell:
+- Size: uniform squares, roughly 80x60px each
+- Label: short venue ticker inside or below the square (GMX, UNI, HYP,
+  KRK, OKX, DYD, OTC, COI, BIN, BGT, BYB, DER, CRV)
+- Background colour based on stability state:
+    GREEN (#00E676) = STABLE: venue depth score > 60 AND spread < 5bps
+    AMBER (#FFB300) = STRESSED: depth 40–60 OR spread 5–15bps
+    RED (#FF5252) = CRITICAL: depth < 40 OR spread > 15bps
+- Border: 1px #1A2435
+- Cell background when dark: #0F151F
+
+**Legend below the grid**:
+  ● STABLE (N)   ● STRESSED (N)   ● CRITICAL (N)
+  where N counts the squares in each state, updating in real time.
+
+**Critically**: Curve Finance must appear as a square in this grid. It
+has been missing from the PoLi/PoMI venue list — this is the fix for
+POL-06 (Replit_Fix_PoLiPoMI_Venue_Count_Mismatch.md). Ensure all 13
+configured venues from shared/venue-config.ts appear as squares, not
+just the 12 currently rendering.
+
+---
+
+## Section 5: Venue Depth and Spread Monitor
+No structural change needed — keep the existing table format. It should
+sit to the right of the heatmap grid (right 40% of the row).
+
+In the October 2025 reference only 3 venues were shown (it was a
+perps-focused reconstruction). The live version correctly shows all 13
+venues in the table. Keep all 13.
+
+---
+
+## Section 6: Cross-Margin Contagion Risk (NEW PANEL)
+In the October 2025 reference, a panel labelled "CROSS-MARGIN CONTAGION
+RISK" appears below the Venue Depth and Spread Monitor table on the right
+side. It shows:
+- A large numeric value (0.81 in the reference) on a 0–1 scale
+- A delta indicator showing the change (+0.69 in the reference, in red)
+- A qualitative label beneath: e.g. "Systemic contagion threshold at risk.
+  Intervention window narrowing."
+
+This is currently labelled "LIQUIDATION PRESSURE INDEX" on the live page
+(showing 0.54/1.00, "Elevated pressure"). Rename this panel to
+"CROSS-MARGIN CONTAGION RISK" to match the reference, and update the
+display to show:
+- The current index value (keep the existing 0–1 computation)
+- A delta vs 15 minutes ago (positive delta in red, negative in teal)
+- A qualitative label derived from the value:
+    < 0.40: "Contagion risk contained."
+    0.40–0.60: "Moderate contagion pressure building."
+    0.61–0.80: "Elevated contagion risk. Monitor closely."
+    > 0.80: "Systemic contagion threshold at risk. Intervention window narrowing."
+
+Place this panel directly below the Venue Depth and Spread Monitor, right
+side, matching the reference layout.
+
+---
+
+## Section 7: PoMI Market Integrity Coordination
+No structural change needed. Three sub-indicators (Threshold Definition,
+Throttle Activation, Venue Synchronisation) remain at the bottom of the
+page, full width. The values (WEAKENING/75, STANDBY/91, MINOR DRIFT/65
+in the current live build) are live data and will differ from the October
+2025 reference (WEAKENING/76, DELAYED/69, MINOR LATENCY/67) — that is
+expected and correct.
+
+---
+
+## Overall Styling Notes
+The October 2025 reference page is noticeably darker and higher-contrast
+than the current live PoLi/PoMI page. Specifically:
+- Chart panel backgrounds should be #080D14 (not the lighter panel grey)
+- Text in the EWDS indicator row: values in amber/red/teal matching their
+  severity, not plain white
+- The Systemic Monitoring banner (ELEVATED OBSERVATION / CRITICAL
+  OBSERVATION) should remain prominent at the top
+- Border radius: 2px maximum everywhere, matching house style
+- Typography: JetBrains Mono for all numeric values, system sans-serif for
+  labels — consistent with the rest of TILT
+
+---
+
+## Verification
+1. Open PoLi/PoMI tab and confirm the page layout matches the section
+   order specified above: EWDS row → score cards → EFI+FRBD side by side
+   → heatmap grid + venue table → contagion risk → PoMI coordination.
+2. Confirm the heatmap shows 13 individual venue squares (including Curve
+   Finance), coloured GREEN/AMBER/RED per venue, with a matching legend count.
+3. Confirm EFI chart shows a rendered line (not "BUILDING HISTORY..." as
+   primary content) with a dashed threshold line at 0.40.
+4. Confirm FRBD chart renders in the right panel at 50% width, showing
+   either per-venue lines or the fallback aggregate + Phase 2 label.
+5. Confirm the Cross-Margin Contagion Risk panel shows value, delta, and
+   qualitative label.
+6. Take a side-by-side screenshot with the October 2025 reference image
+   and confirm a regulator audience would recognise these as the same
+   system.

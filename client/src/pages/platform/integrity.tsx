@@ -40,11 +40,11 @@ const VENUE_TICKER: Record<string, string> = {
   otc:        "OTC",
 };
 
-// ─── FRBD perp venue colours ──────────────────────────────────────────────────
+// ─── FRBD perp venue colours (Oct 2025 ref: BIN=teal, OKX=grey, BYB=red) ─────
 const FRBD_COLORS: Record<string, string> = {
-  Binance:     "#F3BA2F",
-  OKX:         "#00BFA5",
-  Bybit:       "#FFA500",
+  Binance:     "#00BFA5",
+  OKX:         "#7B8EA3",
+  Bybit:       "#FF5252",
   Hyperliquid: "#9B59B6",
   dYdX:        "#E74C3C",
 };
@@ -133,11 +133,11 @@ function efiLabel(efi: number): { label: string; color: string } {
   return                   { label: "MARKET FAILURE", color: R };
 }
 
-function lpiLabel(lpi: number): { label: string; color: string } {
-  if (lpi <= 0.30) return { label: "Within operational bounds",    color: G };
-  if (lpi <= 0.60) return { label: "Elevated pressure",           color: A };
-  if (lpi <= 0.85) return { label: "Critical pressure",           color: R };
-  return                   { label: "Systemic threshold breached", color: R };
+function cmcrLabel(lpi: number): { label: string; color: string } {
+  if (lpi < 0.40)  return { label: "Contagion risk contained.",                                             color: G };
+  if (lpi <= 0.60) return { label: "Moderate contagion pressure building.",                                color: A };
+  if (lpi <= 0.80) return { label: "Elevated contagion risk. Monitor closely.",                            color: A };
+  return                   { label: "Systemic contagion threshold at risk. Intervention window narrowing.", color: R };
 }
 
 function computeEfi(a: TsleAggregate): number {
@@ -256,7 +256,8 @@ export default function IntegrityPage() {
   const [fundHist, setFundHist]   = useState<Record<string, any>[]>([]);
   const [fundVenues, setFundVenues] = useState<string[]>([]);
 
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timerRef   = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lpiHistRef = useRef<number[]>([]);
 
   const fetchData = useCallback(async (sym: string) => {
     const t0 = performance.now();
@@ -300,6 +301,12 @@ export default function IntegrityPage() {
         efiHistRef.current = next;
         setEfiHist([...next]);
 
+        // LPI ring buffer for CMCR delta (max 180 pts ≈ 15 min at 5 s)
+        const lpiPt = Math.max(0, Math.min(1,
+          1 - (a.l5f_depth_quality * 0.35 + a.l5f_exec_integrity * 0.35 + a.l5f_regime_stability * 0.30) / 100
+        ));
+        lpiHistRef.current = [...lpiHistRef.current.slice(-179), lpiPt];
+
         // Venue heatmap history (last 6 snapshots)
         if (a.venue_slices?.length) {
           const vh = [...vhRef.current.slice(-5), a.venue_slices];
@@ -336,6 +343,7 @@ export default function IntegrityPage() {
     efiHistRef.current = [];
     vhRef.current = [];
     fundHistRef.current = [];
+    lpiHistRef.current = [];
     setEfiHist([]);
     setVenueHist([]);
     setFundHist([]);
@@ -416,11 +424,17 @@ export default function IntegrityPage() {
   const currentEfiSt = currentEfi != null ? efiLabel(currentEfi) : null;
   const efiBuilding  = efiHist.length < 6;
 
-  // ── LPI ───────────────────────────────────────────────────────────────────
+  // ── LPI / CMCR ────────────────────────────────────────────────────────────
   const lpi   = agg != null ? Math.max(0, Math.min(1,
     1 - (agg.l5f_depth_quality * 0.35 + agg.l5f_exec_integrity * 0.35 + agg.l5f_regime_stability * 0.30) / 100
   )) : null;
-  const lpiSt = lpi != null ? lpiLabel(lpi) : null;
+  const lpiSt = lpi != null ? cmcrLabel(lpi) : null;
+  // Delta vs oldest retained sample (up to 15 min back at 5 s cadence)
+  const lpiDelta = (() => {
+    const h = lpiHistRef.current;
+    if (h.length < 2 || lpi == null) return null;
+    return lpi - h[0];
+  })();
 
   // ── Venue table (all venues including Curve) ──────────────────────────────
   const venues = agg?.venue_slices ?? [];
@@ -748,11 +762,6 @@ export default function IntegrityPage() {
                 </div>
               }
             />
-            {efiBuilding && (
-              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, marginBottom: 6, letterSpacing: "0.06em" }}>
-                BUILDING HISTORY…
-              </div>
-            )}
             <div style={{ height: 140, background: HDR, borderRadius: 2 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={efiHist} margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
@@ -765,19 +774,22 @@ export default function IntegrityPage() {
                   />
                   <YAxis
                     domain={[0, 1]}
+                    ticks={[0, 0.25, 0.50, 0.75, 1.00]}
                     tick={{ fontFamily: "var(--tilt-mono)", fontSize: 8, fill: MUTED }}
                     tickLine={false}
                     axisLine={false}
-                    width={28}
+                    width={32}
                     tickFormatter={(v: number) => v.toFixed(2)}
                   />
-                  <ReferenceLine y={0.80} stroke={BORDER} strokeDasharray="3 3" />
-                  <ReferenceLine y={0.50} stroke={BORDER} strokeDasharray="3 3" />
+                  <ReferenceLine y={0.75} stroke={BORDER} strokeDasharray="2 4" strokeOpacity={0.4} />
+                  <ReferenceLine y={0.50} stroke={BORDER} strokeDasharray="2 4" strokeOpacity={0.4} />
+                  <ReferenceLine y={0.25} stroke={BORDER} strokeDasharray="2 4" strokeOpacity={0.4} />
+                  <ReferenceLine y={0.40} stroke={A} strokeDasharray="4 4" strokeWidth={1.5} />
                   <Tooltip content={<EfiTooltip />} />
                   <Line
                     type="monotone"
                     dataKey="efi"
-                    stroke={currentEfi != null && currentEfi < 0.40 ? R : T}
+                    stroke={currentEfi != null && currentEfi < 0.40 ? R : TEXT}
                     strokeWidth={1.5}
                     dot={false}
                     isAnimationActive={false}
@@ -785,6 +797,11 @@ export default function IntegrityPage() {
                 </LineChart>
               </ResponsiveContainer>
             </div>
+            {efiBuilding && (
+              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, marginTop: 6, letterSpacing: "0.06em" }}>
+                BUILDING HISTORY… ({efiHist.length} pts)
+              </div>
+            )}
           </div>
 
           {/* ── Right: Funding Rate Basis Divergence ── */}
@@ -831,6 +848,7 @@ export default function IntegrityPage() {
                     itemStyle={{ fontFamily: "var(--tilt-mono)", fontSize: 10 }}
                     formatter={(value: any, name: string) => [`${(value as number).toFixed(4)}%`, name]}
                   />
+                  <ReferenceLine y={0} stroke={MUTED} strokeDasharray="3 3" strokeOpacity={0.6} />
                   {fundVenues.map((vName) => (
                     <Line
                       key={vName}
@@ -932,25 +950,6 @@ export default function IntegrityPage() {
               </>
             )}
 
-            {/* Liquidation Pressure Index */}
-            <div style={{
-              background: lpiSt ? `${lpiSt.color}0d` : "transparent",
-              border: `1px solid ${lpiSt ? `${lpiSt.color}25` : BORDER}`,
-              borderRadius: 2, padding: "10px 14px",
-            }}>
-              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>
-                Liquidation Pressure Index
-              </div>
-              <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 4 }}>
-                <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 28, fontWeight: 700, color: lpiSt?.color ?? SUB }}>
-                  {lpi != null ? lpi.toFixed(2) : "—"}
-                </span>
-                <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 16, color: MUTED }}>/ 1.00</span>
-              </div>
-              <div style={{ fontFamily: "var(--tilt-sans)", fontSize: 11, color: SUB }}>
-                {lpiSt?.label ?? "Awaiting data"}
-              </div>
-            </div>
           </div>
 
           {/* Right: Venue Depth & Spread Monitor (all venues) */}
@@ -986,6 +985,36 @@ export default function IntegrityPage() {
                   </div>,
                 ];
               })}
+            </div>
+
+            {/* Cross-Margin Contagion Risk */}
+            <div style={{
+              marginTop: 12,
+              background: lpiSt ? `${lpiSt.color}0d` : HDR,
+              border: `1px solid ${lpiSt ? `${lpiSt.color}30` : BORDER}`,
+              borderRadius: 2, padding: "12px 14px",
+            }} data-testid="integrity-cmcr">
+              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>
+                Cross-Margin Contagion Risk
+              </div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 4 }}>
+                <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 28, fontWeight: 700, color: lpiSt?.color ?? SUB }}>
+                  {lpi != null ? lpi.toFixed(2) : "—"}
+                </span>
+                <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 16, color: MUTED }}>/ 1.00</span>
+                {lpiDelta != null && (
+                  <span style={{
+                    fontFamily: "var(--tilt-mono)", fontSize: 13, fontWeight: 700,
+                    color: lpiDelta > 0.001 ? R : lpiDelta < -0.001 ? T : SUB,
+                    marginLeft: 6,
+                  }}>
+                    {lpiDelta > 0 ? "+" : ""}{lpiDelta.toFixed(3)}
+                  </span>
+                )}
+              </div>
+              <div style={{ fontFamily: "var(--tilt-sans)", fontSize: 11, color: lpiSt?.color ?? SUB, lineHeight: 1.4 }}>
+                {lpiSt?.label ?? "Awaiting data"}
+              </div>
             </div>
           </div>
         </div>
