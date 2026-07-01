@@ -1,0 +1,98 @@
+# PoLi / PoMI Page — Move PoMI Coordination Panel Into Left Column
+
+## Priority
+DEMO-DAY FIX — needed before the 2 July ADGM pilot call.
+Incremental change only — do not re-run any earlier prompts.
+
+## Context
+The Cross-Venue Liquidity Stability panel currently has a large empty space
+below the Cross-Margin Contagion Risk box (bottom-left of the page). The
+PoMI — Market Integrity Coordination panel is currently sitting above the
+EFI / FRBD charts, separate from the rest of the PoMI content.
+
+The October 2025 reference layout shows the PoMI coordination panel tucked
+at the bottom of the left column, below the heatmap area — which is exactly
+where the empty space currently is. This change fills the gap, matches the
+reference, and groups all PoMI content together on the left side of the page.
+
+---
+
+## Change
+
+Move the PoMI — Market Integrity Coordination section out of its current
+position (above the EFI / FRBD charts) and place it inside the
+Cross-Venue Liquidity Stability panel, directly below the Cross-Margin
+Contagion Risk box.
+
+The left column should now read top to bottom:
+
+  [CROSS-VENUE LIQUIDITY STABILITY panel header]
+  [Heatmap grid — 13 venue squares, joined, no gaps]
+  [STABLE (N) | STRESSED (N) | CRITICAL (N) legend]
+  [CROSS-MARGIN CONTAGION RISK]
+  [value / 1.00   delta   qualitative label]
+  [PoMI — MARKET INTEGRITY COORDINATION]
+  [Coordinated Stabilisation Telemetry label]
+  [THRESHOLD DEFINITION | THROTTLE ACTIVATION | VENUE SYNCHRONISATION]
+  [status label + value + progress bar for each]
+
+The right column (Venue Depth & Spread Monitor table) sits alongside this
+entire left column and extends to match its full height.
+
+---
+
+## Styling — PoMI Coordination Section (match October 2025 reference)
+
+The October 2025 reference shows the coordination panel as a compact
+three-column row:
+
+- Each of the three sub-indicators (Threshold Definition, Throttle
+  Activation, Venue Synchronisation) occupies one third of the width
+- Status label in the appropriate colour:
+    AMBER (#FFB300) for WEAKENING, DELAYED, MINOR LATENCY, MINOR DRIFT
+    RED (#FF5252) for TRIGGERED, BREACHED, FRAGMENTING
+    GREEN (#00E676) for COORDINATED, STANDBY (at full capacity), STABLE
+- Numeric value right-aligned in the same colour as the status label
+- Progress bar beneath the label, same colour, proportional to the value
+  (0–100 scale)
+- Section background: same dark panel background as the rest of the left
+  column (#0F151F)
+- No additional border or card wrapper — flows naturally as part of the
+  containing panel
+
+The current live values (WEAKENING 75, STANDBY 91, MINOR DRIFT 65) are
+live data and will differ from the October 2025 reference values
+(WEAKENING 76, DELAYED 69, MINOR LATENCY 67). That is correct and
+expected — values are live, layout and styling match the reference.
+
+---
+
+## What to remove / clean up
+- Remove the PoMI — Market Integrity Coordination section from its current
+  position above the EFI / FRBD charts. That row should now be empty,
+  allowing the EFI / FRBD charts to sit directly below the PoLi / PoMI
+  score cards with no intervening panel.
+- The page section order from top to bottom should now be:
+    1. Systemic Monitoring banner
+    2. EWDS indicator row
+    3. PoLi score card | PoMI score card
+    4. EFI chart (left 50%) | FRBD chart (right 50%)
+    5. Cross-Venue Liquidity Stability (left) | Venue Depth & Spread (right)
+       — left panel contains: heatmap → legend → contagion risk →
+         PoMI coordination
+       — right panel contains: venue table (full height)
+
+---
+
+## Verification
+1. Open PoLi / PoMI tab and confirm no empty space remains below the
+   Cross-Margin Contagion Risk box.
+2. Confirm the PoMI coordination three-column row (Threshold / Throttle /
+   Venue Sync) appears immediately below the Contagion Risk panel inside
+   the left column.
+3. Confirm the PoMI coordination section no longer appears above the EFI
+   chart.
+4. Confirm EFI and FRBD charts sit directly below the PoLi / PoMI score
+   cards with no intervening panel.
+5. Compare layout against the October 2025 reference image — overall page
+   structure should be visually consistent.

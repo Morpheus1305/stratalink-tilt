@@ -693,55 +693,6 @@ export default function IntegrityPage() {
 
         </div>
 
-        {/* ── PoMI COORDINATION FRAMEWORK ─────────────────────────────────── */}
-        <div style={{ background: PANEL, padding: "14px 16px", borderTop: `1px solid ${BORDER}` }} data-testid="integrity-pomi-coord">
-          <SectionHeader
-            title="PoMI — Market Integrity Coordination"
-            right={
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em" }}>
-                  PoMI
-                </span>
-                <ScoreRing score={pomiScore} color={pomiColor} size={36} />
-                <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 14, fontWeight: 700, color: TEXT }}>
-                  {pomiRat ?? "—"}
-                </span>
-              </div>
-            }
-          />
-          <div style={{ fontFamily: "var(--tilt-sans)", fontSize: 11, color: MUTED, marginBottom: 12 }}>
-            Coordinated Stabilisation Telemetry
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 1, background: BORDER }}>
-            {[
-              { pillar: "THRESHOLD DEFINITION", label: thresholdLabel, score: thresholdScore, rag: thresholdRag as Rag },
-              { pillar: "THROTTLE ACTIVATION",  label: throttleLabel,  score: throttleScore,  rag: throttleRag  as Rag },
-              { pillar: "VENUE SYNCHRONISATION",label: venueSyncLabel, score: venueSyncScore, rag: venueSyncRag  as Rag },
-            ].map(p => {
-              const c = ragColor(p.rag);
-              return (
-                <div key={p.pillar} style={{ background: PANEL, padding: "14px 16px" }}>
-                  <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 6 }}>
-                    {p.pillar}
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
-                    <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 12, fontWeight: 700, color: c }}>{p.label}</span>
-                    <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 14, fontWeight: 700, color: c }}>{p.score}</span>
-                  </div>
-                  <div style={{ height: 3, background: BORDER, borderRadius: 1, marginBottom: 6 }}>
-                    <div style={{ height: "100%", width: `${p.score}%`, background: c, borderRadius: 1, transition: "width 1s ease" }} />
-                  </div>
-                  <div style={{ display: "flex", gap: 3 }}>
-                    {Array.from({ length: 10 }, (_, i) => (
-                      <div key={i} style={{ width: 4, height: 4, borderRadius: "50%", background: i < Math.round(p.score / 10) ? c : BORDER }} />
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
         {/* ── ROW 3: EFI + FRBD SIDE BY SIDE ──────────────────────────────── */}
         <div style={{ display: "flex", gap: 1, background: BORDER, borderTop: `1px solid ${BORDER}` }} data-testid="integrity-efi-frbd">
 
@@ -903,8 +854,8 @@ export default function IntegrityPage() {
                 }}>
                   {venues.map(v => {
                     const stability = v.stability_score;
-                    const isStable   = stability >= 70;
-                    const isStressed = stability >= 40 && stability < 70;
+                    const isStable   = stability >= 70 && v.depth_10bps > 0;
+                    const isStressed = stability >= 40 && stability < 70 && v.depth_10bps > 0;
                     const sqBg = isStable   ? "rgba(0,230,118,0.82)"
                                : isStressed ? "rgba(255,179,0,0.82)"
                                :              "rgba(255,82,82,0.82)";
@@ -975,6 +926,51 @@ export default function IntegrityPage() {
                   </div>
                   <div style={{ fontFamily: "var(--tilt-sans)", fontSize: 11, color: lpiSt?.color ?? SUB, lineHeight: 1.4, marginTop: 4 }}>
                     {lpiSt?.label ?? "Awaiting data"}
+                  </div>
+                </div>
+                {/* PoMI — Market Integrity Coordination — tucked below CMCR */}
+                <div style={{ marginTop: 12 }} data-testid="integrity-pomi-coord">
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                    <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                      PoMI — Market Integrity Coordination
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <ScoreRing score={pomiScore} color={pomiColor} size={28} />
+                      <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, fontWeight: 700, color: TEXT }}>
+                        {pomiRat ?? "—"}
+                      </span>
+                    </div>
+                  </div>
+                  <div style={{ fontFamily: "var(--tilt-sans)", fontSize: 10, color: MUTED, marginBottom: 8 }}>
+                    Coordinated Stabilisation Telemetry
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 1, background: BORDER }}>
+                    {[
+                      { pillar: "THRESHOLD DEFINITION", label: thresholdLabel, score: thresholdScore, rag: thresholdRag as Rag },
+                      { pillar: "THROTTLE ACTIVATION",  label: throttleLabel,  score: throttleScore,  rag: throttleRag  as Rag },
+                      { pillar: "VENUE SYNCHRONISATION",label: venueSyncLabel, score: venueSyncScore, rag: venueSyncRag  as Rag },
+                    ].map(p => {
+                      const c = ragColor(p.rag);
+                      return (
+                        <div key={p.pillar} style={{ background: PANEL, padding: "10px 12px" }}>
+                          <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 5 }}>
+                            {p.pillar}
+                          </div>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+                            <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, fontWeight: 700, color: c }}>{p.label}</span>
+                            <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 12, fontWeight: 700, color: c }}>{p.score}</span>
+                          </div>
+                          <div style={{ height: 3, background: BORDER, borderRadius: 1, marginBottom: 5 }}>
+                            <div style={{ height: "100%", width: `${p.score}%`, background: c, borderRadius: 1, transition: "width 1s ease" }} />
+                          </div>
+                          <div style={{ display: "flex", gap: 3 }}>
+                            {Array.from({ length: 10 }, (_, i) => (
+                              <div key={i} style={{ width: 4, height: 4, borderRadius: "50%", background: i < Math.round(p.score / 10) ? c : BORDER }} />
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </>
