@@ -890,21 +890,24 @@ export default function IntegrityPage() {
               </div>
             ) : (
               <>
-                {/* Venue square grid — 7 columns */}
+                {/* Venue square grid — 7 columns, continuous joined surface */}
                 <div style={{
                   display: "grid",
                   gridTemplateColumns: "repeat(7, 1fr)",
-                  gap: 6,
+                  gap: 1,
+                  background: BORDER,
+                  border: `1px solid ${BORDER}`,
+                  borderRadius: 2,
+                  overflow: "hidden",
                   marginBottom: 12,
                 }}>
                   {venues.map(v => {
                     const stability = v.stability_score;
                     const isStable   = stability >= 70;
                     const isStressed = stability >= 40 && stability < 70;
-                    const sqColor    = isStable ? G : isStressed ? A : R;
-                    const sqBg       = isStable ? "rgba(0,230,118,0.10)"
-                                     : isStressed ? "rgba(255,179,0,0.10)"
-                                     : "rgba(255,82,82,0.10)";
+                    const sqBg = isStable   ? "rgba(0,230,118,0.82)"
+                               : isStressed ? "rgba(255,179,0,0.82)"
+                               :              "rgba(255,82,82,0.82)";
                     const ticker = VENUE_TICKER[v.venue_id] ?? v.venue_id.toUpperCase().slice(0, 3);
                     return (
                       <div
@@ -912,19 +915,17 @@ export default function IntegrityPage() {
                         title={`${v.venue_id}: stability ${stability.toFixed(0)} · spread ${v.spread_bps.toFixed(1)}bps`}
                         style={{
                           background: sqBg,
-                          border: `2px solid ${sqColor}`,
-                          borderRadius: 2,
-                          padding: "8px 4px",
+                          padding: "10px 4px",
                           display: "flex",
                           flexDirection: "column",
                           alignItems: "center",
-                          gap: 4,
+                          gap: 3,
                         }}
                       >
-                        <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, fontWeight: 700, color: sqColor, letterSpacing: "0.06em" }}>
+                        <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, fontWeight: 700, color: "#0B1019", letterSpacing: "0.06em" }}>
                           {ticker}
                         </span>
-                        <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 8, color: MUTED }}>
+                        <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 8, color: "rgba(11,16,25,0.65)" }}>
                           {stability.toFixed(0)}
                         </span>
                       </div>
@@ -946,6 +947,35 @@ export default function IntegrityPage() {
                       </span>
                     </div>
                   ))}
+                </div>
+
+                {/* Cross-Margin Contagion Risk — inside stability panel */}
+                <div style={{
+                  background: lpiSt ? `${lpiSt.color}0d` : HDR,
+                  border: `1px solid ${lpiSt ? `${lpiSt.color}30` : BORDER}`,
+                  borderRadius: 2, padding: "12px 14px",
+                }} data-testid="integrity-cmcr">
+                  <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>
+                    Cross-Margin Contagion Risk
+                  </div>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                    <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 28, fontWeight: 700, color: lpiSt?.color ?? SUB }}>
+                      {lpi != null ? lpi.toFixed(2) : "—"}
+                    </span>
+                    <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 28, fontWeight: 400, color: MUTED }}>/ 1.00</span>
+                    {lpiDelta != null && (
+                      <span style={{
+                        fontFamily: "var(--tilt-mono)", fontSize: 22, fontWeight: 700,
+                        color: lpiDelta > 0.001 ? R : lpiDelta < -0.001 ? T : SUB,
+                        marginLeft: 8,
+                      }}>
+                        {lpiDelta > 0 ? "+" : ""}{lpiDelta.toFixed(3)}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontFamily: "var(--tilt-sans)", fontSize: 11, color: lpiSt?.color ?? SUB, lineHeight: 1.4, marginTop: 4 }}>
+                    {lpiSt?.label ?? "Awaiting data"}
+                  </div>
                 </div>
               </>
             )}
@@ -987,35 +1017,6 @@ export default function IntegrityPage() {
               })}
             </div>
 
-            {/* Cross-Margin Contagion Risk */}
-            <div style={{
-              marginTop: 12,
-              background: lpiSt ? `${lpiSt.color}0d` : HDR,
-              border: `1px solid ${lpiSt ? `${lpiSt.color}30` : BORDER}`,
-              borderRadius: 2, padding: "12px 14px",
-            }} data-testid="integrity-cmcr">
-              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>
-                Cross-Margin Contagion Risk
-              </div>
-              <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 4 }}>
-                <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 28, fontWeight: 700, color: lpiSt?.color ?? SUB }}>
-                  {lpi != null ? lpi.toFixed(2) : "—"}
-                </span>
-                <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 16, color: MUTED }}>/ 1.00</span>
-                {lpiDelta != null && (
-                  <span style={{
-                    fontFamily: "var(--tilt-mono)", fontSize: 13, fontWeight: 700,
-                    color: lpiDelta > 0.001 ? R : lpiDelta < -0.001 ? T : SUB,
-                    marginLeft: 6,
-                  }}>
-                    {lpiDelta > 0 ? "+" : ""}{lpiDelta.toFixed(3)}
-                  </span>
-                )}
-              </div>
-              <div style={{ fontFamily: "var(--tilt-sans)", fontSize: 11, color: lpiSt?.color ?? SUB, lineHeight: 1.4 }}>
-                {lpiSt?.label ?? "Awaiting data"}
-              </div>
-            </div>
           </div>
         </div>
 

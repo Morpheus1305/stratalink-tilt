@@ -1,0 +1,102 @@
+# PoLi / PoMI Page — Three Targeted Refinements
+
+## Priority
+DEMO-DAY FIX — needed before the 2 July ADGM pilot call. These are
+incremental refinements on top of the layout changes already applied.
+Do not re-run the full layout prompt — apply these three changes only.
+
+---
+
+## Fix 1: Move Cross-Margin Contagion Risk Into the Cross-Venue Liquidity Stability Panel
+
+### Current state
+The Cross-Margin Contagion Risk panel sits as a standalone section below
+the Venue Depth & Spread Monitor, outside the Cross-Venue Liquidity
+Stability panel. This leaves the Cross-Venue Liquidity Stability section
+visually bare — just the heatmap grid and the STABLE/STRESSED/CRITICAL
+legend with empty space beneath.
+
+### Required change
+Move the Cross-Margin Contagion Risk display back inside the Cross-Venue
+Liquidity Stability panel, positioned directly below the
+STABLE / STRESSED / CRITICAL legend. The panel should read top to bottom:
+
+  [Heatmap grid of venue squares]
+  [STABLE (N) | STRESSED (N) | CRITICAL (N) legend]
+  [CROSS-MARGIN CONTAGION RISK]
+  [value / 1.00   delta   qualitative label]
+
+The Venue Depth & Spread Monitor column (right side) should then extend
+to fill the full height of the row without a separate contagion panel
+below it — the contagion risk sits on the left, inside the stability
+panel.
+
+---
+
+## Fix 2: Normalise Font Size — Contagion Risk Value
+
+### Current state
+The numerator value (e.g. "0.39") renders at a very large font size
+relative to the denominator ("/ 1.00") and delta ("-0.001"), making them
+feel like separate elements rather than one reading.
+
+### Required change
+Render the full expression "0.39 / 1.00" at a uniform font size — both
+the numerator and denominator at the same scale, on the same baseline.
+The delta ("-0.001" or "+0.69") should follow immediately after on the
+same line, slightly smaller (around 80% of the value font size) in the
+appropriate colour (red for positive delta = worsening, teal for negative
+delta = improving).
+
+Suggested sizing: value pair at 28–32px (JetBrains Mono), delta at
+22–24px. This matches the weight and scale of other key metric values on
+the page (e.g. the EFI value "0.553").
+
+The qualitative label ("Contagion risk contained.") remains below in
+the standard secondary text style.
+
+---
+
+## Fix 3: Join Heatmap Squares Into a Continuous Grid
+
+### Current state
+Each venue square has its own individual border and margin, making the
+heatmap appear as a set of 12 separate boxes with visible gaps between
+them.
+
+### Required change
+Remove all gaps and margins between squares so the grid reads as a single
+joined map — one continuous surface with thin internal dividers between
+cells, not individual floating boxes.
+
+Specifically:
+- Set gap / grid-gap to 0 between cells
+- Keep a single 1px internal divider line in #1A2435 between adjacent
+  cells (use border on cells rather than gap, so cells share borders)
+- The outer boundary of the entire grid should have a single 1px border
+  in #1A2435
+- Each cell still shows its venue ticker label (short name) centred
+  inside the coloured cell
+- Cell background colours remain: GREEN (#00E676) = stable,
+  AMBER (#FFB300) = stressed, RED (#FF5252) = critical — but reduce
+  the colour opacity slightly (try 0.75–0.85 opacity) so the ticker
+  labels inside each cell remain legible against the fill colour
+
+The result should look like a continuous liquidity heat map — a single
+visual surface broken into venue-labelled zones — rather than a
+collection of individual tiles.
+
+---
+
+## Verification
+1. Open PoLi / PoMI tab and confirm the Cross-Venue Liquidity Stability
+   panel contains: heatmap grid → legend → Cross-Margin Contagion Risk
+   value → qualitative label, all within one panel boundary.
+2. Confirm the Venue Depth & Spread Monitor sits to the right of the
+   stability panel and extends to the full height of the row without a
+   separate contagion panel below it.
+3. Confirm the contagion risk value pair ("0.39 / 1.00") renders at a
+   uniform font size with the delta immediately following.
+4. Confirm the heatmap shows no visible gaps between cells — the grid
+   reads as a single joined surface with thin internal dividers only.
+5. Confirm venue ticker labels remain legible inside each coloured cell.
