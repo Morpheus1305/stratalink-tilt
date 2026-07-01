@@ -1,0 +1,70 @@
+# Fix: L5F Composite Score — Three Different Values Across Panels
+
+## Priority
+MAJOR — must be fixed before the 2 July ADGM demo. The L5F composite is
+the headline score of the platform. Showing three different values for the
+same asset at the same moment undermines the core credibility of the
+liquidity verification claim.
+
+## Observed Bug
+For BTC at approximately 16:19–16:24 UTC, three distinct L5F composite
+values are visible across the platform simultaneously:
+- LIQUIDITY tab — L5F ring and composite label: 49.5
+- ALERTS tab — "LSF COMPOSITE" label in the Liquidity Intelligence panel
+  (Panel 1): 48.7
+- ALERTS tab — "Composite PoLi" row in Real-Time Risk Indicators table:
+  47.7 (same tab, same screen, same moment)
+
+A single score that is simultaneously 47.7, 48.7, and 49.5 means three
+separate computation paths are diverging. On a platform whose core value
+proposition is that it tells you whether a liquidity figure is true, three
+different answers to the same question is a critical problem.
+
+## Likely Root Cause
+Three separate code paths are all independently computing or retrieving the
+L5F composite, each introducing a slightly different lag or snapshot window:
+1. The LIQUIDITY tab reads from the primary L5F snapshot endpoint (e.g.
+   GET /api/analytics/l5f/snapshot/:symbol), polled every 5 seconds.
+2. The ALERTS Liquidity Intelligence panel likely reads from a separate
+   alerts-focused aggregation endpoint that computes or caches L5F
+   independently, potentially with a longer cache TTL.
+3. The ALERTS Real-Time Risk Indicators table "Composite PoLi" row likely
+   reads from yet another source — possibly the PoLi scoring engine
+   (server/services/poliEngine.ts) directly, which may update on a
+   different cycle from the L5F snapshot.
+
+Even if these all eventually converge, having them visibly different at the
+moment of polling is unacceptable for a demo.
+
+## Fix Instructions
+1. Establish a single canonical source for the L5F composite score. The
+   primary L5F snapshot endpoint (GET /api/analytics/l5f/snapshot/:symbol
+   or equivalent) should be the single authority.
+2. Wherever the ALERTS page currently reads an L5F or "Composite PoLi"
+   value — in the Liquidity Intelligence panel header AND in the Real-Time
+   Risk Indicators table — update both to read from the same canonical
+   source as the LIQUIDITY tab, not from a separate calculation or cache.
+3. The PoLi score and the L5F composite are distinct metrics and should be
+   labelled distinctly. If "Composite PoLi" in the Risk Indicators table is
+   intended to be the PoLi score (not the L5F composite), ensure it is
+   clearly labelled as PoLi (not LSF/L5F) and reads from
+   server/services/poliEngine.ts consistently. Do not mix the two labels.
+4. Ensure the poll cadence is the same across all panels displaying this
+   value (5 seconds everywhere, matching the LIQUIDITY tab) so that
+   snapshot lag cannot produce visible divergence during a walkthrough.
+5. After the fix, all three locations should display the same value within
+   a single poll cycle's tolerance (i.e. they may differ by one cycle's
+   worth of movement but should never show three simultaneous static
+   differences of 1–2 points each).
+
+## Verification
+- Open the LIQUIDITY tab and the ALERTS tab in two browser windows side
+  by side and compare the L5F composite and LSF Composite values across
+  all three display locations simultaneously.
+- Confirm the ALERTS tab Liquidity Intelligence panel, the Real-Time Risk
+  Indicators "Composite PoLi" row, and the LIQUIDITY tab L5F ring all show
+  the same value within one poll cycle.
+- Confirm that if BTC composite is labelled "L5F" in one place and
+  "Composite PoLi" in another, the labels are explained as distinct metrics
+  (if they genuinely are) rather than appearing to be the same thing with
+  different numbers.

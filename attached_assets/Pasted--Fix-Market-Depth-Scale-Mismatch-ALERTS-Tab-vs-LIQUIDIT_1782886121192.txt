@@ -1,0 +1,49 @@
+# Fix: Market Depth Scale Mismatch — ALERTS Tab vs LIQUIDITY Tab
+
+## Priority
+MAJOR — must be fixed before the 2 July ADGM demo. A 700x discrepancy in
+the same metric for the same asset across two tabs is immediately visible to
+any technical audience.
+
+## Observed Bug
+For BTC, at approximately the same timestamp:
+- ALERTS tab header: "MARKET DEPTH $0.2M"
+- LIQUIDITY tab header: "TOTAL DEPTH +/-10BPS $158m"
+
+These should represent the same underlying depth figure (or clearly be
+labelled as different metrics). A difference of 700x is not explained by
+any band-width difference between the two panels.
+
+## Likely Root Cause
+Two separate data sources or two separate band-width parameters are being
+used:
+- The LIQUIDITY tab shows depth aggregated at +/-10bps across all active
+  venues — this is the core L5F depth metric.
+- The ALERTS tab "Market Depth" figure is most likely pulling from a
+  narrower band (e.g. +/-1bps, top-of-book only, or a single-venue slice)
+  rather than the same +/-10bps composite used on the LIQUIDITY tab, OR it
+  is displaying the depth figure without converting units correctly (e.g.
+  storing in units of $M and displaying as $B accidentally, or vice versa).
+
+## Fix Instructions
+1. Locate the ALERTS page component and find where "MARKET DEPTH" in the
+   header metrics row is sourced (the API call and field name it reads from).
+2. Locate the LIQUIDITY page component and confirm the API call and field
+   name behind "TOTAL DEPTH +/-10BPS".
+3. Confirm both are requesting depth at the same band width (+/-10bps) and
+   reading the same field from the same endpoint. If the ALERTS tab is using
+   a different band or a different endpoint, update it to use the same source
+   as the LIQUIDITY tab.
+4. Confirm the unit conversion is consistent between both tabs (both should
+   display in $M or both in $B with matching formatting — do not mix units).
+5. If the ALERTS page intentionally shows a different depth concept (e.g.
+   top-of-book depth rather than +/-10bps), relabel the field explicitly
+   ("TOP-OF-BOOK DEPTH" or similar) so that it does not appear to be the
+   same metric as the LIQUIDITY tab's total depth figure.
+
+## Verification
+- Load BTC on both the LIQUIDITY tab and the ALERTS tab within the same
+  5-second poll cycle and confirm the depth figures are either identical
+  (same metric, same band) or clearly labelled as distinct metrics.
+- Repeat for at least one other ILU-20 asset (e.g. ETH) to confirm the
+  fix is not BTC-specific.

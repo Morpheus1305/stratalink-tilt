@@ -9,7 +9,7 @@ interface CacheEntry {
 }
 
 const cache = new Map<string, CacheEntry>();
-const CACHE_TTL_MS = 1_000;
+const CACHE_TTL_MS = 4_000;
 
 function getCached(symbol: string): TsleAggregate | null {
   const entry = cache.get(symbol);

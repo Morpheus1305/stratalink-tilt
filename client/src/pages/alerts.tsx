@@ -325,14 +325,14 @@ export default function Alerts() {
     const concSeverity: string = cexPct > 80 ? "warning" : cexPct > 65 ? "info" : "success";
     const concDesc = `${cexPct}% of ${asset} volume is on centralised exchanges (DEX: ${dexPct}%). ${cexPct > 80 ? "High CEX concentration — single-venue failure risk elevated." : cexPct > 65 ? "Moderate CEX dominance. DEX share sufficient for resilience." : "Well-balanced CEX/DEX distribution — liquidity fragmentation risk low."}`;
 
-    // --- Signal 3: Market Depth ---
-    const depthMetric = dashboardData.liveMetrics.find(m => m.label === "MARKET DEPTH");
-    const depthRaw = String(depthMetric?.value ?? "");
-    const depthNum = parseFloat(depthRaw.replace(/[^0-9.]/g, "")) || 0;
+    // --- Signal 3: Market Depth (10bps composite from L5F) ---
+    const depthRawM = l5fAgg ? l5fAgg.total_depth_10bps / 1_000_000 : null;
+    const depthRaw = depthRawM != null ? `$${depthRawM.toFixed(0)}M` : "";
+    const depthNum = depthRawM ?? 0;
     const dqScore = l5fAgg?.l5f_depth_quality ?? null;
     const depthSeverity: string = depthNum > 20 || (dqScore != null && dqScore >= 70) ? "success" : depthNum > 8 || (dqScore != null && dqScore >= 45) ? "info" : "warning";
     const depthDesc = depthRaw
-      ? `Market depth at ${depthRaw} (25bps bands). ${dqScore != null ? `L5F Depth Quality score: ${dqScore.toFixed(1)}/100. ` : ""}${depthSeverity === "success" ? "Adequate two-sided liquidity supports large institutional flows." : depthSeverity === "info" ? "Depth adequate for standard trades; large blocks may face slippage." : "Thin depth — large orders risk significant market impact."}`
+      ? `Market depth ${depthRaw} at +/−10bps across all active venues. ${dqScore != null ? `L5F Depth Quality score: ${dqScore.toFixed(1)}/100. ` : ""}${depthSeverity === "success" ? "Adequate two-sided liquidity supports large institutional flows." : depthSeverity === "info" ? "Depth adequate for standard trades; large blocks may face slippage." : "Thin depth — large orders risk significant market impact."}`
       : "Depth data loading…";
 
     // --- Signal 4: CEX/DEX Balance ---
@@ -416,9 +416,9 @@ export default function Alerts() {
         {/* ── TOPBAR: metrics ──────────────────────────────────────────────── */}
         <div className="tilt-topbar" data-testid="alerts-topbar">
           <div className="tilt-tb-item">
-            <div className="tilt-tb-label">Market Depth</div>
+            <div className="tilt-tb-label">Depth +/−10bps</div>
             <div className="tilt-tb-value tilt-tb-depth" data-testid="alerts-tb-depth">
-              {dashboardData.liveMetrics.find((m) => m.label === "MARKET DEPTH")?.value ?? "—"}
+              {l5fAgg ? `$${(l5fAgg.total_depth_10bps / 1_000_000).toFixed(0)}M` : "—"}
             </div>
           </div>
           <div className="tilt-tb-divider" />
