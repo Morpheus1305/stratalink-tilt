@@ -15,14 +15,16 @@ const INSTRUMENT_MAP: Record<string, Record<string, string>> = {
     // Reserve
     BTC:  "BTC-USDT",
     ETH:  "ETH-USDT",
-    // Stablecoin (DAI only — USDT/USDC are the quote currencies)
+    // Stablecoin (DAI/USDE — USDT/USDC are quote currencies)
     DAI:  "DAI-USDT",
+    USDE: "USDE-USDT",
     // Exchange & Trading Infrastructure
     BNB:  "BNB-USDT",
     CRO:  "CRO-USDT",
     OKB:  "OKB-USDT",
     UNI:  "UNI-USDT",
     CAKE: "CAKE-USDT",
+    TON:  "TON-USDT",
     // Financial Infrastructure
     LINK: "LINK-USDT",
     AAVE: "AAVE-USDT",
@@ -56,6 +58,7 @@ const INSTRUMENT_MAP: Record<string, Record<string, string>> = {
     DOGE: "DOGE-USDT-SWAP",
     ADA:  "ADA-USDT-SWAP",
     AVAX: "AVAX-USDT-SWAP",
+    TON:  "TON-USDT-SWAP",
     DOT:  "DOT-USDT-SWAP",
     NEAR: "NEAR-USDT-SWAP",
   },

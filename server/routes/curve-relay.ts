@@ -6,6 +6,7 @@ const CURVE_API = "https://api.curve.fi/api";
 const TIMEOUT_MS = 5000;
 
 // 3pool address (USDC/USDT/DAI): 0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7
+// USDe/USDC stable-ng pool: 0x02950460E2b9529D0E00284A5fA2d7bDF3fA4d72
 const POOL_REGISTRY: Record<string, { address: string; api: string }> = {
   BTC:  { address: "0xd51a44d3fae010294c616388b506acda1bfaae46", api: `${CURVE_API}/getPools/ethereum/crypto` },
   ETH:  { address: "0xdc24316b9ae028f1497c275eb9192a3ea0f67022", api: `${CURVE_API}/getPools/ethereum/crypto` },
@@ -13,19 +14,23 @@ const POOL_REGISTRY: Record<string, { address: string; api: string }> = {
   USDC: { address: "0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7", api: `${CURVE_API}/getPools/ethereum/main`   },
   USDT: { address: "0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7", api: `${CURVE_API}/getPools/ethereum/main`   },
   DAI:  { address: "0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7", api: `${CURVE_API}/getPools/ethereum/main`   },
+  // extended — Ethena USDe/USDC stable-ng pool
+  USDE: { address: "0x02950460E2b9529D0E00284A5fA2d7bDF3fA4d72", api: `${CURVE_API}/getPools/ethereum/factory-stable-ng` },
 };
 
 const COINGECKO_IDS: Record<string, string> = {
   BTC: "bitcoin", ETH: "ethereum",
   USDC: "usd-coin", USDT: "tether", DAI: "dai",
+  USDE: "ethena-usde",
 };
 const HARDCODED_FALLBACK: Record<string, number> = {
   BTC: 65000, ETH: 1900,
-  USDC: 1.0, USDT: 1.0, DAI: 1.0,
+  USDC: 1.0, USDT: 1.0, DAI: 1.0, USDE: 1.0,
 };
 const FALLBACK_POOL_USD: Record<string, number> = {
   BTC: 180_000_000, ETH: 320_000_000,
   USDC: 250_000_000, USDT: 250_000_000, DAI: 250_000_000,
+  USDE: 150_000_000,
 };
 
 let refPriceCache: Record<string, { price: number; ts: number }> = {};
