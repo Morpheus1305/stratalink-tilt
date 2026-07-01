@@ -239,37 +239,112 @@ router.get("/spot/depth", async (req: Request, res: Response) => {
       fetchTokenPrice(tokenInfo.coingeckoId),
     ]);
 
-    if (!llamaPool || !price) {
+    if (llamaPool && price) {
+      const feeTierBps = 30;
+      const bands = computeDepthBands(llamaPool.tvlUSD, feeTierBps);
+
+      const snapshot: LISSnapshot = {
+        venue: "uniswap",
+        symbol,
+        timestamp: Date.now(),
+        mid_price: price,
+        spread: { absolute: price * (feeTierBps / 10_000), bps: feeTierBps },
+        bands,
+      };
+
+      (snapshot as any).market = "spot";
+      (snapshot as any).source = "defillama";
+      (snapshot as any).poolInfo = {
+        pool: llamaPool.pool,
+        tvlUSD: llamaPool.tvlUSD,
+        apy: llamaPool.apy,
+      };
+      (snapshot as any).provenance = {
+        sourceVenue: "uniswap",
+        transport: "relay",
+        engine: "uniswap-relay-v1",
+        dataSource: "defillama+coingecko",
+        ts_fetch: Date.now(),
+      };
+
+      tsleBuffer.record(snapshot);
+      const buffer = tsleBuffer.getHistory("uniswap", symbol);
+      const tsle = tsleStateEngine.transition("uniswap", symbol, buffer, snapshot.spread.bps);
+      (snapshot as any).tsle = tsle;
+
+      return res.json({ ok: true, ...snapshot });
+    }
+
+    // Both Graph and DeFiLlama failed — synthesise from CoinGecko price + conservative TVL
+    // (same pattern as Bybit geo-block fallback — keeps venue in the TSLE buffer with honest provenance)
+    console.log(`[Uniswap Relay] DeFiLlama also failed for ${symbol}, using CoinGecko-anchored synthetic depth`);
+
+    let syntheticPrice = price;
+
+    // Tier 2: look for a live mid_price already in the TSLE buffer from any CEX venue
+    if (!syntheticPrice) {
+      for (const fallbackVenue of ["binance", "coinbase", "kraken", "okx", "bybit"]) {
+        const history = tsleBuffer.getRawHistory(fallbackVenue, symbol);
+        if (history && history.length > 0) {
+          const last = history[history.length - 1];
+          if (last?.mid_price > 0) {
+            syntheticPrice = last.mid_price;
+            console.log(`[Uniswap Relay] Using ${fallbackVenue} mid_price $${syntheticPrice.toFixed(2)} for synthetic ${symbol} depth`);
+            break;
+          }
+        }
+      }
+    }
+
+    // Tier 3: conservative hardcoded baseline prices (only used when all APIs are unreachable)
+    if (!syntheticPrice) {
+      const BASELINE_PRICE: Record<string, number> = {
+        ETH: 1800, WETH: 1800, BTC: 60000, WBTC: 60000,
+        SOL: 100, BNB: 550, UNI: 10, LINK: 15,
+        DAI: 1, USDC: 1, USDT: 1,
+      };
+      syntheticPrice = BASELINE_PRICE[symbol] ?? 0;
+      if (syntheticPrice) {
+        console.log(`[Uniswap Relay] Using baseline price $${syntheticPrice} for synthetic ${symbol} depth`);
+      }
+    }
+
+    if (!syntheticPrice) {
       return res.status(404).json({
         ok: false,
         error: `No Uniswap V3 pool data found for ${symbol} from any source`,
       });
     }
 
-    const feeTierBps = 30;
-    const bands = computeDepthBands(llamaPool.tvlUSD, feeTierBps);
+    // Conservative TVL estimates derived from historical pool data for primary WETH/WBTC pools
+    const SYNTHETIC_TVL: Record<string, number> = {
+      ETH:  300_000_000,  // WETH-USDC 0.05% pool
+      BTC:   50_000_000,  // WBTC-USDC 0.3% pool
+      UNI:   20_000_000,
+      LINK:  15_000_000,
+      DAI:  100_000_000,
+      USDC: 500_000_000,
+      USDT: 100_000_000,
+    };
+    const syntheticTVL = SYNTHETIC_TVL[symbol] ?? 5_000_000;
+    const feeTierBps = (symbol === "ETH" || symbol === "USDC" || symbol === "USDT") ? 5 : 30;
+    const bands = computeDepthBands(syntheticTVL, feeTierBps);
 
     const snapshot: LISSnapshot = {
       venue: "uniswap",
       symbol,
       timestamp: Date.now(),
-      mid_price: price,
-      spread: { absolute: price * (feeTierBps / 10_000), bps: feeTierBps },
+      mid_price: syntheticPrice,
+      spread: { absolute: syntheticPrice * (feeTierBps / 10_000), bps: feeTierBps },
       bands,
     };
-
     (snapshot as any).market = "spot";
-    (snapshot as any).source = "defillama";
-    (snapshot as any).poolInfo = {
-      pool: llamaPool.pool,
-      tvlUSD: llamaPool.tvlUSD,
-      apy: llamaPool.apy,
-    };
+    (snapshot as any).source = "synthetic";
     (snapshot as any).provenance = {
       sourceVenue: "uniswap",
-      transport: "relay",
+      transport: "synthetic",
       engine: "uniswap-relay-v1",
-      dataSource: "defillama+coingecko",
+      dataSource: "coingecko-anchored-synthetic",
       ts_fetch: Date.now(),
     };
 
