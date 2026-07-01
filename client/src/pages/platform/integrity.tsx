@@ -930,7 +930,7 @@ export default function IntegrityPage() {
                 </div>
                 {/* PoMI — Market Integrity Coordination — tucked below CMCR */}
                 <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${BORDER}` }} data-testid="integrity-pomi-coord">
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 2 }}>
                     <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase" }}>
                       PoMI — Market Integrity Coordination
                     </div>
@@ -944,7 +944,7 @@ export default function IntegrityPage() {
                   <div style={{ fontFamily: "var(--tilt-sans)", fontSize: 10, color: MUTED, marginBottom: 8 }}>
                     Coordinated Stabilisation Telemetry
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 1, background: BORDER }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 1, background: HDR }}>
                     {[
                       { pillar: "THRESHOLD DEFINITION", label: thresholdLabel, score: thresholdScore, rag: thresholdRag as Rag },
                       { pillar: "THROTTLE ACTIVATION",  label: throttleLabel,  score: throttleScore,  rag: throttleRag  as Rag },
@@ -952,7 +952,7 @@ export default function IntegrityPage() {
                     ].map(p => {
                       const c = ragColor(p.rag);
                       return (
-                        <div key={p.pillar} style={{ background: PANEL, padding: "10px 12px" }}>
+                        <div key={p.pillar} style={{ background: BORDER, padding: "10px 12px" }}>
                           <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 5 }}>
                             {p.pillar}
                           </div>
