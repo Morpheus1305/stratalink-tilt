@@ -5,15 +5,28 @@ const router = Router();
 const CURVE_API = "https://api.curve.fi/api";
 const TIMEOUT_MS = 5000;
 
+// 3pool address (USDC/USDT/DAI): 0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7
 const POOL_REGISTRY: Record<string, { address: string; api: string }> = {
   BTC:  { address: "0xd51a44d3fae010294c616388b506acda1bfaae46", api: `${CURVE_API}/getPools/ethereum/crypto` },
   ETH:  { address: "0xdc24316b9ae028f1497c275eb9192a3ea0f67022", api: `${CURVE_API}/getPools/ethereum/crypto` },
+  // ILU-20 stablecoins — all live in Curve 3pool
   USDC: { address: "0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7", api: `${CURVE_API}/getPools/ethereum/main`   },
+  USDT: { address: "0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7", api: `${CURVE_API}/getPools/ethereum/main`   },
+  DAI:  { address: "0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7", api: `${CURVE_API}/getPools/ethereum/main`   },
 };
 
-const COINGECKO_IDS: Record<string, string> = { BTC: "bitcoin", ETH: "ethereum", USDC: "usd-coin" };
-const HARDCODED_FALLBACK: Record<string, number> = { BTC: 65000, ETH: 1900, USDC: 1.0 };
-const FALLBACK_POOL_USD: Record<string, number> = { BTC: 180_000_000, ETH: 320_000_000, USDC: 250_000_000 };
+const COINGECKO_IDS: Record<string, string> = {
+  BTC: "bitcoin", ETH: "ethereum",
+  USDC: "usd-coin", USDT: "tether", DAI: "dai",
+};
+const HARDCODED_FALLBACK: Record<string, number> = {
+  BTC: 65000, ETH: 1900,
+  USDC: 1.0, USDT: 1.0, DAI: 1.0,
+};
+const FALLBACK_POOL_USD: Record<string, number> = {
+  BTC: 180_000_000, ETH: 320_000_000,
+  USDC: 250_000_000, USDT: 250_000_000, DAI: 250_000_000,
+};
 
 let refPriceCache: Record<string, { price: number; ts: number }> = {};
 

@@ -12,21 +12,37 @@ const TIMEOUT_MS = 5000;
 const PRODUCT_TYPE = "USDT-FUTURES";
 
 const SYMBOL_MAP: Record<string, string> = {
-  BTC: "BTCUSDT",
-  ETH: "ETHUSDT",
-  SOL: "SOLUSDT",
-  XRP: "XRPUSDT",
-  DOGE: "DOGEUSDT",
-  BNB: "BNBUSDT",
-  AVAX: "AVAXUSDT",
-  ARB: "ARBUSDT",
-  OP: "OPUSDT",
-  SUI: "SUIUSDT",
+  // ILU-20 — Reserve
+  BTC:  "BTCUSDT",
+  ETH:  "ETHUSDT",
+  // ILU-20 — Stablecoin Infrastructure
+  USDC: "USDCUSDT",
+  DAI:  "DAIUSDT",
+  // ILU-20 — Exchange & Trading Infrastructure
+  BNB:  "BNBUSDT",
+  CRO:  "CROUSDT",
+  OKB:  "OKBUSDT",
+  UNI:  "UNIUSDT",
+  CAKE: "CAKEUSDT",
+  // ILU-20 — Financial Infrastructure
   LINK: "LINKUSDT",
-  ADA: "ADAUSDT",
-  DOT: "DOTUSDT",
+  AAVE: "AAVEUSDT",
+  MKR:  "MKRUSDT",
+  SNX:  "SNXUSDT",
+  COMP: "COMPUSDT",
+  // ILU-20 — High-Volume Liquidity
+  SOL:  "SOLUSDT",
+  XRP:  "XRPUSDT",
+  DOGE: "DOGEUSDT",
+  ADA:  "ADAUSDT",
+  AVAX: "AVAXUSDT",
+  // legacy
+  ARB:  "ARBUSDT",
+  OP:   "OPUSDT",
+  SUI:  "SUIUSDT",
+  DOT:  "DOTUSDT",
   NEAR: "NEARUSDT",
-  TON: "TONUSDT",
+  TON:  "TONUSDT",
 };
 
 function authCheck(req: Request, res: Response): boolean {

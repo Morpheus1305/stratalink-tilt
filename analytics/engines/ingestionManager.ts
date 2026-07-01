@@ -52,7 +52,12 @@ function feedDepthToTsleBuffer(): void {
   }
 }
 
-const TRACKED_SYMBOLS = ['BTC', 'ETH', 'SOL'];
+const TRACKED_SYMBOLS = [
+  'BTC', 'ETH', 'USDT', 'USDC', 'DAI',
+  'BNB', 'CRO', 'OKB', 'UNI', 'CAKE',
+  'LINK', 'AAVE', 'MKR', 'SNX', 'COMP',
+  'SOL', 'XRP', 'DOGE', 'ADA', 'AVAX',
+];
 
 /**
  * Build a DivergenceReport-shaped context from live L5F scores so existing
@@ -147,27 +152,37 @@ async function detectAndWriteAlerts(): Promise<void> {
 }
 
 // ILU-20 symbol groups used across relay venues
-const ILU_BYBIT_SYMBOLS = ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "ADA", "TON",
-                            "LINK", "MKR", "AAVE", "UNI", "HYPE", "OKB", "CRO",
-                            "USDC", "USDE", "DAI"];
-const ILU_DYDX_SYMBOLS  = ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "ADA",
-                            "LINK", "MKR", "AAVE", "UNI"];
-const ILU_HL_SYMBOLS    = ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "ADA",
-                            "LINK", "MKR", "AAVE", "UNI", "HYPE"];
-const ILU_OTC_SYMBOLS   = ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "ADA", "TON",
-                            "LINK", "MKR", "AAVE", "UNI", "HYPE", "OKB", "CRO",
-                            "USDT", "USDC", "USDE", "DAI"];
+const ILU_BYBIT_SYMBOLS   = ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "ADA", "AVAX",
+                              "LINK", "MKR", "AAVE", "UNI", "OKB", "CRO",
+                              "USDC", "DAI", "USDT", "COMP", "SNX", "CAKE"];
+const ILU_DYDX_SYMBOLS    = ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "ADA", "AVAX",
+                              "LINK", "MKR", "AAVE", "UNI", "COMP", "SNX"];
+const ILU_HL_SYMBOLS      = ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "ADA", "AVAX",
+                              "LINK", "MKR", "AAVE", "UNI", "COMP", "SNX"];
+const ILU_OKX_SYMBOLS     = ["BTC", "ETH", "SOL", "XRP", "ADA", "AVAX", "LINK", "DOGE",
+                              "BNB", "OKB", "CRO", "UNI", "CAKE",
+                              "AAVE", "MKR", "SNX", "COMP", "DAI"];
+const ILU_BITGET_SYMBOLS  = ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "AVAX",
+                              "LINK", "ADA", "UNI", "MKR", "AAVE", "COMP", "SNX",
+                              "CAKE", "CRO", "OKB", "USDC", "DAI"];
+const ILU_GMX_SYMBOLS     = ["BTC", "ETH", "SOL", "LINK", "UNI"];
+const ILU_CURVE_SYMBOLS   = ["BTC", "ETH", "USDC", "USDT", "DAI"];
+const ILU_UNISWAP_SYMBOLS = ["BTC", "ETH", "LINK", "UNI", "AAVE", "MKR", "COMP", "DAI", "USDC", "USDT"];
+const ILU_OTC_SYMBOLS     = ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "ADA", "AVAX",
+                              "LINK", "MKR", "AAVE", "UNI", "OKB", "CRO",
+                              "USDT", "USDC", "DAI", "COMP", "SNX", "CAKE"];
 
 const RELAY_VENUES: { path: string; symbols: string[] }[] = [
-  { path: "/api/bybit/spot/depth",       symbols: ILU_BYBIT_SYMBOLS },
-  { path: "/api/bitget/spot/depth",      symbols: ["BTC", "ETH", "SOL"] },
-  { path: "/api/dydx/perps/depth",       symbols: ILU_DYDX_SYMBOLS  },
-  { path: "/api/hyperliquid/perps/depth",symbols: ILU_HL_SYMBOLS    },
-  { path: "/api/gmx/perps/depth",        symbols: ["BTC", "ETH"]        },
-  { path: "/api/deribit/spot/depth",     symbols: ["BTC", "ETH"]        },
-  { path: "/api/uniswap/spot/depth",     symbols: ["BTC", "ETH", "SOL"] },
-  { path: "/api/curve/spot/depth",       symbols: ["BTC", "ETH"]        },
-  { path: "/api/otc/spot/depth",         symbols: ILU_OTC_SYMBOLS   },
+  { path: "/api/bybit/spot/depth",        symbols: ILU_BYBIT_SYMBOLS   },
+  { path: "/api/bitget/spot/depth",       symbols: ILU_BITGET_SYMBOLS  },
+  { path: "/api/okx/spot/depth",          symbols: ILU_OKX_SYMBOLS     },
+  { path: "/api/dydx/perps/depth",        symbols: ILU_DYDX_SYMBOLS    },
+  { path: "/api/hyperliquid/perps/depth", symbols: ILU_HL_SYMBOLS      },
+  { path: "/api/gmx/perps/depth",         symbols: ILU_GMX_SYMBOLS     },
+  { path: "/api/deribit/spot/depth",      symbols: ["BTC", "ETH"]      },
+  { path: "/api/uniswap/spot/depth",      symbols: ILU_UNISWAP_SYMBOLS },
+  { path: "/api/curve/spot/depth",        symbols: ILU_CURVE_SYMBOLS   },
+  { path: "/api/otc/spot/depth",          symbols: ILU_OTC_SYMBOLS     },
 ];
 
 /**

@@ -1,0 +1,170 @@
+# URGENT: Extend Venue Relays to All ILU-20 Tokens
+
+## Priority
+DEMO-DAY — must be fixed before the 2 July ADGM call. Currently only
+BTC and ETH show full 13-venue coverage. Every other ILU-20 token shows
+1 of 13 venues reporting, with 12 venues at "Normalization: no_data"
+and "Last Event: Invalid Date." The RCL page renders this honestly as
+"INSUFFICIENT, Control Breach, partial_coverage — 12 of 13 venues not
+reporting." This makes the platform look unfinished.
+
+## The Problem
+The venue relay files (bybit-relay.ts, okx-relay.ts, kraken-relay.ts,
+binance-relay.ts, coinbase-relay.ts, hyperliquid-relay.ts, gmx-relay.ts,
+dydx-relay.ts, bitget-relay.ts, curve-relay.ts, deribit-relay.ts, and
+the OTC/RFQ source) are currently configured to fetch market data for
+BTC-USD and ETH-USD pairs only.
+
+The ILU-20 universe (defined in shared/ilu-universe.ts) contains 20
+tokens. When any token other than BTC or ETH is selected via the global
+token selector, the relays return no data for that symbol, and the
+platform correctly reports zero coverage.
+
+## The Fix
+
+### Step 1: Identify the symbol mapping in each relay
+
+Each venue relay likely has a symbol mapping or pair configuration that
+translates the internal ILU-20 symbol (e.g. "SOL") into the venue's
+native pair format (e.g. "SOLUSDT" on Binance, "SOL-USD" on Coinbase,
+"SOL/USD" on Kraken).
+
+Find this mapping in each relay file. It probably looks something like:
+
+```typescript
+const PAIRS = ["BTCUSDT", "ETHUSDT"];
+// or
+const SYMBOLS = { BTC: "BTC-USD", ETH: "ETH-USD" };
+// or
+function getPair(symbol: string) { ... }
+```
+
+### Step 2: Extend the mapping to all ILU-20 tokens
+
+The full ILU-20 token list (from shared/ilu-universe.ts) is:
+
+**Reserve Assets**: BTC, ETH
+**Stablecoin Infrastructure**: USDT, USDC, DAI
+**Exchange and Trading Infrastructure**: BNB, CRO, OKB, UNI, CAKE
+**Financial Infrastructure**: LINK, AAVE, MKR, SNX, COMP
+**High-Volume Liquidity Assets**: SOL, XRP, DOGE, ADA, AVAX
+
+For each venue relay, extend the pair mapping to include all 20 tokens.
+Not every token is listed on every venue — that is expected and correct.
+The relay should:
+- Attempt to fetch data for all 20 symbols
+- Return valid market data for symbols that are listed on that venue
+- Return a clean "not listed" / null response for symbols that genuinely
+  are not available on that venue (this is NOT an error — it is accurate
+  coverage reporting)
+
+### Step 3: Handle venue-specific pair formats
+
+Each venue has its own pair naming convention. Common patterns:
+
+| Venue       | Format       | Example (SOL)    |
+|-------------|-------------|------------------|
+| Binance     | SOLUSDT     | uppercase, no separator |
+| OKX         | SOL-USDT    | hyphen separator |
+| Bybit       | SOLUSDT     | uppercase, no separator |
+| Kraken      | SOLUSD      | no T suffix |
+| Coinbase    | SOL-USD     | hyphen, no T |
+| Hyperliquid | SOL         | base symbol only |
+| GMX         | SOL         | base symbol only |
+| dYdX        | SOL-USD     | hyphen separator |
+| Bitget      | SOLUSDT     | uppercase, no separator |
+| Deribit     | SOL-PERPETUAL or SOL_USDC | venue-specific |
+| Curve       | N/A (AMM pools, not order books) | pool-based |
+| OTC (RFQ)   | SOL/USD     | slash separator |
+
+**Important**: not all 20 tokens will be available on all 13 venues.
+For example:
+- Curve Finance is an AMM for stablecoins and DeFi tokens — it will
+  have DAI, USDC, USDT, CRV, but probably not BNB or ADA
+- Deribit focuses on BTC and ETH derivatives — it may not list SOL or
+  DOGE spot pairs
+- Smaller tokens like COMP, SNX, CAKE may only be on 4-5 venues
+
+This is correct and expected. The RCL Coverage panel should show the
+real coverage percentage per token — if SOL is on 9 of 13 venues,
+coverage should read 69%, not 8% or 100%.
+
+### Step 4: Handle the quote currency
+
+Different venues use different quote currencies:
+- Most CEXs: USDT pairs (SOLUSDT)
+- Coinbase, Kraken: USD pairs (SOL-USD, SOLUSD)
+- Some DEXs: USDC pairs
+- Deribit: USDC or USD
+
+The relay should prefer USD pairs where available, fall back to USDT,
+then USDC. The important thing is that depth and spread data flows
+through — the quote currency difference does not affect the L5F or PoLi
+scoring since all values are normalised to USD.
+
+### Step 5: Verify the data pipeline end to end
+
+For each newly connected token-venue pair:
+1. The relay fetches and normalises market data
+2. The TSLE buffer (server/services/tsle-buffer.ts) receives the data
+3. The L5F snapshot endpoint returns data for that symbol
+4. The PoLi engine (server/services/poliEngine.ts) scores the token
+5. The RCL route (server/routes/rcl.ts) reports accurate coverage
+
+### Step 6: Update RCL coverage thresholds
+
+Currently RCL may be using a threshold like "all 13 venues must report"
+to determine VERIFIED vs INSUFFICIENT status. This should be updated to
+reflect realistic coverage expectations:
+
+- VERIFIED: coverage >= 60% (8+ of 13 venues reporting)
+- PARTIAL: coverage 30-59% (4-7 venues)
+- INSUFFICIENT: coverage < 30% (fewer than 4 venues)
+
+Some tokens genuinely will not be listed on all 13 venues — that is a
+market structure fact, not a platform failure. The coverage percentage
+should reflect actual availability, and the status labels should be
+calibrated so that a token available on 8 venues reads as VERIFIED rather
+than INSUFFICIENT.
+
+---
+
+## Expected Outcome
+
+After this fix:
+- BTC: 13/13 venues, VERIFIED (unchanged)
+- ETH: 13/13 venues, VERIFIED (unchanged)
+- SOL: ~9-10/13 venues, VERIFIED
+- XRP: ~8-10/13 venues, VERIFIED
+- USDT: ~8-10/13 venues, VERIFIED (currently shows 1/13)
+- LINK: ~7-9/13 venues, VERIFIED
+- DOGE: ~7-9/13 venues, VERIFIED
+- ADA: ~6-8/13 venues, VERIFIED
+- BNB: ~5-7/13 venues, VERIFIED or PARTIAL
+- Smaller tokens (SNX, COMP, CAKE): ~4-6/13 venues, PARTIAL
+- This is accurate and defensible as real market structure
+
+---
+
+## What NOT To Do
+- Do NOT hardcode all 20 tokens as available on all 13 venues — that
+  would be fabricating coverage data
+- Do NOT suppress the coverage percentage or flag — honest reporting is
+  the entire point of the platform
+- Do NOT change the ILU-20 universe — the token list is locked
+
+---
+
+## Verification
+1. Select USDT in the global token selector and confirm more than 1
+   venue reports data on every tab (LIQUIDITY, STRATA AI, PoLi/PoMI, RCL)
+2. Select SOL and confirm 8+ venues report data
+3. Select a smaller token (e.g. COMP or SNX) and confirm the coverage
+   percentage reflects genuine availability (may be 4-6 venues — that is
+   correct)
+4. On the RCL tab, confirm the Coverage panel shows accurate venue counts
+   and the Status reads VERIFIED for tokens with 60%+ coverage
+5. Confirm no venue connector cards show "Last Event: Invalid Date" for
+   tokens that are genuinely listed on that venue
+6. Confirm the footer ticker shows live PoLi scores for all 20 ILU-20
+   tokens (scores may vary widely by coverage depth — that is expected)

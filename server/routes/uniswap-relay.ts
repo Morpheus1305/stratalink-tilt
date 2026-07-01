@@ -11,15 +11,19 @@ const router = Router();
 const UNISWAP_V3_SUBGRAPH_ID = "5zvR82QoaXYFyDEKLZ9t6v9adgnptxYpKpSbxtgVENFV";
 
 const TOKEN_MAP: Record<string, { address: string; decimals: number; coingeckoId: string }> = {
-  ETH: { address: "0xc02aaa39b223fe8d0a0e5d4e7a29163de4294623", decimals: 18, coingeckoId: "ethereum" },
+  ETH:  { address: "0xc02aaa39b223fe8d0a0e5d4e7a29163de4294623", decimals: 18, coingeckoId: "ethereum" },
   WETH: { address: "0xc02aaa39b223fe8d0a0e5d4e7a29163de4294623", decimals: 18, coingeckoId: "ethereum" },
-  USDC: { address: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", decimals: 6, coingeckoId: "usd-coin" },
-  USDT: { address: "0xdac17f958d2ee523a2206206994597c13d831ec7", decimals: 6, coingeckoId: "tether" },
-  WBTC: { address: "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599", decimals: 8, coingeckoId: "wrapped-bitcoin" },
-  BTC: { address: "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599", decimals: 8, coingeckoId: "wrapped-bitcoin" },
-  DAI: { address: "0x6b175474e89094c44da98b954eedeac495271d0f", decimals: 18, coingeckoId: "dai" },
+  USDC: { address: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", decimals: 6,  coingeckoId: "usd-coin" },
+  USDT: { address: "0xdac17f958d2ee523a2206206994597c13d831ec7", decimals: 6,  coingeckoId: "tether" },
+  WBTC: { address: "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599", decimals: 8,  coingeckoId: "wrapped-bitcoin" },
+  BTC:  { address: "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599", decimals: 8,  coingeckoId: "wrapped-bitcoin" },
+  DAI:  { address: "0x6b175474e89094c44da98b954eedeac495271d0f", decimals: 18, coingeckoId: "dai" },
   LINK: { address: "0x514910771af9ca656af840dff83e8264ecf986ca", decimals: 18, coingeckoId: "chainlink" },
-  UNI: { address: "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984", decimals: 18, coingeckoId: "uniswap" },
+  UNI:  { address: "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984", decimals: 18, coingeckoId: "uniswap" },
+  // ILU-20 — Financial Infrastructure (active Uniswap V3 pools on Ethereum mainnet)
+  AAVE: { address: "0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9", decimals: 18, coingeckoId: "aave" },
+  MKR:  { address: "0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2", decimals: 18, coingeckoId: "maker" },
+  COMP: { address: "0xc00e94Cb662C3520282E6f5717214004A7f26888", decimals: 18, coingeckoId: "compound-governance-token" },
 };
 
 const DEFILLAMA_POOLS_URL = "https://yields.llama.fi/pools";
@@ -300,7 +304,7 @@ router.get("/spot/depth", async (req: Request, res: Response) => {
     if (!syntheticPrice) {
       const BASELINE_PRICE: Record<string, number> = {
         ETH: 1800, WETH: 1800, BTC: 60000, WBTC: 60000,
-        SOL: 100, BNB: 550, UNI: 10, LINK: 15,
+        UNI: 10, LINK: 15, AAVE: 90, MKR: 2200, COMP: 55,
         DAI: 1, USDC: 1, USDT: 1,
       };
       syntheticPrice = BASELINE_PRICE[symbol] ?? 0;
@@ -318,10 +322,13 @@ router.get("/spot/depth", async (req: Request, res: Response) => {
 
     // Conservative TVL estimates derived from historical pool data for primary WETH/WBTC pools
     const SYNTHETIC_TVL: Record<string, number> = {
-      ETH:  300_000_000,  // WETH-USDC 0.05% pool
-      BTC:   50_000_000,  // WBTC-USDC 0.3% pool
+      ETH:  300_000_000,
+      BTC:   50_000_000,
       UNI:   20_000_000,
       LINK:  15_000_000,
+      AAVE:  12_000_000,
+      MKR:    8_000_000,
+      COMP:   6_000_000,
       DAI:  100_000_000,
       USDC: 500_000_000,
       USDT: 100_000_000,

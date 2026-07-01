@@ -37,6 +37,21 @@ const GMX_MARKETS: Record<string, GmxMarket> = {
     tokenDecimals: 9,
     poolDepthUsd: 30_000_000,
   },
+  // ILU-20 — Financial Infrastructure (live on GMX v2 Arbitrum)
+  LINK: {
+    tokenAddress: "0xf97f4df75117a78c1A5a0DBb814Af92458539FB4",
+    marketAddress: "0x7f1fa204bb700853D36994DA19F830b6Ad18d2D",
+    tokenDecimals: 18,
+    poolDepthUsd: 8_000_000,
+  },
+  // ILU-20 — Exchange & Trading Infrastructure
+  UNI: {
+    tokenAddress: "0xFa7F8980b0f1E64A2062791cc3b0871572f1F7f0",
+    marketAddress: "0xc7Abb2C5f3BF3CEB389dF0Eecd6120D451170B50",
+    tokenDecimals: 18,
+    poolDepthUsd: 5_000_000,
+  },
+  // legacy
   ARB: {
     tokenAddress: "0x912CE59144191C1204E64559FE8253a0e49E6548",
     marketAddress: "0xC25cEf6061Cf5dE5eb761b50E4743c1F5D7E5407",

@@ -27,19 +27,25 @@ const DYDX_INDEXER = "https://indexer.dydx.trade/v4";
 const TIMEOUT_MS = 5000;
 
 const SYMBOL_MAP: Record<string, string> = {
+  // ILU-20 — Reserve
   BTC:  "BTC-USD",
   ETH:  "ETH-USD",
+  // ILU-20 — Exchange & Trading Infrastructure
+  BNB:  "BNB-USD",
+  UNI:  "UNI-USD",
+  // ILU-20 — Financial Infrastructure
+  LINK: "LINK-USD",
+  AAVE: "AAVE-USD",
+  MKR:  "MKR-USD",
+  SNX:  "SNX-USD",
+  COMP: "COMP-USD",
+  // ILU-20 — High-Volume Liquidity
   SOL:  "SOL-USD",
   XRP:  "XRP-USD",
   DOGE: "DOGE-USD",
-  BNB:  "BNB-USD",
   ADA:  "ADA-USD",
-  LINK: "LINK-USD",
-  MKR:  "MKR-USD",
-  AAVE: "AAVE-USD",
-  UNI:  "UNI-USD",
-  // legacy
   AVAX: "AVAX-USD",
+  // legacy
   ARB:  "ARB-USD",
   OP:   "OP-USD",
   MATIC:"MATIC-USD",
