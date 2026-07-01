@@ -707,7 +707,7 @@ export default function IntegrityPage() {
                       ● {currentEfiSt.label}
                     </span>
                   )}
-                  <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 16, fontWeight: 700, color: currentEfiSt?.color ?? SUB }}>
+                  <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 10, fontWeight: 700, color: currentEfiSt?.color ?? SUB }}>
                     {currentEfi != null ? currentEfi.toFixed(3) : "—"}
                   </span>
                 </div>
