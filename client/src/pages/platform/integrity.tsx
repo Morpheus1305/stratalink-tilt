@@ -929,7 +929,7 @@ export default function IntegrityPage() {
                   </div>
                 </div>
                 {/* PoMI — Market Integrity Coordination — tucked below CMCR */}
-                <div style={{ marginTop: 12 }} data-testid="integrity-pomi-coord">
+                <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${BORDER}` }} data-testid="integrity-pomi-coord">
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                     <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase" }}>
                       PoMI — Market Integrity Coordination
