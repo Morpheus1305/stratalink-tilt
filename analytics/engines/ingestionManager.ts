@@ -58,7 +58,7 @@ const TRACKED_SYMBOLS = [
   'LINK', 'AAVE', 'MKR', 'SNX', 'COMP',
   'SOL', 'XRP', 'DOGE', 'ADA', 'AVAX',
   // extended
-  'TON', 'USDE',
+  'TON', 'USDE', 'HYPE',
 ];
 
 /**
@@ -157,19 +157,19 @@ async function detectAndWriteAlerts(): Promise<void> {
 const ILU_BYBIT_SYMBOLS   = ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "ADA", "AVAX",
                               "LINK", "MKR", "AAVE", "UNI", "OKB", "CRO",
                               "USDC", "DAI", "USDT", "COMP", "SNX", "CAKE",
-                              "TON", "USDE"];
+                              "TON", "USDE", "HYPE"];
 const ILU_DYDX_SYMBOLS    = ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "ADA", "AVAX",
                               "LINK", "MKR", "AAVE", "UNI", "COMP", "SNX", "TON"];
 const ILU_HL_SYMBOLS      = ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "ADA", "AVAX",
-                              "LINK", "MKR", "AAVE", "UNI", "COMP", "SNX", "TON"];
+                              "LINK", "MKR", "AAVE", "UNI", "COMP", "SNX", "TON", "HYPE"];
 const ILU_OKX_SYMBOLS     = ["BTC", "ETH", "SOL", "XRP", "ADA", "AVAX", "LINK", "DOGE",
                               "BNB", "OKB", "CRO", "UNI", "CAKE",
                               "AAVE", "MKR", "SNX", "COMP", "DAI",
-                              "TON", "USDE"];
+                              "TON", "USDE", "HYPE"];
 const ILU_BITGET_SYMBOLS  = ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "AVAX",
                               "LINK", "ADA", "UNI", "MKR", "AAVE", "COMP", "SNX",
                               "CAKE", "CRO", "OKB", "USDC", "DAI",
-                              "TON", "USDE"];
+                              "TON", "USDE", "HYPE"];
 const ILU_GMX_SYMBOLS     = ["BTC", "ETH", "SOL", "LINK", "UNI"];
 const ILU_CURVE_SYMBOLS   = ["BTC", "ETH", "USDC", "USDT", "DAI", "USDE"];
 const ILU_UNISWAP_SYMBOLS = ["BTC", "ETH", "LINK", "UNI", "AAVE", "MKR", "COMP", "DAI", "USDC", "USDT", "USDE"];

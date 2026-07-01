@@ -25,6 +25,7 @@ const INSTRUMENT_MAP: Record<string, Record<string, string>> = {
     UNI:  "UNI-USDT",
     CAKE: "CAKE-USDT",
     TON:  "TON-USDT",
+    HYPE: "HYPE-USDT",
     // Financial Infrastructure
     LINK: "LINK-USDT",
     AAVE: "AAVE-USDT",
@@ -59,6 +60,7 @@ const INSTRUMENT_MAP: Record<string, Record<string, string>> = {
     ADA:  "ADA-USDT-SWAP",
     AVAX: "AVAX-USDT-SWAP",
     TON:  "TON-USDT-SWAP",
+    HYPE: "HYPE-USDT-SWAP",
     DOT:  "DOT-USDT-SWAP",
     NEAR: "NEAR-USDT-SWAP",
   },

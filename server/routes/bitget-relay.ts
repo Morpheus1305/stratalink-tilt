@@ -37,6 +37,7 @@ const SYMBOL_MAP: Record<string, string> = {
   ADA:  "ADAUSDT",
   AVAX: "AVAXUSDT",
   // extended
+  HYPE: "HYPEUSDT",
   USDE: "USDEUSDT",
   // legacy
   ARB:  "ARBUSDT",
