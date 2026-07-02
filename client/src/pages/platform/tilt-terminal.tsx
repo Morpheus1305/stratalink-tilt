@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, memo } from "react";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { TT } from "@/components/tilt-tooltip";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { PlatformTabs } from "@/components/platform-tabs";
 import { useToken } from "@/contexts/TokenContext";
@@ -171,11 +172,31 @@ export default function TiltTerminal() {
   const rc = agg ? regimeMap[agg.vol_regime] || regimeMap.NORMAL : regimeMap.NORMAL;
 
   const factorRows = [
-    { key: "dq", label: "Depth Quality", weight: "x0.30", barColor: "var(--tilt-accent)" },
-    { key: "r", label: "Resilience", weight: "x0.20", barColor: "var(--tilt-sub)" },
-    { key: "f", label: "Fragmentation", weight: "x0.15", barColor: "var(--tilt-amber)" },
-    { key: "ei", label: "Execution Integrity", weight: "x0.20", barColor: "var(--tilt-green)" },
-    { key: "rs", label: "Regime Stability", weight: "x0.15", barColor: "var(--tilt-sub)" },
+    {
+      key: "dq", label: "Depth Quality", weight: "x0.30", barColor: "var(--tilt-accent)",
+      tipTitle: "Depth Quality (Weight: 30%)",
+      tipBody: "Measures the quality of available depth — not just how much exists, but how resilient, distributed and executable it is. A high raw depth figure with a low Depth Quality score means depth is concentrated, thin or decaying rapidly. This is typically the most important sub-score.",
+    },
+    {
+      key: "r", label: "Resilience", weight: "x0.20", barColor: "var(--tilt-sub)",
+      tipTitle: "Resilience (Weight: 20%)",
+      tipBody: "Measures how quickly depth replenishes after being consumed by an order. High resilience means market makers are actively refreshing liquidity. A high resilience score alongside low depth quality means the market is actively being made but conditions are still fragile.",
+    },
+    {
+      key: "f", label: "Fragmentation", weight: "x0.15", barColor: "var(--tilt-amber)",
+      tipTitle: "Fragmentation (Weight: 15%, inverted)",
+      tipBody: "Measures how unevenly depth is distributed across venues. Higher fragmentation means more concentration at fewer venues. NOTE: the L5F formula uses (100 - Fragmentation), so higher fragmentation reduces the composite. High concentration creates single-venue dependency risk.",
+    },
+    {
+      key: "ei", label: "Execution Integrity", weight: "x0.20", barColor: "var(--tilt-green)",
+      tipTitle: "Execution Integrity (Weight: 20%)",
+      tipBody: "Assesses whether an institutional-size order could be executed cleanly across venues at acceptable cost. Factors in spread dispersion, slippage estimates and venue accessibility. Below 60 means execution quality is degraded — venue selection dramatically affects cost.",
+    },
+    {
+      key: "rs", label: "Regime Stability", weight: "x0.15", barColor: "var(--tilt-sub)",
+      tipTitle: "Regime Stability (Weight: 15%)",
+      tipBody: "Measures whether the overall market regime is stable or dislocating. A score of 100 means fully stable — no vol spike, no flash event, no structural break. Issues happening within a stable regime are structural and slow-moving rather than acute.",
+    },
   ];
 
   function tileClass(value: number | null, gThresh: number, aThresh: number): string {
@@ -249,58 +270,70 @@ export default function TiltTerminal() {
 
         {/* TOP CONTEXT BAR */}
         <div className="tilt-topbar" data-testid="tilt-topbar">
-          <div className="tilt-tb-item">
-            <div className="tilt-tb-label">Total Depth +/-10bps</div>
-            <div className="tilt-tb-value tilt-tb-depth" data-testid="tilt-depth">
-              {agg ? fmtDepth(agg.total_depth_10bps) : "—"}
+          <TT title="Total Depth (+/-10 basis points)" body="Total order book depth within 10 basis points of mid-price, aggregated across all active venues. This is the raw depth figure before any quality adjustment. Cross-reference with the L5F composite below to understand whether this depth is genuinely executable or structurally fragile.">
+            <div className="tilt-tb-item">
+              <div className="tilt-tb-label">Total Depth +/-10bps</div>
+              <div className="tilt-tb-value tilt-tb-depth" data-testid="tilt-depth">
+                {agg ? fmtDepth(agg.total_depth_10bps) : "—"}
+              </div>
             </div>
-          </div>
+          </TT>
           <div className="tilt-tb-divider" />
-          <div className="tilt-tb-item">
-            <div className="tilt-tb-label">Venues Live</div>
-            <div className="tilt-tb-value" data-testid="tilt-venues">
-              {agg?.venue_count ?? "—"}
+          <TT title="Venues Live" body="Number of configured venues actively returning data for this asset. 13 out of 13 means full coverage — the platform is seeing the entire market. If this drops below 10, investigate which venue relay has gone offline.">
+            <div className="tilt-tb-item">
+              <div className="tilt-tb-label">Venues Live</div>
+              <div className="tilt-tb-value" data-testid="tilt-venues">
+                {agg?.venue_count ?? "—"}
+              </div>
             </div>
-          </div>
+          </TT>
           <div className="tilt-tb-divider" />
-          <div className="tilt-tb-item">
-            <div className="tilt-tb-label">Spread Dispersion</div>
-            <div className="tilt-tb-value" data-testid="tilt-sdisp">
-              {agg ? agg.spread_dispersion_bps.toFixed(1) + " bps" : "—"}
+          <TT title="Spread Dispersion (bps)" body="The dispersion of bid-ask spreads across all active venues. Measures how differently venues are quoting the same asset. High dispersion means venue selection dramatically affects execution cost. Under 3 bps is normal; above 5 bps indicates fragmentation.">
+            <div className="tilt-tb-item">
+              <div className="tilt-tb-label">Spread Dispersion</div>
+              <div className="tilt-tb-value" data-testid="tilt-sdisp">
+                {agg ? agg.spread_dispersion_bps.toFixed(1) + " bps" : "—"}
+              </div>
             </div>
-          </div>
+          </TT>
           <div className="tilt-tb-divider" />
-          <div className="tilt-tb-item">
-            <div className="tilt-tb-label">Vol Regime</div>
-            <div
-              className={`tilt-regime-badge ${
-                agg?.vol_regime === "NORMAL"
-                  ? "tilt-regime-normal"
-                  : agg?.vol_regime === "ELEVATED"
-                    ? "tilt-regime-elevated"
-                    : agg
-                      ? "tilt-regime-stress"
-                      : "tilt-regime-normal"
-              }`}
-              data-testid="tilt-regime"
-            >
-              {agg?.vol_regime ?? "—"}
+          <TT title="Volatility Regime" body="Market regime classification based on volatility structure, volume patterns and correlation behaviour. NORMAL means no vol spike or structural dislocation. STRESSED or CRISIS would indicate acute market conditions.">
+            <div className="tilt-tb-item">
+              <div className="tilt-tb-label">Vol Regime</div>
+              <div
+                className={`tilt-regime-badge ${
+                  agg?.vol_regime === "NORMAL"
+                    ? "tilt-regime-normal"
+                    : agg?.vol_regime === "ELEVATED"
+                      ? "tilt-regime-elevated"
+                      : agg
+                        ? "tilt-regime-stress"
+                        : "tilt-regime-normal"
+                }`}
+                data-testid="tilt-regime"
+              >
+                {agg?.vol_regime ?? "—"}
+              </div>
             </div>
-          </div>
+          </TT>
           <div className="tilt-tb-divider" />
-          <div className="tilt-tb-item">
-            <div className="tilt-tb-label">Regulated</div>
-            <div className="tilt-tb-value" style={{ color: "var(--tilt-green)" }} data-testid="tilt-reg">
-              {agg ? Math.round(agg.regulated_depth_share * 100) + "%" : "—"}
+          <TT title="Regulated Venue Share (%)" body="Percentage of total depth sitting on regulated venues (e.g. Kraken, Coinbase). A low percentage means the majority of liquidity sits outside the supervisory perimeter — a structural market observation, not a platform issue.">
+            <div className="tilt-tb-item">
+              <div className="tilt-tb-label">Regulated</div>
+              <div className="tilt-tb-value" style={{ color: "var(--tilt-green)" }} data-testid="tilt-reg">
+                {agg ? Math.round(agg.regulated_depth_share * 100) + "%" : "—"}
+              </div>
             </div>
-          </div>
+          </TT>
           <div className="tilt-tb-divider" />
-          <div className="tilt-tb-item">
-            <div className="tilt-tb-label">Offshore</div>
-            <div className="tilt-tb-value" style={{ color: "var(--tilt-amber)" }} data-testid="tilt-off">
-              {agg ? Math.round(agg.offshore_depth_share * 100) + "%" : "—"}
+          <TT title="Offshore Venue Share (%)" body="Percentage of total depth on unregulated or offshore venues. The mirror of the Regulated figure. A high offshore percentage means supervisory action targeting only regulated venues would affect a small fraction of actual market depth.">
+            <div className="tilt-tb-item">
+              <div className="tilt-tb-label">Offshore</div>
+              <div className="tilt-tb-value" style={{ color: "var(--tilt-amber)" }} data-testid="tilt-off">
+                {agg ? Math.round(agg.offshore_depth_share * 100) + "%" : "—"}
+              </div>
             </div>
-          </div>
+          </TT>
           <div className="tilt-header-divider" style={{ marginLeft: 12 }} />
           <div className="tilt-tb-timestamp">
             LAST UPDATE &nbsp;<LiveClock />
@@ -325,27 +358,31 @@ export default function TiltTerminal() {
               <div style={{ display: "grid", gridTemplateColumns: "190px 1fr", gap: 16, flex: 1, minHeight: 0 }}>
                 {/* TSLE Column */}
                 <div className="tilt-tsle-col">
-                  <div className="tilt-tsle-ring">
-                    <svg viewBox="0 0 100 100">
-                      <circle className="tilt-ring-bg" cx="50" cy="50" r="45" />
-                      <circle
-                        className="tilt-ring-fg"
-                        cx="50"
-                        cy="50"
-                        r="45"
-                        style={{ strokeDashoffset: agg ? offset : 283 }}
-                      />
-                    </svg>
-                    <div className="tilt-tsle-center">
-                      <div className="tilt-tsle-number" data-testid="tilt-l5f-score">
-                        {agg ? score.toFixed(1) : "—"}
+                  <TT title="L5F Composite Score" body="The Liquidity 5-Factor Score — a weighted composite of Depth Quality, Resilience, Fragmentation, Execution Integrity and Regime Stability. Scale 0-100. Rating bands: AAA (90-100), AA (80-89), A (70-79), BBB (60-69), BB (50-59), B (40-49), CCC (25-39), D (0-24). Below 40 means liquidity is not real at institutional scale.">
+                    <div className="tilt-tsle-ring">
+                      <svg viewBox="0 0 100 100">
+                        <circle className="tilt-ring-bg" cx="50" cy="50" r="45" />
+                        <circle
+                          className="tilt-ring-fg"
+                          cx="50"
+                          cy="50"
+                          r="45"
+                          style={{ strokeDashoffset: agg ? offset : 283 }}
+                        />
+                      </svg>
+                      <div className="tilt-tsle-center">
+                        <div className="tilt-tsle-number" data-testid="tilt-l5f-score">
+                          {agg ? score.toFixed(1) : "—"}
+                        </div>
+                        <div className="tilt-tsle-sub">/ 100</div>
                       </div>
-                      <div className="tilt-tsle-sub">/ 100</div>
                     </div>
-                  </div>
-                  <div className="tilt-tsle-status" style={{ color: agg ? statusColors[statusLabel] : "var(--tilt-sub)" }}>
-                    {agg ? `● ${statusLabel}` : "● LOADING"}
-                  </div>
+                  </TT>
+                  <TT title="L5F Status" body="Qualitative assessment of liquidity trajectory. ROBUST (above 80, improving), STABLE (65-79), FRAGILE (50-64), DETERIORATING (below 50). DETERIORATING means conditions are worsening — monitor for further decline toward the critical threshold of 40.">
+                    <div className="tilt-tsle-status" style={{ color: agg ? statusColors[statusLabel] : "var(--tilt-sub)" }}>
+                      {agg ? `● ${statusLabel}` : "● LOADING"}
+                    </div>
+                  </TT>
                   <div style={{ fontSize: 9, color: "var(--tilt-muted)", letterSpacing: 1, marginBottom: 8 }}>
                     L5F COMPOSITE
                   </div>
@@ -368,23 +405,25 @@ export default function TiltTerminal() {
                     const val = factors ? (factors as any)[fr.key] : null;
                     const t = trendChar(prev[fr.key], val ?? 0);
                     return (
-                      <div className="tilt-l5f-row" key={fr.key}>
-                        <div className="tilt-l5f-name">{fr.label}</div>
-                        <div className="tilt-l5f-score" data-testid={`tilt-l5f-${fr.key}`}>
-                          {val != null ? val.toFixed(1) : "—"}
+                      <TT key={fr.key} title={fr.tipTitle} body={fr.tipBody}>
+                        <div className="tilt-l5f-row">
+                          <div className="tilt-l5f-name">{fr.label}</div>
+                          <div className="tilt-l5f-score" data-testid={`tilt-l5f-${fr.key}`}>
+                            {val != null ? val.toFixed(1) : "—"}
+                          </div>
+                          <div className={`tilt-l5f-trend ${t.cls}`}>{t.sym}</div>
+                          <div className="tilt-l5f-bar-wrap">
+                            <div
+                              className="tilt-l5f-bar"
+                              style={{
+                                width: val != null ? `${val}%` : "0%",
+                                background: val != null ? scoreColor(val) : fr.barColor,
+                              }}
+                            />
+                          </div>
+                          <div className="tilt-l5f-weight">{fr.weight}</div>
                         </div>
-                        <div className={`tilt-l5f-trend ${t.cls}`}>{t.sym}</div>
-                        <div className="tilt-l5f-bar-wrap">
-                          <div
-                            className="tilt-l5f-bar"
-                            style={{
-                              width: val != null ? `${val}%` : "0%",
-                              background: val != null ? scoreColor(val) : fr.barColor,
-                            }}
-                          />
-                        </div>
-                        <div className="tilt-l5f-weight">{fr.weight}</div>
-                      </div>
+                      </TT>
                     );
                   })}
                   <div className="tilt-l5f-total">
@@ -418,32 +457,40 @@ export default function TiltTerminal() {
                 value: agg?.withdrawal_velocity,
                 fmt: (v: number) => v.toFixed(1) + " bps/hr",
                 g: 20, a: 40,
+                tipTitle: "Liquidity Withdrawal Velocity (bps/hr)",
+                tipBody: "Rate at which depth is withdrawing from the order book across venues. Near zero in steady state. Elevated values mean market makers are pulling quotes. Above 20 bps/hr indicates aggressive withdrawal.",
               },
               {
                 label: "Depth Decay Rate",
                 value: agg?.depth_decay_rate,
                 fmt: (v: number) => v.toFixed(1) + "% / min",
                 g: 5, a: 15,
+                tipTitle: "Depth Decay Rate (%/min)",
+                tipBody: "Rate at which order book depth decays per minute. Measures the half-life of resting depth. At 5%/min, depth has a half-life of roughly 14 minutes — what you see on screen now will be substantially different shortly.",
               },
               {
                 label: "Spread Elasticity",
                 value: agg?.spread_elasticity,
                 fmt: (v: number) => v.toFixed(2) + "x",
                 g: 1.0, a: 1.5,
+                tipTitle: "Spread Elasticity (multiplier)",
+                tipBody: "How much spreads widen under order flow relative to normal. 1.0x = normal. At 2.0x+, spreads widen twice as fast as usual when orders hit the book, meaning institutional orders cause more market impact than expected.",
               },
             ].map((tile, i) => {
               const cls = tile.value != null ? tileClass(tile.value, tile.g, tile.a) : "";
               const dc = tile.value != null ? dotClass(tile.value, tile.g, tile.a) : "";
               return (
-                <div className={`tilt-regime-tile ${cls}`} key={i} data-testid={`tilt-stress-${i}`}>
-                  <div>
-                    <div className="tilt-rt-label">{tile.label}</div>
-                    <div className="tilt-rt-value">
-                      {tile.value != null ? tile.fmt(tile.value) : "—"}
+                <TT key={i} title={tile.tipTitle} body={tile.tipBody}>
+                  <div className={`tilt-regime-tile ${cls}`} data-testid={`tilt-stress-${i}`}>
+                    <div>
+                      <div className="tilt-rt-label">{tile.label}</div>
+                      <div className="tilt-rt-value">
+                        {tile.value != null ? tile.fmt(tile.value) : "—"}
+                      </div>
                     </div>
+                    <div className={`tilt-rt-dot ${dc}`} />
                   </div>
-                  <div className={`tilt-rt-dot ${dc}`} />
-                </div>
+                </TT>
               );
             })}
 
@@ -466,21 +513,23 @@ export default function TiltTerminal() {
               <div className="tilt-rt-dot" />
             </div>
 
-            <div
-              className="tilt-regime-box"
-              style={{ background: rc.bg, border: `1px solid ${rc.border}` }}
-              data-testid="tilt-regime-box"
-            >
-              <div style={{ fontSize: 9, color: rc.color, letterSpacing: 1, fontWeight: 700, marginBottom: 3 }}>
-                REGIME CLASSIFICATION
+            <TT title="Regime Classification" body="Overall market regime assessment. NORMAL/STRESSED/CRISIS combined with STABLE/TRANSITIONING/DISLOCATING. NORMAL-STABLE is the calmest state. No pre-stress indicators active.">
+              <div
+                className="tilt-regime-box"
+                style={{ background: rc.bg, border: `1px solid ${rc.border}` }}
+                data-testid="tilt-regime-box"
+              >
+                <div style={{ fontSize: 9, color: rc.color, letterSpacing: 1, fontWeight: 700, marginBottom: 3 }}>
+                  REGIME CLASSIFICATION
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: agg ? rc.color : "var(--tilt-sub)" }}>
+                  {agg ? rc.text : "LOADING..."}
+                </div>
+                <div style={{ fontSize: 10, color: "var(--tilt-muted)", marginTop: 2 }}>
+                  {agg ? rc.note : "Awaiting first tick"}
+                </div>
               </div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: agg ? rc.color : "var(--tilt-sub)" }}>
-                {agg ? rc.text : "LOADING..."}
-              </div>
-              <div style={{ fontSize: 10, color: "var(--tilt-muted)", marginTop: 2 }}>
-                {agg ? rc.note : "Awaiting first tick"}
-              </div>
-            </div>
+            </TT>
           </div>
 
           {/* PANEL 3: CROSS-VENUE DEPTH MAP */}
@@ -496,10 +545,10 @@ export default function TiltTerminal() {
                 <thead>
                   <tr>
                     <th style={{ width: 160 }}>Venue</th>
-                    <th>Depth (10bps)</th>
-                    <th>% of Global</th>
-                    <th>Regulated</th>
-                    <th>Stability</th>
+                    <th><TT title="Venue Depth (+/-10bps)" body="Total order book depth at this venue within 10 basis points of mid-price. Larger values mean more resting liquidity available for execution.">Depth (10bps)</TT></th>
+                    <th><TT title="Global Depth Share" body="This venue's depth as a percentage of total depth across all active venues. High concentration at a single venue creates dependency risk — if that venue goes offline, a large share of depth disappears.">% of Global</TT></th>
+                    <th><TT title="Regulatory Status" body="Whether this venue is regulated (YES) or unregulated (NO). Regulated venues operate under a supervisory framework; unregulated venues are offshore. This does not determine the stability score — depth and spread quality are weighted more heavily.">Regulated</TT></th>
+                    <th><TT title="Venue Stability Score" body="Three-factor composite: depth relative to the largest venue (40%), spread quality (35%), and regulatory status (25%). GREEN (60+) = stable. AMBER (35-59) = stressed. RED (below 35) = critical. The score reflects execution quality, not just regulatory status.">Stability</TT></th>
                     <th style={{ width: 180 }}>Depth Share</th>
                   </tr>
                 </thead>
@@ -578,61 +627,65 @@ export default function TiltTerminal() {
               <div className="tilt-ph-tag">PANEL 3</div>
             </div>
 
-            <div className="tilt-int-tile">
-              <div className="tilt-int-label">FRAGMENTATION INDEX (HHI-based)</div>
-              <div
-                className="tilt-int-value"
-                data-testid="tilt-fi"
-                style={{
-                  color: agg
+            <TT title="Fragmentation Index (HHI-based)" body="Herfindahl-Hirschman Index applied to venue depth shares. 0 = perfectly distributed. 1 = single venue monopoly. Above 0.25 indicates meaningful concentration. The same index used by competition authorities for merger review.">
+              <div className="tilt-int-tile">
+                <div className="tilt-int-label">FRAGMENTATION INDEX (HHI-based)</div>
+                <div
+                  className="tilt-int-value"
+                  data-testid="tilt-fi"
+                  style={{
+                    color: agg
+                      ? agg.fragmentation_index < 0.3
+                        ? "var(--tilt-green)"
+                        : agg.fragmentation_index < 0.55
+                          ? "var(--tilt-amber)"
+                          : "var(--tilt-red)"
+                      : "var(--tilt-sub)",
+                  }}
+                >
+                  {agg ? agg.fragmentation_index.toFixed(2) : "—"}
+                </div>
+                <div className="tilt-int-sub">
+                  {agg
                     ? agg.fragmentation_index < 0.3
-                      ? "var(--tilt-green)"
+                      ? "Low fragmentation — depth well concentrated"
                       : agg.fragmentation_index < 0.55
-                        ? "var(--tilt-amber)"
-                        : "var(--tilt-red)"
-                    : "var(--tilt-sub)",
-                }}
-              >
-                {agg ? agg.fragmentation_index.toFixed(2) : "—"}
+                        ? "Moderate dispersion — offshore venues fragmenting"
+                        : "High fragmentation — liquidity widely dispersed"
+                    : "Awaiting data"}
+                </div>
               </div>
-              <div className="tilt-int-sub">
-                {agg
-                  ? agg.fragmentation_index < 0.3
-                    ? "Low fragmentation — depth well concentrated"
-                    : agg.fragmentation_index < 0.55
-                      ? "Moderate dispersion — offshore venues fragmenting"
-                      : "High fragmentation — liquidity widely dispersed"
-                  : "Awaiting data"}
-              </div>
-            </div>
+            </TT>
 
-            <div className="tilt-int-tile">
-              <div className="tilt-int-label">CROSS-VENUE SPREAD DISPERSION</div>
-              <div
-                className="tilt-int-value"
-                data-testid="tilt-sd"
-                style={{
-                  color: agg
+            <TT title="Cross-Venue Spread Dispersion (bps)" body="Standard deviation of bid-ask spreads across all active venues. Confirms whether venues are quoting similar or very different execution conditions. Under 3 bps is normal; above 5 bps indicates fragmentation that degrades execution quality.">
+              <div className="tilt-int-tile">
+                <div className="tilt-int-label">CROSS-VENUE SPREAD DISPERSION</div>
+                <div
+                  className="tilt-int-value"
+                  data-testid="tilt-sd"
+                  style={{
+                    color: agg
+                      ? agg.spread_dispersion_bps < 2
+                        ? "var(--tilt-green)"
+                        : agg.spread_dispersion_bps < 5
+                          ? "var(--tilt-amber)"
+                          : "var(--tilt-red)"
+                      : "var(--tilt-sub)",
+                  }}
+                >
+                  {agg ? agg.spread_dispersion_bps.toFixed(1) + " bps" : "—"}
+                </div>
+                <div className="tilt-int-sub">
+                  {agg
                     ? agg.spread_dispersion_bps < 2
-                      ? "var(--tilt-green)"
+                      ? "Within acceptable institutional range"
                       : agg.spread_dispersion_bps < 5
-                        ? "var(--tilt-amber)"
-                        : "var(--tilt-red)"
-                    : "var(--tilt-sub)",
-                }}
-              >
-                {agg ? agg.spread_dispersion_bps.toFixed(1) + " bps" : "—"}
+                        ? "Elevated spread dispersion — review venue fills"
+                        : "High dispersion — execution quality degraded"
+                    : "Awaiting data"}
+                </div>
               </div>
-              <div className="tilt-int-sub">
-                {agg
-                  ? agg.spread_dispersion_bps < 2
-                    ? "Within acceptable institutional range"
-                    : agg.spread_dispersion_bps < 5
-                      ? "Elevated spread dispersion — review venue fills"
-                      : "High dispersion — execution quality degraded"
-                  : "Awaiting data"}
-              </div>
-            </div>
+            </TT>
 
             <div className="tilt-int-tile">
               <div className="tilt-int-label">BASIS DISPERSION (Spot vs Perp)</div>
@@ -642,31 +695,33 @@ export default function TiltTerminal() {
               <div className="tilt-int-sub">Perp basis feed not yet in LISSnapshot</div>
             </div>
 
-            <div className="tilt-int-price-leader">
-              <div className="tilt-ipl-left">
-                <div className="tilt-int-label">PRICE LEADERSHIP INDEX</div>
-                <div
-                  className="tilt-int-value"
-                  data-testid="tilt-pl"
-                  style={{
-                    fontSize: 14,
-                    color: leader?.is_regulated ? "var(--tilt-green)" : "var(--tilt-text)",
-                  }}
-                >
-                  {leader?.venue_id ?? "—"}
+            <TT title="Price Leadership Index" body="Identifies which venue's price movements lead the rest of the market. The price leader is the venue where price discovery happens — other venues follow. If the leader is unregulated, price discovery for this asset is happening outside the supervisory perimeter.">
+              <div className="tilt-int-price-leader">
+                <div className="tilt-ipl-left">
+                  <div className="tilt-int-label">PRICE LEADERSHIP INDEX</div>
+                  <div
+                    className="tilt-int-value"
+                    data-testid="tilt-pl"
+                    style={{
+                      fontSize: 14,
+                      color: leader?.is_regulated ? "var(--tilt-green)" : "var(--tilt-text)",
+                    }}
+                  >
+                    {leader?.venue_id ?? "—"}
+                  </div>
+                  <div className="tilt-int-sub">
+                    {leader
+                      ? leader.is_regulated
+                        ? "Regulated venue leading price discovery"
+                        : "Offshore venue leading — monitor"
+                      : "Awaiting data"}
+                  </div>
                 </div>
-                <div className="tilt-int-sub">
-                  {leader
-                    ? leader.is_regulated
-                      ? "Regulated venue leading price discovery"
-                      : "Offshore venue leading — monitor"
-                    : "Awaiting data"}
+                <div className="tilt-leader-badge" data-testid="tilt-pl-badge">
+                  {leader?.venue_id?.toUpperCase() ?? "—"}
                 </div>
               </div>
-              <div className="tilt-leader-badge" data-testid="tilt-pl-badge">
-                {leader?.venue_id?.toUpperCase() ?? "—"}
-              </div>
-            </div>
+            </TT>
           </div>
         </div>
 

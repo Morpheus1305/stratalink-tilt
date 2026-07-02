@@ -1,0 +1,238 @@
+# Add Hover Tooltips to LIQUIDITY Page
+
+## Priority
+DEMO-DAY ENHANCEMENT — for the 2 July ADGM pilot call. Start with the
+LIQUIDITY page only. If it works well, extend to other pages post-demo.
+
+## What to Build
+When the user hovers over a metric label or metric value on the LIQUIDITY
+page, a tooltip box appears next to the cursor with a plain-language
+explanation of what the metric means and how to interpret the current
+value.
+
+## Implementation
+
+### Tooltip Component
+Create a reusable tooltip component that:
+- Appears on mouse hover (mouseenter) over a designated element
+- Disappears on mouse leave (mouseleave)
+- Positions itself near the cursor/element without overflowing the viewport
+- Has a small delay before appearing (200-300ms) to avoid flickering
+  on casual mouse movement
+- Uses the house dark style:
+    Background: #0F151F
+    Border: 1px solid #1A2435
+    Border-radius: 2px
+    Text: #D8DEE8 (primary), #7B8EA3 (secondary)
+    Font: system sans-serif, 13px
+    Max width: 320px
+    Padding: 12px 16px
+    Box shadow: 0 4px 12px rgba(0,0,0,0.4)
+- Tooltip has a title line (bold, primary colour) and a body (regular,
+  secondary colour)
+
+### Hover Targets
+Wrap each of the following metric labels AND their associated values in
+a hover-trigger element. Both the label and the value should trigger the
+same tooltip.
+
+---
+
+## Tooltip Content — Header Metrics Row
+
+### Total Depth +/-10bps
+**Title:** Total Depth (+/-10 basis points)
+**Body:** Total order book depth within 10 basis points of mid-price,
+aggregated across all active venues. This is the raw depth figure before
+any quality adjustment. Cross-reference with the L5F composite below to
+understand whether this depth is genuinely executable or structurally
+fragile.
+
+### Venues Live
+**Title:** Venues Live
+**Body:** Number of configured venues actively returning data for this
+asset. 13 out of 13 means full coverage — the platform is seeing the
+entire market. If this drops below 10, investigate which venue relay has
+gone offline.
+
+### Spread Dispersion
+**Title:** Spread Dispersion (bps)
+**Body:** The dispersion of bid-ask spreads across all active venues.
+Measures how differently venues are quoting the same asset. High
+dispersion means venue selection dramatically affects execution cost.
+Under 3 bps is normal; above 5 bps indicates fragmentation.
+
+### Vol Regime
+**Title:** Volatility Regime
+**Body:** Market regime classification based on volatility structure,
+volume patterns and correlation behaviour. NORMAL means no vol spike or
+structural dislocation. STRESSED or CRISIS would indicate acute market
+conditions.
+
+### Regulated
+**Title:** Regulated Venue Share (%)
+**Body:** Percentage of total depth sitting on regulated venues (e.g.
+Kraken, Coinbase). A low percentage means the majority of liquidity sits
+outside the supervisory perimeter — a structural market observation, not
+a platform issue.
+
+### Offshore
+**Title:** Offshore Venue Share (%)
+**Body:** Percentage of total depth on unregulated or offshore venues.
+The mirror of the Regulated figure. A high offshore percentage means
+supervisory action targeting only regulated venues would affect a small
+fraction of actual market depth.
+
+---
+
+## Tooltip Content — L5F Panel (Panel 1)
+
+### L5F Composite (the ring/score)
+**Title:** L5F Composite Score
+**Body:** The Liquidity 5-Factor Score — a weighted composite of Depth
+Quality, Resilience, Fragmentation, Execution Integrity and Regime
+Stability. Scale 0-100. Rating bands: AAA (90-100), AA (80-89),
+A (70-79), BBB (60-69), BB (50-59), B (40-49), CCC (25-39), D (0-24).
+Below 40 means liquidity is not real at institutional scale.
+
+### DETERIORATING (status label)
+**Title:** L5F Status
+**Body:** Qualitative assessment of liquidity trajectory. ROBUST (above
+80, improving), STABLE (65-79), FRAGILE (50-64), DETERIORATING (below
+50). DETERIORATING means conditions are worsening — monitor for further
+decline toward the critical threshold of 40.
+
+### Depth Quality
+**Title:** Depth Quality (Weight: 30%)
+**Body:** Measures the quality of available depth — not just how much
+exists, but how resilient, distributed and executable it is. A high raw
+depth figure with a low Depth Quality score means depth is concentrated,
+thin or decaying rapidly. This is typically the most important sub-score.
+
+### Resilience
+**Title:** Resilience (Weight: 20%)
+**Body:** Measures how quickly depth replenishes after being consumed by
+an order. High resilience means market makers are actively refreshing
+liquidity. A high resilience score alongside low depth quality means the
+market is actively being made but conditions are still fragile.
+
+### Fragmentation
+**Title:** Fragmentation (Weight: 15%, inverted)
+**Body:** Measures how unevenly depth is distributed across venues. Higher
+fragmentation means more concentration at fewer venues. NOTE: the L5F
+formula uses (100 - Fragmentation), so higher fragmentation reduces the
+composite. High concentration creates single-venue dependency risk.
+
+### Execution Integrity
+**Title:** Execution Integrity (Weight: 20%)
+**Body:** Assesses whether an institutional-size order could be executed
+cleanly across venues at acceptable cost. Factors in spread dispersion,
+slippage estimates and venue accessibility. Below 60 means execution
+quality is degraded — venue selection dramatically affects cost.
+
+### Regime Stability
+**Title:** Regime Stability (Weight: 15%)
+**Body:** Measures whether the overall market regime is stable or
+dislocating. A score of 100 means fully stable — no vol spike, no flash
+event, no structural break. Issues happening within a stable regime are
+structural and slow-moving rather than acute.
+
+---
+
+## Tooltip Content — Cross-Venue Depth Map (Panel 2)
+
+### Depth (10bps) column
+**Title:** Venue Depth (+/-10bps)
+**Body:** Total order book depth at this venue within 10 basis points of
+mid-price. Larger values mean more resting liquidity available for
+execution.
+
+### % of Global column
+**Title:** Global Depth Share
+**Body:** This venue's depth as a percentage of total depth across all
+active venues. High concentration at a single venue creates dependency
+risk — if that venue goes offline, a large share of depth disappears.
+
+### Regulated column
+**Title:** Regulatory Status
+**Body:** Whether this venue is regulated (YES) or unregulated (NO).
+Regulated venues operate under a supervisory framework; unregulated
+venues are offshore. This does not determine the stability score — depth
+and spread quality are weighted more heavily.
+
+### Stability column
+**Title:** Venue Stability Score
+**Body:** Three-factor composite: depth relative to the largest venue
+(40%), spread quality (35%), and regulatory status (25%). GREEN (60+) =
+stable. AMBER (35-59) = stressed. RED (below 35) = critical. The score
+reflects execution quality, not just regulatory status.
+
+---
+
+## Tooltip Content — Stress and Regime (Panel 4)
+
+### Liquidity Withdrawal Velocity
+**Title:** Liquidity Withdrawal Velocity (bps/hr)
+**Body:** Rate at which depth is withdrawing from the order book across
+venues. Near zero in steady state. Elevated values mean market makers
+are pulling quotes. Above 20 bps/hr indicates aggressive withdrawal.
+
+### Depth Decay Rate
+**Title:** Depth Decay Rate (%/min)
+**Body:** Rate at which order book depth decays per minute. Measures the
+half-life of resting depth. At 5%/min, depth has a half-life of roughly
+14 minutes — what you see on screen now will be substantially different
+shortly.
+
+### Spread Elasticity
+**Title:** Spread Elasticity (multiplier)
+**Body:** How much spreads widen under order flow relative to normal. 1.0x
+= normal. At 2.0x+, spreads widen twice as fast as usual when orders hit
+the book, meaning institutional orders cause more market impact than
+expected.
+
+### Regime Classification
+**Title:** Regime Classification
+**Body:** Overall market regime assessment. NORMAL/STRESSED/CRISIS
+combined with STABLE/TRANSITIONING/DISLOCATING. NORMAL-STABLE is the
+calmest state. No pre-stress indicators active.
+
+---
+
+## Tooltip Content — Structural Integrity (Panel 3)
+
+### Fragmentation Index
+**Title:** Fragmentation Index (HHI-based)
+**Body:** Herfindahl-Hirschman Index applied to venue depth shares. 0 =
+perfectly distributed. 1 = single venue monopoly. Above 0.25 indicates
+meaningful concentration. The same index used by competition authorities
+for merger review.
+
+### Cross-Venue Spread Dispersion
+**Title:** Cross-Venue Spread Dispersion (bps)
+**Body:** Standard deviation of bid-ask spreads across all active venues.
+Same figure as the header metric. Confirms whether venues are quoting
+similar or very different execution conditions.
+
+### Price Leadership Index
+**Title:** Price Leadership Index
+**Body:** Identifies which venue's price movements lead the rest of the
+market. The price leader is the venue where price discovery happens —
+other venues follow. If the leader is unregulated, price discovery for
+this asset is happening outside the supervisory perimeter.
+
+---
+
+## Verification
+1. Open the LIQUIDITY tab and hover over "Depth Quality" — confirm a
+   tooltip appears with the title and body text specified above.
+2. Hover over the Depth Quality VALUE (e.g. "10.1") — confirm the same
+   tooltip appears.
+3. Confirm tooltips appear for every metric listed above (header row,
+   L5F panel, venue table columns, stress panel, structural integrity).
+4. Confirm tooltips do not appear for non-metric elements (navigation
+   tabs, export buttons, footer ticker).
+5. Confirm tooltip positioning does not overflow the viewport on any
+   edge of the screen.
+6. Confirm the 200-300ms delay prevents flickering when the mouse moves
+   quickly across the page.
