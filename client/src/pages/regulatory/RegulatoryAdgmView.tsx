@@ -14,6 +14,7 @@ import { RefreshCw, AlertCircle, CheckCircle, AlertTriangle, Info } from "lucide
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { generateRCLPDF } from "@/lib/pdfExport";
 import { PlatformFooter } from "@/components/platform-footer";
+import { TT } from "@/components/tilt-tooltip";
 
 type RclSeverity = "green" | "amber" | "red";
 
@@ -255,7 +256,7 @@ function EvidenceLevelTooltipContent({ level }: { level: EvidenceLevel }) {
 
   return (
     <div className="space-y-2">
-      <div className="font-semibold text-sm">Evidence Ladder — {info.title}</div>
+      <div className="font-semibold text-sm">Evidence Ladder  -  {info.title}</div>
       <div className={`font-medium text-xs ${statusColors[info.statusColor]}`}>{info.subtitle}</div>
       <div className="text-xs space-y-1.5 pt-1">
         {info.indicators.map((ind, idx) => (
@@ -396,7 +397,7 @@ export default function RegulatoryAdgmView() {
             </button>
             <div style={{ width: 1, height: 12, background: "var(--tilt-border)" }} />
             <div style={{ fontSize: 10, color: "var(--tilt-muted)" }}>
-              {venueCount != null ? `${venueCount} VENUES` : "—"} &middot; ADGM
+              {venueCount != null ? `${venueCount} VENUES` : " - "} &middot; ADGM
             </div>
             <div style={{
               width: 6, height: 6, borderRadius: "50%",
@@ -409,68 +410,80 @@ export default function RegulatoryAdgmView() {
         {/* Status bar */}
         <div className="tilt-topbar">
           {/* VENUE COUNT */}
-          <div className="tilt-tb-item">
-            <div className="tilt-tb-label">VENUES</div>
-            <div className="tilt-tb-value">{venueCount ?? "—"}</div>
-          </div>
+          <TT title="Venue Count" body="Number of venues actively reporting data for this asset in the current RCL snapshot.">
+            <div className="tilt-tb-item">
+              <div className="tilt-tb-label">VENUES</div>
+              <div className="tilt-tb-value">{venueCount ?? " - "}</div>
+            </div>
+          </TT>
           <div className="tilt-tb-divider" />
 
           {/* COVERAGE */}
-          <div className="tilt-tb-item">
-            <div className="tilt-tb-label">COVERAGE</div>
-            <div className="tilt-tb-value">
-              {coveragePct != null ? `${coveragePct}%` : "—"}
+          <TT title="Coverage Percentage" body="Percentage of configured venues reporting. 100% = full supervisory coverage with no blind spots. Partial coverage for non-BTC tokens reflects genuine market structure - not every token is listed on every venue.">
+            <div className="tilt-tb-item">
+              <div className="tilt-tb-label">COVERAGE</div>
+              <div className="tilt-tb-value">
+                {coveragePct != null ? `${coveragePct}%` : " - "}
+              </div>
             </div>
-          </div>
+          </TT>
           <div className="tilt-tb-divider" />
 
           {/* EVIDENCE LEVEL */}
-          <div className="tilt-tb-item">
-            <div className="tilt-tb-label">EVIDENCE</div>
-            <div className="tilt-tb-value" style={{ color: "var(--tilt-accent)" }}>
-              {evidenceLevel ?? "—"}
+          <TT title="Evidence Level" body="L1 = Minimal Evidence. L2 = Partial Sufficiency. L3 = Supervisory Sufficiency (minimum for routine use). L4 = Enhanced Verification. L5 = Forensic Grade (suitable for formal proceedings and enforcement actions).">
+            <div className="tilt-tb-item">
+              <div className="tilt-tb-label">EVIDENCE</div>
+              <div className="tilt-tb-value" style={{ color: "var(--tilt-accent)" }}>
+                {evidenceLevel ?? " - "}
+              </div>
             </div>
-          </div>
+          </TT>
           <div className="tilt-tb-divider" />
 
           {/* POLI STATUS */}
-          <div className="tilt-tb-item" style={{ minWidth: 90 }}>
-            <div className="tilt-tb-label">POLI STATUS</div>
-            <div style={{
-              fontFamily: "var(--tilt-mono)", fontSize: 11, fontWeight: 700,
-              background: poliStatus === "verified" ? "rgba(0,230,118,0.08)"
-                : poliStatus === "degraded" ? "rgba(255,179,0,0.08)"
-                : poliStatus ? "rgba(255,82,82,0.08)" : "transparent",
-              color: poliStatus ? poliStatusColor : "var(--tilt-muted)",
-              border: poliStatus ? `1px solid ${poliStatusColor}33` : "none",
-              borderRadius: 2, padding: "1px 6px", textTransform: "uppercase",
-            }}>
-              {poliStatus ?? "LOADING"}
+          <TT title="PoLi Verification Status" body="VERIFIED = data has passed PoLi quality checks. DEGRADED = partial coverage or data gaps present. INSUFFICIENT = coverage too low for reliable scoring. VERIFIED is the target state.">
+            <div className="tilt-tb-item" style={{ minWidth: 90 }}>
+              <div className="tilt-tb-label">POLI STATUS</div>
+              <div style={{
+                fontFamily: "var(--tilt-mono)", fontSize: 11, fontWeight: 700,
+                background: poliStatus === "verified" ? "rgba(0,230,118,0.08)"
+                  : poliStatus === "degraded" ? "rgba(255,179,0,0.08)"
+                  : poliStatus ? "rgba(255,82,82,0.08)" : "transparent",
+                color: poliStatus ? poliStatusColor : "var(--tilt-muted)",
+                border: poliStatus ? `1px solid ${poliStatusColor}33` : "none",
+                borderRadius: 2, padding: "1px 6px", textTransform: "uppercase",
+              }}>
+                {poliStatus ?? "LOADING"}
+              </div>
             </div>
-          </div>
+          </TT>
           <div className="tilt-tb-divider" />
 
           {/* INTEGRITY */}
-          <div className="tilt-tb-item" style={{ minWidth: 80 }}>
-            <div className="tilt-tb-label">INTEGRITY</div>
-            <div style={{
-              fontFamily: "var(--tilt-mono)", fontSize: 11, fontWeight: 700,
-              color: integrityState ? integrityColor : "var(--tilt-muted)",
-              textTransform: "uppercase",
-            }}>
-              {integrityState === "within_controls" ? "NORMAL"
-                : integrityState === "elevated_risk" ? "ELEVATED"
-                : integrityState === "control_breach" ? "BREACH"
-                : integrityState ? integrityState.toUpperCase() : "—"}
+          <TT title="Data Integrity" body="NORMAL = no integrity concerns. ELEVATED = minor anomalies detected, data usable with caution. BREACH = data integrity compromised, do not rely on this snapshot for formal purposes without investigation.">
+            <div className="tilt-tb-item" style={{ minWidth: 80 }}>
+              <div className="tilt-tb-label">INTEGRITY</div>
+              <div style={{
+                fontFamily: "var(--tilt-mono)", fontSize: 11, fontWeight: 700,
+                color: integrityState ? integrityColor : "var(--tilt-muted)",
+                textTransform: "uppercase",
+              }}>
+                {integrityState === "within_controls" ? "NORMAL"
+                  : integrityState === "elevated_risk" ? "ELEVATED"
+                  : integrityState === "control_breach" ? "BREACH"
+                  : integrityState ? integrityState.toUpperCase() : " - "}
+              </div>
             </div>
-          </div>
+          </TT>
           <div className="tilt-tb-divider" />
 
           {/* JURISDICTION */}
-          <div className="tilt-tb-item">
-            <div className="tilt-tb-label">JURISDICTION</div>
-            <div className="tilt-tb-value" style={{ fontSize: 11 }}>ADGM</div>
-          </div>
+          <TT title="Regulatory Jurisdiction" body="The jurisdiction this RCL view is configured for. Determines which compliance framework, access permissions and audit requirements apply. ADGM = Abu Dhabi Global Market / Financial Services Regulatory Authority.">
+            <div className="tilt-tb-item">
+              <div className="tilt-tb-label">JURISDICTION</div>
+              <div className="tilt-tb-value" style={{ fontSize: 11 }}>ADGM</div>
+            </div>
+          </TT>
 
           {/* Refresh + timestamp */}
           <div className="tilt-tb-timestamp">
@@ -514,7 +527,9 @@ export default function RegulatoryAdgmView() {
             {/* Left Pane: Coverage */}
             <Card className="border-border ">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Coverage</CardTitle>
+                <TT title="Coverage Panel" body="How many configured venues are contributing data for this token right now. 100% = full supervisory coverage, no blind spots. Partial coverage may occur for tokens not listed on all 14 venues - this reflects genuine market structure, not a system error.">
+                  <CardTitle className="text-sm font-medium">Coverage</CardTitle>
+                </TT>
               </CardHeader>
               <CardContent className="space-y-1">
                 <LabelValue label="Instrument" value={data.coverage.instrument} mono />
@@ -558,7 +573,7 @@ export default function RegulatoryAdgmView() {
                             className={`text-[10px] px-1.5 py-0.5 rounded border ${severityColors[flag.severity]}`}
                           >
                             <span className="font-medium">{flag.code}</span>
-                            <span className="opacity-80 ml-1">— {flag.message}</span>
+                            <span className="opacity-80 ml-1"> -  {flag.message}</span>
                           </div>
                         );
                       })}
@@ -571,13 +586,17 @@ export default function RegulatoryAdgmView() {
             {/* Center Pane: Truth */}
             <Card className="border-border ">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Truth</CardTitle>
+                <TT title="Truth Panel" body="DACT-verified data quality assessment. PoLi Status shows whether the data passes quality thresholds. Evidence Level shows how forensically robust the data is for supervisory use (L3 = minimum for routine use; L5 = suitable for enforcement actions). Integrity shows data continuity and latency.">
+                  <CardTitle className="text-sm font-medium">Truth</CardTitle>
+                </TT>
               </CardHeader>
               <CardContent className="space-y-3">
                 {/* PoLi Status */}
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">Status</span>
+                    <TT title="PoLi Verification Status" body="VERIFIED = data has passed all PoLi quality checks and is suitable for supervisory use. DEGRADED = partial coverage or data gaps present. INSUFFICIENT = coverage too low for reliable scoring. Target state for regulatory use is VERIFIED.">
+                      <span className="text-xs text-muted-foreground">Status</span>
+                    </TT>
                     <StatusBadge status={data.truth.poli.status} />
                   </div>
                   <div className="flex justify-between items-center py-1.5 border-b border-border/50">
@@ -597,7 +616,9 @@ export default function RegulatoryAdgmView() {
                     </div>
                   </div>
                   <div className="pt-2">
-                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Validity Window</span>
+                    <TT title="PoLi Validity Window" body="The time window during which this PoLi verification is valid. After Valid Until, a fresh attestation is required. The window is typically 4 hours for live monitoring and 24 hours for audit archive records.">
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Validity Window</span>
+                    </TT>
                   </div>
                   <LabelValue label="Verified At" value={formatTime(data.truth.poli.verified_at)} />
                   <LabelValue label="Valid Until" value={formatTime(data.truth.poli.valid_until)} />
@@ -611,7 +632,9 @@ export default function RegulatoryAdgmView() {
                 {/* Integrity */}
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">Integrity</span>
+                    <TT title="Data Integrity Assessment" body="Measures the continuity, timeliness, and completeness of ingested data. Checks: no data gaps during the observation window, p95 ingestion latency within 2000ms, and full normalisation across all venue formats. Failures here affect DACT audit validity.">
+                      <span className="text-xs text-muted-foreground">Integrity</span>
+                    </TT>
                     <IntegrityIndicator 
                       severity={data.truth.integrity.overall.severity} 
                       state={data.truth.integrity.overall.state} 
@@ -641,7 +664,9 @@ export default function RegulatoryAdgmView() {
             {/* Right Pane: Provenance */}
             <Card className="border-border ">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Provenance</CardTitle>
+                <TT title="Provenance Panel" body="Per-venue attribution chain showing exactly where each data point originated and how it was ingested. Shows ingestion method, transport protocol, latency, and normalisation status per venue. This is the cryptographically-anchored audit trail for DACT compliance.">
+                  <CardTitle className="text-sm font-medium">Provenance</CardTitle>
+                </TT>
               </CardHeader>
               <CardContent className="space-y-3">
                 {data.provenance.venues.map((venue) => (
@@ -701,9 +726,9 @@ export default function RegulatoryAdgmView() {
               <div>Generated At: {formatTime(data.meta.generated_at)}</div>
               <div>Snapshot Ref: {data.provenance.reference_ids.snapshot_ref}</div>
               <div className="border-t border-border my-1.5" />
-              <div>Supervisory Scope: <span className="text-green-500/80">RCL-v0.2 — {data.coverage.coverage_completeness.covered_venues} venues active across {data.coverage.coverage_completeness.known_venues} configured ({data.coverage.coverage_completeness.coverage_pct}%)</span></div>
-              <div>Data Status: <span className="text-green-500/80">Live ingestion — RCL-v0.2</span></div>
-              <div>Access: Regulator ({data.access_context.jurisdiction}) — Permissions: {data.access_context.scopes.join(", ")} (observation only)</div>
+              <div>Supervisory Scope: <span className="text-green-500/80">RCL-v0.2  -  {data.coverage.coverage_completeness.covered_venues} venues active across {data.coverage.coverage_completeness.known_venues} configured ({data.coverage.coverage_completeness.coverage_pct}%)</span></div>
+              <div>Data Status: <span className="text-green-500/80">Live ingestion  -  RCL-v0.2</span></div>
+              <div>Access: Regulator ({data.access_context.jurisdiction})  -  Permissions: {data.access_context.scopes.join(", ")} (observation only)</div>
               <div className="text-muted-foreground/60">Compliance: Annex A (Declared Supervisory Universe) • Annex B (Expansion Governance)</div>
             </div>
 

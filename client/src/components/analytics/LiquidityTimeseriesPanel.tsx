@@ -105,7 +105,7 @@ export const LiquidityTimeseriesPanel: React.FC<Props> = ({ token }) => {
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2">
           <div className="text-[11px] uppercase tracking-[0.16em] text-neutral-400">
-            Time-Series Liquidity – {token}
+            Time-Series Liquidity  -  {token}
           </div>
           {liveIndicator && (
             <div className="flex items-center gap-1">
@@ -285,7 +285,7 @@ export const LiquidityTimeseriesPanel: React.FC<Props> = ({ token }) => {
             <span className="text-[9px] uppercase text-neutral-500">Stability</span>
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-mono" style={{ color: getStabilityColor(stabilityScore || 0) }}>
-                {stabilityScore != null ? stabilityScore.toFixed(1) : "—"}
+                {stabilityScore != null ? stabilityScore.toFixed(1) : " - "}
               </span>
               <span className="text-[8px] px-1 py-0.5 rounded" style={{ 
                 backgroundColor: `${getStabilityColor(stabilityScore || 0)}20`,
@@ -302,7 +302,7 @@ export const LiquidityTimeseriesPanel: React.FC<Props> = ({ token }) => {
           <div className="flex flex-col">
             <span className="text-[9px] uppercase text-neutral-500">Half-Life</span>
             <span className="text-xs font-mono text-cyan-300">
-              {halfLifeMinutes != null ? `${halfLifeMinutes.toFixed(0)} min` : "—"}
+              {halfLifeMinutes != null ? `${halfLifeMinutes.toFixed(0)} min` : " - "}
             </span>
           </div>
         </div>
@@ -312,7 +312,7 @@ export const LiquidityTimeseriesPanel: React.FC<Props> = ({ token }) => {
           <div className="flex flex-col">
             <span className="text-[9px] uppercase text-neutral-500">Volatility</span>
             <span className="text-xs font-mono text-white">
-              {volatility != null ? `${volatility.toFixed(1)}%` : "—"}
+              {volatility != null ? `${volatility.toFixed(1)}%` : " - "}
             </span>
           </div>
         </div>
@@ -324,13 +324,13 @@ export const LiquidityTimeseriesPanel: React.FC<Props> = ({ token }) => {
             <Zap className="w-3 h-3 text-cyan-500" />
             <span className="text-neutral-500">Range:</span>
             <span className="font-mono text-white">
-              {formatCompact(minDepth)} – {formatCompact(maxDepth)}
+              {formatCompact(minDepth)}  -  {formatCompact(maxDepth)}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-neutral-500">Spread:</span>
             <span className="font-mono text-white">
-              {spreadRange.min.toFixed(1)} – {spreadRange.max.toFixed(1)} bps
+              {spreadRange.min.toFixed(1)}  -  {spreadRange.max.toFixed(1)} bps
             </span>
             <span className="text-neutral-600">(avg {spreadRange.avg.toFixed(1)})</span>
           </div>
@@ -340,7 +340,7 @@ export const LiquidityTimeseriesPanel: React.FC<Props> = ({ token }) => {
       {usingFallback && (
         <div className="text-[9px] text-amber-500/70 flex items-center gap-1">
           <span className="w-1 h-1 rounded-full bg-amber-500" />
-          Synthetic data – real-time collection in progress
+          Synthetic data  -  real-time collection in progress
         </div>
       )}
     </div>

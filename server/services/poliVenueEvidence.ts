@@ -326,7 +326,7 @@ export function buildVenueEvidenceReport(args: {
     }
   }
 
-  // Build L3 cross-venue block if requested (we compute it regardless of L2 ok — it’s diagnostic)
+  // Build L3 cross-venue block if requested (we compute it regardless of L2 ok  -  it’s diagnostic)
   const referenceVenue = normVenue(args.opts?.referenceVenue || "coinbase") || "coinbase";
   const stressVenue = normVenue(args.opts?.stressVenue || "binance") || "binance";
   const maxAgeMsCrossVenue = Number.isFinite(args.opts?.maxAgeMsCrossVenue) ? Number(args.opts.maxAgeMsCrossVenue) : 60_000;

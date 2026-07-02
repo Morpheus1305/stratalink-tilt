@@ -163,10 +163,10 @@ export default function WhaleImbalancePanel({ liquidations }: Props) {
         <div className={`w-2 h-2 rounded-full ${Math.abs(imbalancePct) > 15 ? 'bg-yellow-400 animate-pulse' : 'bg-emerald-400'}`} />
         <span className="text-[10px] text-neutral-400">
           {Math.abs(imbalancePct) > 25 
-            ? "High liquidation pressure — expect volatility"
+            ? "High liquidation pressure  -  expect volatility"
             : Math.abs(imbalancePct) > 10
               ? "Moderate directional pressure building"
-              : "Neutral positioning — low cascade risk"
+              : "Neutral positioning  -  low cascade risk"
           }
         </span>
       </div>

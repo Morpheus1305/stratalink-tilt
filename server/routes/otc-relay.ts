@@ -4,7 +4,7 @@ import { tsleBuffer, tsleStateEngine, type LISSnapshot } from "../services/tsle-
 
 const router = Router();
 const TIMEOUT_MS = 5000;
-// Full ILU-20 coverage + legacy symbols — OTC/RFQ desk provides synthetic depth for all
+// Full ILU-20 coverage + legacy symbols  -  OTC/RFQ desk provides synthetic depth for all
 const SUPPORTED_SYMBOLS = [
   "BTC", "ETH",                              // Reserve
   "USDT", "USDC", "USDE", "DAI",             // Stablecoin
@@ -77,7 +77,7 @@ async function otcFetch(path: string, body: Record<string, any> = {}): Promise<a
   const rfqUrl = process.env.OTC_RFQ_URL;
   const apiKey = process.env.OTC_API_KEY;
   const apiSecret = process.env.OTC_API_SECRET;
-  if (!rfqUrl) throw new Error("OTC_RFQ_URL not configured — this relay requires institutional onboarding");
+  if (!rfqUrl) throw new Error("OTC_RFQ_URL not configured  -  this relay requires institutional onboarding");
   const bodyStr = JSON.stringify(body);
   const sig = apiSecret ? signRequest("POST", path, bodyStr, apiSecret) : "";
   const controller = new AbortController();
@@ -162,7 +162,7 @@ router.get("/perps/depth", async (req: Request, res: Response) => {
 router.get("/health", async (_req: Request, res: Response) => {
   const rfqUrl = process.env.OTC_RFQ_URL;
   const venueName = process.env.OTC_VENUE_NAME ?? "OTC (RFQ)";
-  if (!rfqUrl) return res.json({ ok: false, venue: "otc", venueName, status: "unconfigured", note: "OTC_RFQ_URL not configured — requires institutional onboarding" });
+  if (!rfqUrl) return res.json({ ok: false, venue: "otc", venueName, status: "unconfigured", note: "OTC_RFQ_URL not configured  -  requires institutional onboarding" });
   try {
     const data = await otcFetch("/health", {});
     res.json({ ok: true, venue: "otc", venueName, ts: Date.now(), ...data });

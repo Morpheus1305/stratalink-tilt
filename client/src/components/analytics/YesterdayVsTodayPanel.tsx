@@ -72,7 +72,7 @@ export function YesterdayVsTodayPanel({
       <CardHeader className="pb-2">
         <CardTitle className="text-lg font-semibold text-foreground flex items-center gap-2">
           <span className="text-[#00D9FF]">⟳</span>
-          Yesterday vs Today — {symbol}
+          Yesterday vs Today  -  {symbol}
         </CardTitle>
         <p className="text-sm text-muted-foreground">
           Comparative liquidity & execution posture relative to the previous session.
@@ -126,7 +126,7 @@ export function YesterdayVsTodayPanel({
           <div className="text-sm text-muted-foreground">
             {yesterday.depth10.delta > 0
               ? "Depth improved modestly across tight bands."
-              : "Depth softened, driven by reduced bid support at 10–25bps."}
+              : "Depth softened, driven by reduced bid support at 10 - 25bps."}
             {" "}
             {yesterday.factorScore.delta > 0
               ? "Composite liquidity quality strengthened."

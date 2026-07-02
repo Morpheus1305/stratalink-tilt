@@ -57,7 +57,7 @@ function fmtDate(d = new Date()) {
 }
 
 function fmtUSD(v: number) {
-  if (!v) return "—";
+  if (!v) return " - ";
   if (v >= 1e9) return `$${(v / 1e9).toFixed(1)}B`;
   if (v >= 1e6) return `$${(v / 1e6).toFixed(1)}M`;
   if (v >= 1e3) return `$${(v / 1e3).toFixed(0)}K`;
@@ -208,7 +208,7 @@ class ServerPdf {
     });
     this.y += rowH;
     rows.forEach((row, ri) => {
-      const cellLines = row.map((c, ci) => this.doc.splitTextToSize(String(c ?? "—"), widths[ci] - 5));
+      const cellLines = row.map((c, ci) => this.doc.splitTextToSize(String(c ?? " - "), widths[ci] - 5));
       const maxL = Math.max(...cellLines.map((l) => l.length));
       const rH = Math.max(rowH, maxL * 4.2 + 2.5);
       this.checkPage(rH + 2);
@@ -221,7 +221,7 @@ class ServerPdf {
       this.doc.rect(this.M, this.y, this.CW, rH, "S");
       cx = this.M;
       row.forEach((cell, ci) => {
-        const t = String(cell ?? "—");
+        const t = String(cell ?? " - ");
         this.doc.setFont("helvetica", ci === 0 ? "bold" : "normal");
         this.doc.setFontSize(7.5);
         this.doc.setTextColor(...this.TEXT);
@@ -246,7 +246,7 @@ class ServerPdf {
       this.doc.text(k, this.M + 3, this.y + 4.7);
       this.doc.setFont("helvetica", "normal");
       this.doc.setTextColor(...this.TEXT);
-      const lines = this.doc.splitTextToSize(v || "—", this.CW - 65);
+      const lines = this.doc.splitTextToSize(v || " - ", this.CW - 65);
       this.doc.text(lines[0], this.M + 65, this.y + 4.7);
       this.y += 7;
     });
@@ -327,7 +327,7 @@ async function fetchL5FSnapshot(symbol: string) {
   }
 }
 
-// Scores from the L5F API are in 0-100 float range — use directly, no * 100
+// Scores from the L5F API are in 0-100 float range  -  use directly, no * 100
 function scoreStr(v: number): string { return (v ?? 0).toFixed(2); }
 
 async function generateServerSideReport(
@@ -365,7 +365,7 @@ async function generateServerSideReport(
       ["Token", `${tok}-USD`],
       ["PoLi Score", `${scoreStr(totalPoli)} / 100   Rating: ${rating}`],
       ["Market Status", status],
-      ["Active Venues", String(snap.venue_count ?? "—")],
+      ["Active Venues", String(snap.venue_count ?? " - ")],
       ["Aggregate Depth", fmtUSD(snap.total_depth_10bps ?? 0)],
       ["Average Spread", `${avgSpread.toFixed(2)} bps`],
       ["Spread Dispersion", `${(snap.spread_dispersion_bps ?? 0).toFixed(2)} bps`],
@@ -379,7 +379,7 @@ async function generateServerSideReport(
         ["Depth Score", depthScore.toFixed(0), "40", "Depth coverage across venues"],
         ["Balance Score", balanceScore.toFixed(0), "35", "Bid-ask symmetry"],
         ["Spread Score", spreadScore.toFixed(0), "25", "Spread tightness"],
-        ["TOTAL", totalPoli.toFixed(0), "100", `Rating: ${rating} — ${status}`],
+        ["TOTAL", totalPoli.toFixed(0), "100", `Rating: ${rating}  -  ${status}`],
       ],
       [55, 22, 18, 80]
     );
@@ -486,7 +486,7 @@ async function generateServerSideReport(
       ["Token", "Fund Rate", "Perp Basis", "Ins Fund", "Overall"],
       validSnaps.map(({ symbol, snap }) => {
         const s = poliStatus(snap.l5f_composite ?? 0);
-        return [`${symbol}-USD`, "—", "—", "—", s === "STABLE" ? "GREEN" : s === "ELEVATED" ? "AMBER" : "RED"];
+        return [`${symbol}-USD`, " - ", " - ", " - ", s === "STABLE" ? "GREEN" : s === "ELEVATED" ? "AMBER" : "RED"];
       }),
       [32, 28, 28, 28, 28]
     );
@@ -523,7 +523,7 @@ async function generateServerSideReport(
     const venues = ["Binance", "Coinbase", "Kraken", "OKX", "Bybit", "Hyperliquid", "dYdX"];
     pdf.table(
       ["Venue", "Uptime", "Avg Latency", "Data Gaps", "Status"],
-      venues.map((v) => [v, "—", "—", "—", "STABLE"]),
+      venues.map((v) => [v, " - ", " - ", " - ", "STABLE"]),
       [35, 25, 30, 25, 25]
     );
 
@@ -711,7 +711,7 @@ router.post("/generate", async (req, res) => {
         await resend.emails.send({
           from: "TILT Reports <reports@stratalink.ai>",
           to: cfg[0].emailRecipients ?? [],
-          subject: `TILT ${reportLabel} — ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}`,
+          subject: `TILT ${reportLabel}  -  ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}`,
           text: `Please find attached the ${reportLabel}.\n\nReport Reference: ${refId}\nGenerated: ${new Date().toISOString()}\n\nThis report is generated automatically by TILT (The Institutional Liquidity Truth).\nStratalink Labs Ltd | Confidential`,
           attachments: [{ filename, content: buffer.toString("base64") }],
         });
@@ -740,12 +740,12 @@ router.post("/incident", async (req, res) => {
     pdf.section("1", "Incident Summary");
     pdf.kv([
       ["Incident ID", refId],
-      ["Date/Time Detected", inc.detectedAt || "—"],
+      ["Date/Time Detected", inc.detectedAt || " - "],
       ["Date/Time Resolved", inc.resolvedAt || "ONGOING"],
-      ["Severity", (inc.severity || "—").toUpperCase()],
-      ["Category", (inc.category || "—").toUpperCase()],
-      ["Tokens Affected", inc.tokensAffected || "—"],
-      ["Venues Affected", inc.venuesAffected || "—"],
+      ["Severity", (inc.severity || " - ").toUpperCase()],
+      ["Category", (inc.category || " - ").toUpperCase()],
+      ["Tokens Affected", inc.tokensAffected || " - "],
+      ["Venues Affected", inc.venuesAffected || " - "],
       ["Reported By", inc.reportedBy || "System"],
     ]);
 
@@ -768,7 +768,7 @@ router.post("/incident", async (req, res) => {
 
     const [inserted] = await db.insert(reportRecords).values({
       reportType: "incident",
-      tokenScope: inc.tokensAffected ?? "—",
+      tokenScope: inc.tokensAffected ?? " - ",
       generatedBy: "on-demand",
       deliveryStatus: "generated",
       referenceId: refId,

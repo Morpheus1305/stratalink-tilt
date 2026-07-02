@@ -8,22 +8,22 @@ type CoinbaseBook = {
 };
 
 const SYMBOL_MAP: Record<string, string> = {
-  // ILU-20 — Reserve
+  // ILU-20  -  Reserve
   BTC:  "BTC-USD",
   ETH:  "ETH-USD",
-  // ILU-20 — Stablecoin Infrastructure (Coinbase lists these vs USD)
+  // ILU-20  -  Stablecoin Infrastructure (Coinbase lists these vs USD)
   USDT: "USDT-USD",
   DAI:  "DAI-USD",
-  // ILU-20 — Exchange & Trading Infrastructure
+  // ILU-20  -  Exchange & Trading Infrastructure
   CRO:  "CRO-USD",
   UNI:  "UNI-USD",
-  // ILU-20 — Financial Infrastructure
+  // ILU-20  -  Financial Infrastructure
   LINK: "LINK-USD",
   AAVE: "AAVE-USD",
   MKR:  "MKR-USD",
   SNX:  "SNX-USD",
   COMP: "COMP-USD",
-  // ILU-20 — High-Volume Liquidity
+  // ILU-20  -  High-Volume Liquidity
   SOL:  "SOL-USD",
   XRP:  "XRP-USD",
   DOGE: "DOGE-USD",

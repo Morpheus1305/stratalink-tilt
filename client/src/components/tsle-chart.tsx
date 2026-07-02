@@ -112,7 +112,7 @@ function getRegimeState(
     if (state === "DISLOCATED") {
       return {
         label: "Dislocated",
-        description: "Institutional liquidity collapsed — execution severely impaired",
+        description: "Institutional liquidity collapsed  -  execution severely impaired",
         severity: "critical",
         icon: AlertTriangle,
       };
@@ -135,7 +135,7 @@ function getRegimeState(
     }
     return {
       label: "Stable",
-      description: "Institutional liquidity holding in 25–50 bps window",
+      description: "Institutional liquidity holding in 25 - 50 bps window",
       severity: "stable",
       icon: Shield,
     };
@@ -149,7 +149,7 @@ function getRegimeState(
   if (hasTrendWarning || (hasPoliDrop && hasDepthErosion)) {
     return {
       label: "Critical",
-      description: "Liquidity deteriorating beneath stable price — execution risk rising",
+      description: "Liquidity deteriorating beneath stable price  -  execution risk rising",
       severity: "critical",
       icon: AlertTriangle,
     };
@@ -176,7 +176,7 @@ function getRegimeState(
   if (latestPoli >= 70 && trend.direction !== "falling") {
     return {
       label: "Stable",
-      description: "Liquidity holding above 25–50 bps",
+      description: "Liquidity holding above 25 - 50 bps",
       severity: "stable",
       icon: Shield,
     };
@@ -193,7 +193,7 @@ function getRegimeState(
 
   return {
     label: "Thin",
-    description: "Limited depth — execution may face slippage",
+    description: "Limited depth  -  execution may face slippage",
     severity: "fragile",
     icon: Zap,
   };
@@ -363,7 +363,7 @@ export default function TSLEChart({ venue, symbol, pollTick, className }: TSLECh
       <div className="flex items-center gap-2 mb-2">
         <Layers className="h-4 w-4 text-primary" />
         <h3 className="text-sm font-semibold text-foreground">
-          TSLE v1.1 — Liquidity as a State Machine
+          TSLE v1.1  -  Liquidity as a State Machine
         </h3>
       </div>
       
@@ -469,7 +469,7 @@ export default function TSLEChart({ venue, symbol, pollTick, className }: TSLECh
               {regime.label}
             </span>
             <span className="text-xs text-muted-foreground">
-              — {regime.description}
+               -  {regime.description}
             </span>
           </div>
           {data.stateSnapshot && Math.round(data.trend.confidence * 100) > 0 && (
@@ -487,7 +487,7 @@ export default function TSLEChart({ venue, symbol, pollTick, className }: TSLECh
               Baseline PoLi (Rolling Avg)
             </div>
             <div className="text-3xl font-mono font-bold text-primary">
-              {baselinePoli ?? "—"}
+              {baselinePoli ?? " - "}
             </div>
             {baselineDelta !== null && (
               <div className={cn(
@@ -501,7 +501,7 @@ export default function TSLEChart({ venue, symbol, pollTick, className }: TSLECh
                 {" "}points {baselineDelta >= 0 ? "above" : "below"} baseline
                 {Math.abs(baselineDelta) >= 5 && (
                   <span className="ml-1">
-                    — {baselineDelta > 0 ? "unusually strong" : "unusually weak"}
+                     -  {baselineDelta > 0 ? "unusually strong" : "unusually weak"}
                   </span>
                 )}
               </div>
@@ -532,7 +532,7 @@ export default function TSLEChart({ venue, symbol, pollTick, className }: TSLECh
           </div>
 
           <div className="h-24">
-            <div className="text-xs text-muted-foreground mb-1 pl-1">Lane B: Institutional Depth (25–50 bps)</div>
+            <div className="text-xs text-muted-foreground mb-1 pl-1">Lane B: Institutional Depth (25 - 50 bps)</div>
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={processedData || []} margin={{ top: 2, right: 5, left: -20, bottom: 2 }}>
                 <XAxis dataKey="time" hide />
@@ -661,7 +661,7 @@ export default function TSLEChart({ venue, symbol, pollTick, className }: TSLECh
       <div className="grid grid-cols-4 gap-3 mt-3 pt-3 border-t border-border/50">
         <div className="text-center">
           <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Avg PoLi</div>
-          <div className="text-xs font-mono font-medium text-foreground">{data.stats.avgPoli ?? "—"}</div>
+          <div className="text-xs font-mono font-medium text-foreground">{data.stats.avgPoli ?? " - "}</div>
         </div>
         <div className="text-center">
           <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Velocity</div>
@@ -688,7 +688,7 @@ export default function TSLEChart({ venue, symbol, pollTick, className }: TSLECh
             "text-xs font-mono font-medium",
             Math.abs(data.trend.imbalanceShift) > 0.1 ? "text-amber-500" : "text-foreground"
           )}>
-            {data.latest ? `${(data.latest.imbalance2550 * 100).toFixed(1)}%` : "—"}
+            {data.latest ? `${(data.latest.imbalance2550 * 100).toFixed(1)}%` : " - "}
           </div>
         </div>
       </div>

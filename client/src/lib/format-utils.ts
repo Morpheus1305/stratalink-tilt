@@ -1,5 +1,5 @@
 /**
- * Format utilities — timezone-aware timestamps and locale-aware numbers.
+ * Format utilities  -  timezone-aware timestamps and locale-aware numbers.
  * Reads from UserSettings (or falls back to UTC / period-comma defaults).
  */
 

@@ -47,7 +47,7 @@ export default function MicrostructureReplayStrip() {
         <div>
           <div className="text-neutral-500 mb-0.5">Price @ cursor</div>
           <div className="text-xs">
-            {pricePoint ? `$${pricePoint.v.toLocaleString()}` : "—"}
+            {pricePoint ? `$${pricePoint.v.toLocaleString()}` : " - "}
           </div>
         </div>
         <div>
@@ -55,13 +55,13 @@ export default function MicrostructureReplayStrip() {
           <div className="text-xs">
             {depthPoint
               ? `$${(depthPoint.v / 1_000_000).toFixed(2)}M`
-              : "—"}
+              : " - "}
           </div>
         </div>
         <div>
           <div className="text-neutral-500 mb-0.5">Funding @ cursor</div>
           <div className="text-xs">
-            {fundingPoint ? (fundingPoint.v * 100).toFixed(4) + "%" : "—"}
+            {fundingPoint ? (fundingPoint.v * 100).toFixed(4) + "%" : " - "}
           </div>
         </div>
       </div>

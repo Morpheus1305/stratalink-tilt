@@ -37,7 +37,7 @@ function isStale(series: Series, msThreshold = 45000): boolean {
 }
 
 const pctFmt = (v: number | null) =>
-  v == null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
+  v == null ? " - " : `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
 
 export default function LiveSparklinesPanel({
   token,
@@ -84,7 +84,7 @@ export default function LiveSparklinesPanel({
             {token} Price
           </div>
           <div style={{ fontSize: 14, marginBottom: 6 }}>
-            {priceLast ? `$${priceLast.v.toLocaleString()}` : "—"}
+            {priceLast ? `$${priceLast.v.toLocaleString()}` : " - "}
             <span
               style={{
                 marginLeft: 8,
@@ -135,7 +135,7 @@ export default function LiveSparklinesPanel({
             {token} 10bps Depth
           </div>
           <div style={{ fontSize: 14, marginBottom: 6 }}>
-            {depthLast ? `$${(depthLast.v / 1_000_000).toFixed(2)}M` : "—"}
+            {depthLast ? `$${(depthLast.v / 1_000_000).toFixed(2)}M` : " - "}
             <span
               style={{
                 marginLeft: 8,
@@ -186,7 +186,7 @@ export default function LiveSparklinesPanel({
             {token} Funding Rate
           </div>
           <div style={{ fontSize: 14, marginBottom: 6 }}>
-            {fundingLast ? (fundingLast.v * 100).toFixed(4) + "%" : "—"}
+            {fundingLast ? (fundingLast.v * 100).toFixed(4) + "%" : " - "}
             <span
               style={{
                 marginLeft: 8,

@@ -9,6 +9,7 @@ import {
 } from "recharts";
 import "./tilt-terminal.css";
 import { PlatformFooter } from "@/components/platform-footer";
+import { TT } from "@/components/tilt-tooltip";
 
 // ─── Palette constants (mirror tilt-terminal.css vars) ───────────────────────
 const G    = "#00E676";
@@ -176,7 +177,7 @@ function ScoreRing({
           color,
           lineHeight: 1,
         }}>
-          {score != null ? Math.round(score) : "—"}
+          {score != null ? Math.round(score) : " - "}
         </span>
       </div>
     </div>
@@ -198,7 +199,7 @@ function EwdsCell({
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 16, fontWeight: 700, color: value ? c : SUB }}>
-          {value != null ? `${value}${unit}` : "—"}
+          {value != null ? `${value}${unit}` : " - "}
         </span>
         <span style={{
           width: 6, height: 6, borderRadius: "50%",
@@ -535,15 +536,27 @@ export default function IntegrityPage() {
           style={{ display: "flex", gap: 1, background: BORDER }}
           data-testid="integrity-ewds"
         >
-          <EwdsCell label="FUND RATE"  value={fundRateVal  != null ? fundRateVal.toFixed(2)  : null} rag={fundRateRag}  unit="%" />
-          <EwdsCell label="PERP BASIS" value={perpBasisVal != null ? perpBasisVal.toFixed(1)  : null} rag={perpBasisRag} unit="bps" />
-          <EwdsCell label="INS FUND"   value={insFundVal   != null ? insFundVal.toFixed(1)    : null} rag={insFundRag}   unit="%" />
-          <EwdsCell label="XMRG UTIL"  value={xmrgUtilVal  != null ? xmrgUtilVal.toFixed(0)   : null} rag={xmrgUtilRag}  unit="%" />
-          <EwdsCell label="ALT LIQ"    value={altLiqVal    != null ? altLiqVal.toFixed(2)     : null} rag={altLiqRag} />
-          <EwdsCell label="ADL COUNT"  value={null}                                                   rag="N" />
+          <TT title="Funding Rate" body="Composite funding rate pressure across perp venues. Extremely elevated or negative funding across multiple venues simultaneously indicates leveraged positioning stress. Green below 5%, Amber 5-20%, Red above 20%.">
+            <EwdsCell label="FUND RATE"  value={fundRateVal  != null ? fundRateVal.toFixed(2)  : null} rag={fundRateRag}  unit="%" />
+          </TT>
+          <TT title="Perp Basis (Spread Dispersion)" body="Spread dispersion across perp venues in basis points. Above 2 bps is mild fragmentation. Above 8 bps indicates venues are significantly out-of-sync on perpetual contract pricing.">
+            <EwdsCell label="PERP BASIS" value={perpBasisVal != null ? perpBasisVal.toFixed(1)  : null} rag={perpBasisRag} unit="bps" />
+          </TT>
+          <TT title="Insurance Fund Stability" body="Regime stability score used as a proxy for insurance fund health. A declining score is an early indicator of cascading liquidation risk. Green above 95%, Amber 90-95%, Red below 90%.">
+            <EwdsCell label="INS FUND"   value={insFundVal   != null ? insFundVal.toFixed(1)    : null} rag={insFundRag}   unit="%" />
+          </TT>
+          <TT title="Cross-Margin Utilisation" body="Cross-margin utilisation estimate derived from the fragmentation index (scaled 0-100%). Above 50% means portfolios are broadly levered. Above 70% triggers systemic stress conditions.">
+            <EwdsCell label="XMRG UTIL"  value={xmrgUtilVal  != null ? xmrgUtilVal.toFixed(0)   : null} rag={xmrgUtilRag}  unit="%" />
+          </TT>
+          <TT title="Alternative Liquidity" body="Alternative liquidity score (derived from L5F composite / 100). A proxy for whether liquidity is available outside the primary venues. Low score means few alternatives if primary venues withdraw depth.">
+            <EwdsCell label="ALT LIQ"    value={altLiqVal    != null ? altLiqVal.toFixed(2)     : null} rag={altLiqRag} />
+          </TT>
+          <TT title="Auto-Deleveraging Count" body="Tracks how many positions are being automatically deleveraged on perp venues. High ADL count is a direct distress signal indicating the insurance fund is insufficient to cover losses. Currently awaiting data feed.">
+            <EwdsCell label="ADL COUNT"  value={null}                                                   rag="N" />
+          </TT>
         </div>
 
-        {/* ── ROW 2: POLI + POMI — full-width horizontal bands ────────────── */}
+        {/* ── ROW 2: POLI + POMI  -  full-width horizontal bands ────────────── */}
         <div style={{ display: "flex", flexDirection: "column", gap: 1, background: BORDER }} data-testid="integrity-poli-pomi">
 
           {/* ── PoLi row ── */}
@@ -565,32 +578,38 @@ export default function IntegrityPage() {
             <div style={{ width: 1, background: BORDER, alignSelf: "stretch", flexShrink: 0 }} />
 
             {/* PoLi Score */}
-            <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 20px", flexShrink: 0, minWidth: 80 }}>
-              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 2 }}>PoLi Score</div>
-              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 14, fontWeight: 700, color: poliColor, lineHeight: 1 }}>
-                {poliScore != null ? Math.round(poliScore) : "—"}
+            <TT title="PoLi Score" body="Proof of Liquidity composite score (0-100). Aggregated from the L5F 5-factor model across all active venues. Rating bands: AAA 90+, AA 80-89, A 70-79, BBB 60-69, BB 50-59, B 40-49, CCC 25-39, D below 25.">
+              <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 20px", flexShrink: 0, minWidth: 80 }}>
+                <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 2 }}>PoLi Score</div>
+                <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 14, fontWeight: 700, color: poliColor, lineHeight: 1 }}>
+                  {poliScore != null ? Math.round(poliScore) : " - "}
+                </div>
               </div>
-            </div>
+            </TT>
 
             <div style={{ width: 1, background: BORDER, alignSelf: "stretch", flexShrink: 0 }} />
 
             {/* Rating */}
-            <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 20px", flexShrink: 0, minWidth: 72 }}>
-              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 2 }}>Rating</div>
-              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 14, fontWeight: 700, color: TEXT, lineHeight: 1 }}>
-                {poliRat ?? "—"}
+            <TT title="PoLi Rating" body="Letter rating derived from PoLi score. AAA means institutional-grade liquidity with high confidence. CCC and below means liquidity is unreliable at institutional scale. These ratings are analogous to credit ratings but applied to market liquidity.">
+              <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 20px", flexShrink: 0, minWidth: 72 }}>
+                <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 2 }}>Rating</div>
+                <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 14, fontWeight: 700, color: TEXT, lineHeight: 1 }}>
+                  {poliRat ?? " - "}
+                </div>
               </div>
-            </div>
+            </TT>
 
             <div style={{ width: 1, background: BORDER, alignSelf: "stretch", flexShrink: 0 }} />
 
             {/* Market Status */}
-            <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 20px", flexShrink: 0, minWidth: 120 }}>
-              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 2 }}>Market Status</div>
-              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 14, fontWeight: 700, color: poliSt?.color ?? SUB }}>
-                {poliSt?.label ?? "—"}
+            <TT title="PoLi Market Status" body="Qualitative label for current liquidity conditions. STABLE means no structural concerns. MONITORING means watching for early fragmentation. EARLY STRESS means minor deterioration detected. FRAGMENTING means investment-grade conditions deteriorating. CRITICAL means liquidity failure conditions active.">
+              <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 20px", flexShrink: 0, minWidth: 120 }}>
+                <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 2 }}>Market Status</div>
+                <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 14, fontWeight: 700, color: poliSt?.color ?? SUB }}>
+                  {poliSt?.label ?? " - "}
+                </div>
               </div>
-            </div>
+            </TT>
 
             <div style={{ width: 1, background: BORDER, alignSelf: "stretch", flexShrink: 0 }} />
 
@@ -629,49 +648,57 @@ export default function IntegrityPage() {
             <div style={{ width: 1, background: BORDER, alignSelf: "stretch", flexShrink: 0 }} />
 
             {/* PoMI Score */}
-            <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 20px", flexShrink: 0, minWidth: 80 }}>
-              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 2 }}>PoMI Score</div>
-              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 14, fontWeight: 700, color: pomiColor, lineHeight: 1 }}>
-                {pomiScore ?? "—"}
+            <TT title="PoMI Score" body="Proof of Market Integrity score for the coordination layer (0-100). Measures how well the three cross-venue stabilisation mechanisms are functioning. Below 50 means coordination is materially impaired.">
+              <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 20px", flexShrink: 0, minWidth: 80 }}>
+                <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 2 }}>PoMI Score</div>
+                <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 14, fontWeight: 700, color: pomiColor, lineHeight: 1 }}>
+                  {pomiScore ?? " - "}
+                </div>
               </div>
-            </div>
+            </TT>
 
             <div style={{ width: 1, background: BORDER, alignSelf: "stretch", flexShrink: 0 }} />
 
             {/* Rating */}
-            <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 20px", flexShrink: 0, minWidth: 72 }}>
-              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 2 }}>Rating</div>
-              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 14, fontWeight: 700, color: TEXT, lineHeight: 1 }}>
-                {pomiRat ?? "—"}
+            <TT title="PoMI Rating" body="Letter rating derived from PoMI score using the same AAA-D band structure as PoLi. AAA means cross-venue coordination mechanisms are fully intact and operating normally.">
+              <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 20px", flexShrink: 0, minWidth: 72 }}>
+                <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 2 }}>Rating</div>
+                <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 14, fontWeight: 700, color: TEXT, lineHeight: 1 }}>
+                  {pomiRat ?? " - "}
+                </div>
               </div>
-            </div>
+            </TT>
 
             <div style={{ width: 1, background: BORDER, alignSelf: "stretch", flexShrink: 0 }} />
 
             {/* Status */}
-            <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 20px", flexShrink: 0, minWidth: 120 }}>
-              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 2 }}>Status</div>
-              <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 14, fontWeight: 700, color: pomiSt?.color ?? SUB }}>
-                {pomiSt?.label ?? "—"}
+            <TT title="PoMI Coordination Status" body="STABLE = coordination mechanisms intact. MONITORING = window narrowing, watch for escalation. PARTIAL = throttle engagement advisable, threshold monitoring active. CONSTRAINED = cross-venue stabilisation capacity severely compromised.">
+              <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 20px", flexShrink: 0, minWidth: 120 }}>
+                <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 2 }}>Status</div>
+                <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 14, fontWeight: 700, color: pomiSt?.color ?? SUB }}>
+                  {pomiSt?.label ?? " - "}
+                </div>
               </div>
-            </div>
+            </TT>
 
             <div style={{ width: 1, background: BORDER, alignSelf: "stretch", flexShrink: 0 }} />
 
             {/* Three pillars */}
-            <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 5, padding: "0 20px", flexShrink: 0 }}>
-              {[
-                { label: "Threshold", status: thresholdLabel, rag: thresholdRag as Rag },
-                { label: "Throttle",  status: throttleLabel,  rag: throttleRag  as Rag },
-                { label: "Venue Sync",status: venueSyncLabel, rag: venueSyncRag  as Rag },
-              ].map(p => (
-                <div key={p.label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: ragColor(p.rag), flexShrink: 0 }} />
-                  <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 10, color: MUTED, minWidth: 64 }}>{p.label}</span>
-                  <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 10, fontWeight: 700, color: ragColor(p.rag) }}>{p.status}</span>
-                </div>
-              ))}
-            </div>
+            <TT title="PoMI Coordination Sub-Indicators" body="Three coordination pillars: Threshold Definition monitors whether cross-venue liquidity thresholds are holding. Throttle Activation monitors whether vol-responsive throttling is engaged. Venue Synchronisation monitors whether venues are price-coordinated (spread dispersion below 8 bps).">
+              <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 5, padding: "0 20px", flexShrink: 0 }}>
+                {[
+                  { label: "Threshold", status: thresholdLabel, rag: thresholdRag as Rag },
+                  { label: "Throttle",  status: throttleLabel,  rag: throttleRag  as Rag },
+                  { label: "Venue Sync",status: venueSyncLabel, rag: venueSyncRag  as Rag },
+                ].map(p => (
+                  <div key={p.label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ width: 5, height: 5, borderRadius: "50%", background: ragColor(p.rag), flexShrink: 0 }} />
+                    <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 10, color: MUTED, minWidth: 64 }}>{p.label}</span>
+                    <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 10, fontWeight: 700, color: ragColor(p.rag) }}>{p.status}</span>
+                  </div>
+                ))}
+              </div>
+            </TT>
 
             <div style={{ width: 1, background: BORDER, alignSelf: "stretch", flexShrink: 0 }} />
 
@@ -698,21 +725,23 @@ export default function IntegrityPage() {
 
           {/* ── Left: Execution Feasibility Index ── */}
           <div style={{ flex: 1, background: PANEL, padding: "14px 16px", minWidth: 0 }}>
-            <SectionHeader
-              title="Execution Feasibility Index"
-              right={
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  {currentEfiSt && (
-                    <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, color: currentEfiSt.color, letterSpacing: "0.08em" }}>
-                      ● {currentEfiSt.label}
+            <TT title="Execution Feasibility Index (EFI)" body="Composite metric (0.0-1.0) representing whether an institutional order can be fully executed at prevailing prices. Above 0.75 = NOMINAL. 0.50-0.75 = DEGRADED. 0.20-0.50 = NON-EXECUTABLE. Below 0.20 = MARKET FAILURE. The amber threshold line at 0.40 marks the minimum acceptable level.">
+              <SectionHeader
+                title="Execution Feasibility Index"
+                right={
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    {currentEfiSt && (
+                      <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, color: currentEfiSt.color, letterSpacing: "0.08em" }}>
+                        ● {currentEfiSt.label}
+                      </span>
+                    )}
+                    <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 10, fontWeight: 700, color: currentEfiSt?.color ?? SUB }}>
+                      {currentEfi != null ? currentEfi.toFixed(3) : " - "}
                     </span>
-                  )}
-                  <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 10, fontWeight: 700, color: currentEfiSt?.color ?? SUB }}>
-                    {currentEfi != null ? currentEfi.toFixed(3) : "—"}
-                  </span>
-                </div>
-              }
-            />
+                  </div>
+                }
+              />
+            </TT>
             <div style={{ height: 140, background: HDR, borderRadius: 2 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={efiHist} margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
@@ -757,23 +786,25 @@ export default function IntegrityPage() {
 
           {/* ── Right: Funding Rate Basis Divergence ── */}
           <div style={{ flex: 1, background: PANEL, padding: "14px 16px", minWidth: 0 }}>
-            <SectionHeader
-              title="Funding Rate Basis Divergence"
-              right={
-                frbdSeverity ? (
-                  <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, color: frbdSeverity.color, letterSpacing: "0.08em" }}>
-                    ● {frbdSeverity.label}
-                  </span>
-                ) : (
-                  <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, color: MUTED, letterSpacing: "0.08em" }}>
-                    ● AWAITING FEED
-                  </span>
-                )
-              }
-            />
+            <TT title="Funding Rate Basis Divergence (FRBD)" body="Tracks the spread between funding rates across perpetual futures venues. When Binance, Bybit, OKX etc have very different funding rates, it indicates traders are taking opposing directional bets across venues - a sign of fragmentation. CRITICAL above 0.15%. ELEVATED 0.05-0.15%.">
+              <SectionHeader
+                title="Funding Rate Basis Divergence"
+                right={
+                  frbdSeverity ? (
+                    <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, color: frbdSeverity.color, letterSpacing: "0.08em" }}>
+                      ● {frbdSeverity.label}
+                    </span>
+                  ) : (
+                    <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, color: MUTED, letterSpacing: "0.08em" }}>
+                      ● AWAITING FEED
+                    </span>
+                  )
+                }
+              />
+            </TT>
             {frbdBuilding && (
               <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, marginBottom: 6, letterSpacing: "0.06em" }}>
-                {fundVenues.length === 0 ? "PER-VENUE BREAKDOWN — PHASE 2" : "BUILDING HISTORY…"}
+                {fundVenues.length === 0 ? "PER-VENUE BREAKDOWN  -  PHASE 2" : "BUILDING HISTORY…"}
               </div>
             )}
             <div style={{ height: 140, background: HDR, borderRadius: 2 }}>
@@ -831,7 +862,7 @@ export default function IntegrityPage() {
         {/* ── ROW 4: VENUE STABILITY GRID + VENUE TABLE ───────────────────── */}
         <div style={{ display: "flex", gap: 1, background: BORDER, borderTop: `1px solid ${BORDER}` }} data-testid="integrity-row4">
 
-          {/* Left: Cross-Venue Liquidity Stability — Venue Grid */}
+          {/* Left: Cross-Venue Liquidity Stability  -  Venue Grid */}
           <div style={{ flex: 1, background: PANEL, padding: "14px 16px" }}>
             <SectionHeader title="Cross-Venue Liquidity Stability" />
 
@@ -841,7 +872,7 @@ export default function IntegrityPage() {
               </div>
             ) : (
               <>
-                {/* Venue square grid — 7 columns, continuous joined surface */}
+                {/* Venue square grid  -  7 columns, continuous joined surface */}
                 <div style={{
                   display: "grid",
                   gridTemplateColumns: "repeat(7, 1fr)",
@@ -900,18 +931,20 @@ export default function IntegrityPage() {
                   ))}
                 </div>
 
-                {/* Cross-Margin Contagion Risk — inside stability panel */}
+                {/* Cross-Margin Contagion Risk  -  inside stability panel */}
                 <div style={{
                   background: lpiSt ? `${lpiSt.color}0d` : HDR,
                   border: `1px solid ${lpiSt ? `${lpiSt.color}30` : BORDER}`,
                   borderRadius: 2, padding: "12px 14px",
                 }} data-testid="integrity-cmcr">
-                  <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>
-                    Cross-Margin Contagion Risk
-                  </div>
+                  <TT title="Cross-Margin Contagion Risk" body="Liquidity Pressure Index (LPI): 0.0-1.0. Probability that a stress event on one venue would propagate to others via cross-margin mechanisms. Below 0.40 = contained. 0.40-0.60 = moderate pressure. 0.60-0.80 = elevated. Above 0.80 = systemic threshold at risk.">
+                    <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>
+                      Cross-Margin Contagion Risk
+                    </div>
+                  </TT>
                   <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
                     <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 10, fontWeight: 700, color: lpiSt?.color ?? SUB }}>
-                      {lpi != null ? lpi.toFixed(2) : "—"}
+                      {lpi != null ? lpi.toFixed(2) : " - "}
                     </span>
                     <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 10, fontWeight: 400, color: MUTED }}>/ 1.00</span>
                     {lpiDelta != null && (
@@ -928,16 +961,16 @@ export default function IntegrityPage() {
                     {lpiSt?.label ?? "Awaiting data"}
                   </div>
                 </div>
-                {/* PoMI — Market Integrity Coordination — tucked below CMCR */}
+                {/* PoMI  -  Market Integrity Coordination  -  tucked below CMCR */}
                 <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${BORDER}` }} data-testid="integrity-pomi-coord">
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 2 }}>
                     <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-                      PoMI — Market Integrity Coordination
+                      PoMI  -  Market Integrity Coordination
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <ScoreRing score={pomiScore} color={pomiColor} size={28} />
                       <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, fontWeight: 700, color: TEXT }}>
-                        {pomiRat ?? "—"}
+                        {pomiRat ?? " - "}
                       </span>
                     </div>
                   </div>
@@ -980,7 +1013,9 @@ export default function IntegrityPage() {
 
           {/* Right: Venue Depth & Spread Monitor (all venues) */}
           <div style={{ flex: 1, background: PANEL, padding: "14px 16px" }}>
-            <SectionHeader title="Venue Depth & Spread Monitor" />
+            <TT title="Venue Depth & Spread Monitor" body="Per-venue comparison of bid depth at 10 bps, ask depth at 10 bps, and current bid-ask spread. Allows identification of which specific venues are withdrawing liquidity or widening spreads ahead of the aggregate metrics. Sorted by bid depth descending.">
+              <SectionHeader title="Venue Depth & Spread Monitor" />
+            </TT>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 70px 80px", gap: "4px 0" }}>
               {["VENUE", "DEPTH", "SPREAD", "STATUS"].map(h => (
                 <div key={h} style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: MUTED, letterSpacing: "0.08em", padding: "2px 4px", borderBottom: `1px solid ${BORDER}` }}>

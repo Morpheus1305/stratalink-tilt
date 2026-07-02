@@ -121,7 +121,7 @@ function DisplaySection({ draft, onChange }: { draft: UserSettings; onChange: (p
       {fieldGroup({ label: "Default Token on Login", children: (
         <select value={draft.defaultToken} onChange={e => onChange({ defaultToken: e.target.value })} style={{ ...inputStyle(), cursor: "pointer" }}>
           {ILU_CATEGORIES.flatMap(cat => cat.tokens.map(tok => (
-            <option key={tok.symbol} value={tok.symbol}>{tok.symbol} — {tok.name} · {cat.shortLabel}</option>
+            <option key={tok.symbol} value={tok.symbol}>{tok.symbol}  -  {tok.name} · {cat.shortLabel}</option>
           )))}
         </select>
       )})}
@@ -317,11 +317,11 @@ function SessionSection({ onClose }: { onClose: () => void }) {
         <div style={{ ...MONO, fontSize: 9, color: COL.dim, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 10 }}>Current Session</div>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
           <span style={{ ...MONO, fontSize: 10, color: COL.sub }}>Signed in as</span>
-          <span style={{ ...MONO, fontSize: 10, color: COL.text }}>{user?.email ?? "—"}</span>
+          <span style={{ ...MONO, fontSize: 10, color: COL.text }}>{user?.email ?? " - "}</span>
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
           <span style={{ ...MONO, fontSize: 10, color: COL.sub }}>Role</span>
-          <span style={{ ...MONO, fontSize: 10, color: COL.accent, textTransform: "uppercase" }}>{user?.role ?? "—"}</span>
+          <span style={{ ...MONO, fontSize: 10, color: COL.accent, textTransform: "uppercase" }}>{user?.role ?? " - "}</span>
         </div>
       </div>
 
@@ -404,7 +404,7 @@ function SystemSection() {
             ].map(([k, v]) => (
               <div key={String(k)} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: `1px solid ${COL.border}` }}>
                 <span style={{ ...MONO, fontSize: 10, color: COL.sub }}>{k}</span>
-                <span style={{ ...MONO, fontSize: 10, color: COL.text }}>{String(v ?? "—")}</span>
+                <span style={{ ...MONO, fontSize: 10, color: COL.text }}>{String(v ?? " - ")}</span>
               </div>
             ))}
           </div>
@@ -413,10 +413,10 @@ function SystemSection() {
             <div style={labelStyle()}>Data Pipeline</div>
             {[
               { label: `Venues Active`, value: `${p?.venuesActive ?? 0} / ${p?.venuesTotal ?? 14}`, status: "ONLINE" },
-              { label: "TSLE Buffer",   value: p?.tsle?.status ?? "—",   status: p?.tsle?.status },
-              { label: "L5F Engine",    value: p?.l5f?.status ?? "—",    status: p?.l5f?.status },
-              { label: "PoLi Engine",   value: p?.poli?.status ?? "—",   status: p?.poli?.status },
-              { label: "Alert Service", value: `${p?.alerts?.status ?? "—"} (${p?.alerts?.activeRules ?? 0} rules)`, status: p?.alerts?.status },
+              { label: "TSLE Buffer",   value: p?.tsle?.status ?? " - ",   status: p?.tsle?.status },
+              { label: "L5F Engine",    value: p?.l5f?.status ?? " - ",    status: p?.l5f?.status },
+              { label: "PoLi Engine",   value: p?.poli?.status ?? " - ",   status: p?.poli?.status },
+              { label: "Alert Service", value: `${p?.alerts?.status ?? " - "} (${p?.alerts?.activeRules ?? 0} rules)`, status: p?.alerts?.status },
             ].map(row => (
               <div key={row.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0", borderBottom: `1px solid ${COL.border}` }}>
                 <span style={{ ...MONO, fontSize: 10, color: COL.sub }}>{row.label}</span>
@@ -431,11 +431,11 @@ function SystemSection() {
             <div style={labelStyle()}>Canton Network</div>
             <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: `1px solid ${COL.border}` }}>
               <span style={{ ...MONO, fontSize: 10, color: COL.sub }}>Network Status</span>
-              <span style={{ ...MONO, fontSize: 10, color: COL.sub }}>{data.canton?.networkStatus ?? "—"}</span>
+              <span style={{ ...MONO, fontSize: 10, color: COL.sub }}>{data.canton?.networkStatus ?? " - "}</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: `1px solid ${COL.border}` }}>
               <span style={{ ...MONO, fontSize: 10, color: COL.sub }}>Last Attestation</span>
-              <span style={{ ...MONO, fontSize: 10, color: COL.dim }}>{data.canton?.lastAttestation ?? "Pending — MVP build"}</span>
+              <span style={{ ...MONO, fontSize: 10, color: COL.dim }}>{data.canton?.lastAttestation ?? "Pending  -  MVP build"}</span>
             </div>
           </div>
 
@@ -449,7 +449,7 @@ function SystemSection() {
                   {v.status}
                 </span>
                 <span style={{ ...MONO, fontSize: 10, color: COL.dim }}>
-                  {v.latencyMs != null ? `${v.latencyMs}ms` : v.note ?? "—"}
+                  {v.latencyMs != null ? `${v.latencyMs}ms` : v.note ?? " - "}
                 </span>
               </div>
             ))}
@@ -574,7 +574,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
           </div>
         </div>
 
-        {/* Footer — save button (not shown for session/system read-only sections) */}
+        {/* Footer  -  save button (not shown for session/system read-only sections) */}
         {activeSection !== "session" && activeSection !== "system" && (
           <div style={{ padding: "12px 16px", borderTop: `1px solid ${COL.border}`, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10, flexShrink: 0 }}>
             {saved && (

@@ -1,5 +1,5 @@
 // server/services/poliEngine.ts
-// PoLi Engine — consumes DACT (tape events) and produces PoLi snapshots + evidence table
+// PoLi Engine  -  consumes DACT (tape events) and produces PoLi snapshots + evidence table
 // This is the clean separation: DACT is ground truth, PoLi is interpretation.
 
 import {

@@ -258,9 +258,9 @@ export function computeTsleScore(input: TsleInputs): TsleScoreResult {
   const notes: string[] = [];
 
   if (totalDepth < 2_000_000) {
-    notes.push("Overall depth is thin vs institutional norms (< $2m across 10–200bps).");
+    notes.push("Overall depth is thin vs institutional norms (< $2m across 10 - 200bps).");
   } else if (totalDepth > 20_000_000) {
-    notes.push("Deep aggregate liquidity across 10–200bps bands.");
+    notes.push("Deep aggregate liquidity across 10 - 200bps bands.");
   }
 
   if (avgImbalance > 0.45) {
@@ -274,7 +274,7 @@ export function computeTsleScore(input: TsleInputs): TsleScoreResult {
   }
 
   if (frictionScore <= 5) {
-    notes.push("Front-of-book depth is shallow relative to deeper books – execution slippage risk.");
+    notes.push("Front-of-book depth is shallow relative to deeper books  -  execution slippage risk.");
   }
 
   if (!notes.length) {

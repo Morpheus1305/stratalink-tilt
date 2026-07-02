@@ -1,6 +1,6 @@
 // server/services/poliMarketIntegrityEvidence.ts
 /**
- * PoLi L4 — Market Integrity Evidence (Phase 1)
+ * PoLi L4  -  Market Integrity Evidence (Phase 1)
  * ------------------------------------------------------------
  * Goal:
  *  - Produce machine-readable integrity evidence for manipulation risk:
@@ -23,7 +23,7 @@ export type IntegritySeverity = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 /**
  * IMPORTANT:
  * These types are the “machine-readable taxonomy”.
- * Never rename types once published — add new ones instead.
+ * Never rename types once published  -  add new ones instead.
  */
 export type IntegritySignalType =
   // Manipulation classes
@@ -200,7 +200,7 @@ export function buildMarketIntegrityEvidence(opts: {
     sustainedImbalanceAbs: number;
     sustainedPoints: number;
 
-    // Quote stuffing data gap – we must explicitly declare missing telemetry
+    // Quote stuffing data gap  -  we must explicitly declare missing telemetry
     requireOrderEventTelemetry: boolean;
   }>;
 
@@ -508,7 +508,7 @@ export function buildMarketIntegrityEvidence(opts: {
     });
   }
 
-  // (D) SPOOFING_LIKE / LAYERING_LIKE rollups — ALWAYS EMIT (PASS/WARN/FAIL)
+  // (D) SPOOFING_LIKE / LAYERING_LIKE rollups  -  ALWAYS EMIT (PASS/WARN/FAIL)
   const hasFlash = signals.some((s) => s.type === "DEPTH_FLASH_CRASH" && s.verdict !== "DATA_GAP");
   const hasWhipsaw = signals.some((s) => s.type === "IMBALANCE_WHIPSAW" && s.verdict !== "DATA_GAP");
   const hasChurn = signals.some((s) => s.type === "INTEGRITY_VOLATILITY_CHURN" && s.verdict !== "DATA_GAP");
@@ -586,7 +586,7 @@ export function buildMarketIntegrityEvidence(opts: {
     });
   }
 
-  // (E) WASH_TRADING_RISK — DATA GAP in Phase 1
+  // (E) WASH_TRADING_RISK  -  DATA GAP in Phase 1
   signals.push({
     type: "WASH_TRADING_RISK",
     severity: "LOW",
@@ -602,7 +602,7 @@ export function buildMarketIntegrityEvidence(opts: {
     requiredTelemetry: ["trade_prints", "trade_volume", "self_trade_signals", "participant_heuristics"],
   });
 
-  // (F) QUOTE_STUFFING_RISK — DATA GAP in Phase 1
+  // (F) QUOTE_STUFFING_RISK  -  DATA GAP in Phase 1
   if (thresholds.requireOrderEventTelemetry) {
     signals.push({
       type: "QUOTE_STUFFING_RISK",
@@ -620,7 +620,7 @@ export function buildMarketIntegrityEvidence(opts: {
     });
   }
 
-  // (G) Other manipulations — Phase 1: data-gap stubs (taxonomy visible)
+  // (G) Other manipulations  -  Phase 1: data-gap stubs (taxonomy visible)
   const gapStubs: Array<{ type: IntegritySignalType; msg: string; req?: string[] }> = [
     {
       type: "MOMENTUM_IGNITION_RISK",

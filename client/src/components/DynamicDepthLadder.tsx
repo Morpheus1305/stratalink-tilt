@@ -255,7 +255,7 @@ export default function DynamicDepthLadder() {
         <div className="flex items-center gap-2 mb-3">
           <Layers className="w-4 h-4 text-cyan-400" />
           <div className="text-[10px] uppercase tracking-[0.16em] text-neutral-500">
-            Depth Ladder — {token}
+            Depth Ladder  -  {token}
           </div>
         </div>
         <div className="text-[11px] text-neutral-500 animate-pulse">Loading depth bands…</div>
@@ -269,7 +269,7 @@ export default function DynamicDepthLadder() {
         <div className="flex items-center gap-2 mb-3">
           <Layers className="w-4 h-4 text-cyan-400" />
           <div className="text-[10px] uppercase tracking-[0.16em] text-neutral-500">
-            Depth Ladder — {token}
+            Depth Ladder  -  {token}
           </div>
         </div>
         <div className="text-[11px] text-red-400">{error}</div>
@@ -285,7 +285,7 @@ export default function DynamicDepthLadder() {
         <div className="flex items-center gap-2">
           <Layers className="w-4 h-4 text-cyan-400" />
           <div className="text-[10px] uppercase tracking-[0.16em] text-neutral-500">
-            Depth Ladder — {token}
+            Depth Ladder  -  {token}
           </div>
         </div>
         {source && (

@@ -20,11 +20,11 @@ const TOKEN_MAP: Record<string, { address: string; decimals: number; coingeckoId
   DAI:  { address: "0x6b175474e89094c44da98b954eedeac495271d0f", decimals: 18, coingeckoId: "dai" },
   LINK: { address: "0x514910771af9ca656af840dff83e8264ecf986ca", decimals: 18, coingeckoId: "chainlink" },
   UNI:  { address: "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984", decimals: 18, coingeckoId: "uniswap" },
-  // ILU-20 — Financial Infrastructure (active Uniswap V3 pools on Ethereum mainnet)
+  // ILU-20  -  Financial Infrastructure (active Uniswap V3 pools on Ethereum mainnet)
   AAVE: { address: "0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9", decimals: 18, coingeckoId: "aave" },
   MKR:  { address: "0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2", decimals: 18, coingeckoId: "maker" },
   COMP: { address: "0xc00e94Cb662C3520282E6f5717214004A7f26888", decimals: 18, coingeckoId: "compound-governance-token" },
-  // extended — Ethena USDe (Uniswap V3 USDe/USDC pool on Ethereum mainnet)
+  // extended  -  Ethena USDe (Uniswap V3 USDe/USDC pool on Ethereum mainnet)
   USDE: { address: "0x4c9EDD5852cd905f086C759E8383e09bff1E68B3", decimals: 18, coingeckoId: "ethena-usde" },
 };
 
@@ -281,8 +281,8 @@ router.get("/spot/depth", async (req: Request, res: Response) => {
       return res.json({ ok: true, ...snapshot });
     }
 
-    // Both Graph and DeFiLlama failed — synthesise from CoinGecko price + conservative TVL
-    // (same pattern as Bybit geo-block fallback — keeps venue in the TSLE buffer with honest provenance)
+    // Both Graph and DeFiLlama failed  -  synthesise from CoinGecko price + conservative TVL
+    // (same pattern as Bybit geo-block fallback  -  keeps venue in the TSLE buffer with honest provenance)
     console.log(`[Uniswap Relay] DeFiLlama also failed for ${symbol}, using CoinGecko-anchored synthetic depth`);
 
     let syntheticPrice = price;

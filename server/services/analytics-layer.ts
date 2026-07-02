@@ -323,7 +323,7 @@ function buildVenueSlices(
       const is_regulated = REGULATED.has(venue);
       const w = venueWeight(venue);
 
-      // ── Composite Stability Score (0–100) ───────────────────────────────
+      // ── Composite Stability Score (0 - 100) ───────────────────────────────
       // STABILITY = 0.40×DepthScore + 0.35×SpreadScore + 0.25×RegulatedBonus
       const depthScore  = maxDepth > 0 ? Math.min(100, (d10 / maxDepth) * 100) : 0;
       const spreadScore = Math.max(0, 100 - spreadBps * 5);

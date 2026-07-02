@@ -92,7 +92,7 @@ async function fetchBtcPrice(): Promise<number | null> {
 export default function HeroPage() {
   const [, setLocation] = useLocation();
 
-  // BTC L5F snapshot — drives gauge + depth widths
+  // BTC L5F snapshot  -  drives gauge + depth widths
   const { data: btcSnap } = useQuery<L5FAggregate | null>({
     queryKey: ['/api/analytics/l5f/snapshot/BTC'],
     queryFn: () => fetchSnapshot('BTC'),
@@ -323,7 +323,7 @@ export default function HeroPage() {
 
             <p className="hp-body">
               The world's first and only liquidity verification infrastructure.
-              Cryptographically anchored across 14 venues — the immutable ground
+              Cryptographically anchored across 14 venues  -  the immutable ground
               truth for institutional risk management.
             </p>
 
@@ -336,7 +336,7 @@ export default function HeroPage() {
                 </div>
                 <div>
                   <div className="hp-bullet-title">Cryptographically anchored DACT</div>
-                  <div className="hp-bullet-sub">Immutable consolidated tape — provenance-complete, venue-authentic.</div>
+                  <div className="hp-bullet-sub">Immutable consolidated tape  -  provenance-complete, venue-authentic.</div>
                 </div>
               </div>
               <div className="hp-bullet">
@@ -437,7 +437,7 @@ export default function HeroPage() {
                   <div className="hp-depth-card">
                     <div className="hp-card-label">Aggregated Depth</div>
                     <div className="hp-depth-rows">
-                      {/* Ask side (red) — descending from top */}
+                      {/* Ask side (red)  -  descending from top */}
                       {[
                         [fmt(ask1), askW[0]],
                         [fmt(ask2), askW[1]],

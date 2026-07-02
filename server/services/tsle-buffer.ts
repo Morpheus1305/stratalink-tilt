@@ -1,5 +1,5 @@
  /**
-  * TSLE v1.1 — FROZEN
+  * TSLE v1.1  -  FROZEN
   * Status: Production Baseline
   * Date: 2025-12-21
   *
@@ -7,7 +7,7 @@
   */
  /**
   * ============================================================================
-  * TSLE v1.1 — FROZEN
+  * TSLE v1.1  -  FROZEN
   * ----------------------------------------------------------------------------
   * Status: PRODUCTION BASELINE
   * Date: 2025-12-21
@@ -30,7 +30,7 @@
   * Any changes require a NEW VERSION (v1.2+).
   * ============================================================================
   */
- // TSLE — Time-Series Liquidity Engine
+ // TSLE  -  Time-Series Liquidity Engine
  // In-memory ring buffer for rolling liquidity history
  // Multi-venue support with role-based confidence adjustment
  // Venue Roles: REFERENCE_VENUE, STRESS_VENUE, REFERENCE_ADJACENT
@@ -38,7 +38,7 @@
  import { VENUE_CONFIGS, getRoleConfidenceMultiplier, type VenueRole } from "../../shared/venue-config";
 
  // ============================================================================
- // TSLE INVARIANT — DO NOT VIOLATE
+ // TSLE INVARIANT  -  DO NOT VIOLATE
  // ============================================================================
  // TSLE is liquidity-native by definition.
  // It tracks execution quality and liquidity regime over time.
@@ -64,8 +64,8 @@
    ts: number;            // epoch ms
    depth25: number;       // total executable depth @ 25 bps (USD)
    depth50: number;       // total executable depth @ 50 bps (USD)
-   imbalance2550: number; // avg imbalance across 25–50 bps (-1 to 1)
-   poli: number;          // derived PoLi score (0–100)
+   imbalance2550: number; // avg imbalance across 25 - 50 bps (-1 to 1)
+   poli: number;          // derived PoLi score (0 - 100)
  }
 
  interface LISBand {
@@ -99,10 +99,10 @@
    }
 
    private computePoLi(depth25: number, depth50: number, imbalance: number, spreadBps: number): number {
-     // PoLi Score Computation (0–100)
+     // PoLi Score Computation (0 - 100)
      // Based on: depth quality (40 pts) + balance (35 pts) + spread penalty (25 pts)
 
-     // Depth quality score (0–40)
+     // Depth quality score (0 - 40)
      const totalDepth = depth25 + depth50;
      let depthScore = 0;
      if (totalDepth >= 10_000_000) depthScore = 40;
@@ -112,7 +112,7 @@
      else if (totalDepth >= 500_000) depthScore = 12;
      else depthScore = Math.max(0, Math.floor((totalDepth / 500_000) * 12));
 
-     // Balance score (0–35) - penalize imbalance
+     // Balance score (0 - 35) - penalize imbalance
      const absImbalance = Math.abs(imbalance);
      let balanceScore = 35;
      if (absImbalance > 0.5) balanceScore = 10;
@@ -120,7 +120,7 @@
      else if (absImbalance > 0.15) balanceScore = 28;
      else balanceScore = 35;
 
-     // Spread penalty (0–25)
+     // Spread penalty (0 - 25)
      let spreadScore = 25;
      if (spreadBps > 10) spreadScore = 5;
      else if (spreadBps > 5) spreadScore = 15;
@@ -468,7 +468,7 @@
  }
 
  // ============================================================================
- // TSLE STATE ENGINE — Deterministic Liquidity State Machine
+ // TSLE STATE ENGINE  -  Deterministic Liquidity State Machine
  // ============================================================================
 
  export enum TSLE_STATE {

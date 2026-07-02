@@ -98,13 +98,13 @@ export default function TokenLiquidityCards({ depth }: Props) {
               </div>
 
               <div style={{ fontSize: 16, fontWeight: 600 }}>
-                {mid ? `$${mid.toLocaleString()}` : "—"}
+                {mid ? `$${mid.toLocaleString()}` : " - "}
               </div>
 
               <div style={{ fontSize: 11, color: "#c3d0ea" }}>
                 10bps Depth:{" "}
                 <strong>
-                  {total ? `$${(total / 1_000_000).toFixed(2)}M` : "—"}
+                  {total ? `$${(total / 1_000_000).toFixed(2)}M` : " - "}
                 </strong>
               </div>
 

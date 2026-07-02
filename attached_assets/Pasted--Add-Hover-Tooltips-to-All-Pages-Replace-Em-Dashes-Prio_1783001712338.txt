@@ -1,0 +1,432 @@
+# Add Hover Tooltips to All Pages + Replace Em Dashes
+
+## Priority
+DEMO-DAY ENHANCEMENT — for the 2 July ADGM pilot call.
+
+## Part 1: Em Dash Cleanup
+
+Search the ENTIRE codebase (all .tsx, .ts, .jsx, .js files in client/
+and server/) for em dashes (the long dash character U+2014 "—") and
+replace every instance with a regular hyphen followed by spaces: " - ".
+
+Also search for en dashes (U+2013 "–") and replace with " - ".
+
+This is a global find-and-replace across all files. Do not leave any
+em dashes or en dashes anywhere in the rendered UI.
+
+---
+
+## Part 2: Hover Tooltips for All Pages
+
+The LIQUIDITY page already has hover tooltips implemented. Use the same
+tooltip component (same styling, same delay, same positioning logic) and
+extend it to STRATA AI, PoLi / PoMI, RCL and ALERTS.
+
+Below is the complete tooltip content for every metric on every page.
+Each entry specifies the hover target element, the tooltip title, and
+the tooltip body text.
+
+---
+
+## STRATA AI Page Tooltips
+
+### Header Metrics
+
+**PoLi Score (header)**
+Title: PoLi Score
+Body: The headline Proof of Liquidity score for the selected asset. Scale 0-100. Below 40 means liquidity is not real at institutional scale. Rating bands: AAA (90-100), AA (80-89), A (70-79), BBB (60-69), BB (50-59), B (40-49), CCC (25-39), D (0-24).
+
+**Market Depth (header)**
+Title: Market Depth
+Body: Total order book depth within +/-10 basis points of mid-price, aggregated across all active venues. Same figure as Total Depth on the LIQUIDITY tab.
+
+**Venues Active (header)**
+Title: Venues Active
+Body: Number of configured venues actively returning data. Should match the count on the LIQUIDITY tab.
+
+**Avg Spread (header)**
+Title: Average Spread (bps)
+Body: Volume-weighted average bid-ask spread across all active venues. Under 2 bps is tight; above 10 bps is a concern.
+
+**Regime (header)**
+Title: Volatility Regime
+Body: Market regime classification. NORMAL means no vol spike or structural dislocation. STRESSED or CRISIS would indicate acute conditions.
+
+**Integrity (header)**
+Title: Integrity Assessment
+Body: Composite assessment of whether market behaviour across all six detection categories is within normal bounds. NORMAL = all clear. ELEVATED = at least one category flagged. BREACH = multiple categories critical.
+
+### Detection Status Grid
+
+**Cross-Venue Divergence**
+Title: Cross-Venue Divergence
+Body: Measures how differently the same asset is being priced and traded across venues. High divergence means venues are not agreeing on market conditions. Threshold: spread dispersion above 3.0 bps triggers ELEVATED; significantly above triggers CRITICAL.
+
+**Depth Manipulation**
+Title: Depth Manipulation
+Body: Monitors whether depth characteristics (decay rate, distribution, stability) look abnormal. A low Depth Quality factor suggests depth is fragile, concentrated or decaying rapidly. Does not necessarily mean active manipulation - it means depth behaviour is abnormal.
+
+**Liquidity Concentration**
+Title: Liquidity Concentration
+Body: Measures whether liquidity is distributed across venues or concentrated at a small number. High concentration creates single-venue dependency risk. NORMAL means concentration is within acceptable bounds.
+
+**Spread Anomaly**
+Title: Spread Anomaly
+Body: Detects unusual spread widening patterns. Elasticity measures how much spreads widen under pressure. Velocity measures how fast they are widening. Both elevated together indicates accelerating execution degradation.
+
+**Regime Instability**
+Title: Regime Instability
+Body: Monitors whether the overall market regime (volatility structure, volume patterns, correlation behaviour) is stable. NORMAL with a high score means the regime is fully stable and issues on other categories are structural, not event-driven.
+
+**Execution Integrity**
+Title: Execution Integrity
+Body: Assesses whether an institutional-size order could be executed cleanly across venues right now. Below 60 means execution quality is degraded. Factors in spread dispersion, slippage estimates and venue accessibility.
+
+### Active Intelligence Signals
+
+**"X DETECTED" badge**
+Title: Active Intelligence Signals
+Body: Number of detection categories currently flagged as ELEVATED or CRITICAL. Each signal lists the specific score, observed value and threshold breach that triggered it. Zero detected means all categories are within normal parameters.
+
+### EWDS Panel
+
+**Fund Rate**
+Title: Funding Rate
+Body: The perpetual futures funding rate. Positive means longs are paying shorts. Normal range: 0.01-0.05%. Above 0.1% indicates elevated directional positioning. Above 0.3% indicates aggressive leverage.
+
+**Perp Basis**
+Title: Perpetual Basis (bps)
+Body: The basis between perpetual futures price and spot price. Normal range: 0-2 bps. Widening basis indicates stress in the derivatives market or divergence between spot and futures pricing.
+
+**Ins Fund**
+Title: Insurance Fund Utilisation
+Body: Insurance fund capacity at major perpetual futures venues. 100% means funds are full with no drawdown. Drops during liquidation cascades. Below 90% warrants attention; below 70% indicates significant liquidation activity.
+
+**Xmrg Util**
+Title: Cross-Margin Utilisation
+Body: Utilisation rate of cross-margin facilities across venues. Higher values indicate more leveraged positioning. Currently a partially populated feed.
+
+**Alt Liq**
+Title: Alternative Liquidity Ratio
+Body: Ratio of alternative liquidity sources (OTC, dark pools, RFQ) to lit venue liquidity. Higher values indicate institutional flow is moving off-exchange.
+
+**ADL Count**
+Title: Auto-Deleveraging Count
+Body: Number of auto-deleveraging events across monitored venues. ADL events occur when insurance funds are depleted and positions are forcibly reduced. Zero is normal; any positive count indicates acute stress.
+
+**Advance Warning Capacity**
+Title: Detection Advance Window
+Body: The validated advance warning capacity of the detection system, based on the October 2025 liquidation event reconstruction. This is a validated historical capability, not a real-time prediction.
+
+**System Confidence**
+Title: System Confidence Level
+Body: The system's confidence in its current detection accuracy. FULL means all data feeds are complete and detection thresholds are well-calibrated. REDUCED means some feeds are partial or conditions are outside the validated envelope.
+
+### STRATA AI Composite
+
+**Composite ring/score**
+Title: STRATA AI Composite
+Body: Weighted average across all six detection categories. Below 50 is CRITICAL, 50-69 is ELEVATED, 70+ is NORMAL. Gives a single headline read on market integrity conditions.
+
+---
+
+## PoLi / PoMI Page Tooltips
+
+### Score Cards
+
+**PoLi Score (card)**
+Title: PoLi - Proof of Liquidity
+Body: Cross-venue liquidity integrity score. Composite of depth, spread, venue coverage and execution quality. Scale 0-100. Rating B (40-49) = thin liquidity. Below 40 = liquidity is not real at institutional scale.
+
+**Market Status**
+Title: Market Status
+Body: Qualitative assessment of liquidity structure. STABLE = conditions are holding. SOFTENING = early signs of deterioration. FRAGMENTING = venues are diverging. DISLOCATING = acute structural breakdown.
+
+**PoMI Score (card)**
+Title: PoMI - Proof of Market Integrity
+Body: Coordination integrity score. Measures whether market participants are acting in a way that stabilises or destabilises conditions. Patent filed, in development, validated against October 2025 event data. Interpret directionally.
+
+**PoMI Status**
+Title: PoMI Coordination Status
+Body: COORDINATED = market participants are acting in concert. MONITORING = early signs of coordination weakening. PARTIAL = some stabilising behaviour, some degrading. RESPONSIVE = active but stressed coordination.
+
+### EFI Chart
+
+**Execution Feasibility Index**
+Title: Execution Feasibility Index (EFI)
+Body: Measures whether an institutional-size order could be executed across venues at acceptable cost and risk. Scale 0-1.00. Above 0.40 = executable. Below 0.40 = non-executable. The dashed amber line on the chart marks the 0.40 threshold.
+
+**NON-EXECUTABLE / EXECUTABLE label**
+Title: Execution Status
+Body: NON-EXECUTABLE means the system assessment is that an institutional order in this asset right now would face unacceptable slippage, market impact or venue concentration risk. EXECUTABLE means conditions are adequate for institutional flow.
+
+### FRBD Chart
+
+**Funding Rate Basis Divergence**
+Title: Funding Rate Basis Divergence (FRBD)
+Body: Monitors whether perpetual futures funding rates across venues are converging (healthy) or diverging (stress). Divergence means venues are pricing risk differently. NORMAL = aligned. ELEVATED = diverging. CRITICAL = acute divergence indicating derivatives market stress.
+
+### Heatmap
+
+**Cross-Venue Liquidity Stability (panel title)**
+Title: Cross-Venue Liquidity Stability
+Body: Each square represents one venue, colour-coded by a three-factor stability composite: depth relative to the largest venue (40%), spread quality (35%), regulatory status (25%). GREEN (60+) = stable. AMBER (35-59) = stressed. RED (below 35) = critical for institutional execution.
+
+**Individual venue squares**
+Title: [Venue Name] Stability
+Body: Composite stability score for this venue. The score reflects actual execution conditions (depth and spread quality), not just regulatory status. A high score means an institutional order could execute cleanly here.
+
+### STABLE / STRESSED / CRITICAL legend
+Title: Stability Distribution
+Body: Count of venues in each state. A healthy market shows mostly STABLE with a few STRESSED. Multiple CRITICAL venues indicates broad fragmentation. The distribution matters more than any single venue's score.
+
+### Cross-Margin Contagion Risk
+
+**Contagion Risk value**
+Title: Cross-Margin Contagion Risk
+Body: Measures the probability that stress at one venue transmits to others through shared margin, collateral or liquidation mechanisms. Scale 0-1.00. Below 0.40 = contained. 0.40-0.60 = moderate pressure. 0.61-0.80 = elevated. Above 0.80 = systemic threshold at risk.
+
+### Venue Depth and Spread Monitor
+
+**Depth column**
+Title: Venue Depth
+Body: Order book depth at this venue within +/-10 basis points of mid-price. Normalised relative to the largest venue (1.00 = largest).
+
+**Spread column**
+Title: Venue Spread (bps)
+Body: Current bid-ask spread at this venue. Tighter spreads mean better execution quality. Above 5 bps is elevated; above 15 bps is poor.
+
+**Status column**
+Title: Venue Execution Status
+Body: Derived from the same three-factor composite as the heatmap. GREEN = good execution conditions. AMBER = degraded. RED = poor execution quality for institutional orders.
+
+### PoMI Coordination Sub-Indicators
+
+**Threshold Definition**
+Title: Threshold Definition
+Body: Whether venue-level risk thresholds (margin requirements, position limits, circuit breakers) are holding or being breached. COORDINATED = thresholds stable. WEAKENING = under pressure. BREACHED = some venues have triggered or relaxed thresholds. TRIGGERED = widespread threshold activation.
+
+**Throttle Activation**
+Title: Throttle Activation
+Body: Whether venues have activated throttling mechanisms (rate limits, position caps, trading halts). STANDBY = ready but not activated. DELAYED = activation slower than expected. PARTIAL = some venues throttling. ACTIVE = widespread throttling engaged.
+
+**Venue Synchronisation**
+Title: Venue Synchronisation
+Body: Whether venues are coordinating their responses or acting independently. COORDINATED = aligned responses. MINOR DRIFT = slight divergence. MINOR LATENCY = coordination present but delayed. FRAGMENTING = uncoordinated. Uncoordinated responses during stress can amplify rather than dampen fragmentation.
+
+---
+
+## RCL Page Tooltips
+
+### Header Metrics
+
+**Venues (header)**
+Title: Venue Count
+Body: Number of venues actively reporting data for this asset in the current RCL snapshot.
+
+**Coverage (header)**
+Title: Coverage Percentage
+Body: Percentage of configured venues reporting. 100% = full supervisory coverage with no blind spots. Partial coverage for non-BTC tokens reflects genuine market structure - not every token is listed on every venue.
+
+**Evidence (header)**
+Title: Evidence Level
+Body: L1 = Minimal Evidence. L2 = Partial Sufficiency. L3 = Supervisory Sufficiency (minimum for routine use). L4 = Enhanced Verification. L5 = Forensic Grade (suitable for formal proceedings and enforcement actions).
+
+**PoLi Status (header)**
+Title: PoLi Verification Status
+Body: VERIFIED = data has passed PoLi quality checks. DEGRADED = partial coverage or data gaps present. INSUFFICIENT = coverage too low for reliable scoring. VERIFIED is the target state.
+
+**Integrity (header)**
+Title: Data Integrity
+Body: NORMAL = no integrity concerns. ELEVATED = minor anomalies detected, data usable with caution. BREACH = data integrity compromised, do not rely on this snapshot for formal purposes without investigation.
+
+**Jurisdiction (header)**
+Title: Regulatory Jurisdiction
+Body: The jurisdiction this RCL view is configured for. Determines which compliance framework, access permissions and audit requirements apply. ADGM = Abu Dhabi Global Market / Financial Services Regulatory Authority.
+
+### Coverage Panel
+
+**Coverage %**
+Title: Coverage Percentage
+Body: Percentage of configured venues (Known Venues) that are actively reporting (Covered Venues). 100% means the supervisor is seeing the complete declared universe with no gaps.
+
+**Liquidity Types**
+Title: Liquidity Types
+Body: The types of liquidity sources in this snapshot. Lit = central limit order books (CEX). AMM-Derived = automated market maker pools (DEX). RFQ = request-for-quote (OTC). All three types means the snapshot covers the full spectrum of how liquidity is sourced.
+
+**Coverage Flags**
+Title: Coverage Flags
+Body: Lists specific venues not reporting and the reason. partial_coverage means some venues in the configured universe are not returning data for this token. The named venues are the specific gaps. Usually reflects market structure (token not listed) rather than a platform failure.
+
+### Truth Panel
+
+**Status**
+Title: Verification Status
+Body: Overall verification status of this snapshot. VERIFIED = all quality and integrity checks passed. DEGRADED = some checks failed but data is usable. INSUFFICIENT = data quality too low for supervisory use.
+
+**Evidence Level**
+Title: Evidence Level
+Body: The evidentiary standard this snapshot meets. L5 (Forensic Grade) means this data could be used as evidence in a formal regulatory investigation or enforcement action. Chain of custody, timestamp integrity and data provenance all meet forensic standards.
+
+**Validity Window**
+Title: Validity Window
+Body: The time range during which this snapshot is current. Verified At = generation time. Valid Until = expiry time. The platform re-verifies every 5 minutes. Data older than the Valid Until timestamp requires a fresh snapshot.
+
+**Integrity (truth panel)**
+Title: Data Integrity Assessment
+Body: Within controls = all integrity checks passed. Control Breach = one or more checks failed. Elevated Risk = checks passed but with anomalies noted. Within controls is the target state.
+
+**Data Gaps**
+Title: Data Gaps
+Body: Number of gap events where expected venue data was not received within the expected window. In a 13-venue system polling continuously, some transient gaps are expected (network latency, brief outages, API rate limits). Persistent gaps warrant investigation.
+
+**Ingestion Latency (p95)**
+Title: Ingestion Latency (95th percentile)
+Body: 95% of venue data arrives within this time. Under 500ms is excellent. Under 2,000ms is acceptable for supervisory monitoring. Above 2,000ms indicates a specific venue relay may be lagging.
+
+**Normalization**
+Title: Normalisation Status
+Body: Whether all ingested data has been normalised to a common format. Complete = fully normalised. Incomplete = data is present and usable but has not completed the full normalisation pipeline. A known Phase 2 item that does not affect data usability for supervisory monitoring.
+
+### Provenance Panel
+
+**Venue connector cards**
+Title: Venue Connector - [Venue Name]
+Body: Shows this venue's data lineage: Modules (data types collected), Normalisation status, Last Event timestamp (most recent data received), and LIS Ref (unique audit key for this venue's data in this snapshot).
+
+**LIS Ref**
+Title: LIS Reference
+Body: Liquidity Information Snapshot reference - a unique identifier tying this venue's data to a specific point in time and data payload. This is the audit key for tracing any data point back to its source.
+
+### Reference IDs
+
+**Reference IDs block**
+Title: Reference IDs
+Body: Four identifiers uniquely identifying this snapshot: Snapshot (RCL), PoLi (scoring), DACT (consolidated tape), LIS (liquidity information). Matching timestamps across all four confirm they were generated from the same data simultaneously.
+
+**Authoritative References block**
+Title: Authoritative References (Official Records)
+Body: The official records for audit purposes. PoLi Snapshot, DACT Window and LIS Manifest should match the Reference IDs above. This is the block to cite in a formal audit report. Post-Canton attestation, these will be cryptographically anchored on-chain.
+
+### Footer Metadata
+
+**Contract Version**
+Title: RCL Contract Version
+Body: The version of the RCL contract/schema that generated this view. Should be consistent between the page header and this footer line.
+
+**Supervisory Scope**
+Title: Supervisory Scope
+Body: Defines what this RCL view covers - number of active venues, number configured, and coverage percentage. This is the completeness statement for the supervisory record.
+
+**Access / Permissions**
+Title: Access and Permissions
+Body: Defines who can access this view and what they can do. rcl:read (observation only) means this is a read-only, observation-only view. No predictions, no advice, no execution, no write access. This boundary is by design and mapped to ADGM and FCA doctrine.
+
+**Compliance**
+Title: Compliance Framework
+Body: Annex A (Declared Supervisory Universe) defines which venues are in scope. Annex B (Expansion Governance) defines the process for adding new venues. These annexes would be formalised as part of the pilot agreement.
+
+---
+
+## ALERTS Page Tooltips
+
+### Header Metrics
+
+**Depth +/-10bps (header)**
+Title: Total Depth (+/-10bps)
+Body: Same as LIQUIDITY tab. Total order book depth within 10 basis points of mid-price across all venues.
+
+**Volatility 24h**
+Title: 24-Hour Realised Volatility
+Body: Realised volatility over the past 24 hours. 0% indicates a flat vol environment. Low vol during fragmentation means stress is structural, not event-driven.
+
+**Warning Cap**
+Title: Active Warning Capacity
+Body: Estimated time before conditions could deteriorate to collapse if current trends continue at this rate. This is a trajectory projection, not a prediction. 0-2h means pay close attention.
+
+**Critical Assets**
+Title: Critical Assets
+Body: Number of monitored assets with L5F scores below the critical threshold of 50. Format: X/Y where X = critical count and Y = total monitored. The specific assets are listed below this metric.
+
+### Venue Liquidity Attribution
+
+**Venue rows (Depth, % Share, PoLi, Spread, Status)**
+Title: Venue Liquidity Attribution - [Venue Name]
+Body: Per-venue breakdown of depth contribution, share of total depth, individual PoLi score, current spread and execution status. Allows comparison of which venues are contributing real executable liquidity versus nominal depth with poor execution conditions.
+
+### Stress Signal Detection cards
+
+**Bid-Ask Spread Analysis**
+Title: Bid-Ask Spread Analysis
+Body: Plain-language assessment of spread quality across venues. Positive signals (tight spreads, active market making) are shown in green. Warnings (widening, asymmetry) in amber. Alerts in red.
+
+**CEX Liquidity Concentration**
+Title: CEX Liquidity Concentration
+Body: Assesses the split between centralised exchange (CEX) and decentralised exchange (DEX) liquidity. A shift beyond 80% CEX would indicate DEX withdrawal; below 50% CEX indicates unusual DEX dominance.
+
+**Market Depth Assessment**
+Title: Market Depth Assessment
+Body: Assesses total depth relative to institutional order sizes. A low Depth Quality score alongside high raw depth means the depth is present but structurally fragile - it would not withstand large institutional flow.
+
+**Regime and Execution Integrity**
+Title: Regime and Execution Integrity
+Body: Combined assessment of regime stability and execution conditions. Mixed signals (stable regime but degraded execution) indicate structural fragmentation within a calm macro environment.
+
+### Alert Timeline
+
+**Alert Timeline chart**
+Title: Alert Timeline
+Body: Volume and severity of alerts over time. A ramp into the CRITICAL band indicates escalating conditions. A flat line at zero indicates quiet conditions. Look at the shape of the curve, not individual points.
+
+### Capacity and Risk
+
+**Warning Capacity**
+Title: Active Warning Capacity
+Body: Estimated time window before conditions could reach collapse. 0-2h means current trajectory, if unchanged, reaches critical state within 2 hours. This is not a countdown - conditions can improve or worsen.
+
+**Critical Assets count**
+Title: Critical Assets Below Threshold
+Body: Assets with L5F composite scores below 50 (the DETERIORATING threshold). Lists the specific assets and their scores so you can see which ones need attention.
+
+### Real-Time Risk Indicators
+
+**Depth Quality row**
+Title: Depth Quality Indicator
+Body: Current Depth Quality factor and total depth at +/-10bps. The RAS (Risk Assessment Signal) dot shows GREEN (healthy), AMBER (degraded) or RED (critical). DQ below 20/100 means headline depth is misleading.
+
+**Market Resilience row**
+Title: Market Resilience Indicator
+Body: Current resilience score and depth decay rate. GREEN means depth replenishes quickly after consumption. RED means depth is decaying without replenishment.
+
+**Liquidity Fragmentation row**
+Title: Liquidity Fragmentation Indicator
+Body: HHI concentration index and fragmentation score. GREEN means depth is well-distributed. RED means dangerous concentration at a small number of venues.
+
+**Execution Integrity row**
+Title: Execution Integrity Indicator
+Body: Current execution integrity score and spread dispersion. GREEN means clean execution conditions. RED means venue selection dramatically affects cost.
+
+**Regime Stability row**
+Title: Regime Stability Indicator
+Body: Current regime stability score and regime classification. GREEN means fully stable macro environment. RED would indicate a vol spike or structural dislocation.
+
+**Composite PoLi row**
+Title: Composite PoLi
+Body: The overall L5F composite score and venue count. Summarises the headline liquidity assessment. Below 50 = DETERIORATING.
+
+### Alert Log
+
+**Alert Log table**
+Title: Alert Log
+Body: Individual alert events with timestamp, type, severity and description. Look for patterns across multiple assets at the same timestamps - systemic depth alerts across BTC, ETH and SOL simultaneously indicate market-wide fragmentation, not asset-specific issues.
+
+---
+
+## Verification
+1. Navigate to each of the five tabs (LIQUIDITY, STRATA AI, PoLi/PoMI,
+   RCL, ALERTS) and hover over at least 5 metrics per page.
+2. Confirm tooltips appear with the correct title and body text.
+3. Confirm no em dashes or en dashes appear anywhere in the rendered UI
+   (tooltips, labels, panel text, footer, header).
+4. Confirm tooltip styling is consistent across all pages (same
+   background, border, font, delay, positioning).

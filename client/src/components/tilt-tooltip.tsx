@@ -1,5 +1,5 @@
 /**
- * TiltTooltip — lightweight hover tooltip system for the TILT terminal.
+ * TiltTooltip  -  lightweight hover tooltip system for the TILT terminal.
  *
  * Usage:
  *   <TT title="Metric Name" body="Plain-language explanation...">

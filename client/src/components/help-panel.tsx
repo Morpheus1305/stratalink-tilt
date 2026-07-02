@@ -60,7 +60,7 @@ function QuickStartView({ search }: { search: string }) {
 
   return (
     <div>
-      {sectionTitle("Quick Start — Operational in 10 Minutes")}
+      {sectionTitle("Quick Start  -  Operational in 10 Minutes")}
       <p style={{ ...MONO, fontSize: 10, color: COL.sub, marginBottom: 18, lineHeight: 1.6 }}>
         This guide gets you from login to your first supervisory review.
       </p>
@@ -110,7 +110,7 @@ function UserGuideView({ search }: { search: string }) {
 
   return (
     <div>
-      {sectionTitle("User Guide — Comprehensive Platform Documentation")}
+      {sectionTitle("User Guide  -  Comprehensive Platform Documentation")}
 
       {/* Page nav */}
       <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 16 }}>
@@ -190,7 +190,7 @@ function GlossaryView({ search }: { search: string }) {
 
   return (
     <div>
-      {sectionTitle("Glossary — Metrics, Indicators, and Terminology")}
+      {sectionTitle("Glossary  -  Metrics, Indicators, and Terminology")}
 
       <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 16 }}>
         {filtered.map(sec => (
@@ -252,7 +252,7 @@ function FaqView({ search }: { search: string }) {
 
   return (
     <div>
-      {sectionTitle("FAQ — Frequently Asked Questions")}
+      {sectionTitle("FAQ  -  Frequently Asked Questions")}
 
       <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 16 }}>
         {filtered.map(sec => (
@@ -324,7 +324,7 @@ function DataDictView({ search }: { search: string }) {
 
   return (
     <div>
-      {sectionTitle("Data Dictionary — Lineage, Computation & Update Frequency")}
+      {sectionTitle("Data Dictionary  -  Lineage, Computation & Update Frequency")}
 
       <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 16 }}>
         {filtered.map(sec => (

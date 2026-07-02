@@ -1,7 +1,7 @@
 /**
- * dYdX v4 Relay — server/routes/dydx-relay.ts
+ * dYdX v4 Relay  -  server/routes/dydx-relay.ts
  * SRIS v1.0-compliant relay for dYdX v4 (Cosmos appchain, CLOB perps).
- * Uses the public dYdX Indexer REST API — no authentication required.
+ * Uses the public dYdX Indexer REST API  -  no authentication required.
  * Normalizes orderbook data to LISSnapshot format with depth bands.
  *
  * Routes (mounted at /dydx in routes.ts):
@@ -27,19 +27,19 @@ const DYDX_INDEXER = "https://indexer.dydx.trade/v4";
 const TIMEOUT_MS = 5000;
 
 const SYMBOL_MAP: Record<string, string> = {
-  // ILU-20 — Reserve
+  // ILU-20  -  Reserve
   BTC:  "BTC-USD",
   ETH:  "ETH-USD",
-  // ILU-20 — Exchange & Trading Infrastructure
+  // ILU-20  -  Exchange & Trading Infrastructure
   BNB:  "BNB-USD",
   UNI:  "UNI-USD",
-  // ILU-20 — Financial Infrastructure
+  // ILU-20  -  Financial Infrastructure
   LINK: "LINK-USD",
   AAVE: "AAVE-USD",
   MKR:  "MKR-USD",
   SNX:  "SNX-USD",
   COMP: "COMP-USD",
-  // ILU-20 — High-Volume Liquidity
+  // ILU-20  -  High-Volume Liquidity
   SOL:  "SOL-USD",
   XRP:  "XRP-USD",
   DOGE: "DOGE-USD",

@@ -1,10 +1,10 @@
 /**
  * RCL Live Data Service
- * Replaces rclMock.ts — derives all regulatory payload data from live TSLE
+ * Replaces rclMock.ts  -  derives all regulatory payload data from live TSLE
  * buffer, L5F analytics layer, and venue relay state. No synthetic fixtures.
  *
  * Contract version: rcl_v0.2
- * Scope: ADGM Full Supervisory Universe — all 14 configured venues (dynamic)
+ * Scope: ADGM Full Supervisory Universe  -  all 14 configured venues (dynamic)
  */
 
 import { tsleBuffer } from './tsle-buffer';
@@ -109,7 +109,7 @@ export interface RclScreenPayload {
   };
 }
 
-// ─── Full supervisory universe — derived dynamically from venue-config.ts ──
+// ─── Full supervisory universe  -  derived dynamically from venue-config.ts ──
 
 const ALL_SUPERVISORY_VENUES = Object.keys(VENUE_CONFIGS);
 const TOTAL_CONFIGURED = ALL_SUPERVISORY_VENUES.length;
@@ -205,10 +205,10 @@ function getNewestIngestTs(activeVenues: string[], sym: string): number {
 // ─── Evidence level scaling (14-venue universe) ───────────────────────────
 //
 //  L1  0 venues               → no supervisory basis
-//  L2  1–3 venues   (<25%)    → partial sufficiency
-//  L3  4–8 venues   (25–57%)  → supervisory sufficiency
-//  L4  9–12 venues  (57–85%)  → enhanced verification
-//  L5  13–14 venues (>85%)    → forensic grade
+//  L2  1 - 3 venues   (<25%)    → partial sufficiency
+//  L3  4 - 8 venues   (25 - 57%)  → supervisory sufficiency
+//  L4  9 - 12 venues  (57 - 85%)  → enhanced verification
+//  L5  13 - 14 venues (>85%)    → forensic grade
 
 function evidenceLevelForCount(count: number, total: number): RclEvidenceLevel {
   if (count === 0) return 'L1';
@@ -239,7 +239,7 @@ function derivePoliStatus(
     return {
       status: 'insufficient',
       evidenceLevel: level,
-      reason: `Only ${activeCount} of ${TOTAL_CONFIGURED} venues reporting — below minimum threshold`,
+      reason: `Only ${activeCount} of ${TOTAL_CONFIGURED} venues reporting  -  below minimum threshold`,
     };
   }
 
@@ -255,7 +255,7 @@ function derivePoliStatus(
     return {
       status: 'degraded',
       evidenceLevel: level,
-      reason: `${activeCount} of ${TOTAL_CONFIGURED} venues active — partial supervisory coverage`,
+      reason: `${activeCount} of ${TOTAL_CONFIGURED} venues active  -  partial supervisory coverage`,
     };
   }
 
@@ -328,7 +328,7 @@ export function getAdgmScreenPayload(
     coverageFlags.push({
       code: 'regime_elevated',
       severity: snapshot.vol_regime === 'STRESS' ? 'red' : 'amber',
-      message: `Liquidity regime: ${snapshot.vol_regime} — L5F ${snapshot.l5f_composite.toFixed(1)}`,
+      message: `Liquidity regime: ${snapshot.vol_regime}  -  L5F ${snapshot.l5f_composite.toFixed(1)}`,
     });
   }
 
@@ -346,7 +346,7 @@ export function getAdgmScreenPayload(
 
   const coveragePct = Math.round((activeVenues.length / TOTAL_CONFIGURED) * 100);
 
-  // Per-venue provenance — active venues first
+  // Per-venue provenance  -  active venues first
   const venueProvenance = activeVenues.map((venueId) => {
     const lastEventAt = getVenueLastEventAt(venueId, sym);
     const venueTs = new Date(lastEventAt).getTime() || genTs;
@@ -396,7 +396,7 @@ export function getAdgmScreenPayload(
     },
     header: {
       jurisdiction: 'ADGM',
-      market_scope: 'Digital Assets — Spot & Derivatives',
+      market_scope: 'Digital Assets  -  Spot & Derivatives',
       instrument,
       snapshot_label: `${instrument} Liquidity Truth Snapshot`,
       notice:

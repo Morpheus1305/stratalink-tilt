@@ -37,15 +37,15 @@ async function validateSessionWithBackend(
   try {
     const res = await fetch('/api/auth/session', {
       headers: { Authorization: `Bearer ${token}` },
-      signal: AbortSignal.timeout(5000), // 5 s — fail fast on Replit restart
+      signal: AbortSignal.timeout(5000), // 5 s  -  fail fast on Replit restart
     });
 
-    if (!res.ok) return null; // 401/403 — token genuinely rejected
+    if (!res.ok) return null; // 401/403  -  token genuinely rejected
 
     const data = await res.json();
     return data.user ?? null;
   } catch {
-    // Network error, timeout, or server not yet ready — don't log the user out
+    // Network error, timeout, or server not yet ready  -  don't log the user out
     return 'unreachable';
   }
 }
@@ -61,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (storedToken && storedUser) {
         if (isTokenExpired(storedToken)) {
-          // JWT is expired client-side — clear and force re-login
+          // JWT is expired client-side  -  clear and force re-login
           localStorage.removeItem(TOKEN_KEY);
           localStorage.removeItem(USER_KEY);
           localStorage.removeItem('stratalink_temp_token');
@@ -76,12 +76,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               const parsedUser = JSON.parse(storedUser) as PublicUser;
               setUser(parsedUser);
             } catch {
-              // Corrupt stored data — clear and force re-login
+              // Corrupt stored data  -  clear and force re-login
               localStorage.removeItem(TOKEN_KEY);
               localStorage.removeItem(USER_KEY);
             }
           } else if (result === null) {
-            // Backend explicitly rejected — token revoked or invalid
+            // Backend explicitly rejected  -  token revoked or invalid
             localStorage.removeItem(TOKEN_KEY);
             localStorage.removeItem(USER_KEY);
             localStorage.removeItem('stratalink_temp_token');

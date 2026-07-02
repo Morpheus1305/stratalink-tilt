@@ -38,7 +38,7 @@ export const ExecutionCostCalculatorPanel: React.FC<Props> = ({ token }) => {
   return (
     <div className="flex flex-col gap-3">
       <div className="text-[11px] uppercase tracking-[0.16em] text-neutral-400">
-        Execution Cost Calculator – {token}
+        Execution Cost Calculator  -  {token}
       </div>
 
       <div className="flex flex-wrap items-center gap-3 text-[11px]">
@@ -174,7 +174,7 @@ export const ExecutionCostCalculatorPanel: React.FC<Props> = ({ token }) => {
 
         {submitted && error && (
           <div className="text-red-400">
-            {error} – this likely means <code>/api/execution/cost</code> is not
+            {error}  -  this likely means <code>/api/execution/cost</code> is not
             live yet.
           </div>
         )}
@@ -228,7 +228,7 @@ export const ExecutionCostCalculatorPanel: React.FC<Props> = ({ token }) => {
                           <td className="pr-4 py-[2px] text-right">
                             {q.depthUtilizationPct != null
                               ? `${q.depthUtilizationPct.toFixed(1)}%`
-                              : "—"}
+                              : " - "}
                           </td>
                         </tr>
                       ))}

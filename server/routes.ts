@@ -130,7 +130,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get alerts data — live from L5F + TSLE buffer + alert history
+  // Get alerts data  -  live from L5F + TSLE buffer + alert history
   app.get("/api/alerts", async (req, res) => {
     try {
       const asset = (req.query.asset as string) || 'BTC';
@@ -153,7 +153,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // BTC spot price proxy (CoinGecko) — avoids browser CORS
+  // BTC spot price proxy (CoinGecko)  -  avoids browser CORS
   app.get("/api/price/btc", async (_req, res) => {
     try {
       const r = await fetch(

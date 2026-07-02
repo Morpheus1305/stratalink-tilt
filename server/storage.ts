@@ -476,7 +476,7 @@ export class MemStorage implements IStorage {
   private async fetchLiveTickerItems(): Promise<TickerItem[] | null> {
     if (!this.useLiveData) return null;
 
-    // ILU-19 — Institutional Liquidity Universe (ordered by category)
+    // ILU-19  -  Institutional Liquidity Universe (ordered by category)
     // Reserve | Stablecoin Infra | Exchange Infra | Financial Infra | Liquidity Assets
     const TOP20_COINGECKO_IDS = [
       "bitcoin", "ethereum",                                           // Reserve
@@ -550,7 +550,7 @@ export class MemStorage implements IStorage {
     const now = new Date();
     const ts = `${String(now.getUTCHours()).padStart(2, "0")}:${String(now.getUTCMinutes()).padStart(2, "0")} UTC`;
 
-    // ILU-19 — Institutional Liquidity Universe
+    // ILU-19  -  Institutional Liquidity Universe
     const BASE: Array<{ sym: string; price: number; chg: number; depth: number; spread: number; volB: number }> = [
       // ── Reserve Assets ──────────────────────────────────────────────────────
       { sym: "BTC",  price: 104200, chg:  1.80, depth: 1200, spread: 0.01, volB: 38.2 },

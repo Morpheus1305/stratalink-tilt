@@ -56,10 +56,10 @@ function generateDynamicCommentary(
     : riskScore > 65
     ? "Healthy liquidity, moderate fragmentation, acceptable slippage across venues."
     : riskScore > 45
-    ? "Execution risk rising — watch venue imbalances and depth decay."
+    ? "Execution risk rising  -  watch venue imbalances and depth decay."
     : riskScore > 25
-    ? "Poor liquidity environment — wide spreads and inconsistent depth across venues."
-    : "Severely impaired liquidity — expect strong price impact and unreliable execution.";
+    ? "Poor liquidity environment  -  wide spreads and inconsistent depth across venues."
+    : "Severely impaired liquidity  -  expect strong price impact and unreliable execution.";
 
   return `Execution environment for ${symbol} (${side}):
 • Slippage regime: ${regime}
@@ -191,7 +191,7 @@ export default function ExecutionIntelPanel({ symbol, side }: ExecutionIntelPane
           <div className="text-[10px] text-gray-500 uppercase tracking-wider">Best Venue</div>
           <div className="text-sm">
             <span className="text-[#F5C211] font-semibold capitalize">{effectiveBestVenue}</span>
-            <span className="text-gray-400 text-xs ml-2">— {effectiveBestVenue} currently offers the most stable + deepest execution conditions.</span>
+            <span className="text-gray-400 text-xs ml-2"> -  {effectiveBestVenue} currently offers the most stable + deepest execution conditions.</span>
           </div>
         </div>
       </div>

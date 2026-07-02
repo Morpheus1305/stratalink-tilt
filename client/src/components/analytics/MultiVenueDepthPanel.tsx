@@ -49,7 +49,7 @@ export default function MultiVenueDepthPanel({ symbol, bps = 10 }: Props) {
       <Card className="bg-slate-900/50 border-slate-800">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium text-slate-400">
-            {bps}bps Depth — {symbol}
+            {bps}bps Depth  -  {symbol}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -81,7 +81,7 @@ export default function MultiVenueDepthPanel({ symbol, bps = 10 }: Props) {
       <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2">
         <CardTitle className="text-sm font-medium text-slate-200 flex items-center gap-2">
           <Layers className="w-4 h-4 text-cyan-400" />
-          {bps}bps Depth — {symbol}
+          {bps}bps Depth  -  {symbol}
         </CardTitle>
         <Badge 
           variant="outline" 

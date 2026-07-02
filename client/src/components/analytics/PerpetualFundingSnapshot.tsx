@@ -31,7 +31,7 @@ type FetchState =
 // --------- small helpers ---------
 
 const formatBps = (rate: number | null | undefined): string => {
-  if (rate == null || !Number.isFinite(rate)) return "—";
+  if (rate == null || !Number.isFinite(rate)) return " - ";
   // rate is a per-period funding rate (e.g. 0.0001 = 1 bps)
   const bps = rate * 10_000;
   const signed = bps >= 0 ? "+" : "";
@@ -39,13 +39,13 @@ const formatBps = (rate: number | null | undefined): string => {
 };
 
 const formatApr = (apr: number | null | undefined): string => {
-  if (apr == null || !Number.isFinite(apr)) return "—";
+  if (apr == null || !Number.isFinite(apr)) return " - ";
   const signed = apr >= 0 ? "+" : "";
   return `${signed}${apr.toFixed(2)}%`;
 };
 
 const formatPercent = (rate: number | null | undefined): string => {
-  if (rate == null || !Number.isFinite(rate)) return "—";
+  if (rate == null || !Number.isFinite(rate)) return " - ";
   return `${(rate * 100).toFixed(4)}%`;
 };
 
@@ -171,11 +171,11 @@ const PerpetualFundingSnapshot = ({ symbol: propSymbol, label }: PerpetualFundin
       <div className="flex items-center justify-between gap-3">
         <div>
           <div className="text-xs font-medium uppercase tracking-[0.14em] text-slate-400">
-            Perpetual Funding — {titleSymbol}
+            Perpetual Funding  -  {titleSymbol}
           </div>
           <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <span className="text-lg font-semibold text-slate-50">
-              {headline ? headline.rateLabel : state.status === "loading" ? "Loading…" : "—"}
+              {headline ? headline.rateLabel : state.status === "loading" ? "Loading…" : " - "}
             </span>
             {headline && (
               <>
@@ -201,7 +201,7 @@ const PerpetualFundingSnapshot = ({ symbol: propSymbol, label }: PerpetualFundin
               snapshot?.regime ?? ""
             )} ${regimeColour(snapshot?.regime ?? "")}`}
           >
-            {snapshot?.regime ?? "—"}
+            {snapshot?.regime ?? " - "}
           </div>
           {state.status === "error" && (
             <div className="max-w-[180px] text-right text-[11px] text-red-400">
@@ -250,7 +250,7 @@ const PerpetualFundingSnapshot = ({ symbol: propSymbol, label }: PerpetualFundin
                     : // If APR not provided by Worker, approximate from rate.
                       v.rate != null && Number.isFinite(v.rate)
                     ? formatApr(v.rate * 3 * 365 * 100)
-                    : "—"}
+                    : " - "}
                 </span>
                 <span className={`text-right ${statusColour}`}>
                   {v.ok ? "Live" : v.error ? v.error : "Unavailable"}

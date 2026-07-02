@@ -509,7 +509,7 @@ router.get("/divergence", async (req: Request, res: Response) => {
 
 /**
  * GET /api/lis/state
- * Returns the unified LiquidityState object — canonical liquidity truth
+ * Returns the unified LiquidityState object  -  canonical liquidity truth
  */
 router.get("/state", (req: Request, res: Response) => {
   const v = String(req.query.venue ?? "coinbase").toLowerCase();

@@ -199,7 +199,7 @@ export default function MethodologyPage() {
             for <strong>liquidity truth.</strong>
           </h1>
           <p className="mp-hero-intro">
-            StrataLink's methodology formalises what liquidity means for institutional participants — moving beyond
+            StrataLink's methodology formalises what liquidity means for institutional participants  -  moving beyond
             price-impact estimates and static bid-ask spreads toward a cryptographically provable, multi-venue,
             time-aware standard that includes market integrity verification and AI-driven anomaly detection.
             Every metric traces to a single immutable source of record: DACT.
@@ -207,7 +207,7 @@ export default function MethodologyPage() {
         </div>
 
         {/* ═══════════════════════════════════════════════════════════════════════
-            SECTION 1 — Framework Overview (8 pillars)
+            SECTION 1  -  Framework Overview (8 pillars)
         ════════════════════════════════════════════════════════════════════════ */}
         <div className="mp-section">
           <div className="mp-section-tag">Framework Overview</div>
@@ -223,7 +223,7 @@ export default function MethodologyPage() {
                 n: '02', color: '#00d4ff',
                 icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
                 name: 'PoLi', abbr: 'Proof of Liquidity Score',
-                body: 'A 0–100 numeric score with AAA–D rating bands quantifying the quality, depth, and continuity of executable liquidity. Computed from the L5F composite model across 14 integrated venues.'
+                body: 'A 0 - 100 numeric score with AAA - D rating bands quantifying the quality, depth, and continuity of executable liquidity. Computed from the L5F composite model across 14 integrated venues.'
               },
               {
                 n: '03', color: '#a78bfa',
@@ -241,13 +241,13 @@ export default function MethodologyPage() {
                 n: '05', color: '#f87171',
                 icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
                 name: 'Regime', abbr: 'Market Liquidity State Detection',
-                body: 'Dynamic classification into six states — NORMAL through CONFIRMED_STRESS — derived from cross-venue divergence, spread expansion, resilience decay, and funding rate dislocation.'
+                body: 'Dynamic classification into six states  -  NORMAL through CONFIRMED_STRESS  -  derived from cross-venue divergence, spread expansion, resilience decay, and funding rate dislocation.'
               },
               {
                 n: '06', color: '#fb923c',
                 icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
                 name: 'Venue Doctrine', abbr: 'Cross-Venue Role Classification',
-                body: 'Each venue is assigned a structural role — REFERENCE, STRESS, DARK, or ATTESTATION — enabling divergence detection between venue classes before dislocations appear in consolidated price.'
+                body: 'Each venue is assigned a structural role  -  REFERENCE, STRESS, DARK, or ATTESTATION  -  enabling divergence detection between venue classes before dislocations appear in consolidated price.'
               },
               {
                 n: '07', color: '#38bdf8',
@@ -274,7 +274,7 @@ export default function MethodologyPage() {
         </div>
 
         {/* ═══════════════════════════════════════════════════════════════════════
-            SECTION 2 — L5F Five-Factor Model
+            SECTION 2  -  L5F Five-Factor Model
         ════════════════════════════════════════════════════════════════════════ */}
         <div className="mp-section">
           <div className="mp-section-tag">L5F · Liquidity 5-Factor Model</div>
@@ -287,7 +287,7 @@ export default function MethodologyPage() {
                 liquidity quality from ephemeral price volatility. Each factor targets a distinct
                 dimension of executable liquidity; weights reflect empirical importance across
                 market stress cycles. DQ and Fragmentation are point-in-time; Resilience and
-                Regime Stability require a minimum 3–5 minutes of buffer history before
+                Regime Stability require a minimum 3 - 5 minutes of buffer history before
                 reflecting real values.
               </p>
               <div className="mp-formula">
@@ -302,7 +302,7 @@ export default function MethodologyPage() {
               {[
                 { code: 'DQ', name: 'Depth Quality',       weight: '30%', w: 100, color: '#F0C000', desc: 'Notional bid/ask depth within 10, 25, and 100 bps bands across all venues. Point-in-time calculation.' },
                 { code: 'EI', name: 'Execution Integrity', weight: '20%', w: 67,  color: '#00d4ff', desc: 'Trade-to-quote ratio, slippage consistency, and spoofing signal indicators from STRATA AI detection pipeline.' },
-                { code: 'R',  name: 'Resilience',          weight: '20%', w: 67,  color: '#4ade80', desc: 'Speed of depth replenishment after large executions. Requires ~3–5 min buffer history before reflecting live values.' },
+                { code: 'R',  name: 'Resilience',          weight: '20%', w: 67,  color: '#4ade80', desc: 'Speed of depth replenishment after large executions. Requires ~3 - 5 min buffer history before reflecting live values.' },
                 { code: 'F',  name: 'Fragmentation',       weight: '15%', w: 50,  color: '#a78bfa', desc: 'Inverted HHI across venue market shares. Higher score = more distributed, less concentrated liquidity.' },
                 { code: 'RS', name: 'Regime Stability',    weight: '15%', w: 50,  color: '#fb923c', desc: 'Proportion of time in NORMAL or THIN regime vs. stress states over the rolling TSLE window.' },
               ].map(f => (
@@ -325,21 +325,21 @@ export default function MethodologyPage() {
         </div>
 
         {/* ═══════════════════════════════════════════════════════════════════════
-            SECTION 3 — PoLi Rating Scale
+            SECTION 3  -  PoLi Rating Scale
         ════════════════════════════════════════════════════════════════════════ */}
         <div className="mp-section">
           <div className="mp-section-tag">PoLi · Rating Scale</div>
           <div className="mp-rating-scale">
             {[
-              { grade: 'AAA', range: '90–100', label: 'Exceptional depth, minimal fragmentation, stable regime', color: '#4ade80' },
-              { grade: 'AA+', range: '85–89',  label: 'Strong liquidity with high execution integrity',         color: '#4ade80' },
-              { grade: 'AA',  range: '80–84',  label: 'Above-average depth with minor venue concentration',    color: '#86efac' },
-              { grade: 'A+',  range: '75–79',  label: 'Adequate; modest fragmentation or resilience gap',      color: '#F0C000' },
-              { grade: 'A',   range: '70–74',  label: 'Functional but showing early stress indicators',        color: '#F0C000' },
-              { grade: 'BBB', range: '60–69',  label: 'Below-par depth or elevated venue concentration',       color: '#fb923c' },
-              { grade: 'BB',  range: '50–59',  label: 'Material risk; depth may not support large orders',     color: '#fb923c' },
-              { grade: 'CCC', range: '30–49',  label: 'Severe fragmentation or confirmed stress regime',       color: '#f87171' },
-              { grade: 'D',   range: '0–29',   label: 'Effectively illiquid; execution risk is extreme',       color: '#ef4444' },
+              { grade: 'AAA', range: '90 - 100', label: 'Exceptional depth, minimal fragmentation, stable regime', color: '#4ade80' },
+              { grade: 'AA+', range: '85 - 89',  label: 'Strong liquidity with high execution integrity',         color: '#4ade80' },
+              { grade: 'AA',  range: '80 - 84',  label: 'Above-average depth with minor venue concentration',    color: '#86efac' },
+              { grade: 'A+',  range: '75 - 79',  label: 'Adequate; modest fragmentation or resilience gap',      color: '#F0C000' },
+              { grade: 'A',   range: '70 - 74',  label: 'Functional but showing early stress indicators',        color: '#F0C000' },
+              { grade: 'BBB', range: '60 - 69',  label: 'Below-par depth or elevated venue concentration',       color: '#fb923c' },
+              { grade: 'BB',  range: '50 - 59',  label: 'Material risk; depth may not support large orders',     color: '#fb923c' },
+              { grade: 'CCC', range: '30 - 49',  label: 'Severe fragmentation or confirmed stress regime',       color: '#f87171' },
+              { grade: 'D',   range: '0 - 29',   label: 'Effectively illiquid; execution risk is extreme',       color: '#ef4444' },
             ].map(b => (
               <div key={b.grade} className="mp-band">
                 <div className="mp-band-grade" style={{ color: b.color }}>{b.grade}</div>
@@ -351,15 +351,15 @@ export default function MethodologyPage() {
         </div>
 
         {/* ═══════════════════════════════════════════════════════════════════════
-            SECTION 4 — PoMI · Proof of Market Integrity
+            SECTION 4  -  PoMI · Proof of Market Integrity
         ════════════════════════════════════════════════════════════════════════ */}
         <div className="mp-section">
           <div className="mp-section-tag">PoMI · Proof of Market Integrity</div>
           <p className="mp-pomi-intro">
             PoMI extends beyond liquidity depth to verify the structural integrity of market
             coordination mechanisms. It scores the health of the cross-venue stabilisation
-            infrastructure — circuit breakers, volatility throttles, and perp-spot basis
-            alignment — producing a single composite score with the same AAA–D rating bands
+            infrastructure  -  circuit breakers, volatility throttles, and perp-spot basis
+            alignment  -  producing a single composite score with the same AAA - D rating bands
             as PoLi, displayed alongside it on the PoLi / PoMI terminal tab.
           </p>
           <div className="mp-pomi-pillars">
@@ -377,7 +377,7 @@ export default function MethodologyPage() {
               {
                 color: '#4ade80', label: 'Pillar 03',
                 name: 'Venue Sync Score',
-                body: 'Measures cross-venue perpetual-spot basis alignment. COORDINATED (89) when perp basis < 3 bps; MINOR DRIFT (65) at 3–8 bps; FRAGMENTING (30) above 8 bps. Basis divergence above threshold signals that venues are not pricing the same underlying consistently — a leading indicator of structural dislocation.'
+                body: 'Measures cross-venue perpetual-spot basis alignment. COORDINATED (89) when perp basis < 3 bps; MINOR DRIFT (65) at 3 - 8 bps; FRAGMENTING (30) above 8 bps. Basis divergence above threshold signals that venues are not pricing the same underlying consistently  -  a leading indicator of structural dislocation.'
               },
             ].map(p => (
               <div key={p.name} className="mp-pomi-pillar">
@@ -390,8 +390,8 @@ export default function MethodologyPage() {
           <div className="mp-pomi-states">
             {[
               { name: 'STABLE',      color: '#4ade80', body: 'All three pillars ≥ 85. Coordination mechanisms intact, stability infrastructure fully operational.' },
-              { name: 'MONITORING',  color: '#86efac', body: 'Composite 70–84. Coordination window narrowing; monitoring for escalation triggers across one or more pillars.' },
-              { name: 'PARTIAL',     color: '#F0C000', body: 'Composite 50–69. Partial throttle engagement advisable. Threshold monitoring active on at least one venue cluster.' },
+              { name: 'MONITORING',  color: '#86efac', body: 'Composite 70 - 84. Coordination window narrowing; monitoring for escalation triggers across one or more pillars.' },
+              { name: 'PARTIAL',     color: '#F0C000', body: 'Composite 50 - 69. Partial throttle engagement advisable. Threshold monitoring active on at least one venue cluster.' },
               { name: 'CONSTRAINED', color: '#f87171', body: 'Composite < 50. Cross-venue stabilisation integrity compromised. Systemic coordination capacity severely constrained.' },
             ].map(s => (
               <div key={s.name} className="mp-pomi-state">
@@ -406,14 +406,14 @@ export default function MethodologyPage() {
         </div>
 
         {/* ═══════════════════════════════════════════════════════════════════════
-            SECTION 5 — Regime Classification
+            SECTION 5  -  Regime Classification
         ════════════════════════════════════════════════════════════════════════ */}
         <div className="mp-section">
           <div className="mp-section-tag">Regime Classification · Six-State Model</div>
           <div className="mp-regimes-grid">
             {[
               { name: 'NORMAL',           color: '#4ade80', body: 'Depth adequate, spread within historical norms, no cross-venue divergence. All PoMI pillars ACTIVE.' },
-              { name: 'THIN',             color: '#86efac', body: 'Depth declined modestly vs. baseline. Executions above median size carry elevated impact. PoLi typically 70–84.' },
+              { name: 'THIN',             color: '#86efac', body: 'Depth declined modestly vs. baseline. Executions above median size carry elevated impact. PoLi typically 70 - 84.' },
               { name: 'EARLY_WARNING',    color: '#F0C000', body: 'One or more stress indicators elevated. Resilience or fragmentation beginning to deteriorate. STRATA AI EWDS activated.' },
               { name: 'STRESS_BUILDING',  color: '#fb923c', body: 'Multiple simultaneous stress signals. Cross-venue divergence statistically significant. PoMI Throttle Score degrading.' },
               { name: 'STRESSED',         color: '#f87171', body: 'Confirmed structural dislocation. Depth deteriorated materially. Execution integrity degraded. PoLi typically < 60.' },
@@ -431,7 +431,7 @@ export default function MethodologyPage() {
         </div>
 
         {/* ═══════════════════════════════════════════════════════════════════════
-            SECTION 6 — STRATA AI
+            SECTION 6  -  STRATA AI
         ════════════════════════════════════════════════════════════════════════ */}
         <div className="mp-section">
           <div className="mp-section-tag">STRATA AI · Market Surveillance Engine</div>
@@ -462,19 +462,19 @@ export default function MethodologyPage() {
                 n: '03', color: '#F0C000',
                 icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>,
                 name: 'Depth Manipulation', sub: 'Layering & quote stuffing',
-                body: 'Monitors for abnormal depth band distributions — disproportionate liquidity concentrations at specific price levels — and quote-stuffing patterns that saturate matching engine capacity without genuine trading intent.'
+                body: 'Monitors for abnormal depth band distributions  -  disproportionate liquidity concentrations at specific price levels  -  and quote-stuffing patterns that saturate matching engine capacity without genuine trading intent.'
               },
               {
                 n: '04', color: '#4ade80',
                 icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
                 name: 'Regime Forecasting', sub: 'Predictive stress classification',
-                body: 'Applies a rolling ensemble of momentum, volatility, and order-flow features to forecast regime transitions 2–10 minutes ahead. Early regime forecasts trigger EARLY_WARNING state and alert dispatch before the regime scores confirm stress.'
+                body: 'Applies a rolling ensemble of momentum, volatility, and order-flow features to forecast regime transitions 2 - 10 minutes ahead. Early regime forecasts trigger EARLY_WARNING state and alert dispatch before the regime scores confirm stress.'
               },
               {
                 n: '05', color: '#38bdf8',
                 icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
                 name: 'Cross-Venue Anomalies', sub: 'Inter-exchange divergence',
-                body: 'Compares price, spread, and depth across REFERENCE and STRESS venues simultaneously. Statistical divergence above threshold — particularly when a stress venue leads a reference venue on spread — is a leading indicator of structural dislocation.'
+                body: 'Compares price, spread, and depth across REFERENCE and STRESS venues simultaneously. Statistical divergence above threshold  -  particularly when a stress venue leads a reference venue on spread  -  is a leading indicator of structural dislocation.'
               },
               {
                 n: '06', color: '#c084fc',
@@ -529,7 +529,7 @@ export default function MethodologyPage() {
               <div className="mp-ai-outputs">
                 {[
                   { color: '#f87171', name: 'Prioritised Signal Feed', sub: 'NORMAL / ELEVATED / CRITICAL signals with supporting evidence, category, and timestamp', bc: 'rgba(248,113,113,0.08)', bl: '#f87171' },
-                  { color: '#F0C000', name: 'STRATA AI Composite Score', sub: 'Aggregate integrity score (0–100) across all six detection categories, updated every tick', bc: 'rgba(240,192,0,0.06)', bl: '#F0C000' },
+                  { color: '#F0C000', name: 'STRATA AI Composite Score', sub: 'Aggregate integrity score (0 - 100) across all six detection categories, updated every tick', bc: 'rgba(240,192,0,0.06)', bl: '#F0C000' },
                   { color: '#4ade80', name: 'EWDS Status', sub: 'Binary ARMED / STANDBY status with supporting detection category breakdown', bc: 'rgba(74,222,128,0.06)', bl: '#4ade80' },
                   { color: '#c084fc', name: 'EI Factor Update', sub: 'Execution Integrity pillar fed directly into L5F PoLi computation on each detection cycle', bc: 'rgba(192,132,252,0.06)', bl: '#c084fc' },
                 ].map(o => (
@@ -544,14 +544,14 @@ export default function MethodologyPage() {
         </div>
 
         {/* ═══════════════════════════════════════════════════════════════════════
-            SECTION 7 — Liquidity Horizons
+            SECTION 7  -  Liquidity Horizons
         ════════════════════════════════════════════════════════════════════════ */}
         <div className="mp-section">
           <div className="mp-section-tag">Liquidity Horizons · Context-Aware Timeframes</div>
           <div className="mp-horizons">
             {[
               { tag: 'NOW', name: 'Immediacy Horizon', window: 'Rolling 60-second window', desc: 'Intra-session snapshot for live execution decisions. Reflects current order book state and recent trade flow. Used by real-time alert thresholds and STRATA AI detection triggers.' },
-              { tag: 'SESSION', name: 'Session Horizon', window: 'Current trading session (~8–12 hours)', desc: 'Smooths intra-day noise to produce a session-representative liquidity state. Used for margin and collateral assessment workflows including the CCP Margin Verification Console.' },
+              { tag: 'SESSION', name: 'Session Horizon', window: 'Current trading session (~8 - 12 hours)', desc: 'Smooths intra-day noise to produce a session-representative liquidity state. Used for margin and collateral assessment workflows including the CCP Margin Verification Console.' },
               { tag: 'BASELINE', name: 'Structural Baseline', window: '30-day rolling average', desc: 'Long-run structural liquidity norms against which session and immediacy values are compared. Anchors regime classification thresholds and PoMI Venue Sync scoring ranges.' },
             ].map(h => (
               <div key={h.tag} className="mp-horizon">
@@ -565,7 +565,7 @@ export default function MethodologyPage() {
         </div>
 
         {/* ═══════════════════════════════════════════════════════════════════════
-            SECTION 8 — Venue Role Doctrine
+            SECTION 8  -  Venue Role Doctrine
         ════════════════════════════════════════════════════════════════════════ */}
         <div className="mp-section">
           <div className="mp-section-tag">Venue Role Doctrine · 14-Venue Classification</div>
@@ -575,7 +575,7 @@ export default function MethodologyPage() {
                 color: '#F0C000', tag: 'REFERENCE_VENUE',
                 name: 'Reference Venue',
                 examples: 'Binance, Coinbase, Kraken, OKX',
-                body: 'High-volume, regulated, or near-regulated exchanges that serve as the primary price-discovery anchors. PoLi scores are calibrated relative to reference venue depth norms. The Binance Authenticity Rule requires venue === "binance" AND provenance.sourceVenue === "binance" AND provenance.transport === "relay" — enforced across DACT, LIS, and all depth relays to prevent fallback mislabelling.'
+                body: 'High-volume, regulated, or near-regulated exchanges that serve as the primary price-discovery anchors. PoLi scores are calibrated relative to reference venue depth norms. The Binance Authenticity Rule requires venue === "binance" AND provenance.sourceVenue === "binance" AND provenance.transport === "relay"  -  enforced across DACT, LIS, and all depth relays to prevent fallback mislabelling.'
               },
               {
                 color: '#f87171', tag: 'STRESS_VENUE',

@@ -94,7 +94,7 @@ function maybeServeClient(app: Express) {
   // Static assets: /assets/*, /logo.png, etc.
   app.use(express.static(publicDir));
 
-  // SPA fallback — only for non-API routes
+  // SPA fallback  -  only for non-API routes
   // This ensures deep links like /clt/evidence render the React app.
   app.get(/^\/(?!api\/).*/, (_req, res) => {
     res.sendFile(indexFile);

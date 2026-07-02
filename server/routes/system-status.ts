@@ -25,7 +25,7 @@ function getVenueStatus() {
   return VENUE_LIST.map((venue) => {
     // canton is a destination-only venue (no relay)
     if (venue === "canton") {
-      return { venue, status: "OFFLINE" as const, latencyMs: null, note: "Relay removed — destination only" };
+      return { venue, status: "OFFLINE" as const, latencyMs: null, note: "Relay removed  -  destination only" };
     }
 
     // Find the most recent TSLE recording for this venue across tracked symbols

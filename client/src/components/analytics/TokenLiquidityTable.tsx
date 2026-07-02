@@ -339,7 +339,7 @@ const TokenLiquidityTable = ({ selectedToken, onSelectToken, batchFactors }: Pro
                         "Patchy";
 
                       if (score === 0) {
-                        return <span className="text-[10px] text-slate-500">—</span>;
+                        return <span className="text-[10px] text-slate-500"> - </span>;
                       }
 
                       return (

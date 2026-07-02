@@ -31,9 +31,9 @@ const ICON_CDN = "https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master
 // Tokens whose spothq filename differs from the ticker symbol, or are missing.
 // Set to null to skip CDN and go straight to letter-badge fallback.
 const ICON_OVERRIDES: Record<string, string | null> = {
-  USDE: null,   // Ethena USDe — not in spothq set
-  HYPE: null,   // Hyperliquid — not in spothq set
-  OKB:  null,   // OKB — not in spothq set
+  USDE: null,   // Ethena USDe  -  not in spothq set
+  HYPE: null,   // Hyperliquid  -  not in spothq set
+  OKB:  null,   // OKB  -  not in spothq set
   CRO:  "cro",  // Cronos
   BNB:  "bnb",
   TON:  "ton",

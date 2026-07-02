@@ -37,7 +37,7 @@ const BANDS = [
 ] as const;
 
 function formatMillions(value: number): string {
-  if (!value || value === 0) return "—";
+  if (!value || value === 0) return " - ";
   if (value >= 1_000_000) return "$" + (value / 1_000_000).toFixed(2) + "M";
   if (value >= 1_000) return "$" + (value / 1_000).toFixed(1) + "K";
   return "$" + value.toFixed(0);
@@ -129,11 +129,11 @@ export default function DepthPanel({ depth }: DepthPanelProps) {
                             <TrendingDown className="inline h-3 w-3 mr-1" />
                           )
                         ) : null}
-                        {imbalance ? (imbalance * 100).toFixed(1) + "%" : "—"}
+                        {imbalance ? (imbalance * 100).toFixed(1) + "%" : " - "}
                       </span>
                     </td>
                     <td className="py-2 text-right text-muted-foreground capitalize">
-                      {source ?? "—"}
+                      {source ?? " - "}
                     </td>
                   </tr>
                 );

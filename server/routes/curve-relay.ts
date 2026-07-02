@@ -10,11 +10,11 @@ const TIMEOUT_MS = 5000;
 const POOL_REGISTRY: Record<string, { address: string; api: string }> = {
   BTC:  { address: "0xd51a44d3fae010294c616388b506acda1bfaae46", api: `${CURVE_API}/getPools/ethereum/crypto` },
   ETH:  { address: "0xdc24316b9ae028f1497c275eb9192a3ea0f67022", api: `${CURVE_API}/getPools/ethereum/crypto` },
-  // ILU-20 stablecoins — all live in Curve 3pool
+  // ILU-20 stablecoins  -  all live in Curve 3pool
   USDC: { address: "0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7", api: `${CURVE_API}/getPools/ethereum/main`   },
   USDT: { address: "0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7", api: `${CURVE_API}/getPools/ethereum/main`   },
   DAI:  { address: "0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7", api: `${CURVE_API}/getPools/ethereum/main`   },
-  // extended — Ethena USDe/USDC stable-ng pool
+  // extended  -  Ethena USDe/USDC stable-ng pool
   USDE: { address: "0x02950460E2b9529D0E00284A5fA2d7bDF3fA4d72", api: `${CURVE_API}/getPools/ethereum/factory-stable-ng` },
 };
 

@@ -205,7 +205,7 @@ router.get("/", async (req: Request, res: Response) => {
       // Existing debug view
       ...(debug ? { bundlesMeta } : {}),
 
-      // Existing venue evidence report (L0–L3 aggregation)
+      // Existing venue evidence report (L0 - L3 aggregation)
       ...report,
 
       // ✅ L4 output mounted explicitly (per-venue + aggregate)

@@ -12,25 +12,25 @@ const TIMEOUT_MS = 5000;
 const PRODUCT_TYPE = "USDT-FUTURES";
 
 const SYMBOL_MAP: Record<string, string> = {
-  // ILU-20 — Reserve
+  // ILU-20  -  Reserve
   BTC:  "BTCUSDT",
   ETH:  "ETHUSDT",
-  // ILU-20 — Stablecoin Infrastructure
+  // ILU-20  -  Stablecoin Infrastructure
   USDC: "USDCUSDT",
   DAI:  "DAIUSDT",
-  // ILU-20 — Exchange & Trading Infrastructure
+  // ILU-20  -  Exchange & Trading Infrastructure
   BNB:  "BNBUSDT",
   CRO:  "CROUSDT",
   OKB:  "OKBUSDT",
   UNI:  "UNIUSDT",
   CAKE: "CAKEUSDT",
-  // ILU-20 — Financial Infrastructure
+  // ILU-20  -  Financial Infrastructure
   LINK: "LINKUSDT",
   AAVE: "AAVEUSDT",
   MKR:  "MKRUSDT",
   SNX:  "SNXUSDT",
   COMP: "COMPUSDT",
-  // ILU-20 — High-Volume Liquidity
+  // ILU-20  -  High-Volume Liquidity
   SOL:  "SOLUSDT",
   XRP:  "XRPUSDT",
   DOGE: "DOGEUSDT",

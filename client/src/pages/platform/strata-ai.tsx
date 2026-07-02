@@ -7,6 +7,7 @@ import { ExportButton } from "@/components/export-button";
 import { generateIntelligenceSummaryPDF } from "@/lib/reportPdfGenerator";
 import "./tilt-terminal.css";
 import { PlatformFooter } from "@/components/platform-footer";
+import { TT } from "@/components/tilt-tooltip";
 
 const LiveClock = memo(function LiveClock() {
   const [clockStr, setClockStr] = useState(() =>
@@ -104,9 +105,27 @@ const RAG_BG: Record<RagStatus, string> = {
 };
 const STATUS_SCORE: Record<RagStatus, number> = { NORMAL: 100, ELEVATED: 50, CRITICAL: 10 };
 
+const DETECTION_TIPS: Record<string, string> = {
+  divergence:    "Measures how differently the same asset is priced across venues. High divergence means venues disagree on market conditions. Threshold: spread dispersion above 3.0 bps triggers ELEVATED.",
+  manipulation:  "Monitors whether order book depth characteristics (decay rate, distribution, stability) look structurally abnormal. Does not imply proven manipulation - depth behaviour is statistically unusual.",
+  concentration: "Measures whether liquidity is distributed across venues or concentrated at a few. High concentration creates single-venue dependency risk and amplifies cascade scenarios.",
+  spread:        "Detects unusual spread widening patterns. Elasticity and velocity both elevated together indicates accelerating execution degradation across the venue set.",
+  regime:        "Monitors whether the overall market regime (volatility structure, volume patterns, correlation behaviour) is stable. Regime shifts are leading indicators of structural stress.",
+  execution:     "Assesses whether an institutional-size order could be executed cleanly across venues right now. Below 60 means execution quality is degraded. Below 40 means the market is not executable at scale.",
+};
+
+const EWDS_TIPS: Record<string, string> = {
+  "FUND RATE":  "Composite funding rate pressure across perp venues. Extremely elevated or negative funding across multiple venues simultaneously indicates leveraged positioning stress.",
+  "PERP BASIS": "Spread dispersion across perp venues in basis points. Above 2 bps is mild fragmentation. Above 8 bps indicates venues are significantly out-of-sync on perpetual contract pricing.",
+  "INS FUND":   "Insurance fund stability score. Monitors whether reserve buffers are holding. A declining insurance fund is an early indicator of cascading liquidation risk.",
+  "XMRG UTIL":  "Cross-margin utilisation estimate derived from the fragmentation index. Above 50% means portfolios are broadly levered. Above 70% triggers systemic stress conditions.",
+  "ALT LIQ":    "Alternative liquidity score. A proxy for whether liquidity is available outside the primary venues. Low score means very few alternatives if primary venues withdraw depth.",
+  "ADL COUNT":  "Auto-Deleveraging count. Tracks how many positions are being automatically deleveraged on perp venues. High ADL count is a direct distress signal. Currently awaiting data feed.",
+};
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function fmtDepth(v: number | null | undefined): string {
-  if (!v) return "—";
+  if (!v) return " - ";
   if (v >= 1e9) return "$" + (v / 1e9).toFixed(1) + "b";
   if (v >= 1e6) return "$" + (v / 1e6).toFixed(1) + "m";
   if (v >= 1e3) return "$" + (v / 1e3).toFixed(0) + "k";
@@ -148,7 +167,7 @@ function computeDetections(_agg: TsleAggregate, evalTime: string): DetectionCate
     total_depth_10bps:     _agg.total_depth_10bps       || 0,
   };
   const topShare = agg.venue_slices?.[0]?.depth_share_pct ?? 0;
-  const topVenue = agg.venue_slices?.[0]?.venue_id?.toUpperCase() ?? "—";
+  const topVenue = agg.venue_slices?.[0]?.venue_id?.toUpperCase() ?? " - ";
   const venuesInRange = agg.venue_slices?.filter(v => v.spread_bps > 0 && v.spread_bps < 10).length ?? 0;
 
   const divStatus: RagStatus  = agg.spread_dispersion_bps >= 8 ? "CRITICAL" : agg.spread_dispersion_bps >= 3 ? "ELEVATED" : "NORMAL";
@@ -222,7 +241,7 @@ function makeSignal(cat: DetectionCategory, symbol: string, _agg: TsleAggregate)
     total_depth_10bps:     _agg.total_depth_10bps       || 0,
   };
   const topV = agg.venue_slices?.[0];
-  const topName = topV?.venue_id?.toUpperCase() ?? "—";
+  const topName = topV?.venue_id?.toUpperCase() ?? " - ";
 
   const msgs: Record<string, Record<RagStatus, [string, string]>> = {
     divergence: {
@@ -249,49 +268,49 @@ function makeSignal(cat: DetectionCategory, symbol: string, _agg: TsleAggregate)
         `DQ: ${agg.l5f_depth_quality.toFixed(1)} · Total Depth: ${fmtDepth(agg.total_depth_10bps)} · Decay Rate: ${agg.depth_decay_rate.toFixed(2)}%/min`,
       ],
       CRITICAL: [
-        `Critical Depth Quality: ${agg.l5f_depth_quality.toFixed(1)}/100 (threshold: 20). Severe orderbook thinning — large orders risk significant market impact.`,
+        `Critical Depth Quality: ${agg.l5f_depth_quality.toFixed(1)}/100 (threshold: 20). Severe orderbook thinning  -  large orders risk significant market impact.`,
         `DQ: ${agg.l5f_depth_quality.toFixed(1)} · Total Depth: ${fmtDepth(agg.total_depth_10bps)} · Decay Rate: ${agg.depth_decay_rate.toFixed(2)}%/min`,
       ],
     },
     concentration: {
       NORMAL: [
-        `Liquidity distribution normalised. ${topName} holds ${topV?.depth_share_pct.toFixed(1) ?? "—"}% of monitored depth — within acceptable concentration bounds.`,
-        `${topName}: ${topV?.depth_share_pct.toFixed(1) ?? "—"}% · HHI: ${agg.fragmentation_index.toFixed(3)} · Venues: ${agg.venue_count}`,
+        `Liquidity distribution normalised. ${topName} holds ${topV?.depth_share_pct.toFixed(1) ?? " - "}% of monitored depth  -  within acceptable concentration bounds.`,
+        `${topName}: ${topV?.depth_share_pct.toFixed(1) ?? " - "}% · HHI: ${agg.fragmentation_index.toFixed(3)} · Venues: ${agg.venue_count}`,
       ],
       ELEVATED: [
-        `${topName} holds ${topV?.depth_share_pct.toFixed(1) ?? "—"}% of monitored depth for ${symbol}. Single-venue concentration exceeds the 60% threshold. Diversity of liquidity sources is insufficient for institutional-grade execution assurance.`,
-        `${topName}: ${topV?.depth_share_pct.toFixed(1) ?? "—"}% · 2nd: ${(agg.venue_slices?.[1]?.depth_share_pct ?? 0).toFixed(1)}% · HHI: ${agg.fragmentation_index.toFixed(3)}`,
+        `${topName} holds ${topV?.depth_share_pct.toFixed(1) ?? " - "}% of monitored depth for ${symbol}. Single-venue concentration exceeds the 60% threshold. Diversity of liquidity sources is insufficient for institutional-grade execution assurance.`,
+        `${topName}: ${topV?.depth_share_pct.toFixed(1) ?? " - "}% · 2nd: ${(agg.venue_slices?.[1]?.depth_share_pct ?? 0).toFixed(1)}% · HHI: ${agg.fragmentation_index.toFixed(3)}`,
       ],
       CRITICAL: [
-        `Extreme concentration: ${topName} holds ${topV?.depth_share_pct.toFixed(1) ?? "—"}% of monitored depth. HHI of ${agg.fragmentation_index.toFixed(3)} indicates near-monopoly liquidity structure. Significant single-venue withdrawal risk.`,
-        `${topName}: ${topV?.depth_share_pct.toFixed(1) ?? "—"}% · HHI: ${agg.fragmentation_index.toFixed(3)} · Reg share: ${(agg.regulated_depth_share * 100).toFixed(1)}%`,
+        `Extreme concentration: ${topName} holds ${topV?.depth_share_pct.toFixed(1) ?? " - "}% of monitored depth. HHI of ${agg.fragmentation_index.toFixed(3)} indicates near-monopoly liquidity structure. Significant single-venue withdrawal risk.`,
+        `${topName}: ${topV?.depth_share_pct.toFixed(1) ?? " - "}% · HHI: ${agg.fragmentation_index.toFixed(3)} · Reg share: ${(agg.regulated_depth_share * 100).toFixed(1)}%`,
       ],
     },
     spread: {
       NORMAL: [
-        `Cross-venue spread alignment normal. Dispersion at ${agg.spread_dispersion_bps.toFixed(2)} bps — execution quality consistent across all monitored venues.`,
+        `Cross-venue spread alignment normal. Dispersion at ${agg.spread_dispersion_bps.toFixed(2)} bps  -  execution quality consistent across all monitored venues.`,
         `Dispersion: ${agg.spread_dispersion_bps.toFixed(2)} bps · Withdrawal velocity: ${agg.withdrawal_velocity.toFixed(1)} bps/hr`,
       ],
       ELEVATED: [
-        `Spread dispersion flagged at ${agg.spread_dispersion_bps.toFixed(2)} bps (threshold: 3 bps). Cross-venue execution quality is diverging — market makers showing asymmetric quoting behaviour.`,
+        `Spread dispersion flagged at ${agg.spread_dispersion_bps.toFixed(2)} bps (threshold: 3 bps). Cross-venue execution quality is diverging  -  market makers showing asymmetric quoting behaviour.`,
         `Dispersion: ${agg.spread_dispersion_bps.toFixed(2)} bps · Withdrawal velocity: ${agg.withdrawal_velocity.toFixed(1)} bps/hr`,
       ],
       CRITICAL: [
-        `Critical spread anomaly: ${agg.spread_dispersion_bps.toFixed(2)} bps dispersion (threshold: 8 bps). Execution quality collapse across venues — market structure integrity at risk.`,
+        `Critical spread anomaly: ${agg.spread_dispersion_bps.toFixed(2)} bps dispersion (threshold: 8 bps). Execution quality collapse across venues  -  market structure integrity at risk.`,
         `Dispersion: ${agg.spread_dispersion_bps.toFixed(2)} bps · Elasticity: ${agg.spread_elasticity.toFixed(2)} · Velocity: ${agg.withdrawal_velocity.toFixed(1)} bps/hr`,
       ],
     },
     regime: {
       NORMAL: [
-        `Regime classification returned to NORMAL. L5F composite at ${agg.l5f_composite}/100 — institutional stability threshold met.`,
+        `Regime classification returned to NORMAL. L5F composite at ${agg.l5f_composite}/100  -  institutional stability threshold met.`,
         `Regime: NORMAL · RS: ${agg.l5f_regime_stability.toFixed(1)} · Composite: ${agg.l5f_composite}`,
       ],
       ELEVATED: [
-        `Regime classification shifted from NORMAL to ELEVATED. L5F composite at ${agg.l5f_composite}/100. Liquidity stress indicators active — heightened monitoring advised.`,
+        `Regime classification shifted from NORMAL to ELEVATED. L5F composite at ${agg.l5f_composite}/100. Liquidity stress indicators active  -  heightened monitoring advised.`,
         `Regime: ELEVATED · RS: ${agg.l5f_regime_stability.toFixed(1)} · Composite: ${agg.l5f_composite}`,
       ],
       CRITICAL: [
-        `Regime classification: STRESS. L5F composite at ${agg.l5f_composite}/100 — below institutional stability threshold of 50. Multiple stress indicators simultaneously active.`,
+        `Regime classification: STRESS. L5F composite at ${agg.l5f_composite}/100  -  below institutional stability threshold of 50. Multiple stress indicators simultaneously active.`,
         `Regime: STRESS · RS: ${agg.l5f_regime_stability.toFixed(1)} · Composite: ${agg.l5f_composite} · Decay: ${agg.depth_decay_rate.toFixed(2)}%/min`,
       ],
     },
@@ -301,11 +320,11 @@ function makeSignal(cat: DetectionCategory, symbol: string, _agg: TsleAggregate)
         `EI: ${agg.l5f_exec_integrity.toFixed(1)} · Spread Dispersion: ${agg.spread_dispersion_bps.toFixed(2)} bps · Venues: ${agg.venue_count}`,
       ],
       ELEVATED: [
-        `Execution Integrity degraded to ${agg.l5f_exec_integrity.toFixed(1)}/100 (threshold: 60). Cross-venue execution quality is deteriorating — institutional trading conditions compromised.`,
+        `Execution Integrity degraded to ${agg.l5f_exec_integrity.toFixed(1)}/100 (threshold: 60). Cross-venue execution quality is deteriorating  -  institutional trading conditions compromised.`,
         `EI: ${agg.l5f_exec_integrity.toFixed(1)} · Spread Dispersion: ${agg.spread_dispersion_bps.toFixed(2)} bps · Venues: ${agg.venue_count}`,
       ],
       CRITICAL: [
-        `Critical Execution Integrity: ${agg.l5f_exec_integrity.toFixed(1)}/100 (threshold: 30). Severe execution degradation across monitored venues — institutional trading conditions critically impaired.`,
+        `Critical Execution Integrity: ${agg.l5f_exec_integrity.toFixed(1)}/100 (threshold: 30). Severe execution degradation across monitored venues  -  institutional trading conditions critically impaired.`,
         `EI: ${agg.l5f_exec_integrity.toFixed(1)} · Spread Dispersion: ${agg.spread_dispersion_bps.toFixed(2)} bps · Velocity: ${agg.withdrawal_velocity.toFixed(1)} bps/hr`,
       ],
     },
@@ -503,39 +522,51 @@ export default function StrataAI() {
 
         {/* ── TOPBAR ─────────────────────────────────────────────────────────── */}
         <div className="tilt-topbar" data-testid="strata-ai-topbar">
-          <div className="tilt-tb-item">
-            <div className="tilt-tb-label">PoLi Score</div>
-            <div className="tilt-tb-value" style={{ color: agg ? (agg.l5f_composite >= 65 ? "var(--tilt-green)" : agg.l5f_composite >= 50 ? "var(--tilt-accent)" : "var(--tilt-amber)") : "var(--tilt-muted)" }} data-testid="strata-poli">
-              {agg?.l5f_composite ?? "—"}
+          <TT title="PoLi Score" body="The headline Proof of Liquidity score for the selected asset. Scale 0-100. Below 40 means liquidity is not real at institutional scale. Rating bands: AAA (90-100), AA (80-89), A (70-79), BBB (60-69), BB (50-59), B (40-49), CCC (25-39), D (0-24).">
+            <div className="tilt-tb-item">
+              <div className="tilt-tb-label">PoLi Score</div>
+              <div className="tilt-tb-value" style={{ color: agg ? (agg.l5f_composite >= 65 ? "var(--tilt-green)" : agg.l5f_composite >= 50 ? "var(--tilt-accent)" : "var(--tilt-amber)") : "var(--tilt-muted)" }} data-testid="strata-poli">
+                {agg?.l5f_composite ?? " - "}
+              </div>
             </div>
-          </div>
+          </TT>
           <div className="tilt-tb-divider" />
-          <div className="tilt-tb-item">
-            <div className="tilt-tb-label">Market Depth</div>
-            <div className="tilt-tb-value tilt-tb-depth" data-testid="strata-depth">{agg ? fmtDepth(agg.total_depth_10bps) : "—"}</div>
-          </div>
-          <div className="tilt-tb-divider" />
-          <div className="tilt-tb-item">
-            <div className="tilt-tb-label">Venues Active</div>
-            <div className="tilt-tb-value" data-testid="strata-venues">{agg?.venue_count ?? "—"}</div>
-          </div>
-          <div className="tilt-tb-divider" />
-          <div className="tilt-tb-item">
-            <div className="tilt-tb-label">Avg Spread</div>
-            <div className="tilt-tb-value" data-testid="strata-spread">{avgSpread != null ? avgSpread + " bps" : "—"}</div>
-          </div>
-          <div className="tilt-tb-divider" />
-          <div className="tilt-tb-item">
-            <div className="tilt-tb-label">Regime</div>
-            <div className={`tilt-regime-badge ${regimeBadgeClass}`} data-testid="strata-regime">{agg?.vol_regime ?? "—"}</div>
-          </div>
-          <div className="tilt-tb-divider" />
-          <div className="tilt-tb-item">
-            <div className="tilt-tb-label">Integrity</div>
-            <div className="tilt-tb-value" style={{ color: agg ? (agg.l5f_exec_integrity >= 60 ? "var(--tilt-green)" : agg.l5f_exec_integrity >= 30 ? "var(--tilt-amber)" : "var(--tilt-red)") : "var(--tilt-muted)" }} data-testid="strata-integrity">
-              {agg ? (agg.l5f_exec_integrity >= 60 ? "● NORMAL" : agg.l5f_exec_integrity >= 30 ? "● ELEVATED" : "● CRITICAL") : "—"}
+          <TT title="Market Depth" body="Total order book depth within +/-10 basis points of mid-price, aggregated across all active venues. Same figure as Total Depth on the LIQUIDITY tab.">
+            <div className="tilt-tb-item">
+              <div className="tilt-tb-label">Market Depth</div>
+              <div className="tilt-tb-value tilt-tb-depth" data-testid="strata-depth">{agg ? fmtDepth(agg.total_depth_10bps) : " - "}</div>
             </div>
-          </div>
+          </TT>
+          <div className="tilt-tb-divider" />
+          <TT title="Venues Active" body="Number of configured venues actively returning data. Should match the count on the LIQUIDITY tab.">
+            <div className="tilt-tb-item">
+              <div className="tilt-tb-label">Venues Active</div>
+              <div className="tilt-tb-value" data-testid="strata-venues">{agg?.venue_count ?? " - "}</div>
+            </div>
+          </TT>
+          <div className="tilt-tb-divider" />
+          <TT title="Average Spread (bps)" body="Volume-weighted average bid-ask spread across all active venues. Under 2 bps is tight; above 10 bps is a concern.">
+            <div className="tilt-tb-item">
+              <div className="tilt-tb-label">Avg Spread</div>
+              <div className="tilt-tb-value" data-testid="strata-spread">{avgSpread != null ? avgSpread + " bps" : " - "}</div>
+            </div>
+          </TT>
+          <div className="tilt-tb-divider" />
+          <TT title="Volatility Regime" body="Market regime classification. NORMAL means no vol spike or structural dislocation. STRESSED or CRISIS would indicate acute conditions.">
+            <div className="tilt-tb-item">
+              <div className="tilt-tb-label">Regime</div>
+              <div className={`tilt-regime-badge ${regimeBadgeClass}`} data-testid="strata-regime">{agg?.vol_regime ?? " - "}</div>
+            </div>
+          </TT>
+          <div className="tilt-tb-divider" />
+          <TT title="Integrity Assessment" body="Composite assessment of whether market behaviour across all six detection categories is within normal bounds. NORMAL = all clear. ELEVATED = at least one category flagged. BREACH = multiple categories critical.">
+            <div className="tilt-tb-item">
+              <div className="tilt-tb-label">Integrity</div>
+              <div className="tilt-tb-value" style={{ color: agg ? (agg.l5f_exec_integrity >= 60 ? "var(--tilt-green)" : agg.l5f_exec_integrity >= 30 ? "var(--tilt-amber)" : "var(--tilt-red)") : "var(--tilt-muted)" }} data-testid="strata-integrity">
+                {agg ? (agg.l5f_exec_integrity >= 60 ? "● NORMAL" : agg.l5f_exec_integrity >= 30 ? "● ELEVATED" : "● CRITICAL") : " - "}
+              </div>
+            </div>
+          </TT>
           <div className="tilt-tb-timestamp" style={{ marginLeft: "auto" }}>
             LAST UPDATE &nbsp;<LiveClock />
           </div>
@@ -545,7 +576,7 @@ export default function StrataAI() {
         <div style={{ background: "var(--tilt-header)", borderBottom: "1px solid var(--tilt-border)" }} data-testid="strata-detection-grid">
           <div style={{ padding: "7px 14px 6px", borderBottom: "1px solid var(--tilt-border)", display: "flex", alignItems: "center" }}>
             <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 10, fontWeight: 700, letterSpacing: "0.10em", textTransform: "uppercase", color: "var(--tilt-sub)" }}>
-              STRATA AI — DETECTION STATUS
+              STRATA AI  -  DETECTION STATUS
             </div>
             <div style={{ marginLeft: "auto", fontFamily: "var(--tilt-mono)", fontSize: 9, color: "var(--tilt-muted)", letterSpacing: "0.08em" }}>
               6 CATEGORIES MONITORED
@@ -555,18 +586,20 @@ export default function StrataAI() {
             {loading ? Array.from({ length: 6 }).map((_, i) => (
               <div key={i} style={{ background: "var(--tilt-panel)", padding: "10px 12px", minHeight: 72 }} />
             )) : detections.map(cat => (
-              <div key={cat.id} style={{ background: RAG_BG[cat.status], padding: "10px 12px" }} data-testid={`strata-cat-${cat.id}`}>
-                <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: "var(--tilt-muted)", textTransform: "uppercase", letterSpacing: "0.08em", lineHeight: 1.4 }}>
-                  {cat.label1}<br />{cat.label2}
+              <TT key={cat.id} title={`${cat.label1} ${cat.label2}`} body={DETECTION_TIPS[cat.id] ?? cat.detail}>
+                <div style={{ background: RAG_BG[cat.status], padding: "10px 12px" }} data-testid={`strata-cat-${cat.id}`}>
+                  <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: "var(--tilt-muted)", textTransform: "uppercase", letterSpacing: "0.08em", lineHeight: 1.4 }}>
+                    {cat.label1}<br />{cat.label2}
+                  </div>
+                  <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 5 }}>
+                    <span style={{ color: RAG_COLOR[cat.status], fontSize: 8 }}>●</span>
+                    <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 12, fontWeight: 700, color: RAG_COLOR[cat.status] }}>{cat.status}</span>
+                  </div>
+                  <div style={{ marginTop: 3, fontFamily: "var(--tilt-mono)", fontSize: 9, color: "var(--tilt-muted)" }}>
+                    Score: {cat.score}
+                  </div>
                 </div>
-                <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 5 }}>
-                  <span style={{ color: RAG_COLOR[cat.status], fontSize: 8 }}>●</span>
-                  <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 12, fontWeight: 700, color: RAG_COLOR[cat.status] }}>{cat.status}</span>
-                </div>
-                <div style={{ marginTop: 3, fontFamily: "var(--tilt-mono)", fontSize: 9, color: "var(--tilt-muted)" }}>
-                  Score: {cat.score}
-                </div>
-              </div>
+              </TT>
             ))}
           </div>
         </div>
@@ -591,7 +624,7 @@ export default function StrataAI() {
                     ● All detection categories within normal parameters. No anomalies detected.
                   </div>
                   <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 10, color: "var(--tilt-muted)" }}>
-                    Last evaluated: {agg ? fmtTime(agg.computed_at_utc) : "—"}
+                    Last evaluated: {agg ? fmtTime(agg.computed_at_utc) : " - "}
                   </div>
                 </div>
               ) : (
@@ -599,7 +632,7 @@ export default function StrataAI() {
                   {detections.filter(d => d.status !== "NORMAL").map(cat => (
                     <div key={cat.id} style={{ background: "var(--tilt-panel2)", border: "1px solid var(--tilt-border)", borderRadius: 2, padding: "10px 12px" }} data-testid={`strata-signal-${cat.status.toLowerCase()}`}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
-                        <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 10, color: "var(--tilt-muted)" }}>{agg ? fmtTime(agg.computed_at_utc) : "—"}</span>
+                        <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 10, color: "var(--tilt-muted)" }}>{agg ? fmtTime(agg.computed_at_utc) : " - "}</span>
                         <span style={{ color: RAG_COLOR[cat.status], fontSize: 8 }}>●</span>
                         <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, fontWeight: 700, color: RAG_COLOR[cat.status] }}>{cat.status}</span>
                         <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, color: "var(--tilt-sub)", letterSpacing: "0.05em" }}>{cat.label1} {cat.label2}</span>
@@ -621,7 +654,7 @@ export default function StrataAI() {
             <div style={{ background: "var(--tilt-panel)" }}>
               <div className="tilt-panel-header">
                 <div className="tilt-panel-accent" style={{ background: "var(--tilt-amber)" }} />
-                <div className="tilt-panel-title">EWDS — Early Warning</div>
+                <div className="tilt-panel-title">EWDS  -  Early Warning</div>
                 <div className="tilt-ph-tag">PANEL 2</div>
               </div>
               <div style={{ padding: "0 4px" }} data-testid="strata-ewds">
@@ -630,11 +663,13 @@ export default function StrataAI() {
                     Awaiting data...
                   </div>
                 ) : ewdsList.map((e, i) => (
-                  <div key={e.label} style={{ display: "flex", alignItems: "center", padding: "6px 4px", borderBottom: i < ewdsList.length - 1 ? "1px solid var(--tilt-border)" : "none" }}>
-                    <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 10, color: "var(--tilt-muted)", flex: 1, letterSpacing: "0.06em" }}>{e.label}</span>
-                    <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 13, fontWeight: 700, color: RAG_COLOR[e.status], marginRight: 10 }}>{e.value}</span>
-                    <span style={{ color: RAG_COLOR[e.status], fontSize: 8 }}>●</span>
-                  </div>
+                  <TT key={e.label} title={e.label} body={EWDS_TIPS[e.label] ?? e.label}>
+                    <div style={{ display: "flex", alignItems: "center", padding: "6px 4px", borderBottom: i < ewdsList.length - 1 ? "1px solid var(--tilt-border)" : "none" }}>
+                      <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 10, color: "var(--tilt-muted)", flex: 1, letterSpacing: "0.06em" }}>{e.label}</span>
+                      <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 13, fontWeight: 700, color: RAG_COLOR[e.status], marginRight: 10 }}>{e.value}</span>
+                      <span style={{ color: RAG_COLOR[e.status], fontSize: 8 }}>●</span>
+                    </div>
+                  </TT>
                 ))}
               </div>
             </div>
@@ -647,19 +682,23 @@ export default function StrataAI() {
                 <div className="tilt-ph-tag">PANEL 3</div>
               </div>
               <div style={{ padding: "4px 4px 10px" }} data-testid="strata-advance-window">
-                <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: "var(--tilt-muted)", letterSpacing: "0.10em", textTransform: "uppercase", marginBottom: 5 }}>
-                  ADVANCE WARNING CAPACITY
-                </div>
+                <TT title="Advance Warning Capacity" body="How early STRATA AI detected the October 2025 liquidity crisis before observable market stress. The lead time was achieved through multi-factor divergence patterns invisible to single-venue monitoring.">
+                  <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: "var(--tilt-muted)", letterSpacing: "0.10em", textTransform: "uppercase", marginBottom: 5 }}>
+                    ADVANCE WARNING CAPACITY
+                  </div>
+                </TT>
                 <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 24, fontWeight: 700, color: confidenceColor, lineHeight: 1.1, marginBottom: 6 }}>
                   {advanceWindow}
                 </div>
                 <div style={{ fontSize: 10, color: "var(--tilt-muted)", lineHeight: 1.5, marginBottom: 8 }}>
                   Based on validated detection against October 2025 event data.
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: "var(--tilt-muted)", letterSpacing: "0.08em" }}>SYSTEM CONFIDENCE</span>
-                  <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, fontWeight: 700, color: confidenceColor }}>{confidence}</span>
-                </div>
+                <TT title="System Confidence" body="Confidence level in the current detection output. Derived from the number of corroborating signals across venues and timeframes. HIGH means all six detection categories are in agreement. MEDIUM means partial signal corroboration.">
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: "var(--tilt-muted)", letterSpacing: "0.08em" }}>SYSTEM CONFIDENCE</span>
+                    <span style={{ fontFamily: "var(--tilt-mono)", fontSize: 11, fontWeight: 700, color: confidenceColor }}>{confidence}</span>
+                  </div>
+                </TT>
               </div>
             </div>
 
@@ -667,7 +706,9 @@ export default function StrataAI() {
             <div style={{ background: "var(--tilt-panel)", flex: 1 }}>
               <div className="tilt-panel-header">
                 <div className="tilt-panel-accent" style={{ background: "var(--tilt-accent)" }} />
-                <div className="tilt-panel-title">STRATA AI Composite</div>
+                <TT title="STRATA AI Composite Score" body="Overall integrity assessment synthesising all six detection categories. Weighted by severity: BREACH carries 2x weight vs ELEVATED. 100 = all categories normal. Below 40 = active integrity concern requiring immediate review.">
+                  <div className="tilt-panel-title">STRATA AI Composite</div>
+                </TT>
                 <div className="tilt-ph-tag">PANEL 4</div>
               </div>
               <div style={{ padding: "4px 4px 10px", display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }} data-testid="strata-composite">
@@ -678,7 +719,7 @@ export default function StrataAI() {
                       style={{ strokeDashoffset: compositeScore ? compositeOffset : 283, stroke: compositeColor }} />
                   </svg>
                   <div className="tilt-tsle-center">
-                    <div className="tilt-tsle-number" style={{ color: compositeColor, fontSize: 20 }}>{compositeScore || "—"}</div>
+                    <div className="tilt-tsle-number" style={{ color: compositeColor, fontSize: 20 }}>{compositeScore || " - "}</div>
                     <div className="tilt-tsle-sub">{compositeRating}</div>
                   </div>
                 </div>

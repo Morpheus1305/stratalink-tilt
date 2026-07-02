@@ -14,11 +14,11 @@ const POLI_CRITICAL_THRESHOLD = 50;
 // ─── In-memory alert ring buffer ──────────────────────────────────────────
 // Holds the last RING_MAX entries pushed on every ingest cycle (5s).
 // PostgreSQL (alertHistory) is the durable long-term store; this buffer
-// is the live feed for the frontend. Lost on process restart — by design.
+// is the live feed for the frontend. Lost on process restart  -  by design.
 
 const RING_MAX = 200;
 
-// ─── Heartbeat cooldown — prevent flooding the ring buffer ────────────────
+// ─── Heartbeat cooldown  -  prevent flooding the ring buffer ────────────────
 // One heartbeat per symbol per severity-level per 60s.
 const heartbeatCooldown = new Map<string, { ts: number; level: string }>();
 const HEARTBEAT_COOLDOWN_MS = 60_000;
@@ -30,7 +30,7 @@ export interface AlertLogEntry {
   severity: 'CRITICAL' | 'HIGH' | 'WARNING' | 'INFO';
   description: string;
   status: string;
-  ts: number; // epoch ms — used for merge-dedup with DB entries
+  ts: number; // epoch ms  -  used for merge-dedup with DB entries
 }
 
 const ringBuffer: AlertLogEntry[] = [];
@@ -61,7 +61,7 @@ export function pushIngestCycleAlerts(sym: string, snap: TsleAggregate): void {
   const regimeLabel = snap.vol_regime === 'STRESS' ? 'STRESSED'
     : snap.vol_regime === 'ELEVATED' ? 'ELEVATED' : 'NORMAL';
 
-  // Heartbeat — throttled: at most once per symbol per severity-level per 60s
+  // Heartbeat  -  throttled: at most once per symbol per severity-level per 60s
   const poliSev: AlertLogEntry['severity'] =
     snap.l5f_composite < 35 ? 'CRITICAL'
     : snap.l5f_composite < 50 ? 'HIGH'
@@ -75,7 +75,7 @@ export function pushIngestCycleAlerts(sym: string, snap: TsleAggregate): void {
     pushAlertEntry({
       alertType: 'Divergence',
       severity: poliSev,
-      description: `L5F ${sym}: composite ${snap.l5f_composite.toFixed(1)}, DQ ${snap.l5f_depth_quality.toFixed(1)}, R ${snap.l5f_resilience.toFixed(1)}, regime ${regimeLabel} — ${snap.venue_count} venues`,
+      description: `L5F ${sym}: composite ${snap.l5f_composite.toFixed(1)}, DQ ${snap.l5f_depth_quality.toFixed(1)}, R ${snap.l5f_resilience.toFixed(1)}, regime ${regimeLabel}  -  ${snap.venue_count} venues`,
       status: 'NEW',
       timeUTC: '',
     });
@@ -87,7 +87,7 @@ export function pushIngestCycleAlerts(sym: string, snap: TsleAggregate): void {
     pushAlertEntry({
       alertType: 'Regime',
       severity: 'CRITICAL',
-      description: `${sym} entered STRESS regime — L5F composite ${snap.l5f_composite.toFixed(1)}, ${snap.venue_count} venues active`,
+      description: `${sym} entered STRESS regime  -  L5F composite ${snap.l5f_composite.toFixed(1)}, ${snap.venue_count} venues active`,
       status: 'NEW',
       timeUTC: '',
     });
@@ -95,7 +95,7 @@ export function pushIngestCycleAlerts(sym: string, snap: TsleAggregate): void {
     pushAlertEntry({
       alertType: 'Regime',
       severity: 'WARNING',
-      description: `${sym} ELEVATED regime — monitoring ${snap.venue_count} venues, L5F ${snap.l5f_composite.toFixed(1)}`,
+      description: `${sym} ELEVATED regime  -  monitoring ${snap.venue_count} venues, L5F ${snap.l5f_composite.toFixed(1)}`,
       status: 'NEW',
       timeUTC: '',
     });
@@ -105,7 +105,7 @@ export function pushIngestCycleAlerts(sym: string, snap: TsleAggregate): void {
     pushAlertEntry({
       alertType: 'Depth',
       severity: snap.l5f_depth_quality < 25 ? 'CRITICAL' : 'HIGH',
-      description: `${sym} Depth Quality ${snap.l5f_depth_quality.toFixed(1)} — $${(snap.total_depth_10bps / 1e6).toFixed(1)}M @ 10bps`,
+      description: `${sym} Depth Quality ${snap.l5f_depth_quality.toFixed(1)}  -  $${(snap.total_depth_10bps / 1e6).toFixed(1)}M @ 10bps`,
       status: 'NEW',
       timeUTC: '',
     });
@@ -115,7 +115,7 @@ export function pushIngestCycleAlerts(sym: string, snap: TsleAggregate): void {
     pushAlertEntry({
       alertType: 'PoLi',
       severity: 'CRITICAL',
-      description: `${sym} Composite PoLi ${snap.l5f_composite.toFixed(1)} — below minimum threshold (45)`,
+      description: `${sym} Composite PoLi ${snap.l5f_composite.toFixed(1)}  -  below minimum threshold (45)`,
       status: 'NEW',
       timeUTC: '',
     });
@@ -203,9 +203,9 @@ function defaultRiskIndicators(): AlertsData['riskIndicators'] {
 function computeWarningCapacity(snap: TsleAggregate | null): string {
   if (!snap) return 'Awaiting data';
   switch (snap.vol_regime) {
-    case 'STRESS':    return '0–1 hour';
-    case 'ELEVATED':  return '2–4 hours';
-    default:          return '6–8 hours';
+    case 'STRESS':    return '0 - 1 hour';
+    case 'ELEVATED':  return '2 - 4 hours';
+    default:          return '6 - 8 hours';
   }
 }
 
@@ -225,9 +225,9 @@ function countCriticalAssets(): { count: number; total: number } {
 // Buckets ring buffer entries by 5-min window, counting by severity.
 // Historical buckets (outside the live ring-buffer window) are seeded with
 // a deterministic synthetic baseline so the chart always has visual context
-// from the first render — ring-buffer data overlays the most-recent buckets.
+// from the first render  -  ring-buffer data overlays the most-recent buckets.
 
-/** Lightweight LCG — deterministic pseudo-random from a seed integer. */
+/** Lightweight LCG  -  deterministic pseudo-random from a seed integer. */
 function lcg(seed: number): number {
   const a = 1664525, c = 1013904223, m = 2 ** 32;
   return ((a * seed + c) % m) / m;
@@ -244,9 +244,9 @@ function syntheticBucketCounts(bucketTs: number): { critical: number; warning: n
   const r2 = lcg(seed + 2);
   const r3 = lcg(seed + 3);
   // INFO always present (heartbeats from ~23 tracked symbols per bucket)
-  const info     = 8  + Math.floor(r0 * 20);  // 8–27
+  const info     = 8  + Math.floor(r0 * 20);  // 8 - 27
   // WARNING: moderate activity
-  const warning  = 2  + Math.floor(r1 * 8);   // 2–9
+  const warning  = 2  + Math.floor(r1 * 8);   // 2 - 9
   // CRITICAL: occasional spikes; ~20% of buckets have ≥1
   const critical = r2 < 0.20 ? 1 + Math.floor(r3 * 4) : 0;
   return { critical, warning, info };
@@ -352,7 +352,7 @@ function computedLiveEntries(
       timeUTC,
       alertType: 'Regime',
       severity: 'CRITICAL',
-      description: `${sym} in STRESS regime — L5F composite ${snap.l5f_composite.toFixed(1)}`,
+      description: `${sym} in STRESS regime  -  L5F composite ${snap.l5f_composite.toFixed(1)}`,
       status: 'New',
     });
   } else if (snap.vol_regime === 'ELEVATED') {
@@ -361,7 +361,7 @@ function computedLiveEntries(
       timeUTC,
       alertType: 'Regime',
       severity: 'WARNING',
-      description: `${sym} ELEVATED regime — monitoring ${snap.venue_count} venues`,
+      description: `${sym} ELEVATED regime  -  monitoring ${snap.venue_count} venues`,
       status: 'New',
     });
   }
@@ -372,7 +372,7 @@ function computedLiveEntries(
       timeUTC,
       alertType: 'Depth',
       severity: 'HIGH',
-      description: `${sym} Depth Quality ${snap.l5f_depth_quality.toFixed(1)} — $${(snap.total_depth_10bps / 1e6).toFixed(1)}M @ 10bps`,
+      description: `${sym} Depth Quality ${snap.l5f_depth_quality.toFixed(1)}  -  $${(snap.total_depth_10bps / 1e6).toFixed(1)}M @ 10bps`,
       status: 'New',
     });
   }
@@ -394,7 +394,7 @@ function computedLiveEntries(
       timeUTC,
       alertType: 'PoLi',
       severity: 'CRITICAL',
-      description: `${sym} Composite PoLi ${snap.l5f_composite.toFixed(1)} — below minimum threshold`,
+      description: `${sym} Composite PoLi ${snap.l5f_composite.toFixed(1)}  -  below minimum threshold`,
       status: 'New',
     });
   }
@@ -413,7 +413,7 @@ export async function getLiveAlertsData(asset: string = 'BTC'): Promise<AlertsDa
     ? deriveRiskIndicators(snapshot)
     : defaultRiskIndicators();
 
-  // 2. Real alert log — DB history first, supplement with live computed entries
+  // 2. Real alert log  -  DB history first, supplement with live computed entries
   let alertLog: AlertsData['alertLog'] = [];
   try {
     const dbHistory = await getAlertHistory(20);

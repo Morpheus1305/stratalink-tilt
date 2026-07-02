@@ -20,6 +20,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import "./platform/tilt-terminal.css";
+import { TT } from "@/components/tilt-tooltip";
 
 /* ─── helpers ─────────────────────────────────────────────────────────────── */
 function PanelHeader({ title, tag }: { title: string; tag?: string }) {
@@ -151,7 +152,7 @@ export default function Alerts() {
 
   const l5fAgg = l5fData?.aggregate ?? null;
 
-  // L5F for all 3 tracked assets — used to count "critical" assets in Panel 4
+  // L5F for all 3 tracked assets  -  used to count "critical" assets in Panel 4
   const { data: l5fBtc } = useQuery<{ ok: boolean; aggregate: any }>({
     queryKey: ["/api/analytics/l5f/snapshot", "BTC"],
     queryFn: async () => { const r = await fetch("/api/analytics/l5f/snapshot/BTC"); return r.json(); },
@@ -178,7 +179,7 @@ export default function Alerts() {
     refetchInterval: 5000,
   });
 
-  // Dedicated live alert log — polls /api/alerts/log every 5s (ring buffer + DB)
+  // Dedicated live alert log  -  polls /api/alerts/log every 5s (ring buffer + DB)
   const { data: alertLogData } = useQuery<{ ok: boolean; entries: any[]; ringSize: number; dbSize: number }>({
     queryKey: ["/api/alerts/log"],
     queryFn: async () => {
@@ -226,18 +227,18 @@ export default function Alerts() {
   // --- Panel 4 live values ---
   // Warning capacity: derived from current asset's L5F composite score
   const compositeScore = l5fAgg?.l5f_composite ?? null;
-  const warningCapacity = compositeScore == null ? "—"
+  const warningCapacity = compositeScore == null ? " - "
     : compositeScore >= 80 ? "> 12h"
-    : compositeScore >= 65 ? "6–12h"
-    : compositeScore >= 50 ? "2–4h"
-    : compositeScore >= 35 ? "0–2h"
+    : compositeScore >= 65 ? "6 - 12h"
+    : compositeScore >= 50 ? "2 - 4h"
+    : compositeScore >= 35 ? "0 - 2h"
     : "< 30m";
   const warningCapacityLabel = compositeScore == null ? "AWAITING L5F DATA"
     : compositeScore >= 80 ? "STABLE OPERATING CONDITIONS"
-    : compositeScore >= 65 ? "MODERATE — MONITOR CLOSELY"
+    : compositeScore >= 65 ? "MODERATE  -  MONITOR CLOSELY"
     : compositeScore >= 50 ? "ELEVATED STRESS CONDITIONS"
     : compositeScore >= 35 ? "SEVERE SESSION BEFORE COLLAPSE"
-    : "CRITICAL — IMMEDIATE ACTION REQUIRED";
+    : "CRITICAL  -  IMMEDIATE ACTION REQUIRED";
   const warningCapacityColor = compositeScore == null ? "var(--tilt-sub)"
     : compositeScore >= 65 ? "var(--tilt-green)"
     : compositeScore >= 50 ? "var(--tilt-amber)"
@@ -310,20 +311,20 @@ export default function Alerts() {
 
     // --- Signal 1: Bid-Ask Spread ---
     // Use depthData.spreadBps (a real number including 0) rather than parsing the
-    // formatted liveMetrics string — avoids false "loading" when spread is 0.
+    // formatted liveMetrics string  -  avoids false "loading" when spread is 0.
     const spreadBps: number = depthData?.spreadBps ?? -1;
     const spreadHasData = spreadBps >= 0;
     const spreadSeverity: string = !spreadHasData ? "info" : spreadBps > 10 ? "warning" : spreadBps > 3 ? "info" : "success";
     const spreadDesc = !spreadHasData
       ? "Awaiting first depth snapshot from the ingestion engine…"
-      : `Bid-ask spread is ${spreadBps.toFixed(4)} bps for ${asset}. ${spreadBps > 10 ? "Elevated spread signals reduced market maker participation and heightened uncertainty." : spreadBps > 3 ? "Spread within moderate range — monitor for further widening." : "Tight spread confirms strong market maker activity and healthy two-sided liquidity."}`;
+      : `Bid-ask spread is ${spreadBps.toFixed(4)} bps for ${asset}. ${spreadBps > 10 ? "Elevated spread signals reduced market maker participation and heightened uncertainty." : spreadBps > 3 ? "Spread within moderate range  -  monitor for further widening." : "Tight spread confirms strong market maker activity and healthy two-sided liquidity."}`;
 
     // --- Signal 2: CEX Liquidity Concentration ---
     const frag = l5fAgg?.l5f_fragmentation ?? null;
     const cexPct = dashboardData.cexDexDistribution?.cex ?? (frag != null ? Math.round(100 - frag * 0.6) : 68);
     const dexPct = 100 - cexPct;
     const concSeverity: string = cexPct > 80 ? "warning" : cexPct > 65 ? "info" : "success";
-    const concDesc = `${cexPct}% of ${asset} volume is on centralised exchanges (DEX: ${dexPct}%). ${cexPct > 80 ? "High CEX concentration — single-venue failure risk elevated." : cexPct > 65 ? "Moderate CEX dominance. DEX share sufficient for resilience." : "Well-balanced CEX/DEX distribution — liquidity fragmentation risk low."}`;
+    const concDesc = `${cexPct}% of ${asset} volume is on centralised exchanges (DEX: ${dexPct}%). ${cexPct > 80 ? "High CEX concentration  -  single-venue failure risk elevated." : cexPct > 65 ? "Moderate CEX dominance. DEX share sufficient for resilience." : "Well-balanced CEX/DEX distribution  -  liquidity fragmentation risk low."}`;
 
     // --- Signal 3: Market Depth (10bps composite from L5F) ---
     const depthRawM = l5fAgg ? l5fAgg.total_depth_10bps / 1_000_000 : null;
@@ -332,7 +333,7 @@ export default function Alerts() {
     const dqScore = l5fAgg?.l5f_depth_quality ?? null;
     const depthSeverity: string = depthNum > 20 || (dqScore != null && dqScore >= 70) ? "success" : depthNum > 8 || (dqScore != null && dqScore >= 45) ? "info" : "warning";
     const depthDesc = depthRaw
-      ? `Market depth ${depthRaw} at +/−10bps across all active venues. ${dqScore != null ? `L5F Depth Quality score: ${dqScore.toFixed(1)}/100. ` : ""}${depthSeverity === "success" ? "Adequate two-sided liquidity supports large institutional flows." : depthSeverity === "info" ? "Depth adequate for standard trades; large blocks may face slippage." : "Thin depth — large orders risk significant market impact."}`
+      ? `Market depth ${depthRaw} at +/−10bps across all active venues. ${dqScore != null ? `L5F Depth Quality score: ${dqScore.toFixed(1)}/100. ` : ""}${depthSeverity === "success" ? "Adequate two-sided liquidity supports large institutional flows." : depthSeverity === "info" ? "Depth adequate for standard trades; large blocks may face slippage." : "Thin depth  -  large orders risk significant market impact."}`
       : "Depth data loading…";
 
     // --- Signal 4: CEX/DEX Balance ---
@@ -340,7 +341,7 @@ export default function Alerts() {
     const execInt = l5fAgg?.l5f_execution_integrity ?? null;
     const balSeverity: string = (regStab != null && regStab < 40) || (execInt != null && execInt < 40) ? "warning"
       : (regStab != null && regStab >= 70) && (execInt != null && execInt >= 70) ? "success" : "info";
-    const balDesc = `Regime Stability: ${regStab != null ? regStab.toFixed(1) : "—"}/100 · Execution Integrity: ${execInt != null ? execInt.toFixed(1) : "—"}/100. ${balSeverity === "success" ? "Regime and execution conditions are stable — no structural stress detected." : balSeverity === "warning" ? "Degraded execution or regime instability detected. Heightened monitoring advised." : "Mixed signals — regime and execution within acceptable bounds."}`;
+    const balDesc = `Regime Stability: ${regStab != null ? regStab.toFixed(1) : " - "}/100 · Execution Integrity: ${execInt != null ? execInt.toFixed(1) : " - "}/100. ${balSeverity === "success" ? "Regime and execution conditions are stable  -  no structural stress detected." : balSeverity === "warning" ? "Degraded execution or regime instability detected. Heightened monitoring advised." : "Mixed signals  -  regime and execution within acceptable bounds."}`;
 
     return [
       { id: `live-spread-${ts}`,  title: "Bid-Ask Spread Analysis",     description: spreadDesc, severity: spreadSeverity, timestamp: toUtcStr(depthUpdatedAt),     category: "SPREAD ANALYSIS"    },
@@ -415,40 +416,48 @@ export default function Alerts() {
 
         {/* ── TOPBAR: metrics ──────────────────────────────────────────────── */}
         <div className="tilt-topbar" data-testid="alerts-topbar">
-          <div className="tilt-tb-item">
-            <div className="tilt-tb-label">Depth +/−10bps</div>
-            <div className="tilt-tb-value tilt-tb-depth" data-testid="alerts-tb-depth">
-              {l5fAgg ? `$${(l5fAgg.total_depth_10bps / 1_000_000).toFixed(0)}M` : "—"}
+          <TT title="Total Depth (+/-10bps)" body="Same as LIQUIDITY tab. Total order book depth within 10 basis points of mid-price across all venues.">
+            <div className="tilt-tb-item">
+              <div className="tilt-tb-label">Depth +/−10bps</div>
+              <div className="tilt-tb-value tilt-tb-depth" data-testid="alerts-tb-depth">
+                {l5fAgg ? `$${(l5fAgg.total_depth_10bps / 1_000_000).toFixed(0)}M` : " - "}
+              </div>
             </div>
-          </div>
+          </TT>
           <div className="tilt-tb-divider" />
-          <div className="tilt-tb-item">
-            <div className="tilt-tb-label">Volatility 24H</div>
-            <div className="tilt-tb-value" data-testid="alerts-tb-vol">
-              {dashboardData.liveMetrics.find((m) => m.label === "VOLATILITY 24H")?.value ?? "—"}
+          <TT title="24-Hour Realised Volatility" body="Realised volatility over the past 24 hours. 0% indicates a flat vol environment. Low vol during fragmentation means stress is structural, not event-driven.">
+            <div className="tilt-tb-item">
+              <div className="tilt-tb-label">Volatility 24H</div>
+              <div className="tilt-tb-value" data-testid="alerts-tb-vol">
+                {dashboardData.liveMetrics.find((m) => m.label === "VOLATILITY 24H")?.value ?? " - "}
+              </div>
             </div>
-          </div>
+          </TT>
           <div className="tilt-tb-divider" />
           <div className="tilt-tb-item">
             <div className="tilt-tb-label">Bid-Ask Spread</div>
             <div className="tilt-tb-value" data-testid="alerts-tb-spread">
-              {dashboardData.liveMetrics.find((m) => m.label === "BID-ASK SPREAD")?.value ?? "—"}
+              {dashboardData.liveMetrics.find((m) => m.label === "BID-ASK SPREAD")?.value ?? " - "}
             </div>
           </div>
           <div className="tilt-tb-divider" />
-          <div className="tilt-tb-item">
-            <div className="tilt-tb-label">Warning Cap</div>
-            <div className="tilt-tb-value" style={{ color: warningCapacityColor }} data-testid="alerts-tb-warn">
-              {warningCapacity}
+          <TT title="Active Warning Capacity" body="Estimated time before conditions could deteriorate to collapse if current trends continue at this rate. This is a trajectory projection, not a prediction. 0-2h means pay close attention.">
+            <div className="tilt-tb-item">
+              <div className="tilt-tb-label">Warning Cap</div>
+              <div className="tilt-tb-value" style={{ color: warningCapacityColor }} data-testid="alerts-tb-warn">
+                {warningCapacity}
+              </div>
             </div>
-          </div>
+          </TT>
           <div className="tilt-tb-divider" />
-          <div className="tilt-tb-item">
-            <div className="tilt-tb-label">Critical Assets</div>
-            <div className="tilt-tb-value" style={{ color: "var(--tilt-red)" }} data-testid="alerts-tb-crit">
-              {critCount}/{critTotal}
+          <TT title="Critical Assets" body="Number of monitored assets with L5F scores below the critical threshold of 50. Format: X/Y where X = critical count and Y = total monitored. The specific assets are listed below this metric.">
+            <div className="tilt-tb-item">
+              <div className="tilt-tb-label">Critical Assets</div>
+              <div className="tilt-tb-value" style={{ color: "var(--tilt-red)" }} data-testid="alerts-tb-crit">
+                {critCount}/{critTotal}
+              </div>
             </div>
-          </div>
+          </TT>
 
           <div className="tilt-tb-timestamp">
             LAST SYNC <span style={{ marginLeft: 6 }}>{clockStr} UTC</span>
@@ -457,7 +466,7 @@ export default function Alerts() {
 
         {/* ── PANEL ROW 1: Liquidity Intelligence + Stress Signals ─────────── */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, background: "var(--tilt-border)" }}>
-          {/* Panel 1 — Liquidity Intelligence */}
+          {/* Panel 1  -  Liquidity Intelligence */}
           <div className="tilt-panel" data-testid="panel-liquidity-intelligence">
             <PanelHeader title="Liquidity Intelligence" tag="PANEL 1" />
             <div style={{ display: "grid", gridTemplateColumns: "160px 1fr", gap: 12, padding: "10px 12px" }}>
@@ -485,7 +494,7 @@ export default function Alerts() {
                   </svg>
                   <div className="tilt-tsle-center">
                     <div className="tilt-tsle-number" data-testid="text-score-value">
-                      {l5fAgg ? Math.round(l5fAgg.l5f_composite) : "—"}
+                      {l5fAgg ? Math.round(l5fAgg.l5f_composite) : " - "}
                     </div>
                     <div className="tilt-tsle-sub">/ 100</div>
                   </div>
@@ -527,7 +536,7 @@ export default function Alerts() {
                   return (
                     <div className="tilt-l5f-row" key={key}>
                       <div className="tilt-l5f-name">{label}</div>
-                      <div className="tilt-l5f-score">{val != null ? val.toFixed(1) : "—"}</div>
+                      <div className="tilt-l5f-score">{val != null ? val.toFixed(1) : " - "}</div>
                       <div className="tilt-l5f-bar-wrap">
                         <div className="tilt-l5f-bar" style={{ width: val != null ? `${val}%` : "0%", background: barColor }} />
                       </div>
@@ -538,7 +547,7 @@ export default function Alerts() {
                 <div className="tilt-l5f-total">
                   <div className="tilt-l5f-total-label">L5F COMPOSITE</div>
                   <div className="tilt-l5f-total-score">
-                    {l5fAgg ? l5fAgg.l5f_composite.toFixed(1) : "—"}
+                    {l5fAgg ? l5fAgg.l5f_composite.toFixed(1) : " - "}
                   </div>
                 </div>
               </div>
@@ -596,18 +605,20 @@ export default function Alerts() {
             </div>
           </div>
 
-          {/* Panel 2 — Stress Signal Detection */}
+          {/* Panel 2  -  Stress Signal Detection */}
           <div className="tilt-panel" data-testid="panel-stress-signals">
-            <PanelHeader title="Stress Signal Detection" tag="PANEL 2" />
+            <TT title="Stress Signal Detection" body="Real-time monitoring of six structural stress categories: Funding Divergence, Open Interest Imbalance, Spread Velocity, Depth Withdrawal, Liquidation Cascade, and Regime Transition. Each signal fires when statistical thresholds are breached across multiple venues simultaneously.">
+              <PanelHeader title="Stress Signal Detection" tag="PANEL 2" />
+            </TT>
             <StressSignalsPanel signals={liveStressSignals as any} />
           </div>
         </div>
 
         {/* ── PANEL ROW 2: Alert Timeline + Capacity stats ─────────────────── */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 1, background: "var(--tilt-border)", marginTop: 1 }}>
-          {/* Panel 3 — Alert Timeline Chart */}
+          {/* Panel 3  -  Alert Timeline Chart */}
           <div className="tilt-panel" data-testid="panel-alert-timeline">
-            <PanelHeader title={`Alert Timeline — ${asset}`} tag="PANEL 3" />
+            <PanelHeader title={`Alert Timeline  -  ${asset}`} tag="PANEL 3" />
             <ResponsiveContainer width="100%" height={180}>
               <AreaChart data={alertsData.alertTimeline}>
                 <CartesianGrid strokeDasharray="2 4" stroke="#1A2435" opacity={0.8} />
@@ -652,7 +663,7 @@ export default function Alerts() {
             </div>
           </div>
 
-          {/* Panel 4 — Warning Capacity + Critical Assets */}
+          {/* Panel 4  -  Warning Capacity + Critical Assets */}
           <div className="tilt-panel" data-testid="panel-capacity">
             <PanelHeader title="Capacity &amp; Risk" tag="PANEL 4" />
             <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "8px 10px" }}>
@@ -663,9 +674,11 @@ export default function Alerts() {
                 borderRadius: 2,
                 padding: "8px 10px",
               }} data-testid="card-warning-capacity">
-                <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: "var(--tilt-muted)", letterSpacing: "0.10em", marginBottom: 4, textTransform: "uppercase" }}>
-                  Active Warning Capacity
-                </div>
+                <TT title="Active Warning Capacity" body="Estimated time before conditions could deteriorate to collapse if current trends continue. A trajectory projection, not a prediction. 0-2h means pay close attention. Derived from L5F composite score decay rate.">
+                  <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: "var(--tilt-muted)", letterSpacing: "0.10em", marginBottom: 4, textTransform: "uppercase" }}>
+                    Active Warning Capacity
+                  </div>
+                </TT>
                 <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 15, fontWeight: 600, color: warningCapacityColor, lineHeight: 1 }} data-testid="text-warning-capacity">
                   {warningCapacity}
                 </div>
@@ -686,9 +699,11 @@ export default function Alerts() {
                 borderRadius: 2,
                 padding: "8px 10px",
               }} data-testid="card-critical-assets">
-                <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: "var(--tilt-muted)", letterSpacing: "0.10em", marginBottom: 4, textTransform: "uppercase" }}>
-                  Critical Assets
-                </div>
+                <TT title="Critical Assets" body="Number of monitored assets with L5F scores below the critical threshold of 50. Format: X/Y where X = critical count and Y = total monitored. Assets are listed below with their individual scores. Any asset below 50 warrants immediate review.">
+                  <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 9, color: "var(--tilt-muted)", letterSpacing: "0.10em", marginBottom: 4, textTransform: "uppercase" }}>
+                    Critical Assets
+                  </div>
+                </TT>
                 <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 15, fontWeight: 600, color: critCount > 0 ? "var(--tilt-red)" : "var(--tilt-green)", lineHeight: 1 }} data-testid="text-critical-assets-count">
                   {critCount} / {critTotal}
                 </div>
@@ -703,7 +718,7 @@ export default function Alerts() {
                       background: score == null ? "rgba(123,142,163,0.08)" : score < 50 ? "rgba(255,82,82,0.10)" : score < 65 ? "rgba(255,179,0,0.10)" : "rgba(0,191,165,0.10)",
                       border: `1px solid ${score == null ? "rgba(123,142,163,0.15)" : score < 50 ? "rgba(255,82,82,0.20)" : score < 65 ? "rgba(255,179,0,0.20)" : "rgba(0,191,165,0.20)"}`,
                     }}>
-                      {sym} {score != null ? score.toFixed(0) : "—"}
+                      {sym} {score != null ? score.toFixed(0) : " - "}
                     </span>
                   ))}
                 </div>
@@ -717,7 +732,9 @@ export default function Alerts() {
           <div style={{ padding: "10px 14px" }}>
             <div className="tilt-panel-header" style={{ marginBottom: 0 }}>
               <div className="tilt-panel-accent" />
-              <div className="tilt-panel-title">Real-Time Risk Indicators</div>
+              <TT title="Real-Time Risk Indicators" body="Live table of all active risk signals across monitored assets. Severity: LOW = informational, MEDIUM = watch closely, HIGH = action required, CRITICAL = immediate escalation. Click any row to expand for full context and recommended response.">
+                <div className="tilt-panel-title">Real-Time Risk Indicators</div>
+              </TT>
               <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
                 <button
                   data-testid="button-filter-alerts"
@@ -762,7 +779,7 @@ export default function Alerts() {
                 {liveRiskIndicators.length === 0 ? (
                   <tr>
                     <td colSpan={3} style={{ ...TD_STYLE, color: "var(--tilt-muted)", textAlign: "center", padding: "14px 0" }}>
-                      AWAITING L5F DATA — INGESTION ENGINE INITIALISING…
+                      AWAITING L5F DATA  -  INGESTION ENGINE INITIALISING…
                     </td>
                   </tr>
                 ) : liveRiskIndicators.map((indicator, index) => (
@@ -796,7 +813,9 @@ export default function Alerts() {
           <div style={{ padding: "10px 14px" }}>
             <div className="tilt-panel-header" style={{ marginBottom: 0 }}>
               <div className="tilt-panel-accent" />
-              <div className="tilt-panel-title">Alert Log</div>
+              <TT title="Alert Log" body="Timestamped record of all fired alerts in the current session. All times shown in local time. Alerts are stored in-session only and reset on page reload. Use the export button to save a session snapshot for audit purposes.">
+                <div className="tilt-panel-title">Alert Log</div>
+              </TT>
               <span style={{ marginLeft: 8, fontFamily: "var(--tilt-mono)", fontSize: 9, color: "var(--tilt-muted)", letterSpacing: "0.06em" }}>
                 LOCAL TIME
               </span>
@@ -817,7 +836,7 @@ export default function Alerts() {
                 {liveAlertLog.length === 0 ? (
                   <tr>
                     <td colSpan={5} style={{ ...TD_STYLE, color: "var(--tilt-muted)", textAlign: "center", padding: "14px 0" }}>
-                      AWAITING FIRST INGEST CYCLE — RING BUFFER EMPTY
+                      AWAITING FIRST INGEST CYCLE  -  RING BUFFER EMPTY
                     </td>
                   </tr>
                 ) : liveAlertLog.map((log, idx) => (

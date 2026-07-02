@@ -116,7 +116,7 @@ export function DashboardHeader() {
 
   const unreadCount = filteredEntries.filter(e => !acknowledgedIds.has(e.id)).length;
 
-  // Bell flash on new HIGH/CRITICAL unread — ref-based, no state loop
+  // Bell flash on new HIGH/CRITICAL unread  -  ref-based, no state loop
   useEffect(() => {
     const highUnread = new Set(
       filteredEntries

@@ -15,7 +15,7 @@ const INSTRUMENT_MAP: Record<string, Record<string, string>> = {
     // Reserve
     BTC:  "BTC-USDT",
     ETH:  "ETH-USDT",
-    // Stablecoin (DAI/USDE — USDT/USDC are quote currencies)
+    // Stablecoin (DAI/USDE  -  USDT/USDC are quote currencies)
     DAI:  "DAI-USDT",
     USDE: "USDE-USDT",
     // Exchange & Trading Infrastructure

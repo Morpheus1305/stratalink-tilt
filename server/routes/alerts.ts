@@ -270,16 +270,16 @@ router.post("/test-notification/:ruleId", async (req: Request, res: Response) =>
  * GET /api/alerts/log
  * Returns the live alert log: in-memory ring buffer (most recent 50)
  * merged with the last 30 persisted DB entries, newest-first.
- * No caching — always returns the freshest state.
+ * No caching  -  always returns the freshest state.
  */
 router.get("/log", async (req: Request, res: Response) => {
   try {
     const limit = Math.min(Number(req.query.limit) || 50, 200);
 
-    // 1. Ring buffer — live ingest-cycle events (in-memory, newest-first)
+    // 1. Ring buffer  -  live ingest-cycle events (in-memory, newest-first)
     const ringEntries = getAlertRingBuffer(limit);
 
-    // 2. DB history — durable persisted rule-triggered alerts
+    // 2. DB history  -  durable persisted rule-triggered alerts
     let dbEntries: AlertLogEntry[] = [];
     try {
       const history = await getAlertHistory(30);
@@ -301,7 +301,7 @@ router.get("/log", async (req: Request, res: Response) => {
         };
       });
     } catch {
-      // DB unavailable — ring buffer only
+      // DB unavailable  -  ring buffer only
     }
 
     // 3. Merge: ring buffer newest-first, then DB entries not already in ring

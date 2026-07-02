@@ -743,7 +743,7 @@ export function ReportsPanel({ isOpen, onClose }: ReportsPanelProps) {
                           <div style={{ ...mono(9, "#FFB300", 600), marginBottom: 2 }}>
                             {r.referenceId}
                           </div>
-                          <div style={mono(8, "#7B8EA3")}>{r.tokenScope ?? "—"} · {r.deliveryStatus?.toUpperCase()}</div>
+                          <div style={mono(8, "#7B8EA3")}>{r.tokenScope ?? " - "} · {r.deliveryStatus?.toUpperCase()}</div>
                           <div style={mono(8, "#4A5B6E")}>{fmtTs(r.generatedAt)} UTC</div>
                         </div>
                         <div style={{ display: "flex", alignItems: "center" }}>

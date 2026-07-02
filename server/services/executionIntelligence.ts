@@ -85,10 +85,10 @@ export async function computeExecutionIntel(
     : riskScore > 65
     ? "Healthy liquidity, moderate fragmentation, acceptable slippage across venues."
     : riskScore > 45
-    ? "Execution risk rising — watch venue imbalances and depth decay."
+    ? "Execution risk rising  -  watch venue imbalances and depth decay."
     : riskScore > 25
-    ? "Poor liquidity environment — wide spreads and inconsistent depth across venues."
-    : "Severely impaired liquidity — expect strong price impact and unreliable execution.";
+    ? "Poor liquidity environment  -  wide spreads and inconsistent depth across venues."
+    : "Severely impaired liquidity  -  expect strong price impact and unreliable execution.";
 
   const commentary = `Execution environment for ${symbol} (${side}):
 • Slippage regime: ${regime}

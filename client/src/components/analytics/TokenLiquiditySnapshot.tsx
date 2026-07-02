@@ -75,13 +75,13 @@ export default function TokenLiquiditySnapshot({ tokens }: TokenLiquiditySnapsho
               </div>
 
               <div className="text-xs text-slate-100 mb-1 font-mono">
-                {token.priceFormatted || (token.price ? `$${token.price.toLocaleString()}` : "—")}
+                {token.priceFormatted || (token.price ? `$${token.price.toLocaleString()}` : " - ")}
               </div>
 
               <div className="text-[10px] text-slate-400 mb-2">
                 10bps Depth:{" "}
                 {token.depth10bpsFormatted ||
-                  (token.depth10bps ? formatUsd(token.depth10bps) : "—")}
+                  (token.depth10bps ? formatUsd(token.depth10bps) : " - ")}
               </div>
 
               <div className="mt-auto pt-1 flex items-center justify-between gap-2">

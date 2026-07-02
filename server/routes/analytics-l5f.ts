@@ -25,7 +25,7 @@ function setCache(symbol: string, aggregate: TsleAggregate): void {
   cache.set(symbol, { aggregate, computedAt: Date.now() });
 }
 
-// Full ILU-20 symbol allowlist — all 20 canonical tokens
+// Full ILU-20 symbol allowlist  -  all 20 canonical tokens
 const VALID_SYMBOLS = new Set([
   'BTC', 'ETH',                               // Reserve
   'USDT', 'USDC', 'DAI',                      // Stablecoin Infrastructure
@@ -75,7 +75,7 @@ router.get('/snapshot/:symbol', (req: Request, res: Response) => {
 router.get('/health', (_req: Request, res: Response) => {
   return res.json({
     ok: true,
-    service: 'Stratalink Analytics Layer — L5F',
+    service: 'Stratalink Analytics Layer  -  L5F',
     version: '0.1.0',
     timestamp: Date.now(),
     cachedSymbols: [...cache.keys()],

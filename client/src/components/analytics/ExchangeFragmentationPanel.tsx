@@ -143,10 +143,10 @@ function FragmentationAnalytics({ entries, total }: { entries: [string, number][
         <TrendingUp className="w-3.5 h-3.5 text-cyan-400" />
         <span className="text-[11px] text-neutral-300">
           {entries.length === 1 
-            ? "Single venue coverage — consider monitoring for counterparty risk"
+            ? "Single venue coverage  -  consider monitoring for counterparty risk"
             : entries.length >= 4
-              ? "Well-distributed liquidity across venues — optimal execution conditions"
-              : `Moderate fragmentation across ${entries.length} venues — acceptable execution path`
+              ? "Well-distributed liquidity across venues  -  optimal execution conditions"
+              : `Moderate fragmentation across ${entries.length} venues  -  acceptable execution path`
           }
         </span>
       </div>

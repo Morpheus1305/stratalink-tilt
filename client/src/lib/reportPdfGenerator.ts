@@ -147,14 +147,14 @@ function makeNames(typeKey: string, token?: string): { filename: string; refId: 
 }
 
 // ─── Score scaling ────────────────────────────────────────────────────────────
-// Scores come from the API already in 0–100 float range.
+// Scores come from the API already in 0 - 100 float range.
 // Display with 2 decimal places: 49.40, 88.00, 100.00
 
 function scoreStr(v: number): string {
   return v.toFixed(2);
 }
 
-// ─── Rating bands (use score directly — 0-100 float) ─────────────────────────
+// ─── Rating bands (use score directly  -  0-100 float) ─────────────────────────
 
 function poliRating(score: number): string {
   if (score >= 90) return "AAA";
@@ -207,7 +207,7 @@ function venueStatus(poli: number): string {
 // ─── Misc helpers ─────────────────────────────────────────────────────────────
 
 function fmtUSD(v: number): string {
-  if (!v || isNaN(v)) return "—";
+  if (!v || isNaN(v)) return " - ";
   if (v >= 1e9) return `$${(v / 1e9).toFixed(1)}B`;
   if (v >= 1e6) return `$${(v / 1e6).toFixed(1)}M`;
   if (v >= 1e3) return `$${(v / 1e3).toFixed(0)}K`;
@@ -219,7 +219,7 @@ function ewdsThreshold(label: string): string {
     "Fund Rate": "< 0.05%", "Perp Basis": "< 2 bps", "Insurance Fund": "> 95%",
     "Cross-Margin Util": "< 50%", "Altcoin Liquidity": "> 0.7", "ADL Count": "= 0",
   };
-  return m[label] ?? "—";
+  return m[label] ?? " - ";
 }
 
 function statusRgb(s: string): [number, number, number] {
@@ -401,7 +401,7 @@ class TiltPdf {
 
     rows.forEach((row, ri) => {
       const cellLines = row.map((cell, ci) =>
-        this.doc.splitTextToSize(String(cell ?? "—"), widths[ci] - 5)
+        this.doc.splitTextToSize(String(cell ?? " - "), widths[ci] - 5)
       );
       const maxLines = Math.max(...cellLines.map((l) => l.length));
       const rH = Math.max(rowH, maxLines * 4.2 + 2.5);
@@ -417,7 +417,7 @@ class TiltPdf {
 
       colX = this.M;
       row.forEach((cell, ci) => {
-        const t = String(cell ?? "—");
+        const t = String(cell ?? " - ");
         const isStatusWord = t === t.toUpperCase() && t.length >= 3 && t.length <= 18 && /^[A-Z_\-]+$/.test(t);
         this.doc.setFont("helvetica", ci === 0 ? "bold" : "normal");
         this.doc.setFontSize(7.5);
@@ -447,7 +447,7 @@ class TiltPdf {
       this.doc.text(k, this.M + 3, this.y + 4.7);
       this.doc.setFont("helvetica", "normal");
       this.doc.setTextColor(...this.TEXT);
-      const val = this.doc.splitTextToSize(v || "—", this.CW - labelW - 3);
+      const val = this.doc.splitTextToSize(v || " - ", this.CW - labelW - 3);
       this.doc.text(val[0], this.M + labelW, this.y + 4.7);
       this.y += 7;
     });
@@ -542,10 +542,10 @@ export async function generateTokenLiquidityPDF(snap: TsleAggregateData, token: 
     ["PoLi Score", `${scoreStr(score)} / 100`],
     ["Rating", rating],
     ["Market Status", status],
-    ["Active Venues", String(snap.venue_count ?? "—")],
+    ["Active Venues", String(snap.venue_count ?? " - ")],
     ["Aggregate Depth", `${fmtUSD(snap.total_depth_10bps ?? 0)}  (at 10 bps threshold)`],
     ["Average Spread", `${avgSpread.toFixed(2)} bps`],
-    ["24h Trend", "—"],
+    ["24h Trend", " - "],
     ["Regime", `${snap.vol_regime ?? "NORMAL"} - ${status}`],
   ]);
 
@@ -557,7 +557,7 @@ export async function generateTokenLiquidityPDF(snap: TsleAggregateData, token: 
       ["Depth Score", depthScore.toFixed(0), "40", "Depth coverage across multiple venues"],
       ["Balance Score", balanceScore.toFixed(0), "35", "Bid-ask symmetry across venues"],
       ["Spread Score", spreadScore.toFixed(0), "25", "Spread tightness and consistency"],
-      ["TOTAL", totalPoli.toFixed(0), "100", `Rating: ${rating} — ${status}`],
+      ["TOTAL", totalPoli.toFixed(0), "100", `Rating: ${rating}  -  ${status}`],
     ],
     [55, 22, 18, 80]
   );
@@ -605,7 +605,7 @@ export async function generateTokenLiquidityPDF(snap: TsleAggregateData, token: 
     [
       ["Cross-Venue Divergence", score >= 70 ? "NORMAL" : "ELEVATED", `Spread dispersion ${(snap.spread_dispersion_bps ?? 0).toFixed(2)} bps`],
       ["Depth Manipulation", score >= 60 ? "NORMAL" : "ELEVATED", `Depth Quality factor: ${scoreStr(snap.l5f_depth_quality ?? 0)}`],
-      ["Liquidity Concentration", hhi < 0.3 ? "NORMAL" : "ELEVATED", `HHI: ${hhi.toFixed(3)} — ${hhi < 0.3 ? "Low concentration" : "Concentration risk"}`],
+      ["Liquidity Concentration", hhi < 0.3 ? "NORMAL" : "ELEVATED", `HHI: ${hhi.toFixed(3)}  -  ${hhi < 0.3 ? "Low concentration" : "Concentration risk"}`],
       ["Spread Anomaly", score >= 65 ? "NORMAL" : "ELEVATED", "Spreads within historical norms"],
       ["Regime Instability", snap.vol_regime !== "STRESS" ? "NORMAL" : "CRITICAL", `Regime: ${snap.vol_regime ?? "NORMAL"}`],
       ["Execution Integrity", score >= 60 ? "NORMAL" : "ELEVATED", `EI factor: ${scoreStr(snap.l5f_exec_integrity ?? 0)}`],
@@ -636,7 +636,7 @@ export async function generateCrossVenuePDF(snap: TsleAggregateData, token: stri
     ? sorted.reduce((s, v) => s + (v.spread_bps ?? 0), 0) / sorted.length
     : 0;
   const hhi = snap.fragmentation_index ?? 0;
-  const priceLeader = sorted[0]?.venue_id ?? "—";
+  const priceLeader = sorted[0]?.venue_id ?? " - ";
   const top1Pct = sorted[0]?.depth_share_pct ?? 0;
   const top2Pct = (sorted[0]?.depth_share_pct ?? 0) + (sorted[1]?.depth_share_pct ?? 0);
   const top3Pct = top2Pct + (sorted[2]?.depth_share_pct ?? 0);
@@ -784,7 +784,7 @@ export async function generateIntelligenceSummaryPDF(
       ["Detection Category", "Status", "Score", "Key Metric"],
       categories.map((c) => {
         const name = catNames[c.id] ?? `${c.label1 ?? ""} ${c.label2 ?? ""}`.trim();
-        return [name, (c.status ?? "NORMAL").toUpperCase(), scoreStr(c.score ?? 0), c.metricValue ?? "—"];
+        return [name, (c.status ?? "NORMAL").toUpperCase(), scoreStr(c.score ?? 0), c.metricValue ?? " - "];
       }),
       [60, 28, 24, 63]
     );
@@ -808,15 +808,15 @@ export async function generateIntelligenceSummaryPDF(
     );
   } else {
     // Derive from snap if ewds not provided
-    const fundRate = snap ? ((snap.l5f_regime_stability ?? 80) / 100 * 0.04).toFixed(3) + "%" : "—";
+    const fundRate = snap ? ((snap.l5f_regime_stability ?? 80) / 100 * 0.04).toFixed(3) + "%" : " - ";
     pdf.table(
       ["Indicator", "Value", "Threshold", "Status"],
       [
         ["Fund Rate", fundRate, "< 0.05%", "GREEN"],
-        ["Perp Basis", snap ? `${(snap.spread_dispersion_bps ?? 0).toFixed(2)} bps` : "—", "< 2 bps", "GREEN"],
+        ["Perp Basis", snap ? `${(snap.spread_dispersion_bps ?? 0).toFixed(2)} bps` : " - ", "< 2 bps", "GREEN"],
         ["Insurance Fund", "97.8%", "> 95%", "GREEN"],
-        ["Cross-Margin Util", snap ? `${Math.round(100 - (snap.l5f_exec_integrity ?? 60))}%` : "—", "< 50%", "GREEN"],
-        ["Altcoin Liquidity", snap ? (0.6 + (snap.fragmentation_index ?? 0.3)).toFixed(2) : "—", "> 0.7", "GREEN"],
+        ["Cross-Margin Util", snap ? `${Math.round(100 - (snap.l5f_exec_integrity ?? 60))}%` : " - ", "< 50%", "GREEN"],
+        ["Altcoin Liquidity", snap ? (0.6 + (snap.fragmentation_index ?? 0.3)).toFixed(2) : " - ", "> 0.7", "GREEN"],
         ["ADL Count", "0", "= 0", "GREEN"],
       ],
       [52, 35, 30, 28]
@@ -832,7 +832,7 @@ export async function generateIntelligenceSummaryPDF(
       signals.slice(0, 20).map((s) => [
         new Date(s.ts).toUTCString().split(" ")[4],
         (s.severity ?? "INFO").toUpperCase(),
-        s.category ?? "—",
+        s.category ?? " - ",
         (s.message ?? "").slice(0, 60),
       ]),
       [26, 22, 35, 92]
@@ -888,7 +888,7 @@ export async function generateIntelligenceSummaryPDF(
   pdf.kvTable([
     ["Snapshot Timestamp", fmtDateTime()],
     ["Detection Evaluation", `${categories.length || 6} categories evaluated`],
-    ["Venues Analysed", snap ? `${snap.venue_count ?? "—"} active` : "—"],
+    ["Venues Analysed", snap ? `${snap.venue_count ?? " - "} active` : " - "],
     ["STRATA AI Reference", `sai-${ts}-${Math.random().toString(36).slice(2, 6)}`],
     ["RCL Contract Version", "rcl_v0.2"],
   ]);
@@ -1055,7 +1055,7 @@ export async function generateAlertHistoryPDF(alerts: AlertRecord[], token?: str
   const low = alerts.filter((a) => (a.severity ?? "").toUpperCase() === "LOW").length;
 
   pdf.drawPageHeader("ALERT HISTORY EXPORT");
-  pdf.drawTitleBlock("Alert History Export", `${tok} Alert Records — ${fmtLong()}`, fmtDateTime(), refId);
+  pdf.drawTitleBlock("Alert History Export", `${tok} Alert Records  -  ${fmtLong()}`, fmtDateTime(), refId);
 
   // 1. Summary
   pdf.sectionHeader("1", "Alert Summary");
@@ -1078,8 +1078,8 @@ export async function generateAlertHistoryPDF(alerts: AlertRecord[], token?: str
     pdf.table(
       ["Time (UTC)", "Token/Type", "Severity", "Description", "Status"],
       alerts.slice(0, 50).map((a) => [
-        a.timeUTC ?? "—",
-        a.alertType ?? "—",
+        a.timeUTC ?? " - ",
+        a.alertType ?? " - ",
         (a.severity ?? "INFO").toUpperCase(),
         (a.description ?? "").slice(0, 60),
         (a.status ?? "FIRED").toUpperCase(),
@@ -1186,7 +1186,7 @@ export async function generateDailySummaryPDF(
     ["Token", "Fund Rate", "Perp Basis", "Ins Fund", "XMrg Util", "Overall"],
     tokenData.map((t) => {
       const overall = t.status === "STRESSED" ? "RED" : t.status === "ELEVATED" ? "AMBER" : "GREEN";
-      return [`${t.token.toUpperCase()}-USD`, "—", "—", "—", "—", overall];
+      return [`${t.token.toUpperCase()}-USD`, " - ", " - ", " - ", " - ", overall];
     }),
     [30, 26, 26, 26, 26, 26]
   );
@@ -1198,9 +1198,9 @@ export async function generateDailySummaryPDF(
     pdf.table(
       ["Time (UTC)", "Token", "Type", "Severity", "Description"],
       alerts.slice(0, 20).map((a) => [
-        a.timeUTC ?? "—",
-        a.alertType ?? "—",
-        a.alertType ?? "—",
+        a.timeUTC ?? " - ",
+        a.alertType ?? " - ",
+        a.alertType ?? " - ",
         (a.severity ?? "INFO").toUpperCase(),
         (a.description ?? "").slice(0, 55),
       ]),
@@ -1264,10 +1264,10 @@ export async function generateWeeklyIntegrityPDF() {
   pdf.table(
     ["Token", "Mon", "Tue", "Wed", "Thu", "Fri"],
     [
-      ["BTC-USD", "—", "—", "—", "—", "—"],
-      ["ETH-USD", "—", "—", "—", "—", "—"],
-      ["SOL-USD", "—", "—", "—", "—", "—"],
-      ["XRP-USD", "—", "—", "—", "—", "—"],
+      ["BTC-USD", " - ", " - ", " - ", " - ", " - "],
+      ["ETH-USD", " - ", " - ", " - ", " - ", " - "],
+      ["SOL-USD", " - ", " - ", " - ", " - ", " - "],
+      ["XRP-USD", " - ", " - ", " - ", " - ", " - "],
     ],
     [30, 26, 26, 26, 26, 26]
   );
@@ -1277,9 +1277,9 @@ export async function generateWeeklyIntegrityPDF() {
   pdf.table(
     ["Severity", "Count", "Tokens Affected", "Primary Category"],
     [
-      ["HIGH", "—", "—", "—"],
-      ["MEDIUM", "—", "—", "—"],
-      ["LOW", "—", "—", "—"],
+      ["HIGH", " - ", " - ", " - "],
+      ["MEDIUM", " - ", " - ", " - "],
+      ["LOW", " - ", " - ", " - "],
     ],
     [25, 20, 45, 85]
   );
@@ -1292,7 +1292,7 @@ export async function generateWeeklyIntegrityPDF() {
   const venues = ["Binance", "Coinbase", "Kraken", "OKX", "Bybit", "Hyperliquid", "dYdX", "GMX", "Bitget"];
   pdf.table(
     ["Venue", "Uptime", "Avg Latency", "Data Gaps", "Coverage", "Status"],
-    venues.map((v) => [v, "—", "—", "—", "—", "STABLE"]),
+    venues.map((v) => [v, " - ", " - ", " - ", " - ", "STABLE"]),
     [32, 22, 28, 24, 24, 26]
   );
 
@@ -1330,10 +1330,10 @@ export async function generateMonthlySummaryPDF() {
   pdf.table(
     ["Token", "Start Score", "End Score", "Change", "Rating", "Status"],
     [
-      ["BTC-USD", "—", "—", "—", "—", "—"],
-      ["ETH-USD", "—", "—", "—", "—", "—"],
-      ["SOL-USD", "—", "—", "—", "—", "—"],
-      ["XRP-USD", "—", "—", "—", "—", "—"],
+      ["BTC-USD", " - ", " - ", " - ", " - ", " - "],
+      ["ETH-USD", " - ", " - ", " - ", " - ", " - "],
+      ["SOL-USD", " - ", " - ", " - ", " - ", " - "],
+      ["XRP-USD", " - ", " - ", " - ", " - ", " - "],
     ],
     [28, 26, 26, 22, 22, 26]
   );
@@ -1344,11 +1344,11 @@ export async function generateMonthlySummaryPDF() {
   pdf.table(
     ["Metric", "Value", "Comparison", "Trend"],
     [
-      ["Total alerts", "—", "—", "—"],
-      ["HIGH severity", "—", "—", "—"],
-      ["MEDIUM severity", "—", "—", "—"],
-      ["LOW severity", "—", "—", "—"],
-      ["Tokens affected", "—", "—", "—"],
+      ["Total alerts", " - ", " - ", " - "],
+      ["HIGH severity", " - ", " - ", " - "],
+      ["MEDIUM severity", " - ", " - ", " - "],
+      ["LOW severity", " - ", " - ", " - "],
+      ["Tokens affected", " - ", " - ", " - "],
     ],
     [45, 30, 35, 65]
   );
@@ -1370,10 +1370,10 @@ export async function generateMonthlySummaryPDF() {
   pdf.table(
     ["Metric", "Value", "Target"],
     [
-      ["System uptime", "—", "99.5%"],
-      ["Average data latency", "—", "< 200ms"],
-      ["PoLi scoring availability", "—", "99.9%"],
-      ["Report delivery on-time", "—", "100%"],
+      ["System uptime", " - ", "99.5%"],
+      ["Average data latency", " - ", "< 200ms"],
+      ["PoLi scoring availability", " - ", "99.9%"],
+      ["Report delivery on-time", " - ", "100%"],
     ],
     [60, 35, 55]
   );
@@ -1409,12 +1409,12 @@ export async function generateIncidentReportPDF(incident: IncidentData) {
     ["Field", "Detail"],
     [
       ["Incident ID", refId],
-      ["Date/Time Detected", incident.detectedAt || "—"],
+      ["Date/Time Detected", incident.detectedAt || " - "],
       ["Date/Time Resolved", incident.resolvedAt || "ONGOING"],
-      ["Severity", (incident.severity || "—").toUpperCase()],
-      ["Category", (incident.category || "—").toUpperCase()],
-      ["Tokens Affected", incident.tokensAffected || "—"],
-      ["Venues Affected", incident.venuesAffected || "—"],
+      ["Severity", (incident.severity || " - ").toUpperCase()],
+      ["Category", (incident.category || " - ").toUpperCase()],
+      ["Tokens Affected", incident.tokensAffected || " - "],
+      ["Venues Affected", incident.venuesAffected || " - "],
       ["Reported By", incident.reportedBy || "System"],
     ],
     [55, 120]
@@ -1445,7 +1445,7 @@ export async function generateIncidentReportPDF(incident: IncidentData) {
   if (incident.currentPoliScore !== undefined) {
     pdf.kvTable([
       ["Current PoLi Score", scoreStr(incident.currentPoliScore)],
-      ["Current Regime", incident.currentRegime || "—"],
+      ["Current Regime", incident.currentRegime || " - "],
     ]);
   }
   if (incident.activeAlerts?.length) {
@@ -1458,7 +1458,7 @@ export async function generateIncidentReportPDF(incident: IncidentData) {
     );
   }
   if (!incident.currentPoliScore && !incident.activeAlerts?.length) {
-    pdf.para(incident.dataAppendix || "[Data appendix — include relevant snapshots, PoLi scores before and after the incident, venue status, and supporting evidence from the TSLE buffer or alert logs.]");
+    pdf.para(incident.dataAppendix || "[Data appendix  -  include relevant snapshots, PoLi scores before and after the incident, venue status, and supporting evidence from the TSLE buffer or alert logs.]");
   }
 
   await recordReport({ reportType: "incident", filename, referenceId: refId });

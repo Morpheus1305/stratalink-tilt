@@ -38,7 +38,7 @@ async function seedUsers() {
         .update(users)
         .set({ staticOtpPin: u.staticOtpPin })
         .where(eq(users.email, u.email));
-      console.log(`✓ User already exists — updated pin: ${u.email}`);
+      console.log(`✓ User already exists  -  updated pin: ${u.email}`);
       continue;
     }
 
