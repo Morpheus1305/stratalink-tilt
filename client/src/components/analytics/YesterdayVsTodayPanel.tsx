@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { TT } from "@/components/tilt-tooltip";
 import { generateSyntheticYesterday, formatUSD, type TodayMetrics, type SyntheticYesterday } from "@/utils/syntheticHistory";
 
 interface YesterdayVsTodayPanelProps {
@@ -70,10 +71,12 @@ export function YesterdayVsTodayPanel({
   return (
     <Card className="bg-card border-border" data-testid="panel-yesterday-vs-today">
       <CardHeader className="pb-2">
-        <CardTitle className="text-lg font-semibold text-foreground flex items-center gap-2">
-          <span className="text-[#00D9FF]">⟳</span>
-          Yesterday vs Today  -  {symbol}
-        </CardTitle>
+        <TT title="Yesterday vs Today Comparison" body="Synthetic comparison of current session metrics against simulated prior-session baselines. Highlights structural changes in depth, execution quality, fragmentation, and stability. A negative delta across multiple factors simultaneously is a strong structural deterioration signal.">
+          <CardTitle className="text-lg font-semibold text-foreground flex items-center gap-2">
+            <span className="text-[#00D9FF]">⟳</span>
+            Yesterday vs Today  -  {symbol}
+          </CardTitle>
+        </TT>
         <p className="text-sm text-muted-foreground">
           Comparative liquidity & execution posture relative to the previous session.
         </p>

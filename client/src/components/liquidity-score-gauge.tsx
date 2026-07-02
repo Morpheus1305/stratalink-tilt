@@ -2,6 +2,7 @@ import { Card } from "@/components/ui/card";
 import { ArrowUp, ArrowDown, TrendingUp } from "lucide-react";
 import type { LiquidityScore } from "@shared/schema";
 import { getPoLiRating } from "@/lib/poli-rating";
+import { TT } from "@/components/tilt-tooltip";
 
 interface LiquidityScoreGaugeProps {
   scoreData: LiquidityScore;
@@ -43,7 +44,9 @@ export function LiquidityScoreGauge({ scoreData }: LiquidityScoreGaugeProps) {
   return (
     <Card className="p-6 border-card-border" data-testid="card-liquidity-score">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-semibold tracking-wide">POLI SCORE</h3>
+        <TT title="PoLi Score" body="Proof of Liquidity composite score (0-100). Aggregated from the L5F 5-factor model across all active venues. Rating bands: AAA 90+, AA 80-89, A 70-79, BBB 60-69, BB 50-59, B 40-49, CCC 25-39, D below 25. Refreshes every 10 seconds.">
+          <h3 className="text-sm font-semibold tracking-wide">POLI SCORE</h3>
+        </TT>
         <div className="flex items-center gap-1 text-xs">
           {scoreData.trend === 'up' ? (
             <ArrowUp className="h-3 w-3 text-chart-3" />
@@ -87,9 +90,11 @@ export function LiquidityScoreGauge({ scoreData }: LiquidityScoreGaugeProps) {
               {scoreData.score}
             </div>
             <div className="text-xs text-muted-foreground">/100</div>
-            <div className="mt-2 text-xs text-muted-foreground">
-              Liquidity Rating: <span className="font-bold text-foreground" data-testid="text-poli-rating">{getPoLiRating(scoreData.score)}</span>
-            </div>
+            <TT title="Liquidity Rating (PoLi Letter Grade)" body="Letter grade derived from the PoLi numeric score. AAA = 90+ (institutional-grade). AA = 80-89. A = 70-79. BBB = 60-69 (investment-grade minimum). BB = 50-59 (sub-investment). B = 40-49. CCC = 25-39 (unreliable at scale). D = below 25 (emergency conditions).">
+              <div className="mt-2 text-xs text-muted-foreground">
+                Liquidity Rating: <span className="font-bold text-foreground" data-testid="text-poli-rating">{getPoLiRating(scoreData.score)}</span>
+              </div>
+            </TT>
           </div>
         </div>
       </div>
@@ -104,13 +109,17 @@ export function LiquidityScoreGauge({ scoreData }: LiquidityScoreGaugeProps) {
 
         <div className="pt-3 border-t border-border space-y-2 text-xs">
           <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">24H CHANGE</span>
+            <TT title="24H PoLi Change" body="How much the PoLi score has changed over the past 24 hours as a percentage. A declining PoLi score over 24 hours is a stronger signal than a single point-in-time reading.">
+              <span className="text-muted-foreground">24H CHANGE</span>
+            </TT>
             <span className="font-mono font-semibold">
               {scoreData.change24h > 0 ? '+' : ''}{scoreData.change24h.toFixed(1)}%
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">HISTORICAL AVG</span>
+            <TT title="Historical Average" body="Average PoLi score over the past 30 days. Comparing current score to this baseline helps identify whether today's conditions are unusual or within normal range for this asset.">
+              <span className="text-muted-foreground">HISTORICAL AVG</span>
+            </TT>
             <span className="font-mono font-semibold">{scoreData.historicalAverage}</span>
           </div>
         </div>

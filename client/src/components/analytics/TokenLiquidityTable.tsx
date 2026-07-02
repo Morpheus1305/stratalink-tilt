@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useRef } from "react";
+import { TT } from "@/components/tilt-tooltip";
 import { TokenLiquiditySummary } from "@/types/liquidity";
 import { fetchTokenLiquiditySummary } from "@/lib/liquiditySummaryClient";
 import { useTsleDepth, formatUSD, getRegimeColor, getTsleScoreBadgeColor, stressBadgeColor, stressCellColor } from "@/utils/tsleDepth";
@@ -188,9 +189,11 @@ const TokenLiquidityTable = ({ selectedToken, onSelectToken, batchFactors }: Pro
     <section className="mb-6 rounded-xl border border-border bg-card p-4" data-testid="panel-liquidity-league">
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <div>
-          <h2 className="text-sm font-semibold text-foreground tracking-[0.16em] uppercase">
-            Token Liquidity League Table
-          </h2>
+          <TT title="Token Liquidity League Table" body="Sortable ranking of all tracked tokens by liquidity quality. Columns are ranked by TSLE Score and max tradeable size. Click any column header to re-sort. Click a row to set that token as the active selection for all panels. Red rows indicate tokens in degraded liquidity regimes.">
+            <h2 className="text-sm font-semibold text-foreground tracking-[0.16em] uppercase">
+              Token Liquidity League Table
+            </h2>
+          </TT>
           <p className="text-xs text-muted-foreground mt-1">
             Ranked by TSLE Score & max tradeable size. Click headers to sort. Click a row to focus a token.
           </p>
@@ -240,14 +243,14 @@ const TokenLiquidityTable = ({ selectedToken, onSelectToken, batchFactors }: Pro
         <table className="min-w-full text-xs">
           <thead className="border-b border-border text-muted-foreground">
             <tr className="text-[10px] uppercase tracking-[0.16em]">
-              <th className="py-2 pr-3 text-left">Token</th>
+              <th className="py-2 pr-3 text-left"><TT title="Token" body="Asset ticker symbol. Click the row to focus this token across all analytics panels.">Token</TT></th>
               <th 
                 className="py-2 pr-3 text-right cursor-pointer hover:text-foreground transition-colors"
                 onClick={() => handleSort("tsleScore")}
                 data-testid="sort-tsle"
               >
                 <span className="inline-flex items-center gap-1">
-                  TSLE <SortIcon field="tsleScore" />
+                  <TT title="TSLE Score" body="Time-Series Liquidity Efficiency score. Composite of depth, spread, and execution quality over a rolling window. Higher = more efficient. Ultra-Tight > 90, Tight > 75, Constructive > 60, Patchy > 40, Thin > 20, Broken ≤ 20.">TSLE</TT> <SortIcon field="tsleScore" />
                 </span>
               </th>
               <th 
@@ -256,7 +259,7 @@ const TokenLiquidityTable = ({ selectedToken, onSelectToken, batchFactors }: Pro
                 data-testid="sort-factor"
               >
                 <span className="inline-flex items-center gap-1">
-                  5-Factor <SortIcon field="factorScore" />
+                  <TT title="5-Factor Score" body="L5F composite score for this token (0-100). Weighted aggregate of Depth Quality, Resilience, Fragmentation, Execution Integrity, and Regime Stability. Below 50 = fragile. Used to derive PoLi ratings.">5-Factor</TT> <SortIcon field="factorScore" />
                 </span>
               </th>
               <th 
@@ -265,18 +268,18 @@ const TokenLiquidityTable = ({ selectedToken, onSelectToken, batchFactors }: Pro
                 data-testid="sort-max25"
               >
                 <span className="inline-flex items-center gap-1">
-                  &lt;25bps Size <SortIcon field="max25bps" />
+                  <TT title="Max Size at &lt;25bps Impact" body="Maximum single order size executable with less than 25 basis points of price impact. This is the key institutional execution threshold — the upper bound of what can be traded cleanly in one order."><>{"<25bps Size"}</></TT> <SortIcon field="max25bps" />
                 </span>
               </th>
-              <th className="py-2 pr-3 text-right">&lt;50bps Size</th>
-              <th className="py-2 pr-3 text-left">Best Venue</th>
+              <th className="py-2 pr-3 text-right"><TT title="Max Size at &lt;50bps Impact" body="Maximum single order size that can be executed with less than 50 bps of price impact across all venues. Institutional threshold for less-time-sensitive execution.">{"<50bps Size"}</TT></th>
+              <th className="py-2 pr-3 text-left"><TT title="Best Venue" body="The exchange or DEX currently offering the tightest spread and deepest liquidity for this token. Use this for primary venue routing decisions.">Best Venue</TT></th>
               <th 
                 className="py-2 pr-3 text-right cursor-pointer hover:text-foreground transition-colors"
                 onClick={() => handleSort("depth10")}
                 data-testid="sort-depth10"
               >
                 <span className="inline-flex items-center gap-1">
-                  10bps Depth <SortIcon field="depth10" />
+                  <TT title="10bps Depth" body="Total order book depth within 10 basis points of mid-price (sum of bid and ask sides). This is the tightest and most reliable liquidity band — it's the depth available without any meaningful price impact for standard institutional execution.">10bps Depth</TT> <SortIcon field="depth10" />
                 </span>
               </th>
               <th 
@@ -285,11 +288,11 @@ const TokenLiquidityTable = ({ selectedToken, onSelectToken, batchFactors }: Pro
                 data-testid="sort-depth-change"
               >
                 <span className="inline-flex items-center gap-1">
-                  24h Δ <SortIcon field="depth10Change24h" />
+                  <TT title="24h Depth Change" body="Percentage change in 10bps depth over the past 24 hours. Negative values indicate structural liquidity withdrawal. A decline of more than 20% in 24h is a significant warning signal even if absolute depth remains high.">24h Δ</TT> <SortIcon field="depth10Change24h" />
                 </span>
               </th>
-              <th className="py-2 pr-3 text-left">Exec Regime</th>
-              <th className="py-2 pl-3 text-left">Risk</th>
+              <th className="py-2 pr-3 text-left"><TT title="Execution Regime" body="Current execution quality regime for this token: Ultra-Tight, Tight, Constructive, Patchy, Thin, or Broken. Determines whether institutional-scale execution is feasible at current market conditions.">Exec Regime</TT></th>
+              <th className="py-2 pl-3 text-left"><TT title="Risk Flag" body="Aggregated risk classification based on stress score, regime stability, and fragmentation index. LOW = normal conditions. MEDIUM = monitor closely. HIGH = reduce exposure. CRITICAL = immediate action required.">Risk</TT></th>
             </tr>
           </thead>
           <tbody>

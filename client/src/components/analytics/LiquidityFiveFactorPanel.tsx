@@ -1,3 +1,13 @@
+import { TT } from "@/components/tilt-tooltip";
+
+const L5F_PANEL_TIPS: Record<string, string> = {
+  "Depth Quality":       "Absolute and relative order book depth within the 10/25/50 bps bands. High score = substantial executable liquidity near mid-price. Weight: 30% of composite.",
+  "Execution Efficiency":"Quality and cost of order execution at current conditions. Incorporates spread stability and fill probability at institutional size. Weight: 20%.",
+  "Liquidity Stability": "Stability of depth and spread over the current session. Low stability = depth is fluctuating rapidly, making execution planning unreliable. Weight: 20%.",
+  "Market Fragmentation":"Inverted HHI score. High score = liquidity is well-distributed across venues. Low = concentrated at 1-2 venues. Weight: 15%.",
+  "Risk Concentration":  "Measures over-reliance on any single venue or instrument for total liquidity. High concentration = single-point dependency risk. Weight: 15%.",
+};
+
 interface FactorsData {
   depthQuality?: number;
   executionEfficiency?: number;
@@ -16,7 +26,9 @@ function FactorRow({ label, value, color }: { label: string; value: number; colo
   return (
     <div className="py-2 border-b border-slate-800/50 last:border-b-0">
       <div className="flex justify-between items-center mb-1">
-        <span className="text-[12px] text-gray-400">{label}</span>
+        <TT title={label} body={L5F_PANEL_TIPS[label] ?? label}>
+          <span className="text-[12px] text-gray-400">{label}</span>
+        </TT>
         <span className="text-[12px] font-mono font-medium text-gray-200">{value}</span>
       </div>
       <div className="w-full h-1.5 rounded-full bg-slate-800/60">
@@ -54,9 +66,11 @@ function LiquidityFiveFactorPanel({ factors }: LiquidityFiveFactorPanelProps) {
       data-testid="panel-liquidity-five-factor"
     >
       <div className="flex justify-between items-center mb-3">
-        <h3 className="text-sm font-semibold text-white">
-          Liquidity 5-Factor Score
-        </h3>
+        <TT title="Liquidity 5-Factor Score (L5F)" body="Institutional liquidity quality model with five independently-weighted factors. Each factor probes a distinct structural property of market microstructure. The composite score (0-100) drives PoLi ratings and risk capacity estimates across the platform.">
+          <h3 className="text-sm font-semibold text-white">
+            Liquidity 5-Factor Score
+          </h3>
+        </TT>
         <div className="flex items-center gap-2">
           <span className="text-lg font-mono font-semibold text-white">
             {score}/100

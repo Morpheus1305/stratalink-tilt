@@ -1,5 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { TT } from "@/components/tilt-tooltip";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import type { TimeSeriesPoint } from "@shared/schema";
 import { queryClient } from "@/lib/queryClient";
@@ -22,7 +23,9 @@ export function TimeSeriesChart({ data, selectedTimeframe, onTimeframeChange }: 
   return (
     <Card className="p-4 border-card-border" data-testid="card-time-series">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-semibold tracking-wide">LIQUIDITY DEPTH TRENDS</h3>
+        <TT title="Liquidity Depth Trends" body="Historical time series of order book depth within the 10 bps band. Use this to spot structural trends (gradual depth withdrawal), intraday patterns (depth drops at key sessions), and divergences from price action. Refreshes every 30 seconds. Timeframe buttons control the zoom window.">
+          <h3 className="text-sm font-semibold tracking-wide">LIQUIDITY DEPTH TRENDS</h3>
+        </TT>
         <div className="flex items-center gap-1">
           {timeframes.map((tf) => (
             <Button

@@ -23,6 +23,14 @@ import "./platform/tilt-terminal.css";
 import { TT } from "@/components/tilt-tooltip";
 
 /* ─── helpers ─────────────────────────────────────────────────────────────── */
+const L5F_FACTOR_TIPS: Record<string, string> = {
+  "Depth Quality":      "Measures absolute and relative order book depth within the 10 bps, 25 bps, and 50 bps bands. High DQ means substantial depth near mid-price. Weight: 30% of composite.",
+  "Resilience":         "Measures how quickly the order book replenishes after a large trade. Computed from depth decay rate over 5-minute rolling window. Low resilience = depth does not recover. Weight: 20%.",
+  "Fragmentation":      "Inverted Herfindahl-Hirschman Index (HHI). High score = well-distributed liquidity. Low score = concentrated at 1-2 venues, creating single-point dependency. Weight: 15%.",
+  "Execution Integrity":"Combines spread dispersion across venues and abnormal order book pattern detection. Low EI means execution quality is degraded or structurally unusual. Weight: 20%.",
+  "Regime Stability":   "Detects whether the current market regime (volatility structure, volume pattern, correlation behaviour) is stable. Low RS = elevated risk of sudden regime transition. Weight: 15%.",
+};
+
 function PanelHeader({ title, tag }: { title: string; tag?: string }) {
   return (
     <div className="tilt-panel-header">
@@ -434,12 +442,14 @@ export default function Alerts() {
             </div>
           </TT>
           <div className="tilt-tb-divider" />
-          <div className="tilt-tb-item">
-            <div className="tilt-tb-label">Bid-Ask Spread</div>
-            <div className="tilt-tb-value" data-testid="alerts-tb-spread">
-              {dashboardData.liveMetrics.find((m) => m.label === "BID-ASK SPREAD")?.value ?? " - "}
+          <TT title="Bid-Ask Spread" body="Best bid minus best ask price, averaged across venues. Tighter spread = better execution conditions and lower slippage for institutional orders. Widening across multiple venues simultaneously is an early warning of liquidity withdrawal.">
+            <div className="tilt-tb-item">
+              <div className="tilt-tb-label">Bid-Ask Spread</div>
+              <div className="tilt-tb-value" data-testid="alerts-tb-spread">
+                {dashboardData.liveMetrics.find((m) => m.label === "BID-ASK SPREAD")?.value ?? " - "}
+              </div>
             </div>
-          </div>
+          </TT>
           <div className="tilt-tb-divider" />
           <TT title="Active Warning Capacity" body="Estimated time before conditions could deteriorate to collapse if current trends continue at this rate. This is a trajectory projection, not a prediction. 0-2h means pay close attention.">
             <div className="tilt-tb-item">
@@ -468,7 +478,9 @@ export default function Alerts() {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, background: "var(--tilt-border)" }}>
           {/* Panel 1  -  Liquidity Intelligence */}
           <div className="tilt-panel" data-testid="panel-liquidity-intelligence">
-            <PanelHeader title="Liquidity Intelligence" tag="PANEL 1" />
+            <TT title="Liquidity Intelligence Panel" body="Real-time L5F composite score and 5-factor breakdown for the selected asset. The ring shows overall score. The bar chart shows each of the five weighted factors. The Venue Attribution table shows per-venue contributions to total depth.">
+              <PanelHeader title="Liquidity Intelligence" tag="PANEL 1" />
+            </TT>
             <div style={{ display: "grid", gridTemplateColumns: "160px 1fr", gap: 12, padding: "10px 12px" }}>
               {/* Ring column */}
               <div className="tilt-tsle-col">
@@ -515,13 +527,17 @@ export default function Alerts() {
                     </div>
                   );
                 })()}
-                <div style={{ fontSize: 9, color: "var(--tilt-muted)", letterSpacing: 1, marginBottom: 4 }}>
-                  L5F COMPOSITE
-                </div>
+                <TT title="L5F Composite Score" body="Weighted composite of the five L5F factors: Depth Quality (30%), Resilience (20%), Fragmentation (15%), Execution Integrity (20%), Regime Stability (15%). Range 0-100. Below 50 = fragile conditions. Below 25 = emergency. Updated every 5 seconds.">
+                  <div style={{ fontSize: 9, color: "var(--tilt-muted)", letterSpacing: 1, marginBottom: 4 }}>
+                    L5F COMPOSITE
+                  </div>
+                </TT>
               </div>
               {/* Factor breakdown column */}
               <div className="tilt-l5f-col" style={{ justifyContent: "center" }}>
-                <div className="tilt-l5f-title">Liquidity 5-Factor Score (L5F)</div>
+                <TT title="Liquidity 5-Factor Score (L5F)" body="Institutional liquidity assessment framework with five independently-weighted factors. Designed for risk managers who need confidence in execution quality, not just price. Each factor probes a distinct structural property of market microstructure.">
+                  <div className="tilt-l5f-title">Liquidity 5-Factor Score (L5F)</div>
+                </TT>
                 {([
                   { key: "l5f_depth_quality",       label: "Depth Quality",       weight: "×0.30" },
                   { key: "l5f_resilience",           label: "Resilience",          weight: "×0.20" },
@@ -534,22 +550,26 @@ export default function Alerts() {
                     ? (val >= 75 ? "var(--tilt-green)" : val >= 55 ? "var(--tilt-accent)" : "var(--tilt-amber)")
                     : "var(--tilt-border)";
                   return (
-                    <div className="tilt-l5f-row" key={key}>
-                      <div className="tilt-l5f-name">{label}</div>
-                      <div className="tilt-l5f-score">{val != null ? val.toFixed(1) : " - "}</div>
-                      <div className="tilt-l5f-bar-wrap">
-                        <div className="tilt-l5f-bar" style={{ width: val != null ? `${val}%` : "0%", background: barColor }} />
+                    <TT key={key} title={label} body={L5F_FACTOR_TIPS[label] ?? label}>
+                      <div className="tilt-l5f-row">
+                        <div className="tilt-l5f-name">{label}</div>
+                        <div className="tilt-l5f-score">{val != null ? val.toFixed(1) : " - "}</div>
+                        <div className="tilt-l5f-bar-wrap">
+                          <div className="tilt-l5f-bar" style={{ width: val != null ? `${val}%` : "0%", background: barColor }} />
+                        </div>
+                        <div className="tilt-l5f-weight">{weight}</div>
                       </div>
-                      <div className="tilt-l5f-weight">{weight}</div>
-                    </div>
+                    </TT>
                   );
                 })}
-                <div className="tilt-l5f-total">
-                  <div className="tilt-l5f-total-label">L5F COMPOSITE</div>
-                  <div className="tilt-l5f-total-score">
-                    {l5fAgg ? l5fAgg.l5f_composite.toFixed(1) : " - "}
+                <TT title="L5F Composite (Weighted Total)" body="Final weighted sum of all five L5F factors. This single number is the definitive institutional liquidity quality score for the selected asset at this moment. It drives the Warning Capacity estimate, Critical Asset count, and all downstream risk signals on this page.">
+                  <div className="tilt-l5f-total">
+                    <div className="tilt-l5f-total-label">L5F COMPOSITE</div>
+                    <div className="tilt-l5f-total-score">
+                      {l5fAgg ? l5fAgg.l5f_composite.toFixed(1) : " - "}
+                    </div>
                   </div>
-                </div>
+                </TT>
               </div>
             </div>
 
@@ -558,7 +578,9 @@ export default function Alerts() {
               <div className="tilt-attr-header-row">
                 <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1 }}>
                   <div className="tilt-attr-accent" />
-                  <span className="tilt-attr-section-label">Venue Liquidity Attribution</span>
+                  <TT title="Venue Liquidity Attribution" body="Breakdown of how total market depth is distributed across active venues. Each row shows one exchange or DEX. Use this to identify over-reliance on a single venue (fragmentation risk) and to understand which venues are actually contributing liquidity right now.">
+                    <span className="tilt-attr-section-label">Venue Liquidity Attribution</span>
+                  </TT>
                 </div>
                 {l5fAgg?.venue_slices?.length ? (
                   <span className="tilt-attr-section-label" data-testid="alerts-attr-count">
@@ -572,12 +594,12 @@ export default function Alerts() {
               ) : (
                 <div className="tilt-attr-table">
                   <div className="tilt-attr-thead">
-                    <span>Venue</span>
-                    <span>Depth</span>
-                    <span>% Share</span>
-                    <span>PoLi</span>
-                    <span>Spread</span>
-                    <span>Status</span>
+                    <TT title="Venue" body="Exchange or DEX identifier. Lit CEX venues (Binance, Coinbase, OKX) provide transparent orderbook depth. Dark/OTC venues provide large-block RFQ liquidity. DEX venues provide AMM-sourced depth."><span>Venue</span></TT>
+                    <TT title="Depth" body="Total order book depth within 10 bps of mid-price at this venue, in USD millions. The raw liquidity mass available for execution without excessive price impact."><span>Depth</span></TT>
+                    <TT title="Depth Share (%)" body="This venue's depth as a percentage of total market depth across all venues. A single venue above 40% is a fragmentation warning — over-reliance on one source."><span>% Share</span></TT>
+                    <TT title="PoLi Score (Venue)" body="Per-venue Proof of Liquidity score. Measures depth quality, spread stability, and execution integrity specifically at this venue. Below 50 = this venue should not be relied upon for large executions."><span>PoLi</span></TT>
+                    <TT title="Spread (bps)" body="Bid-ask spread at this venue in basis points. Spread disparity across venues is a key early warning signal — when spreads diverge significantly, arbitrage is breaking down and stress may be building."><span>Spread</span></TT>
+                    <TT title="Venue Status" body="Aggregated health status for this venue: GREEN = fully operational and healthy. AMBER = degraded — use with caution or reduce position size. RED = unreliable — do not rely on this venue for execution."><span>Status</span></TT>
                   </div>
                   {l5fAgg.venue_slices.map((v: any, i: number) => {
                     const ps = v.poli_score ?? 0;
@@ -618,7 +640,9 @@ export default function Alerts() {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 1, background: "var(--tilt-border)", marginTop: 1 }}>
           {/* Panel 3  -  Alert Timeline Chart */}
           <div className="tilt-panel" data-testid="panel-alert-timeline">
-            <PanelHeader title={`Alert Timeline  -  ${asset}`} tag="PANEL 3" />
+            <TT title="Alert Timeline" body="Stacked area chart showing alert volume over time, split by severity (Critical, Warning, Info). Peaks in Critical + Warning simultaneously indicate systemic events. Info-only peaks indicate routine rebalancing activity.">
+              <PanelHeader title={`Alert Timeline  -  ${asset}`} tag="PANEL 3" />
+            </TT>
             <ResponsiveContainer width="100%" height={180}>
               <AreaChart data={alertsData.alertTimeline}>
                 <CartesianGrid strokeDasharray="2 4" stroke="#1A2435" opacity={0.8} />
@@ -665,7 +689,9 @@ export default function Alerts() {
 
           {/* Panel 4  -  Warning Capacity + Critical Assets */}
           <div className="tilt-panel" data-testid="panel-capacity">
-            <PanelHeader title="Capacity &amp; Risk" tag="PANEL 4" />
+            <TT title="Capacity & Risk Panel" body="Summary of current system capacity and risk posture. Active Warning Capacity shows projected runway before stress escalation. Critical Assets shows how many monitored tokens are below the L5F threshold of 50. These are the two leading indicators for pre-emptive action.">
+              <PanelHeader title="Capacity &amp; Risk" tag="PANEL 4" />
+            </TT>
             <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "8px 10px" }}>
               {/* Warning Capacity tile */}
               <div style={{

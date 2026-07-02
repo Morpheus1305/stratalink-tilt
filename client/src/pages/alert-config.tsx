@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { TT } from "@/components/tilt-tooltip";
 import { Bell, Plus, Trash2, Edit, Mail, Webhook, Clock, AlertTriangle, CheckCircle, XCircle, History, ArrowLeft } from "lucide-react";
 import { Link } from "wouter";
 
@@ -383,13 +384,13 @@ export default function AlertConfigPage() {
                     <table className="w-full">
                       <thead className="bg-muted/50">
                         <tr>
-                          <th className="text-left p-3 font-medium">Time</th>
-                          <th className="text-left p-3 font-medium">Symbol</th>
-                          <th className="text-left p-3 font-medium">Type</th>
-                          <th className="text-left p-3 font-medium">Severity</th>
-                          <th className="text-left p-3 font-medium">Regime</th>
-                          <th className="text-left p-3 font-medium">Status</th>
-                          <th className="text-left p-3 font-medium">Notifications</th>
+                          <th className="text-left p-3 font-medium"><TT title="Alert Time" body="UTC timestamp when this alert rule was triggered. All times are stored in UTC and displayed in your local timezone.">Time</TT></th>
+                          <th className="text-left p-3 font-medium"><TT title="Symbol" body="The asset or token this alert fired for. ALL means the rule watches all tracked assets simultaneously.">Symbol</TT></th>
+                          <th className="text-left p-3 font-medium"><TT title="Trigger Type" body="What condition caused this alert to fire: DIVERGENCE (cross-venue spread), REGIME_CHANGE (stress level escalation), POLI_DROP (PoLi score fell below threshold), or DEPTH_DROP (depth divergence exceeded threshold).">Type</TT></th>
+                          <th className="text-left p-3 font-medium"><TT title="Severity" body="Alert severity at the time of firing: LOW = informational, MODERATE = monitor, HIGH = action recommended, CRITICAL = immediate escalation required.">Severity</TT></th>
+                          <th className="text-left p-3 font-medium"><TT title="Liquidity Regime" body="Market liquidity regime at the time this alert fired. NORMAL = baseline. EARLY_WARNING = first signs of stress. STRESS_BUILDING = deteriorating. CONFIRMED_STRESS = fully stressed conditions.">Regime</TT></th>
+                          <th className="text-left p-3 font-medium"><TT title="Notification Status" body="Whether notifications were successfully dispatched: SENT = all channels delivered. PARTIAL = some channels failed. FAILED = all channels failed. SKIPPED = within cooldown window.">Status</TT></th>
+                          <th className="text-left p-3 font-medium"><TT title="Notification Channels" body="Which channels were used for this alert: Email (sent to configured recipients) or Webhook (HTTP POST to configured endpoint). Blank means no external notifications were configured.">Notifications</TT></th>
                         </tr>
                       </thead>
                       <tbody>
@@ -477,7 +478,9 @@ function AlertRuleForm({ formData, setFormData, onSubmit, isPending, submitLabel
   return (
     <div className="space-y-4 py-4">
       <div className="space-y-2">
-        <Label htmlFor="name">Rule Name</Label>
+        <TT title="Rule Name" body="A descriptive name for this alert rule. Used in notification emails and webhook payloads to identify which rule triggered. Be specific — e.g. 'BTC High Severity Divergence' rather than 'Alert 1'.">
+          <Label htmlFor="name">Rule Name</Label>
+        </TT>
         <Input
           id="name"
           placeholder="e.g., High Severity BTC Alert"
@@ -489,7 +492,9 @@ function AlertRuleForm({ formData, setFormData, onSubmit, isPending, submitLabel
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>Trigger Type</Label>
+          <TT title="Trigger Type" body="The market condition that activates this rule. DIVERGENCE: spread divergence across venues. REGIME_CHANGE: liquidity stress level escalates past your threshold. POLI_DROP: PoLi score falls below your set value. DEPTH_DROP: order book depth divergence exceeds threshold.">
+            <Label>Trigger Type</Label>
+          </TT>
           <Select value={formData.triggerType} onValueChange={(value) => setFormData({ ...formData, triggerType: value })}>
             <SelectTrigger data-testid="select-trigger-type">
               <SelectValue />
@@ -505,7 +510,9 @@ function AlertRuleForm({ formData, setFormData, onSubmit, isPending, submitLabel
         </div>
 
         <div className="space-y-2">
-          <Label>Severity Threshold</Label>
+          <TT title="Severity Threshold" body="Minimum severity level required to fire this rule. LOW fires for all events. HIGH fires only for high and critical. CRITICAL fires only for the most extreme conditions. Use HIGH or CRITICAL to reduce noise in production.">
+            <Label>Severity Threshold</Label>
+          </TT>
           <Select value={formData.severityThreshold} onValueChange={(value) => setFormData({ ...formData, severityThreshold: value })}>
             <SelectTrigger data-testid="select-severity">
               <SelectValue />
@@ -522,7 +529,9 @@ function AlertRuleForm({ formData, setFormData, onSubmit, isPending, submitLabel
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="symbol">Symbol (optional)</Label>
+        <TT title="Symbol Filter (optional)" body="Limit this rule to a specific asset (e.g. BTC, ETH, SOL). Leave blank to watch all tracked tokens simultaneously. Symbol-specific rules reduce noise for asset-specific risk mandates.">
+          <Label htmlFor="symbol">Symbol (optional)</Label>
+        </TT>
         <Input
           id="symbol"
           placeholder="Leave blank for all symbols, or enter BTC, ETH, etc."
@@ -534,7 +543,9 @@ function AlertRuleForm({ formData, setFormData, onSubmit, isPending, submitLabel
 
       {formData.triggerType === "REGIME_CHANGE" && (
         <div className="space-y-2">
-          <Label>Regime Threshold</Label>
+          <TT title="Regime Threshold" body="Minimum stress regime level required to trigger this rule. EARLY_WARNING = first signs of stress. STRESS_BUILDING = deteriorating across multiple venues. CONFIRMED_STRESS = systemic stress conditions. Only fires when the live regime escalates past your chosen level.">
+            <Label>Regime Threshold</Label>
+          </TT>
           <Select value={formData.regimeThreshold} onValueChange={(value) => setFormData({ ...formData, regimeThreshold: value })}>
             <SelectTrigger data-testid="select-regime">
               <SelectValue placeholder="Select regime level" />
@@ -552,7 +563,9 @@ function AlertRuleForm({ formData, setFormData, onSubmit, isPending, submitLabel
 
       {formData.triggerType === "POLI_DROP" && (
         <div className="space-y-2">
-          <Label htmlFor="poliThreshold">PoLi Threshold (0-100)</Label>
+          <TT title="PoLi Score Threshold" body="The PoLi score floor that triggers this rule. If live PoLi drops below this number, the rule fires. Recommended values: 70 = conservative early warning. 50 = fragile conditions. 25 = emergency threshold.">
+            <Label htmlFor="poliThreshold">PoLi Threshold (0-100)</Label>
+          </TT>
           <Input
             id="poliThreshold"
             type="number"
@@ -568,7 +581,9 @@ function AlertRuleForm({ formData, setFormData, onSubmit, isPending, submitLabel
 
       {formData.triggerType === "DEPTH_DROP" && (
         <div className="space-y-2">
-          <Label htmlFor="depthThreshold">Depth Divergence % Threshold</Label>
+          <TT title="Depth Divergence Threshold" body="Fires when the max-to-min depth spread across venues exceeds this percentage. Example: if Binance shows 80M depth and Kraken shows 10M, that's a large divergence. Values over 30% are structurally abnormal and indicate fragmentation risk.">
+            <Label htmlFor="depthThreshold">Depth Divergence % Threshold</Label>
+          </TT>
           <Input
             id="depthThreshold"
             type="number"
@@ -583,7 +598,9 @@ function AlertRuleForm({ formData, setFormData, onSubmit, isPending, submitLabel
       )}
 
       <div className="space-y-2">
-        <Label htmlFor="cooldown">Cooldown (minutes)</Label>
+        <TT title="Cooldown Period" body="Minimum time between repeated firings of this rule for the same asset. Prevents notification floods during sustained stress events. 15 minutes is the default. Set lower (5-10 min) for critical rules, higher (30-60 min) for informational ones.">
+          <Label htmlFor="cooldown">Cooldown (minutes)</Label>
+        </TT>
         <Input
           id="cooldown"
           type="number"
@@ -603,7 +620,9 @@ function AlertRuleForm({ formData, setFormData, onSubmit, isPending, submitLabel
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Mail className="h-4 w-4" />
-              <Label htmlFor="notifyEmail">Email Notifications</Label>
+              <TT title="Email Notifications" body="Send an email notification when this rule fires. Requires at least one email recipient address. Emails are delivered via the Resend integration. Check your spam folder for the first delivery.">
+                <Label htmlFor="notifyEmail">Email Notifications</Label>
+              </TT>
             </div>
             <Switch
               id="notifyEmail"
@@ -631,7 +650,9 @@ function AlertRuleForm({ formData, setFormData, onSubmit, isPending, submitLabel
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Webhook className="h-4 w-4" />
-              <Label htmlFor="notifyWebhook">Webhook Notifications</Label>
+              <TT title="Webhook Notifications" body="Send an HTTP POST to your configured endpoint when this rule fires. The payload includes rule name, symbol, severity, regime, trigger type, and a timestamp. Use this to integrate with Slack, PagerDuty, or your own risk management system.">
+                <Label htmlFor="notifyWebhook">Webhook Notifications</Label>
+              </TT>
             </div>
             <Switch
               id="notifyWebhook"
