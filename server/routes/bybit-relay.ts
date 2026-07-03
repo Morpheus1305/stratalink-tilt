@@ -58,6 +58,10 @@ const SYMBOL_MAP: Record<string, string> = {
   SUI:  "SUIUSDT",
   DOT:  "DOTUSDT",
   NEAR: "NEARUSDT",
+  // Digital Securities & RWA
+  PAXG: "PAXGUSDT",
+  XAUT: "XAUTUSDT",
+  ONDO: "ONDOUSDT",
 };
 
 function authCheck(req: Request, res: Response): boolean {
@@ -102,6 +106,10 @@ const COINGECKO_IDS: Record<string, string> = {
   SUI:  "sui",
   DOT:  "polkadot",
   NEAR: "near",
+  // Digital Securities & RWA
+  PAXG: "pax-gold",
+  XAUT: "tether-gold",
+  ONDO: "ondo-finance",
 };
 
 let refPriceCache: Record<string, { price: number; ts: number }> = {};

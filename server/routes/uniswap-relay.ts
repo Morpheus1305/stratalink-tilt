@@ -314,6 +314,8 @@ router.get("/spot/depth", async (req: Request, res: Response) => {
         ETH: 1800, WETH: 1800, BTC: 60000, WBTC: 60000,
         UNI: 10, LINK: 15, AAVE: 90, MKR: 2200, COMP: 55,
         DAI: 1, USDC: 1, USDT: 1,
+        // RWA / tokenized fund tokens — pegged to USD
+        BUIDL: 1, OUSG: 1,
       };
       syntheticPrice = BASELINE_PRICE[symbol] ?? 0;
       if (syntheticPrice) {
@@ -340,6 +342,9 @@ router.get("/spot/depth", async (req: Request, res: Response) => {
       DAI:  100_000_000,
       USDC: 500_000_000,
       USDT: 100_000_000,
+      // RWA / tokenized fund tokens — limited on-chain liquidity, reflect institutional reality
+      BUIDL:  5_000_000,
+      OUSG:   3_000_000,
     };
     const syntheticTVL = SYNTHETIC_TVL[symbol] ?? 5_000_000;
     const feeTierBps = (symbol === "ETH" || symbol === "USDC" || symbol === "USDT") ? 5 : 30;

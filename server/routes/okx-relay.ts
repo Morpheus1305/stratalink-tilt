@@ -41,6 +41,10 @@ const INSTRUMENT_MAP: Record<string, Record<string, string>> = {
     // legacy
     DOT:  "DOT-USDT",
     NEAR: "NEAR-USDT",
+    // Digital Securities & RWA
+    PAXG: "PAXG-USDT",
+    XAUT: "XAUT-USDT",
+    ONDO: "ONDO-USDT",
   },
   perps: {
     BTC:  "BTC-USDT-SWAP",

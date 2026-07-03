@@ -46,6 +46,10 @@ const SYMBOL_MAP: Record<string, string> = {
   DOT:  "DOTUSDT",
   NEAR: "NEARUSDT",
   TON:  "TONUSDT",
+  // Digital Securities & RWA
+  PAXG: "PAXGUSDT",
+  XAUT: "XAUTUSDT",
+  ONDO: "ONDOUSDT",
 };
 
 function authCheck(req: Request, res: Response): boolean {

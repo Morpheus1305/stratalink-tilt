@@ -26,15 +26,17 @@ function setCache(symbol: string, aggregate: TsleAggregate): void {
   cache.set(symbol, { aggregate, computedAt: Date.now() });
 }
 
-// Full ILU-20 symbol allowlist  -  all 20 canonical tokens
+// Full ILU-25 symbol allowlist  -  25 canonical tokens
 const VALID_SYMBOLS = new Set([
   'BTC', 'ETH',                               // Reserve
   'USDT', 'USDC', 'DAI',                      // Stablecoin Infrastructure
   'BNB', 'CRO', 'OKB', 'UNI', 'CAKE',        // Exchange & Trading Infrastructure
   'LINK', 'AAVE', 'MKR', 'SNX', 'COMP',      // Financial Infrastructure
   'SOL', 'XRP', 'DOGE', 'ADA', 'AVAX',       // High-Volume Liquidity
-  // extended/legacy (accepted but not ILU-20 core)
+  // extended/legacy (accepted but not ILU-25 core)
   'USDE', 'HYPE', 'TON', 'ARB', 'OP',
+  // Digital Securities & RWA  (ILU-25 expansion)
+  'PAXG', 'XAUT', 'ONDO', 'BUIDL', 'OUSG',
 ]);
 
 router.get('/snapshot/:symbol', (req: Request, res: Response) => {
