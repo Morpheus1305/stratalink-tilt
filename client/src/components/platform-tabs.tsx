@@ -60,7 +60,7 @@ export function PlatformTabs() {
         })}
       </div>
 
-      {/* ILU-20 token selector  -  right-aligned in the tab row */}
+      {/* ILU-34 token selector  -  right-aligned in the tab row */}
       <div style={{ display: "flex", alignItems: "center", paddingBottom: 2 }}>
         <ILUTokenSelector />
       </div>

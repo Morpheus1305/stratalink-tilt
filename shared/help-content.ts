@@ -34,7 +34,7 @@ export const QUICK_START_STEPS: QuickStartStep[] = [
   {
     num: 3,
     title: "Select a Token",
-    body: "The ILU-20 token selector is in the header bar. Click it to see all 20 tokens in the Institutional Liquidity Universe, grouped by systemic category (Reserve, Stablecoin, Exchange, Infrastructure, Liquidity). Select any token — all pages update to reflect that token's data. Tokens marked LIVE have active venue data; tokens marked — are in the universe but awaiting venue feed activation.",
+    body: "The ILU-34 token selector is in the header bar. Click it to see all 34 tokens in the Institutional Liquidity Universe, grouped by systemic category (Reserve, Stablecoin, Exchange, Infrastructure, Liquidity, and RWA). Select any token — all pages update to reflect that token's data. Tokens marked LIVE have active venue data; tokens marked — are in the universe but awaiting venue feed activation.",
   },
   {
     num: 4,
@@ -89,22 +89,43 @@ export const USER_GUIDE_SECTIONS: GuideSection[] = [
       {
         id: "intro",
         title: "What is TILT?",
-        body: "TILT (The Institutional Liquidity Truth) is Stratalink's institutional liquidity intelligence platform. It provides independent, real-time, cross-venue liquidity verification and market integrity intelligence for the Institutional Liquidity Universe (ILU-20): 20 digital assets selected by systemic importance. The platform is organised across five pages, each accessible via the tab bar.",
+        body: "TILT (The Institutional Liquidity Truth) is Stratalink's institutional liquidity intelligence platform. It provides independent, real-time, cross-venue liquidity verification and market integrity intelligence for the Institutional Liquidity Universe (ILU-34): 34 digital assets selected by systemic importance, spanning 25 crypto assets and 9 real-world asset tokens, monitored across 26 venues. The platform is organised across five pages, each accessible via the tab bar.",
       },
       {
         id: "header",
         title: "Header Bar",
-        body: "The header bar appears on every page. It contains the Stratalink logo and platform title, the ILU-20 token selector, the LIVE status indicator, notification bell, settings, and sign-out button. The ILU-20 token selector is the single mechanism for choosing which token's data is displayed across all pages.",
+        body: "The header bar appears on every page. It contains the Stratalink logo and platform title, the ILU-34 token selector, the LIVE status indicator, notification bell, settings, and sign-out button. The ILU-34 token selector is the single mechanism for choosing which token's data is displayed across all pages.",
       },
       {
         id: "token-selector",
-        title: "ILU-25 Token Selector",
-        body: "The token selector dropdown shows all 25 ILU tokens grouped by six systemic categories: Reserve Assets, Stablecoin Infrastructure, Exchange and Trading Infrastructure, Financial Infrastructure, High-Volume Liquidity Assets, and Digital Securities & RWA. Each token shows its LIVE status (actively receiving venue data) or — (in universe but awaiting feed activation). Selecting a token updates every page in the platform.",
+        title: "ILU-34 Token Selector",
+        body: "The token selector dropdown shows all 34 ILU tokens grouped by systemic category: Reserve Assets, Stablecoin Infrastructure, Exchange and Trading Infrastructure, Financial Infrastructure, High-Volume Liquidity Assets, and Digital Securities & RWA. Each token shows its LIVE status (actively receiving venue data) or — (in universe but awaiting feed activation). Selecting a token updates every page in the platform.",
       },
       {
         id: "ticker",
-        title: "ILU-25 Ticker",
-        body: "The persistent ticker bar at the bottom of every page scrolls all 25 ILU assets with their current PoLi scores. The ticker provides constant market context regardless of which page you are viewing. Hover over the ticker to pause scrolling.",
+        title: "ILU-34 Ticker",
+        body: "The persistent ticker bar at the bottom of every page scrolls ILU assets with their current PoLi scores. The ticker provides constant market context regardless of which page you are viewing. Hover over the ticker to pause scrolling.",
+      },
+    ],
+  },
+  {
+    id: "universe",
+    title: "Venues & Digital Assets",
+    subsections: [
+      {
+        id: "venues",
+        title: "26 Monitored Venues",
+        body: "TILT ingests real-time liquidity data from 26 venues spanning five categories.\n\nCentralised Exchanges (7): Binance, Coinbase, Kraken, OKX, Bybit, Deribit, Bitget. These venues contribute the deepest spot and derivatives orderbook data and serve as the primary price discovery reference layer.\n\nDecentralised Perpetuals (3): Hyperliquid, dYdX v4, GMX v2 (Arbitrum). On-chain CLOB and pool-based perpetuals providing decentralised leverage and open interest data.\n\nDecentralised Spot AMMs (2): Uniswap V3 (Ethereum mainnet), Curve Finance. Pool-based AMM depth anchored to live TVL and oracle pricing.\n\nL2 DEX Venues (7): Aerodrome (Base), Velodrome (Optimism), PancakeSwap (BSC), Uniswap WorldChain, SyncSwap (zkSync Era), Linea DEX, Scroll DEX. Layer-2 and alternative-chain AMMs providing multi-chain liquidity breadth. Depth is synthesised from pool TVL and marked with transport: synthetic in DACT provenance.\n\nRegulated Institutional Exchanges (6): Securitize, Archax, INX, tZERO, SDX, ADDX. Phase 2 venues covering tokenised real-world assets and digital securities. These venues do not list native crypto pairs; they contribute exclusively to RWA token snapshots (BUIDL, BENJI, BCSPX, and others).\n\nOne additional planned venue — Canton Network (Digital Asset) — is architected into the system and requires partner API onboarding. It will provide cryptographically attested on-chain liquidity data from Daml smart contracts once activated.",
+      },
+      {
+        id: "crypto-assets",
+        title: "Crypto Assets (25)",
+        body: "Twenty-five crypto assets are tracked across the core venues. Assets are grouped by systemic role.\n\nReserve Assets: BTC (Bitcoin), ETH (Ethereum), SOL (Solana). The foundational settlement and collateral layer of institutional digital asset markets.\n\nHigh-Volume Liquidity: XRP, DOGE, BNB, ADA, AVAX. High-throughput assets with significant retail and institutional participation across multiple venues.\n\nDeFi Infrastructure: LINK (Chainlink oracle), UNI (Uniswap governance), AAVE (lending protocol), MKR (MakerDAO governance), COMP (Compound governance), SNX (Synthetix).\n\nStablecoin Infrastructure: USDC, USDT, DAI, USDE. The primary settlement and margin collateral stablecoins tracked for depeg risk, spread, and venue-level depth.\n\nCommodity-Backed Tokens: PAXG (Paxos Gold), XAUT (Tether Gold). Tokenised physical gold providing commodity liquidity coverage.\n\nExchange and Ecosystem Tokens: OKB (OKX), CRO (Cronos), HYPE (Hyperliquid), TON (TON blockchain). Exchange-native tokens and ecosystem assets with deep on-platform liquidity.\n\nDEX Native: CAKE (PancakeSwap). BSC-native AMM governance token tracked via PancakeSwap relay.\n\nNot every asset is tracked on every venue. Each venue only polls the token pairs it actually lists. Depth figures for assets with no real on-chain pool fall back to CoinGecko-anchored synthetic depth, which is marked transport: synthetic in DACT provenance records.",
+      },
+      {
+        id: "rwa-assets",
+        title: "Real-World Assets & Tokenised Securities (9)",
+        body: "Nine RWA and tokenised security tokens are tracked exclusively through the six Phase 2 regulated exchange venues (Securitize, Archax, INX, tZERO, SDX, ADDX). These assets do not appear in standard crypto venue snapshots.\n\nTokenised Money Market Funds: BUIDL (BlackRock USD Institutional Digital Liquidity Fund — the most widely distributed RWA token, listed across all six Phase 2 venues), OUSG (Ondo Finance US Government Bond Fund), BENJI (Franklin Templeton OnChain US Government Money Fund), USDY (Ondo US Dollar Yield).\n\nTokenised Treasuries and Fixed Income: BIB01 (Backed Finance Short-Term US Treasury Bills), VBILL (VanEck Short-Term Treasury ETF).\n\nTokenised Equities and Indices: BCSPX (Backed Finance S&P 500 tracker), ACRED (Ark Invest Credit token).\n\nRWA Governance and Infrastructure: ONDO (Ondo Finance protocol governance token).\n\nRWA token PoLi scores and L5F snapshots are computed from the subset of Phase 2 venues that list each token. Liquidity for RWA assets is structurally different from crypto: orderbooks are thinner, spreads are wider, and liquidity is available only during regulated market hours. These characteristics are reflected in the PoLi rating bands and should be interpreted accordingly.",
       },
     ],
   },
@@ -330,7 +351,7 @@ export const GLOSSARY_SECTIONS: GlossarySection[] = [
     id: "architecture",
     title: "Architectural Terms",
     terms: [
-      { term: "ILU-20", definition: "Institutional Liquidity Universe. The 20 digital assets selected by systemic importance that TILT continuously monitors across all pages." },
+      { term: "ILU-34", definition: "Institutional Liquidity Universe. The 34 digital assets — 25 crypto assets and 9 real-world asset tokens — selected by systemic importance that TILT continuously monitors across 26 venues." },
       { term: "Liquidity Truth Stack", definition: "Stratalink's seven-layer architecture (L0–L6) from governance (LTF) through data aggregation (DACT), intelligence (STRATA AI), integrity (PoMI), liquidity verification (PoLi), on-chain attestation (Oracle), to regulatory consumption (RCL)." },
       { term: "DACT", definition: "Digital Assets Consolidated Tape. The real-time multi-venue data aggregation layer (L1) that normalises venue data into a single canonical schema." },
       { term: "TSLE Buffer", definition: "Time-Series Liquidity Engine buffer. An in-memory ring buffer storing 360 data points (approximately one hour of history at 10-second intervals) for real-time analytics." },
@@ -359,9 +380,9 @@ export const FAQ_SECTIONS: FaqSection[] = [
     id: "general",
     title: "General",
     items: [
-      { q: "What is TILT?", a: "TILT stands for The Institutional Liquidity Truth. It is Stratalink's platform for independent, real-time, cross-venue liquidity verification and market integrity intelligence. It monitors the Institutional Liquidity Universe (ILU-25): 25 digital assets selected by systemic importance across six categories, including a new Digital Securities & RWA category covering tokenized gold, tokenized Treasuries, and RWA infrastructure tokens." },
+      { q: "What is TILT?", a: "TILT stands for The Institutional Liquidity Truth. It is Stratalink's platform for independent, real-time, cross-venue liquidity verification and market integrity intelligence. It monitors the Institutional Liquidity Universe (ILU-34): 34 digital assets across six categories, comprising 25 crypto assets and 9 real-world asset tokens, monitored across 26 venues including regulated institutional exchanges for RWA token coverage." },
       { q: "Where does the data come from?", a: "TILT aggregates real-time orderbook, trade, and volume data from 14+ venues including Binance, Coinbase, Kraken, OKX, Bybit, Hyperliquid, Uniswap, and others. All data is normalised into a single canonical schema by the DACT layer. The data comes from venues directly, not from any third-party data aggregator." },
-      { q: "Why are some tokens showing — instead of data?", a: "The ILU-25 defines 25 systemically important assets. Active venue data feeds may not yet be enabled for all 25. Tokens showing — are in the universe and will display data once their venue feeds are activated. The system does not show invented or placeholder data." },
+      { q: "Why are some tokens showing — instead of data?", a: "The ILU-34 defines 34 systemically important assets. Active venue data feeds may not yet be enabled for all 34. Tokens showing — are in the universe and will display data once their venue feeds are activated. The system does not show invented or placeholder data." },
       { q: "How often does the data update?", a: "The TSLE buffer receives venue data continuously. The TILT interface polls for updated snapshots every 5 seconds. PoLi scores, STRATA AI detection evaluations, and EWDS indicators update on each polling cycle." },
     ],
   },
@@ -396,7 +417,7 @@ export const FAQ_SECTIONS: FaqSection[] = [
     id: "technical",
     title: "Technical",
     items: [
-      { q: "What is the Institutional Liquidity Universe (ILU-20)?", a: "The ILU-20 is Stratalink's proprietary asset classification framework. It identifies the 20 digital assets that are systemically important to institutional digital asset markets, selected using weighted criteria including cross-venue liquidity, trading volume, derivatives open interest, stablecoin settlement usage, collateral usage, custodian support, institutional ownership, and interconnectedness." },
+      { q: "What is the Institutional Liquidity Universe (ILU-34)?", a: "The ILU-34 is Stratalink's proprietary asset classification framework. It identifies the 34 digital assets that are systemically important to institutional digital asset markets, comprising 25 crypto assets and 9 real-world asset tokens, selected using weighted criteria including cross-venue liquidity, trading volume, derivatives open interest, stablecoin settlement usage, collateral usage, custodian support, institutional ownership, and interconnectedness." },
       { q: "What is Canton Network?", a: "Canton Network is the institutional-grade distributed ledger on which Stratalink publishes cryptographically signed attestations. Canton provides sub-transaction privacy (ensuring venue-attributed data is only visible to authorised regulatory parties) and immutable audit trails. Stratalink operates a validator node on Canton MainNet." },
     ],
   },

@@ -555,7 +555,7 @@ async function generateServerSideReport(
     const valid = snaps.filter((s) => s.snap);
 
     pdf.section("1", "Executive Summary");
-    pdf.para("This monthly overview covers the supervised portfolio of ILU-20 tokens monitored by TILT for ADGM/FSRA. Portfolio health metrics and liquidity conditions are reported below.");
+    pdf.para("This monthly overview covers the supervised portfolio of ILU-34 tokens monitored by TILT for ADGM/FSRA. Portfolio health metrics and liquidity conditions are reported below.");
 
     pdf.section("2", "Month-End Portfolio Status");
     pdf.table(
@@ -577,7 +577,7 @@ async function generateServerSideReport(
     pdf.para("No systemic liquidity concerns identified during the reporting period. Standard supervisory monitoring protocols remain in effect. Annual ADGM supervisory review is due for scheduled consultation.");
 
     pdf.section("6", "Recommendations for Next Period");
-    pdf.para("Maintain standard monitoring coverage across all ILU-20 supervised tokens. Review alert thresholds at the start of next month based on prior period volatility.");
+    pdf.para("Maintain standard monitoring coverage across all ILU-34 supervised tokens. Review alert thresholds at the start of next month based on prior period volatility.");
 
     const buffer = pdf.toBuffer(refId);
     return { buffer, refId, filename };

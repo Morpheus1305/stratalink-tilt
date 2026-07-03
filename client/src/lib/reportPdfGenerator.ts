@@ -1159,7 +1159,7 @@ export async function generateDailySummaryPDF(
 
   // 1. Portfolio Summary
   pdf.sectionHeader("1", "Portfolio Summary");
-  pdf.para("This section provides the daily overview of all supervised tokens in the ILU-20 Institutional Liquidity Universe.");
+  pdf.para("This section provides the daily overview of all supervised tokens in the ILU-34 Institutional Liquidity Universe.");
   pdf.subSection("1.1 Portfolio Status");
   pdf.table(
     ["Total Tokens", "Stable", "Elevated", "Stressed"],
@@ -1258,7 +1258,7 @@ export async function generateWeeklyIntegrityPDF() {
 
   // 1. Week in Review
   pdf.sectionHeader("1", "Week in Review");
-  pdf.para(`This digest covers the seven-day period from ${fmtLong(weekStart)} to ${fmtLong(now)} across the supervised portfolio of ILU-20 tokens.`);
+  pdf.para(`This digest covers the seven-day period from ${fmtLong(weekStart)} to ${fmtLong(now)} across the supervised portfolio of ILU-34 tokens.`);
 
   pdf.subSection("1.1 Portfolio Health Trend");
   pdf.table(
@@ -1324,7 +1324,7 @@ export async function generateMonthlySummaryPDF() {
 
   // 1. Executive Summary
   pdf.sectionHeader("1", "Executive Summary");
-  pdf.para(`This monthly overview covers the supervised portfolio of ILU-20 tokens monitored by TILT for ADGM/FSRA during ${monthLabel}. Report reflects aggregate intelligence gathered from the TSLE buffer, STRATA AI detection engine, and PoLi scoring system over the full reporting month.`);
+  pdf.para(`This monthly overview covers the supervised portfolio of ILU-34 tokens monitored by TILT for ADGM/FSRA during ${monthLabel}. Report reflects aggregate intelligence gathered from the TSLE buffer, STRATA AI detection engine, and PoLi scoring system over the full reporting month.`);
 
   pdf.subSection("1.1 Month-End Portfolio Status");
   pdf.table(
@@ -1380,7 +1380,7 @@ export async function generateMonthlySummaryPDF() {
 
   // 7. Recommendations for Next Period
   pdf.sectionHeader("7", "Recommendations for Next Period");
-  pdf.para("Maintain standard monitoring coverage across all ILU-20 supervised tokens. Review alert thresholds at the start of each month based on prior period volatility. Engage with ADGM supervisory team on any tokens that have remained below BBB rating for more than 5 consecutive business days.");
+  pdf.para("Maintain standard monitoring coverage across all ILU-34 supervised tokens. Review alert thresholds at the start of each month based on prior period volatility. Engage with ADGM supervisory team on any tokens that have remained below BBB rating for more than 5 consecutive business days.");
 
   await recordReport({ reportType: "monthly_overview", filename, referenceId: refId });
   pdf.save(filename, refId);

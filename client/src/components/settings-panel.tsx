@@ -225,7 +225,7 @@ function NotificationSection({ draft, onChange }: { draft: UserSettings; onChang
         {(["supervised", "all"] as const).map(scope => (
           <label key={scope} style={{ display: "flex", alignItems: "center", gap: 10, padding: "5px 0", cursor: "pointer" }}>
             <input type="radio" name="notif-scope" value={scope} checked={draft.notificationScope === scope} onChange={() => onChange({ notificationScope: scope })} style={{ accentColor: COL.accent, flexShrink: 0 }} />
-            <span style={{ ...MONO, fontSize: 11, color: COL.text }}>{scope === "supervised" ? "Supervised tokens only" : "All ILU-20 tokens"}</span>
+            <span style={{ ...MONO, fontSize: 11, color: COL.text }}>{scope === "supervised" ? "Supervised tokens only" : "All ILU-34 tokens"}</span>
           </label>
         ))}
       </div>
@@ -296,7 +296,7 @@ function ReportSection({ draft, onChange }: { draft: UserSettings; onChange: (p:
           <label key={scope} style={{ display: "flex", alignItems: "center", gap: 10, padding: "5px 0", cursor: "pointer" }}>
             <input type="radio" name="report-scope" value={scope} defaultChecked={scope === "supervised"} style={{ accentColor: COL.accent }} />
             <span style={{ ...MONO, fontSize: 11, color: COL.text }}>
-              {scope === "supervised" ? `Supervised portfolio (${draft.supervisedTokens.length} tokens)` : "All ILU-20 tokens (19 tokens)"}
+              {scope === "supervised" ? `Supervised portfolio (${draft.supervisedTokens.length} tokens)` : "All ILU-34 tokens (34 tokens)"}
             </span>
           </label>
         ))}
