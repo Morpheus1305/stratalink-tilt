@@ -1,0 +1,105 @@
+# Update Hero Page Asset Coverage Display
+
+## Context
+The landing page "TILT - LIVE FEED" panel currently shows 5 assets:
+BTC, ETH, SOL, XRP, BNB. This needs to reflect the expanded asset
+universe and show the institutional and RWA tokens that ADGM cares
+about. The "LIVE - 26 VENUES" badge is correct and should remain.
+
+## Changes
+
+### 1. Expand the Asset Coverage list
+
+Replace the current 5-token list with 8-10 tokens that demonstrate
+breadth across all asset categories. Show the full list with a scroll
+or "view all" affordance for the remaining tokens.
+
+**Display these tokens in this order:**
+
+| Token | Name | Category |
+|-------|------|----------|
+| BTC | Bitcoin | Reserve Asset |
+| ETH | Ethereum | Reserve Asset |
+| SOL | Solana | High-Volume Liquidity |
+| XRP | Ripple | High-Volume Liquidity |
+| LINK | Chainlink | Financial Infrastructure |
+| PAXG | Paxos Gold | Digital Securities & RWA |
+| BUIDL | BlackRock BUIDL | Digital Securities & RWA |
+| ONDO | Ondo Finance | Digital Securities & RWA |
+| USDC | USD Coin | Stablecoin Infrastructure |
+| USDT | Tether | Stablecoin Infrastructure |
+
+**Why this order:**
+- Opens with BTC/ETH (the reserve assets everyone recognises)
+- Adds SOL and XRP (high-volume institutional tokens)
+- LINK (DeFi infrastructure, institutional grade)
+- PAXG (tokenized gold - immediately recognisable as a traditional
+  asset class in digital form)
+- BUIDL (BlackRock's tokenized Treasury fund - the single most
+  powerful institutional signal on the platform)
+- ONDO (leading RWA infrastructure token)
+- USDC/USDT (stablecoin infrastructure - ADGM's FRT category)
+
+This list tells a story: reserve assets, liquid tokens, DeFi
+infrastructure, tokenized commodities, tokenized securities,
+stablecoins. It demonstrates that TILT is an institutional platform,
+not a crypto dashboard.
+
+### 2. Add category labels (optional but recommended)
+
+If space allows, add subtle category labels above groups of tokens
+in the list:
+
+```
+RESERVE ASSETS
+  BTC  Bitcoin         43  CCC
+  ETH  Ethereum        43  CCC
+
+HIGH-VOLUME LIQUIDITY
+  SOL  Solana          63  BBB
+  XRP  Ripple          74  A
+
+FINANCIAL INFRASTRUCTURE
+  LINK Chainlink       --  --
+
+DIGITAL SECURITIES & RWA
+  PAXG Paxos Gold      --  --
+  BUIDL BlackRock BUIDL --  --
+  ONDO Ondo Finance    --  --
+
+STABLECOIN INFRASTRUCTURE
+  USDC USD Coin        --  --
+  USDT Tether          --  --
+```
+
+Use the same category header styling as the token selector dropdown
+(teal text, smaller font, uppercase).
+
+### 3. Keep remaining tokens accessible
+
+Below the visible list, add a subtle "View all 25 assets" link or
+a scroll indicator showing there are more tokens. The hero page
+should showcase the headline tokens, not list all 25.
+
+### 4. Update the Global PoLi score context
+
+The GLOBAL POLI ring currently shows 43 CCC. This appears to be the
+BTC-specific score, not a true global composite. If a global composite
+across all assets exists, use that. If not, label it clearly as
+"BTC PoLi" rather than "GLOBAL POLI" to avoid confusion.
+
+## What NOT to Change
+- The "LIVE - 26 VENUES" badge - correct and should remain
+- The AGGREGATED DEPTH panel - keep as is
+- The overall dark styling and layout - keep as is
+- The TILT - LIVE FEED header - keep as is
+
+## Verification
+1. Confirm the hero page shows at least 8 tokens spanning all
+   asset categories.
+2. Confirm PAXG, BUIDL and ONDO appear in the list with their
+   current PoLi scores (scores may be low or show "--" for
+   limited-coverage tokens - that is correct).
+3. Confirm the token list is visually scannable without scrolling
+   for the top 8 tokens.
+4. Confirm "26 VENUES" badge is still accurate.

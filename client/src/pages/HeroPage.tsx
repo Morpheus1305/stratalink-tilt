@@ -62,13 +62,30 @@ function fmt(n: number): string {
   return n.toLocaleString('en-US', { maximumFractionDigits: 0 });
 }
 
-const TOKEN_LIST = [
-  { sym: 'BTC', name: 'Bitcoin' },
-  { sym: 'ETH', name: 'Ethereum' },
-  { sym: 'SOL', name: 'Solana' },
-  { sym: 'XRP', name: 'Ripple' },
-  { sym: 'BNB', name: 'BNB' },
-] as const;
+const CATEGORIES = [
+  { label: 'Reserve Assets', tokens: [
+    { sym: 'BTC',   name: 'Bitcoin'          },
+    { sym: 'ETH',   name: 'Ethereum'         },
+  ]},
+  { label: 'High-Volume Liquidity', tokens: [
+    { sym: 'SOL',   name: 'Solana'           },
+    { sym: 'XRP',   name: 'Ripple'           },
+  ]},
+  { label: 'Financial Infrastructure', tokens: [
+    { sym: 'LINK',  name: 'Chainlink'        },
+  ]},
+  { label: 'Digital Securities & RWA', tokens: [
+    { sym: 'PAXG',  name: 'Paxos Gold'       },
+    { sym: 'BUIDL', name: 'BlackRock BUIDL'  },
+    { sym: 'ONDO',  name: 'Ondo Finance'     },
+  ]},
+  { label: 'Stablecoin Infrastructure', tokens: [
+    { sym: 'USDC',  name: 'USD Coin'         },
+    { sym: 'USDT',  name: 'Tether'           },
+  ]},
+];
+
+const TOKEN_LIST = CATEGORIES.flatMap(c => c.tokens);
 
 async function fetchSnapshot(symbol: string): Promise<L5FAggregate | null> {
   const res = await fetch(`/api/analytics/l5f/snapshot/${symbol}`);
@@ -101,9 +118,9 @@ export default function HeroPage() {
     placeholderData: keepPreviousData,
   });
 
-  // All five token snapshots in one query
+  // All ten token snapshots in one query
   const { data: tokenSnaps } = useQuery<(L5FAggregate | null)[]>({
-    queryKey: ['/hero/token-snaps'],
+    queryKey: ['/hero/token-snaps-v2'],
     queryFn: () => Promise.all(TOKEN_LIST.map(t => fetchSnapshot(t.sym))),
     refetchInterval: 5_000,
     staleTime: 4_000,
@@ -143,12 +160,9 @@ export default function HeroPage() {
   const ask1  = mid + 3, ask2 = mid + 2, ask3 = mid + 1;
   const bid1  = mid - 1, bid2 = mid - 2, bid3 = mid - 3;
 
-  // Token rows
-  const tokenRows = TOKEN_LIST.map((t, i) => {
-    const snap  = tokenSnaps?.[i] ?? null;
-    const sc    = snap ? Math.round(snap.l5f_composite) : null;
-    return { ...t, score: sc, rating: sc != null ? poliRating(sc) : '--' };
-  });
+  // Build a symbol → score lookup from the flat snapshot array
+  const snapBySymbol: Record<string, L5FAggregate | null> = {};
+  TOKEN_LIST.forEach((t, i) => { snapBySymbol[t.sym] = tokenSnaps?.[i] ?? null; });
 
   return (
     <>
@@ -280,6 +294,12 @@ export default function HeroPage() {
         .hp-footer-badge { font-size: 0.6rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.18); white-space: nowrap; }
 
         .hp-gauge-arc { transition: stroke-dashoffset 1s ease, stroke 0.6s ease; }
+
+        .hp-table-row { display: flex; align-items: center; justify-content: space-between; padding: 0.28rem 0.875rem; border-bottom: 1px solid rgba(255,255,255,0.04); }
+        .hp-table-row:last-child { border-bottom: none; }
+        .hp-cat-header { font-size: 0.5rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #00BFA5; padding: 0.4rem 0.875rem 0.15rem; opacity: 0.85; border-top: 1px solid rgba(255,255,255,0.04); }
+        .hp-cat-header:first-child { border-top: none; }
+        .hp-view-all { padding: 0.45rem 0.875rem; font-size: 0.55rem; color: rgba(255,255,255,0.25); letter-spacing: 0.06em; border-top: 1px solid rgba(255,255,255,0.06); text-align: right; cursor: default; }
       ` }} />
 
       <div className="hp-root">
@@ -405,7 +425,7 @@ export default function HeroPage() {
                 <div className="hp-row">
                   {/* PoLi Gauge */}
                   <div className="hp-gauge-card">
-                    <div className="hp-card-label">Global PoLi</div>
+                    <div className="hp-card-label">BTC PoLi</div>
                     <div className="hp-gauge-wrap">
                       <div className="hp-gauge-inner">
                         <svg viewBox="0 0 100 100">
@@ -478,30 +498,37 @@ export default function HeroPage() {
                     <span className="hp-table-head-l">Asset Coverage</span>
                     <span className="hp-table-head-r">LIVE · 26 VENUES</span>
                   </div>
-                  {tokenRows.map(t => {
-                    const sc  = t.score ?? 0;
-                    const col = t.score != null ? ratingColor(sc) : 'rgba(255,255,255,0.25)';
-                    const bg  = t.score != null ? ratingBg(sc) : 'transparent';
-                    const bd  = t.score != null ? ratingBorder(sc) : 'rgba(255,255,255,0.1)';
-                    return (
-                      <div key={t.sym} className="hp-table-row" data-testid={`hero-token-row-${t.sym}`}>
-                        <div className="hp-token-left">
-                          <span className="hp-token-sym">{t.sym}</span>
-                          <span className="hp-token-name">{t.name}</span>
-                        </div>
-                        <div className="hp-token-right">
-                          <span className="hp-token-score" style={{ color: col }}
-                            data-testid={`hero-score-${t.sym}`}>
-                            {t.score ?? '--'}
-                          </span>
-                          <span className="hp-token-badge"
-                            style={{ color: col, background: bg, border: `1px solid ${bd}` }}>
-                            {t.rating}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {CATEGORIES.map(cat => (
+                    <div key={cat.label}>
+                      <div className="hp-cat-header">{cat.label}</div>
+                      {cat.tokens.map(t => {
+                        const snap = snapBySymbol[t.sym];
+                        const sc   = snap ? Math.round(snap.l5f_composite) : null;
+                        const col  = sc != null ? ratingColor(sc) : 'rgba(255,255,255,0.25)';
+                        const bg   = sc != null ? ratingBg(sc)    : 'transparent';
+                        const bd   = sc != null ? ratingBorder(sc) : 'rgba(255,255,255,0.1)';
+                        return (
+                          <div key={t.sym} className="hp-table-row" data-testid={`hero-token-row-${t.sym}`}>
+                            <div className="hp-token-left">
+                              <span className="hp-token-sym">{t.sym}</span>
+                              <span className="hp-token-name">{t.name}</span>
+                            </div>
+                            <div className="hp-token-right">
+                              <span className="hp-token-score" style={{ color: col }}
+                                data-testid={`hero-score-${t.sym}`}>
+                                {sc ?? '--'}
+                              </span>
+                              <span className="hp-token-badge"
+                                style={{ color: col, background: bg, border: `1px solid ${bd}` }}>
+                                {sc != null ? poliRating(sc) : '--'}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
+                  <div className="hp-view-all">View all 25 assets →</div>
                 </div>
               </div>
             </div>
