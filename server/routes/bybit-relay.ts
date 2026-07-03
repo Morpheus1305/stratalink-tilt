@@ -20,7 +20,7 @@ import {
 
 const router = Router();
 
-const BYBIT_API = "https://api.bybit.com";
+const BYBIT_API = "https://relay.stratalink.ai/bybit";
 const TIMEOUT_MS = 5000;
 
 const SYMBOL_MAP: Record<string, string> = {
@@ -185,6 +185,7 @@ async function bybitFetch(path: string): Promise<any> {
       headers: {
         "User-Agent": "StrataLink-LIS/1.0",
         "Accept": "application/json",
+        "X-Relay-Key": "stratalink-relay-prod-20251223",
       },
     });
     clearTimeout(timer);
@@ -266,7 +267,7 @@ async function fetchBybitDepth(
   let liveError = "";
   try {
     const result = await bybitFetch(
-      `/v5/market/orderbook?category=${category}&symbol=${native}&limit=50`
+      `/depth?symbol=${native}&category=${category}`
     );
     const snapshot = normalizeBybitOrderbook(result, symbol);
     if (snapshot.mid_price > 0) {
@@ -364,9 +365,7 @@ router.get("/perps/funding", async (req: Request, res: Response) => {
         error: `Symbol ${symbol} not in Bybit perps registry`,
       });
   try {
-    const result = await bybitFetch(
-      `/v5/market/tickers?category=linear&symbol=${native}`
-    );
+    const result = await bybitFetch(`/funding?symbol=${native}`);
     const ticker = result?.list?.[0];
     if (!ticker)
       return res
@@ -396,17 +395,11 @@ router.get("/perps/oi", async (req: Request, res: Response) => {
         error: `Symbol ${symbol} not in Bybit perps registry`,
       });
   try {
-    const result = await bybitFetch(
-      `/v5/market/tickers?category=linear&symbol=${native}`
-    );
+    const result = await bybitFetch(`/ticker?symbol=${native}&category=linear`);
     const ticker = result?.list?.[0];
-    if (!ticker)
-      return res
-        .status(502)
-        .json({ ok: false, error: "No ticker data returned" });
     const oi =
-      parseFloat(ticker.openInterest ?? "0") *
-      parseFloat(ticker.lastPrice ?? "0");
+      parseFloat(ticker?.openInterest ?? "0") *
+      parseFloat(ticker?.lastPrice ?? "0");
     res.json({ venue: "bybit", ok: true, oi, error: null });
   } catch (e: any) {
     res.status(502).json({ ok: false, error: e.message });
@@ -415,11 +408,23 @@ router.get("/perps/oi", async (req: Request, res: Response) => {
 
 router.get("/health", async (_req: Request, res: Response) => {
   try {
-    const result = await bybitFetch("/v5/market/time");
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    const resp = await fetch(`${BYBIT_API}/health`, {
+      signal: controller.signal,
+      headers: {
+        "User-Agent": "StrataLink-LIS/1.0",
+        "Accept": "application/json",
+        "X-Relay-Key": "stratalink-relay-prod-20251223",
+      },
+    });
+    clearTimeout(timer);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = (await resp.json()) as any;
     res.json({
-      ok: true,
+      ok: data.ok === true,
       venue: "bybit",
-      serverTime: result?.timeSecond,
+      relay: "relay.stratalink.ai",
       ts: Date.now(),
     });
   } catch (e: any) {
