@@ -162,7 +162,7 @@ function MetricCard({
       }}
     >
       <div style={{ fontSize: 9, fontFamily: MONO, color: C.muted, letterSpacing: "0.1em", textTransform: "uppercase" }}>
-        {tooltip ? <TT tip={tooltip}><span style={{ borderBottom: `1px dashed ${C.muted}`, cursor: "help" }}>{label}</span></TT> : label}
+        {tooltip ? <TT title={label} body={tooltip}><span style={{ borderBottom: `1px dashed ${C.muted}`, cursor: "help" }}>{label}</span></TT> : label}
       </div>
       <div
         data-testid={`dact-metric-${label.toLowerCase().replace(/\s+/g, "-")}`}
@@ -466,7 +466,7 @@ export default function DactPage() {
               {paused && <span style={{ color: C.amber, marginLeft: 8 }}> — STREAM PAUSED</span>}
             </div>
             <div style={{ fontFamily: MONO, fontSize: 9, color: C.muted }}>
-              <TT tip="DACT is a verbose fact layer. It records what happened but does not score, interpret, or judge. No downstream layer (STRATA AI, PoLi, RCL) writes back to DACT. This separation is the foundation of the platform's epistemic integrity.">
+              <TT title="NON-CONTAMINATION" body="DACT is a verbose fact layer. It records what happened but does not score, interpret, or judge. No downstream layer (STRATA AI, PoLi, RCL) writes back to DACT. This separation is the foundation of the platform's epistemic integrity.">
                 <span style={{ borderBottom: `1px dashed ${C.muted}`, cursor: "help" }}>NON-CONTAMINATION</span>
               </TT>
               {" "}<span style={{ color: C.green }}>ACTIVE</span>
