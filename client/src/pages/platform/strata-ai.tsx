@@ -611,7 +611,9 @@ export default function StrataAI() {
           <div style={{ background: "var(--tilt-panel)", display: "flex", flexDirection: "column" }}>
             <div className="tilt-panel-header">
               <div className="tilt-panel-accent" style={{ background: "var(--tilt-accent)" }} />
-              <div className="tilt-panel-title">Active Intelligence Signals</div>
+              <TT title="Active Intelligence Signals" body="Live feed of STRATA AI anomaly detection outputs across six categories: Depth Anomaly, Spread Divergence, Funding Pressure, Liquidation Cascade, Wash Trade Pattern, and Cross-Venue Divergence. Only categories deviating from NORMAL are shown. ELEVATED = early warning. BREACH = active anomaly requiring immediate review.">
+                <div className="tilt-panel-title">Active Intelligence Signals</div>
+              </TT>
               <div className="tilt-ph-tag" style={{ marginLeft: 0, background: "rgba(0,191,165,0.08)", color: "var(--tilt-accent)", borderColor: "rgba(0,191,165,0.2)" }}>
                 {detections.filter(d => d.status !== "NORMAL").length} DETECTED
               </div>
@@ -654,7 +656,9 @@ export default function StrataAI() {
             <div style={{ background: "var(--tilt-panel)" }}>
               <div className="tilt-panel-header">
                 <div className="tilt-panel-accent" style={{ background: "var(--tilt-amber)" }} />
-                <div className="tilt-panel-title">EWDS  -  Early Warning</div>
+                <TT title="EWDS — Early Warning Detection System" body="Six structured early warning signals derived from cross-venue microstructure analysis. Each signal is independently computed and weighted by confidence. When three or more signals are ELEVATED simultaneously, the system confidence shifts to HIGH — historically preceding observable market stress by 2–4 hours.">
+                  <div className="tilt-panel-title">EWDS  -  Early Warning</div>
+                </TT>
                 <div className="tilt-ph-tag">PANEL 2</div>
               </div>
               <div style={{ padding: "0 4px" }} data-testid="strata-ewds">
@@ -678,7 +682,9 @@ export default function StrataAI() {
             <div style={{ background: "var(--tilt-panel)" }}>
               <div className="tilt-panel-header">
                 <div className="tilt-panel-accent" style={{ background: "var(--tilt-green)" }} />
-                <div className="tilt-panel-title">Detection Advance Window</div>
+                <TT title="Detection Advance Window" body="Estimated lead time between STRATA AI detection and observable market stress, based on validated historical event data. This advance window represents the decision-making window available to risk managers before conditions become visible to standard monitoring tools.">
+                  <div className="tilt-panel-title">Detection Advance Window</div>
+                </TT>
                 <div className="tilt-ph-tag">PANEL 3</div>
               </div>
               <div style={{ padding: "4px 4px 10px" }} data-testid="strata-advance-window">

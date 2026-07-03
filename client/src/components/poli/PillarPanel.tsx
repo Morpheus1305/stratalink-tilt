@@ -1,9 +1,18 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { TT } from "@/components/tilt-tooltip";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import type { PillarData, PillarMetric, RagStatus, VerifyState } from "@shared/poli";
 import MetricRow from "./MetricRow";
+
+const PILLAR_TIPS: Record<string, string> = {
+  "Depth Quality": "Total notional available within tight price bands (10–25 bps from mid). High depth quality means large institutional orders can be filled without significant price impact. Scores above 70 indicate deep, two-sided resting liquidity.",
+  "Resilience": "Measures how quickly depth recovers after being consumed by large trades. Low resilience means liquidity is slow to return after execution — a key risk for sequential or split-order strategies. Scored from rolling replenishment rate.",
+  "Fragmentation": "Inverted Herfindahl-Hirschman Index applied to venue depth shares. Low fragmentation means liquidity is well-distributed across venues. High fragmentation means concentration at one or two venues, creating withdrawal risk if those venues go offline.",
+  "Execution Integrity": "Consistency between quoted prices and executable prices across venues. Divergence indicates potential wash-trade patterns, latency arbitrage, or technical fragmentation. Scored from cross-venue price dispersion and fill-rate efficiency.",
+  "Regime Stability": "Stability of the current liquidity regime over the recent observation window. Frequent regime transitions (NORMAL → THIN → STRESSED) indicate an unstable microstructure. Scored from classification change frequency and regime duration.",
+};
 
 interface Props {
   title: string;
@@ -46,7 +55,9 @@ export default function PillarPanel({ title, pillarKey, data }: Props) {
         onClick={() => setExpanded(!expanded)}
       >
         <div className="flex items-center gap-3">
-          <CardTitle className="text-base">{title}</CardTitle>
+          <TT title={title} body={PILLAR_TIPS[title] ?? `PoLi pillar score for ${title} (0-100). Contributes to the composite Proof of Liquidity score, which drives institutional liquidity ratings and margin requirements.`}>
+            <CardTitle className="text-base">{title}</CardTitle>
+          </TT>
           <Badge className={getRagClasses(data.rag)}>
             {data.score.toFixed(1)}
           </Badge>

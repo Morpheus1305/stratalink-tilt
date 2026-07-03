@@ -347,7 +347,9 @@ export default function TiltTerminal() {
             <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
               <div className="tilt-panel-header">
                 <div className="tilt-panel-accent" />
-                <div className="tilt-panel-title">Liquidity Health Core</div>
+                <TT title="Liquidity Health Core" body="Primary liquidity health panel combining the L5F 5-factor composite score (ring gauge) and the TSLE time-series efficiency score. The ring shows current institutional liquidity quality. The five factor bars show the component breakdown. Buffer warming appears during the first 3–5 minutes while Resilience and Regime Stability factors reach steady state.">
+                  <div className="tilt-panel-title">Liquidity Health Core</div>
+                </TT>
                 {isWarming && (
                   <div className="tilt-warming-note" data-testid="tilt-warming">
                     Buffer warming  -  R &amp; RS values are neutral defaults
@@ -447,7 +449,9 @@ export default function TiltTerminal() {
           <div className="tilt-panel tilt-p-regime">
             <div className="tilt-panel-header">
               <div className="tilt-panel-accent" style={{ background: "var(--tilt-amber)" }} />
-              <div className="tilt-panel-title">Stress &amp; Regime</div>
+              <TT title="Stress & Regime Monitor" body="Real-time stress and market regime panel. Tracks liquidity withdrawal velocity (bps/hour), fragmentation pressure, current regime classification (NORMAL / THIN / STRESSED / CONFIRMED_STRESS), and spread divergence across venues. Amber and red values indicate conditions requiring immediate attention.">
+                <div className="tilt-panel-title">Stress &amp; Regime</div>
+              </TT>
               <div className="tilt-ph-tag">PANEL 4</div>
             </div>
 
@@ -536,7 +540,9 @@ export default function TiltTerminal() {
           <div className="tilt-panel tilt-p-venue">
             <div className="tilt-panel-header">
               <div className="tilt-panel-accent" style={{ background: "var(--tilt-green)" }} />
-              <div className="tilt-panel-title">Cross-Venue Depth Map</div>
+              <TT title="Cross-Venue Depth Map" body="Per-venue order book depth at ±10 basis points for the selected symbol. Shows bid depth, ask depth, global share, spread in basis points, and TSLE efficiency score for each of the 14 monitored venues. Identify which venues hold the deepest resting liquidity and which are withdrawing.">
+                <div className="tilt-panel-title">Cross-Venue Depth Map</div>
+              </TT>
               <div className="tilt-ph-tag" style={{ marginLeft: 0, background: "rgba(0,230,118,0.08)", color: "var(--tilt-green)", borderColor: "rgba(0,230,118,0.2)" }}>+/- 10 bps</div>
               <div className="tilt-ph-tag">PANEL 2</div>
             </div>
@@ -623,7 +629,9 @@ export default function TiltTerminal() {
           <div className="tilt-panel tilt-p-integrity">
             <div className="tilt-panel-header">
               <div className="tilt-panel-accent" />
-              <div className="tilt-panel-title">Structural Integrity</div>
+              <TT title="Structural Integrity" body="Structural integrity metrics including the Fragmentation Index (HHI-based venue concentration), cross-venue price dispersion, depth symmetry (bid vs ask balance), and Proof of Market Integrity sub-scores. These probe whether the market microstructure is functioning correctly at a cross-venue level.">
+                <div className="tilt-panel-title">Structural Integrity</div>
+              </TT>
               <div className="tilt-ph-tag">PANEL 3</div>
             </div>
 

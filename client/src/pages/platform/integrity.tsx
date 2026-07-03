@@ -864,7 +864,9 @@ export default function IntegrityPage() {
 
           {/* Left: Cross-Venue Liquidity Stability  -  Venue Grid */}
           <div style={{ flex: 1, background: PANEL, padding: "14px 16px" }}>
-            <SectionHeader title="Cross-Venue Liquidity Stability" />
+            <TT title="Cross-Venue Liquidity Stability" body="Heat map showing real-time stability of each monitored venue. Green = stability score ≥ 60 (normal). Amber = 35–60 (watch). Red = below 35 (stressed). Stability scores are derived from spread bps, depth imbalance, and regime classification. A cluster of red venues is a systemic fragmentation signal.">
+              <SectionHeader title="Cross-Venue Liquidity Stability" />
+            </TT>
 
             {venues.length === 0 ? (
               <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 10, color: MUTED, padding: "20px 0" }}>

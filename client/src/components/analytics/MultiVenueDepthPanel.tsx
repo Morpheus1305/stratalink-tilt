@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { TT } from "@/components/tilt-tooltip";
 import { Layers, TrendingUp, TrendingDown } from "lucide-react";
 
 interface DepthVenue {
@@ -48,9 +49,11 @@ export default function MultiVenueDepthPanel({ symbol, bps = 10 }: Props) {
     return (
       <Card className="bg-slate-900/50 border-slate-800">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-slate-400">
-            {bps}bps Depth  -  {symbol}
-          </CardTitle>
+          <TT title={`${bps}bps Order Book Depth`} body="Aggregated order book depth at this price band for the selected symbol, broken down by contributing venue. Larger bid and ask totals with high symmetry indicate healthy two-sided liquidity. Imbalances above ±20% signal directional positioning pressure.">
+            <CardTitle className="text-sm font-medium text-slate-400">
+              {bps}bps Depth  -  {symbol}
+            </CardTitle>
+          </TT>
         </CardHeader>
         <CardContent>
           <div className="animate-pulse space-y-2">
@@ -79,10 +82,12 @@ export default function MultiVenueDepthPanel({ symbol, bps = 10 }: Props) {
   return (
     <Card className="bg-slate-900/50 border-slate-800" data-testid={`panel-depth-${symbol}`}>
       <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2">
-        <CardTitle className="text-sm font-medium text-slate-200 flex items-center gap-2">
-          <Layers className="w-4 h-4 text-cyan-400" />
-          {bps}bps Depth  -  {symbol}
-        </CardTitle>
+        <TT title={`${bps}bps Order Book Depth`} body="Aggregated order book depth at this price band for the selected symbol, broken down by contributing venue. Larger bid and ask totals with high symmetry indicate healthy two-sided liquidity. Imbalances above ±20% signal directional positioning pressure.">
+          <CardTitle className="text-sm font-medium text-slate-200 flex items-center gap-2">
+            <Layers className="w-4 h-4 text-cyan-400" />
+            {bps}bps Depth  -  {symbol}
+          </CardTitle>
+        </TT>
         <Badge 
           variant="outline" 
           className={`text-xs ${data.source === "proxy" ? "border-emerald-500 text-emerald-400" : "border-slate-600 text-slate-400"}`}

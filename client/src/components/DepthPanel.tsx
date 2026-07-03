@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { TT } from "@/components/tilt-tooltip";
 import { BarChart3, TrendingUp, TrendingDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -48,10 +49,12 @@ export default function DepthPanel({ depth }: DepthPanelProps) {
     return (
       <Card className="border-border/50">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <BarChart3 className="h-4 w-4 text-primary" />
-            Orderbook Depth (Top 10 Tokens)
-          </CardTitle>
+          <TT title="Orderbook Depth" body="Cross-token depth snapshot at multiple price bands (10, 25, 50, 100, 200 bps from mid). Bid and ask depth are shown separately so you can detect imbalances. Tokens with consistently thin depth across all bands carry higher execution risk at institutional order sizes.">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <BarChart3 className="h-4 w-4 text-primary" />
+              Orderbook Depth (Top 10 Tokens)
+            </CardTitle>
+          </TT>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">No depth data available.</p>
@@ -65,10 +68,12 @@ export default function DepthPanel({ depth }: DepthPanelProps) {
   return (
     <Card className="border-border/50">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium flex items-center gap-2">
-          <BarChart3 className="h-4 w-4 text-primary" />
-          Orderbook Depth (Top 10 Tokens)
-        </CardTitle>
+        <TT title="Orderbook Depth" body="Cross-token depth snapshot at multiple price bands (10, 25, 50, 100, 200 bps from mid). Bid and ask depth are shown separately so you can detect imbalances. Tokens with consistently thin depth across all bands carry higher execution risk at institutional order sizes.">
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <BarChart3 className="h-4 w-4 text-primary" />
+            Orderbook Depth (Top 10 Tokens)
+          </CardTitle>
+        </TT>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">

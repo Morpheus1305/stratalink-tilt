@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { TT } from "@/components/tilt-tooltip";
 import { TrendingUp, TrendingDown, Minus, CheckCircle, AlertTriangle } from "lucide-react";
 import type { PoLiPayload, RagStatus } from "@shared/poli";
 
@@ -36,12 +37,14 @@ export default function PoLiScorecard({ overall, meta }: Props) {
   return (
     <Card className="relative overflow-hidden" data-testid="poli-scorecard">
       <CardHeader className="pb-2">
-        <CardTitle className="text-lg flex items-center gap-2">
-          PoLi Score
-          <Badge className={getRagClasses(overall.rag)}>
-            {overall.rag}
-          </Badge>
-        </CardTitle>
+        <TT title="Proof of Liquidity (PoLi) Score" body="Composite liquidity quality score (0-100) with institutional-grade letter rating. Synthesises five structural pillars — Depth Quality, Resilience, Fragmentation, Execution Integrity, and Regime Stability — into a single assessment. Rating bands: AAA ≥ 90, AA 80–89, A 70–79, BBB 60–69, BB 50–59, B 40–49, CCC 25–39, D < 25. Drives margin requirements and execution routing decisions.">
+          <CardTitle className="text-lg flex items-center gap-2">
+            PoLi Score
+            <Badge className={getRagClasses(overall.rag)}>
+              {overall.rag}
+            </Badge>
+          </CardTitle>
+        </TT>
       </CardHeader>
       
       <CardContent className="space-y-4">
