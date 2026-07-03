@@ -56,7 +56,9 @@ function computeDepthBands(
 
 async function fetchDefiLlamaTVL(symbol: string): Promise<{ tvlUSD: number; pool: string } | null> {
   try {
-    const res = await fetch(DEFILLAMA_POOLS_URL);
+    const ctrl = new AbortController();
+    setTimeout(() => ctrl.abort(), 5000);
+    const res = await fetch(DEFILLAMA_POOLS_URL, { signal: ctrl.signal });
     if (!res.ok) return null;
     const data = await res.json();
     const pools: any[] = data?.data ?? [];

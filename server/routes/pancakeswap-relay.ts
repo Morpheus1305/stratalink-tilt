@@ -90,6 +90,8 @@ function computeDepthBands(
 
 async function fetchSubgraphPools(tokenAddress: string): Promise<any[] | null> {
   try {
+    const ctrl = new AbortController();
+    setTimeout(() => ctrl.abort(), 5000);
     const res = await fetch(PANCAKESWAP_SUBGRAPH, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -97,6 +99,7 @@ async function fetchSubgraphPools(tokenAddress: string): Promise<any[] | null> {
         query: POOL_QUERY,
         variables: { token: tokenAddress.toLowerCase() },
       }),
+      signal: ctrl.signal,
     });
     if (!res.ok) return null;
     const data = await res.json();
@@ -113,7 +116,9 @@ async function fetchSubgraphPools(tokenAddress: string): Promise<any[] | null> {
 
 async function fetchDefiLlamaTVL(symbol: string): Promise<{ tvlUSD: number; pool: string } | null> {
   try {
-    const res = await fetch(DEFILLAMA_POOLS_URL);
+    const ctrl = new AbortController();
+    setTimeout(() => ctrl.abort(), 5000);
+    const res = await fetch(DEFILLAMA_POOLS_URL, { signal: ctrl.signal });
     if (!res.ok) return null;
     const data = await res.json();
     const pools: any[] = data?.data ?? [];
