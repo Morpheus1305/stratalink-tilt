@@ -35,8 +35,10 @@ const VALID_SYMBOLS = new Set([
   'SOL', 'XRP', 'DOGE', 'ADA', 'AVAX',       // High-Volume Liquidity
   // extended/legacy (accepted but not ILU-25 core)
   'USDE', 'HYPE', 'TON', 'ARB', 'OP',
-  // Digital Securities & RWA  (ILU-25 expansion)
+  // Digital Securities & RWA  (ILU-25 Phase 1 — commodity tokens + governance)
   'PAXG', 'XAUT', 'ONDO', 'BUIDL', 'OUSG',
+  // Digital Securities & RWA  (ILU-31 Phase 2 — security token exchange assets)
+  'BENJI', 'VBILL', 'USDY', 'BCSPX', 'BIB01', 'ACRED',
 ]);
 
 router.get('/snapshot/:symbol', (req: Request, res: Response) => {

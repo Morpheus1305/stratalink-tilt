@@ -1,0 +1,286 @@
+# Phase 2: Connect Security Token Exchange Venues
+
+## Context
+Phase 1 added RWA tokens (BUIDL, OUSG, PAXG, XAUT, ONDO) to the
+monitored asset universe using existing venue connections. Phase 2
+extends the venue infrastructure to include dedicated security token
+exchanges and tokenization platforms - the venues where digital
+securities primarily trade.
+
+Run this prompt AFTER Phase 1 is live and verified.
+
+## Why This Matters
+Digital securities (tokenized equities, bonds, funds, commodities) do
+not trade on Binance or Uniswap. They trade on regulated security
+token exchanges that operate as Multilateral Trading Facilities (MTFs)
+or Alternative Trading Systems (ATS). These venues are regulated,
+KYC-gated, and operate under securities law rather than virtual asset
+rules.
+
+For ADGM, this is the bridge between their virtual asset framework and
+their securities framework. Showing liquidity verification across both
+venue types demonstrates that Stratalink is a regulatory infrastructure
+layer, not a crypto monitoring tool.
+
+## Important Architectural Difference
+
+Security token exchanges differ from DEXs and CEXs in several ways
+that affect relay design:
+
+| Factor | CEX/DEX (existing) | Security Token Exchange (new) |
+|--------|-------------------|-------------------------------|
+| Access | Public APIs | KYC-gated APIs, may require agreements |
+| Order books | Continuous, public | May be RFQ, auction, or continuous |
+| Settlement | T+0 (on-chain) | T+0 to T+2, may involve off-chain steps |
+| Data format | REST/WebSocket/subgraph | Varies - REST, FIX protocol, proprietary |
+| Token standard | ERC-20 | ERC-20, ERC-1400 (security token), ERC-3643 |
+| Compliance | Minimal | Embedded (whitelists, transfer restrictions) |
+
+The relay for these venues may need to handle:
+- API key authentication (not public endpoints)
+- Different data formats (not standard order book depth)
+- Lower update frequency (these markets move slowly)
+- Compliance-restricted data (not all data may be public)
+
+---
+
+## Venues to Connect
+
+### Venue 1: Securitize Markets
+
+| Field | Detail |
+|-------|--------|
+| Venue | Securitize Markets |
+| Type | Regulated ATS (US) / Security Token Exchange |
+| Significance | Tokenization platform for BlackRock BUIDL, Hamilton Lane, KKR. The largest institutional tokenization platform by AUM. |
+| Assets traded | BUIDL, ACRED (Ares Credit), various tokenized funds |
+| API | Securitize has a developer API - check docs.securitize.io |
+| Priority | HIGH - directly relevant to BUIDL liquidity data |
+
+**Relay implementation**:
+Create: server/services/securitize-relay.ts
+- Venue type: "ats" (Alternative Trading System)
+- Data: primary market issuance data, secondary market quotes if available
+- Authentication: likely requires API key and possibly institutional onboarding
+- Polling: lower frequency acceptable (every 30-60 seconds) given these markets move slowly
+
+**Note**: Securitize may not provide traditional order book depth data.
+The relay may need to report:
+- Total AUM / tokens outstanding (supply-side liquidity)
+- USDC liquidity facility depth (Circle provides instant BUIDL-to-USDC conversion)
+- UniswapX quote depth (market maker quotes from Wintermute, Flowdesk, Tokka Labs)
+If traditional depth/spread data is not available, report what IS available and let the PoLi engine score accordingly.
+
+### Venue 2: Archax
+
+| Field | Detail |
+|-------|--------|
+| Venue | Archax |
+| Type | FCA-regulated digital securities exchange (UK) |
+| Significance | First FCA-regulated digital securities exchange. Lists tokenized money market funds, bonds, and equities. Strong institutional focus. |
+| Assets traded | Tokenized MMFs (abrdn, Fidelity International), tokenized bonds |
+| API | REST API - check archax.com/developers or contact for API documentation |
+| Priority | HIGH - FCA-regulated, directly relevant to Stratalink's UK regulatory positioning |
+
+**Relay implementation**:
+Create: server/services/archax-relay.ts
+- Venue type: "mtf" (Multilateral Trading Facility)
+- Regulated: YES
+- Data: order book depth, trade data, instrument reference data
+- Authentication: likely requires API key and institutional agreement
+
+**Note**: Archax operates under FCA regulation. Connecting to Archax
+would give Stratalink visibility into a regulated UK venue for digital
+securities - directly relevant to both the ADGM and FCA regulatory
+narratives.
+
+### Venue 3: INX
+
+| Field | Detail |
+|-------|--------|
+| Venue | INX |
+| Type | SEC-registered ATS and broker-dealer |
+| Significance | US-regulated platform for digital securities trading |
+| Assets traded | Security tokens, tokenized equities |
+| API | Check inx.co for API documentation |
+| Priority | MEDIUM |
+
+**Relay implementation**:
+Create: server/services/inx-relay.ts
+- Venue type: "ats"
+- Regulated: YES
+- Similar pattern to Securitize relay
+
+### Venue 4: tZERO
+
+| Field | Detail |
+|-------|--------|
+| Venue | tZERO |
+| Type | SEC-registered ATS (Intercontinental Exchange subsidiary) |
+| Significance | One of the earliest security token platforms, now owned by ICE (parent of NYSE) |
+| Assets traded | Digital securities, tokenized equities |
+| API | Check tzero.com for API documentation |
+| Priority | MEDIUM |
+
+**Relay implementation**:
+Create: server/services/tzero-relay.ts
+- Venue type: "ats"
+- Regulated: YES
+
+### Venue 5: SDX (SIX Digital Exchange)
+
+| Field | Detail |
+|-------|--------|
+| Venue | SDX |
+| Type | FINMA-regulated digital exchange (Switzerland) |
+| Significance | Operated by SIX Group (Swiss stock exchange operator). Institutional-grade regulated infrastructure. |
+| Assets traded | Digital bonds, structured products, tokenized funds |
+| API | Institutional API - requires agreement |
+| Priority | MEDIUM - strong institutional credibility |
+
+**Relay implementation**:
+Create: server/services/sdx-relay.ts
+- Venue type: "mtf"
+- Regulated: YES
+
+### Venue 6: ADDX
+
+| Field | Detail |
+|-------|--------|
+| Venue | ADDX |
+| Type | MAS-regulated private exchange (Singapore) |
+| Significance | MAS-regulated platform for private market securities. Strong Asia-Pacific institutional presence. |
+| Assets traded | Tokenized funds, private credit, structured notes |
+| API | Check addx.co for API documentation |
+| Priority | MEDIUM - relevant to ADGM's Asia-Pacific connectivity |
+
+**Relay implementation**:
+Create: server/services/addx-relay.ts
+- Venue type: "mtf"
+- Regulated: YES
+
+---
+
+## New Venue Type: Regulated Security Token Exchange
+
+Add a new venue type to shared/venue-config.ts alongside existing types
+(rest, relay, amm, rfq):
+
+```typescript
+type VenueType = "rest" | "relay" | "amm" | "rfq" | "ats" | "mtf";
+```
+
+- **ats**: Alternative Trading System (US-regulated)
+- **mtf**: Multilateral Trading Facility (UK/EU/international regulated)
+
+These venue types should render differently in the UI:
+- RCL Provenance panel: show "ats" or "mtf" label instead of "rest" or "amm"
+- Heatmap: these venues are regulated by definition, so the regulatory
+  bonus in the stability score applies
+- Venue Depth & Spread Monitor: may show different data fields
+  (AUM instead of depth for fund products)
+
+---
+
+## Additional RWA Assets to Add with Phase 2 Venues
+
+Once the security token exchanges are connected, add these assets to
+the monitored universe:
+
+| Asset | Type | Issuer | Primary Venue |
+|-------|------|--------|---------------|
+| BENJI | Tokenized Treasury Fund | Franklin Templeton | Stellar, Ethereum |
+| VBILL | Tokenized Treasury Fund | VanEck | Ethereum |
+| USDY | Yield-bearing stablecoin (Treasury-backed) | Ondo Finance | Multiple chains |
+| bCSPX | Tokenized S&P 500 ETF | Backed Finance | Ethereum |
+| bIB01 | Tokenized Short Treasury Bond ETF | Backed Finance | Ethereum |
+| ACRED | Tokenized Credit Fund | Ares Management (via Securitize) | Securitize |
+
+These expand the "DIGITAL SECURITIES & RWA" category in the token
+selector to approximately 11 assets, providing meaningful coverage of
+the institutional tokenization landscape.
+
+---
+
+## Implementation Approach
+
+### Phase 2a: Securitize + Archax (immediate value)
+Start with Securitize (BUIDL primary market data) and Archax
+(FCA-regulated venue). These two provide the most strategic value:
+- Securitize gives primary market depth for BlackRock BUIDL
+- Archax gives FCA-regulated digital securities coverage
+Together they bridge ADGM's virtual asset and digital securities
+frameworks.
+
+### Phase 2b: INX + tZERO + SDX + ADDX (broader coverage)
+Add the remaining venues for comprehensive security token exchange
+coverage across US, Swiss and Singapore regulatory jurisdictions.
+
+### API Access Considerations
+Unlike DEX and CEX APIs, security token exchange APIs typically
+require:
+- Formal onboarding / account creation
+- API key provisioning
+- Possibly data licensing agreements
+- KYC/institutional verification
+
+This means Phase 2 has a business development component alongside the
+technical build. Rob may need to reach out to each platform's
+partnership or API team to establish access. The relay code can be
+written against their documented API specifications, but live data
+flow requires an authenticated connection.
+
+---
+
+## Venue Config Entries
+
+```typescript
+{ id: "securitize", name: "Securitize Markets", type: "ats",
+  chain: "ethereum", regulated: true }
+{ id: "archax", name: "Archax", type: "mtf",
+  chain: "ethereum", regulated: true }
+{ id: "inx", name: "INX", type: "ats",
+  chain: "ethereum", regulated: true }
+{ id: "tzero", name: "tZERO", type: "ats",
+  chain: "ethereum", regulated: true }
+{ id: "sdx", name: "SDX", type: "mtf",
+  chain: "ethereum", regulated: true }
+{ id: "addx", name: "ADDX", type: "mtf",
+  chain: "ethereum", regulated: true }
+```
+
+Note: all security token exchanges are regulated: true, which means
+they receive the 25% regulatory bonus in the heatmap stability score.
+
+---
+
+## Verification
+1. Confirm new venue types (ats, mtf) render correctly across all tabs.
+2. Confirm RCL Provenance panel shows "ats" or "mtf" labels for new venues.
+3. Confirm the DIGITAL SECURITIES & RWA category in the token selector
+   shows all Phase 1 + Phase 2 assets (~11 tokens).
+4. For any asset with 0 venue coverage (e.g. an asset only available on
+   a venue not yet connected), confirm the platform honestly reports
+   INSUFFICIENT rather than hiding the asset.
+5. Confirm the footer ticker scrolls all assets including the RWA
+   category (~31 total tokens).
+6. Confirm heatmap grid accommodates the expanded venue count (up to
+   26 venues with all Phase 1 + Phase 2 venue expansions combined).
+
+---
+
+## Strategic Outcome
+
+After Phase 2, Stratalink monitors:
+- 20 ILU virtual assets across up to 20 DEX/CEX venues
+- 11 digital securities / RWA tokens across DEXs, CEXs and 6 regulated
+  security token exchanges
+- 26 total venues spanning crypto exchanges, DEXs, AMMs, OTC, and
+  regulated security token MTFs/ATSs
+- Coverage across Ethereum, 7 EVM L2s, BNB Chain, Hyperliquid, and
+  regulated venue infrastructure
+
+This positions Stratalink as the first liquidity verification layer
+that spans both the virtual asset and digital securities ecosystems -
+exactly the cross-category infrastructure ADGM needs for comprehensive
+supervisory coverage.

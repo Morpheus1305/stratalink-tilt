@@ -35,6 +35,13 @@ import syncswapRoutes          from "./routes/syncswap-relay";
 import lineaDexRoutes          from "./routes/linea-dex-relay";
 import scrollDexRoutes         from "./routes/scroll-dex-relay";
 import analyticsL5fRoutes from "./routes/analytics-l5f";
+// Security Token Exchange Relays (Phase 2 — ATS/MTF regulated venues)
+import securitizeRoutes from "./routes/securitize-relay";
+import archaxRoutes     from "./routes/archax-relay";
+import inxRoutes        from "./routes/inx-relay";
+import tzeroRoutes      from "./routes/tzero-relay";
+import sdxRoutes        from "./routes/sdx-relay";
+import addxRoutes       from "./routes/addx-relay";
 import dailyCommentaryRouter from "./api/dailyCommentary";
 import { reportRoutes, generateServerSideReport } from "./routes/reports";
 import systemStatusRoutes from "./routes/system-status";
@@ -410,6 +417,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/syncswap",           syncswapRoutes);
   app.use("/api/linea-dex",          lineaDexRoutes);
   app.use("/api/scroll-dex",         scrollDexRoutes);
+  // Security Token Exchange Relays (Phase 2 — regulated ATS/MTF venues)
+  app.use("/api/securitize", securitizeRoutes);
+  app.use("/api/archax",     archaxRoutes);
+  app.use("/api/inx",        inxRoutes);
+  app.use("/api/tzero",      tzeroRoutes);
+  app.use("/api/sdx",        sdxRoutes);
+  app.use("/api/addx",       addxRoutes);
 
   // Download endpoint for LTC code archive
   app.get("/download/LTC-v1.0.zip", (_req, res) => {

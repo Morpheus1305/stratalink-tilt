@@ -74,11 +74,19 @@ export const ILU_CATEGORIES: ILUCategory[] = [
     label: "Digital Securities & RWA",
     shortLabel: "RWA",
     tokens: [
-      { symbol: "PAXG",  name: "Paxos Gold",       pair: "PAXG-USD",  category: "rwa", categoryLabel: "RWA", systemicRole: "NYDFS-regulated tokenized gold (1 PAXG = 1 troy oz London Good Delivery gold)" },
-      { symbol: "XAUT",  name: "Tether Gold",       pair: "XAUT-USD",  category: "rwa", categoryLabel: "RWA", systemicRole: "Tokenized gold commodity (1 XAUT = 1 troy oz London Good Delivery gold)" },
-      { symbol: "ONDO",  name: "Ondo Finance",      pair: "ONDO-USD",  category: "rwa", categoryLabel: "RWA", systemicRole: "Governance token of the leading tokenized securities platform" },
-      { symbol: "BUIDL", name: "BlackRock BUIDL",   pair: "BUIDL-USD", category: "rwa", categoryLabel: "RWA", systemicRole: "BlackRock $2.5B tokenized US Treasury fund (via Securitize, USD-pegged)" },
-      { symbol: "OUSG",  name: "Ondo OUSG",         pair: "OUSG-USD",  category: "rwa", categoryLabel: "RWA", systemicRole: "Ondo tokenized US Government Bond Fund (yield-accruing, institutional access)" },
+      // Phase 1 — commodity tokens & governance
+      { symbol: "PAXG",  name: "Paxos Gold",             pair: "PAXG-USD",  category: "rwa", categoryLabel: "RWA", systemicRole: "NYDFS-regulated tokenized gold (1 PAXG = 1 troy oz London Good Delivery gold)" },
+      { symbol: "XAUT",  name: "Tether Gold",             pair: "XAUT-USD",  category: "rwa", categoryLabel: "RWA", systemicRole: "Tokenized gold commodity (1 XAUT = 1 troy oz London Good Delivery gold)" },
+      { symbol: "ONDO",  name: "Ondo Finance",            pair: "ONDO-USD",  category: "rwa", categoryLabel: "RWA", systemicRole: "Governance token of the leading tokenized securities platform" },
+      { symbol: "BUIDL", name: "BlackRock BUIDL",         pair: "BUIDL-USD", category: "rwa", categoryLabel: "RWA", systemicRole: "BlackRock $2.5B tokenized US Treasury fund (via Securitize, USD-pegged)" },
+      { symbol: "OUSG",  name: "Ondo OUSG",               pair: "OUSG-USD",  category: "rwa", categoryLabel: "RWA", systemicRole: "Ondo tokenized US Government Bond Fund (yield-accruing, institutional access)" },
+      // Phase 2 — security token exchange assets
+      { symbol: "BENJI", name: "Franklin OnChain",        pair: "BENJI-USD", category: "rwa", categoryLabel: "RWA", systemicRole: "Franklin Templeton tokenized US Government Money Fund (on-chain shares, multi-chain)" },
+      { symbol: "VBILL", name: "VanEck VBILL",            pair: "VBILL-USD", category: "rwa", categoryLabel: "RWA", systemicRole: "VanEck tokenized US Treasury Bills fund (institutional grade, Ethereum)" },
+      { symbol: "USDY",  name: "Ondo US Dollar Yield",    pair: "USDY-USD",  category: "rwa", categoryLabel: "RWA", systemicRole: "Ondo yield-bearing stablecoin backed by short-term US Treasuries" },
+      { symbol: "BCSPX", name: "Backed CSPX",             pair: "BCSPX-USD", category: "rwa", categoryLabel: "RWA", systemicRole: "Backed Finance tokenized iShares Core S&P 500 ETF (bCSPX, Ethereum)" },
+      { symbol: "BIB01", name: "Backed IB01",             pair: "BIB01-USD", category: "rwa", categoryLabel: "RWA", systemicRole: "Backed Finance tokenized iShares Short Treasury Bond ETF (bIB01, Ethereum)" },
+      { symbol: "ACRED", name: "Ares Credit",             pair: "ACRED-USD", category: "rwa", categoryLabel: "RWA", systemicRole: "Ares Management tokenized private credit fund (via Securitize, institutional access)" },
     ],
   },
 ];

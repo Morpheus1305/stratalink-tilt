@@ -23,12 +23,19 @@ const ILU_CATEGORIES: Record<string, { label: string; color: string }> = {
   DOGE: { label: "LIQUIDITY",  color: "#34d399" },
   TON:  { label: "LIQUIDITY",  color: "#34d399" },
   ADA:  { label: "LIQUIDITY",  color: "#34d399" },
-  // Digital Securities & RWA
+  // Digital Securities & RWA — Phase 1
   PAXG:  { label: "RWA", color: "#f59e0b" },
   XAUT:  { label: "RWA", color: "#f59e0b" },
   ONDO:  { label: "RWA", color: "#f59e0b" },
   BUIDL: { label: "RWA", color: "#f59e0b" },
   OUSG:  { label: "RWA", color: "#f59e0b" },
+  // Digital Securities & RWA — Phase 2
+  BENJI: { label: "RWA", color: "#f59e0b" },
+  VBILL: { label: "RWA", color: "#f59e0b" },
+  USDY:  { label: "RWA", color: "#f59e0b" },
+  BCSPX: { label: "RWA", color: "#f59e0b" },
+  BIB01: { label: "RWA", color: "#f59e0b" },
+  ACRED: { label: "RWA", color: "#f59e0b" },
 };
 
 // ── Token logo CDN (spothq open-source set on jsDelivr) ──────────────────────
@@ -52,6 +59,13 @@ const ICON_OVERRIDES: Record<string, string | null> = {
   ONDO:  null,
   BUIDL: null,
   OUSG:  null,
+  // Phase 2 RWA tokens not in spothq set
+  BENJI: null,
+  VBILL: null,
+  USDY:  null,
+  BCSPX: null,
+  BIB01: null,
+  ACRED: null,
 };
 
 function getIconUrl(rawSymbol: string): string | null {

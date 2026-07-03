@@ -577,12 +577,19 @@ export class MemStorage implements IStorage {
       { sym: "DOGE",  price:  0.285, chg: -0.70, depth:   48, spread: 0.08, volB:  3.1 },
       { sym: "TON",   price:   5.82, chg:  1.10, depth:   28, spread: 0.12, volB:  0.4 },
       { sym: "ADA",   price:   0.88, chg: -0.50, depth:   22, spread: 0.09, volB:  0.7 },
-      // ── Digital Securities & RWA ─────────────────────────────────────────────
+      // ── Digital Securities & RWA — Phase 1 ──────────────────────────────────
       { sym: "PAXG",  price:  3220,  chg:  0.65, depth:   15, spread: 0.12, volB:  0.18 },
       { sym: "XAUT",  price:  3218,  chg:  0.64, depth:    8, spread: 0.18, volB:  0.08 },
       { sym: "ONDO",  price:   1.28, chg:  2.10, depth:   12, spread: 0.10, volB:  0.22 },
       { sym: "BUIDL", price:  1.000, chg:  0.00, depth:    4, spread: 0.01, volB:  0.02 },
       { sym: "OUSG",  price:  1.085, chg:  0.01, depth:    2, spread: 0.02, volB:  0.01 },
+      // ── Digital Securities & RWA — Phase 2 (security token exchange assets) ─
+      { sym: "BENJI", price:  1.000, chg:  0.00, depth:    3, spread: 0.008, volB: 0.008 },
+      { sym: "VBILL", price:  1.000, chg:  0.00, depth:    2, spread: 0.008, volB: 0.006 },
+      { sym: "USDY",  price:  1.090, chg:  0.01, depth:    5, spread: 0.02,  volB: 0.015 },
+      { sym: "BCSPX", price:  510.0, chg:  0.42, depth:    6, spread: 0.20,  volB: 0.012 },
+      { sym: "BIB01", price:  103.0, chg:  0.05, depth:    5, spread: 0.15,  volB: 0.010 },
+      { sym: "ACRED", price:  1.000, chg:  0.00, depth:    2, spread: 0.01,  volB: 0.005 },
     ];
 
     return BASE.map((t, i) => {

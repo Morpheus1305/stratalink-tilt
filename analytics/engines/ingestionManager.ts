@@ -59,8 +59,10 @@ const TRACKED_SYMBOLS = [
   'SOL', 'XRP', 'DOGE', 'ADA', 'AVAX',
   // extended
   'TON', 'USDE', 'HYPE',
-  // Digital Securities & RWA
+  // Digital Securities & RWA — Phase 1
   'PAXG', 'XAUT', 'ONDO', 'BUIDL', 'OUSG',
+  // Digital Securities & RWA — Phase 2 (security token exchange assets)
+  'BENJI', 'VBILL', 'USDY', 'BCSPX', 'BIB01', 'ACRED',
 ];
 
 /**
@@ -184,6 +186,14 @@ const ILU_OTC_SYMBOLS     = ["BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "ADA", "
                               "USDT", "USDC", "DAI", "COMP", "SNX", "CAKE",
                               "TON"];
 
+// Phase 2 — Security Token Exchange symbol groups
+const ILU_SECURITIZE_SYMBOLS = ["BUIDL", "OUSG", "ACRED"];
+const ILU_ARCHAX_SYMBOLS     = ["BUIDL", "OUSG", "BENJI", "VBILL", "BCSPX", "BIB01"];
+const ILU_INX_SYMBOLS        = ["ONDO", "BUIDL"];
+const ILU_TZERO_SYMBOLS      = ["ONDO", "BUIDL"];
+const ILU_SDX_SYMBOLS        = ["BCSPX", "BIB01", "BUIDL"];
+const ILU_ADDX_SYMBOLS       = ["BUIDL", "OUSG", "BENJI"];
+
 const RELAY_VENUES: { path: string; symbols: string[] }[] = [
   { path: "/api/bybit/spot/depth",        symbols: ILU_BYBIT_SYMBOLS   },
   { path: "/api/bitget/spot/depth",       symbols: ILU_BITGET_SYMBOLS  },
@@ -195,6 +205,13 @@ const RELAY_VENUES: { path: string; symbols: string[] }[] = [
   { path: "/api/uniswap/spot/depth",      symbols: ILU_UNISWAP_SYMBOLS },
   { path: "/api/curve/spot/depth",        symbols: ILU_CURVE_SYMBOLS   },
   { path: "/api/otc/spot/depth",          symbols: ILU_OTC_SYMBOLS     },
+  // Phase 2 — Security Token Exchange Relays
+  { path: "/api/securitize/spot/depth",   symbols: ILU_SECURITIZE_SYMBOLS },
+  { path: "/api/archax/spot/depth",       symbols: ILU_ARCHAX_SYMBOLS     },
+  { path: "/api/inx/spot/depth",          symbols: ILU_INX_SYMBOLS        },
+  { path: "/api/tzero/spot/depth",        symbols: ILU_TZERO_SYMBOLS      },
+  { path: "/api/sdx/spot/depth",          symbols: ILU_SDX_SYMBOLS        },
+  { path: "/api/addx/spot/depth",         symbols: ILU_ADDX_SYMBOLS       },
 ];
 
 /**

@@ -39,12 +39,19 @@ const TOKEN_LOGOS: Record<string, string> = {
   DOGE: "https://assets.coingecko.com/coins/images/5/small/dogecoin.png",
   TON:  "https://assets.coingecko.com/coins/images/17980/small/ton_symbol.png",
   ADA:  "https://assets.coingecko.com/coins/images/975/small/cardano.png",
-  // Digital Securities & RWA
+  // Digital Securities & RWA — Phase 1
   PAXG:  "https://assets.coingecko.com/coins/images/9519/small/paxg.PNG",
   XAUT:  "https://assets.coingecko.com/coins/images/10783/small/XAUt_200x200.png",
   ONDO:  "https://assets.coingecko.com/coins/images/26580/small/ONDO.png",
   BUIDL: "https://assets.coingecko.com/coins/images/35420/small/BUIDL.png",
   OUSG:  "https://assets.coingecko.com/coins/images/28994/small/OUSG.png",
+  // Digital Securities & RWA — Phase 2 (security token exchange assets)
+  BENJI: "https://assets.coingecko.com/coins/images/31036/small/benji.png",
+  VBILL: "https://assets.coingecko.com/coins/images/39360/small/vbill.png",
+  USDY:  "https://assets.coingecko.com/coins/images/31297/small/USDY_200x200.png",
+  BCSPX: "https://assets.coingecko.com/coins/images/26693/small/bCSPX.png",
+  BIB01: "https://assets.coingecko.com/coins/images/26844/small/bIB01.png",
+  ACRED: "https://assets.coingecko.com/coins/images/38432/small/acred.png",
 };
 
 function TokenLogo({ symbol, size = 20 }: { symbol: string; size?: number }) {
