@@ -53,26 +53,28 @@ const TOKEN_DEPTH_BASES: Record<string, number> = {
 };
 
 function generateFallbackOrderbook(token: SupportedToken, venue: SupportedVenue) {
+  // Deterministic fallback: uses stale reference prices without jitter.
+  // Labeled as fallback in calling contexts. No Math.random().
   const basePrice = TOKEN_FALLBACK_PRICES[token] || 100;
   const multiplier = VENUE_DEPTH_MULTIPLIERS[venue];
-  const mid = basePrice * (0.999 + Math.random() * 0.002);
-  
+  const mid = basePrice; // exact stale price, no random noise
+
   const totalDepthUsd = (TOKEN_DEPTH_BASES[token] || 1_000_000) * multiplier;
   const depthPerLevel = totalDepthUsd / 100;
-  
+
   const bids = [];
   const asks = [];
-  
+
   for (let i = 0; i < 50; i++) {
     const bidPrice = mid * (1 - (i + 1) * 0.0002);
     const askPrice = mid * (1 + (i + 1) * 0.0002);
     const levelDepthUsd = depthPerLevel * (1 - i * 0.01);
     const sizeBase = levelDepthUsd / mid;
-    
+
     bids.push({ price: bidPrice, sizeBase });
     asks.push({ price: askPrice, sizeBase });
   }
-  
+
   return { mid, bids, asks };
 }
 
@@ -204,12 +206,12 @@ export async function fetchVenueVolume24h(
 }
 
 function generateFallbackVolume(token: SupportedToken, venue: SupportedVenue): number {
+  // Deterministic fallback: no jitter. Values are stale estimates only.
   const baseVolumes: Record<string, number> = {
     BTC: 500_000_000,
     ETH: 300_000_000,
     SOL: 150_000_000,
   };
   const multiplier = VENUE_DEPTH_MULTIPLIERS[venue];
-  const jitter = 0.8 + Math.random() * 0.4;
-  return (baseVolumes[token] || 50_000_000) * multiplier * jitter;
+  return (baseVolumes[token] || 50_000_000) * multiplier;
 }

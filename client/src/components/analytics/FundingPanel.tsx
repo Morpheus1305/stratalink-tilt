@@ -207,16 +207,14 @@ function CrossTokenComparison({ funding }: { funding: Record<string, FundingData
 export default function FundingPanel({ funding }: Props) {
   const keys = Object.keys(funding || {});
 
+  // Sparkline history: show the current rate as a flat baseline.
+  // A flat line is honest — we only have a single point-in-time snapshot.
+  // Real trend will emerge once the ring buffer accumulates historical rates.
   const syntheticHistory = useMemo(() => {
     const history: Record<string, number[]> = {};
     keys.forEach(k => {
       const baseRate = funding?.[k]?.fundingRate ?? 0;
-      history[k] = Array.from({ length: 12 }, (_, i) => {
-        const variance = (Math.random() - 0.5) * 0.0004;
-        const trend = (i - 6) * 0.00002 * (Math.random() > 0.5 ? 1 : -1);
-        return baseRate + variance + trend;
-      });
-      history[k].push(baseRate);
+      history[k] = Array.from({ length: 13 }, () => baseRate);
     });
     return history;
   }, [keys, funding]);

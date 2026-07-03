@@ -40,15 +40,9 @@ function getVenueStatus() {
       return { venue, status: "OFFLINE" as const, latencyMs: null };
     }
 
-    // Synthetic latency: base + jitter per venue
-    const BASE_LATENCY: Record<string, number> = {
-      binance: 45, coinbase: 62, kraken: 58, okx: 71, bybit: 55,
-      hyperliquid: 48, uniswap: 82, dydx: 67, deribit: 73, gmx: 91,
-      curve: 85, bitget: 64, otc: 110,
-    };
-    const base = BASE_LATENCY[venue] ?? 80;
-    const latencyMs = base + Math.floor(Math.random() * 12) - 6;
-    const status = latencyMs > 100 ? "DEGRADED" : "ONLINE";
+    // Latency derived from TSLE buffer entry age — real ingest lag, not synthetic.
+    const latencyMs = Math.min(age, 9999); // age since last successful ingest
+    const status = latencyMs > 30_000 ? "DEGRADED" : "ONLINE";
 
     return { venue, status: status as "ONLINE" | "DEGRADED", latencyMs };
   });

@@ -100,13 +100,17 @@ export async function computeLiquidityFactors(
   const slippage10 = totalDepth10 < 1_000_000 ? 0.03 : totalDepth10 < 5_000_000 ? 0.01 : 0.005;
   const execEfficiency = normalize(1 / slippage10, 0, 300);
 
-  const depthHistory = Array.from({ length: 24 }, () => 
-    totalDepth25 * (0.85 + Math.random() * 0.30)
-  );
-  const mean = depthHistory.reduce((a, b) => a + b, 0) / depthHistory.length;
-  const variance = depthHistory.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / depthHistory.length;
-  const stdev = Math.sqrt(variance);
-  const stability = normalize(mean / (stdev || 1), 0, 20);
+  // Stability computed from real cross-venue depth dispersion.
+  // High dispersion (venues disagree on depth) = low stability.
+  const activeLevels = venueDepths.filter(v => v.depth25 > 0);
+  let stability = 50; // default when only one venue active
+  if (activeLevels.length >= 2) {
+    const depths = activeLevels.map(v => v.depth25);
+    const mean = depths.reduce((a, b) => a + b, 0) / depths.length;
+    const stdev = Math.sqrt(depths.reduce((s, v) => s + (v - mean) ** 2, 0) / depths.length);
+    const cv = mean > 0 ? stdev / mean : 1; // coefficient of variation
+    stability = normalize(1 - cv, 0, 1); // cv=0 → perfect stability=100; cv=1 → unstable=0
+  }
 
   const venueCount = venueDepths.filter(v => v.depth25 > 0).length;
   const fragmentation = normalize(venueCount, 1, 10);

@@ -226,11 +226,10 @@ export default function StressHeatmap({ drivers = [], stressScore = 0, regime = 
       }
     }
 
+    // History shows the actual score as a flat line until real historical
+    // data is available. No random noise — exact recorded values only.
     Object.values(data).forEach(b => {
-      b.history = Array.from({ length: 8 }, () => 
-        Math.max(0, b.score + (Math.random() - 0.5) * 10)
-      );
-      b.history.push(b.score);
+      b.history = Array.from({ length: 9 }, () => b.score);
     });
 
     return data;

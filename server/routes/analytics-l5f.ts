@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { computeAnalyticsSnapshot, type TsleAggregate } from '../services/analytics-layer';
+import { getStoredHistory } from '../services/depthHistoryStore';
 
 const router = Router();
 
@@ -70,6 +71,68 @@ router.get('/snapshot/:symbol', (req: Request, res: Response) => {
       error: 'Failed to compute analytics snapshot',
     });
   }
+});
+
+// ─── Session Comparison Endpoint ────────────────────────────────────────────
+// Compares current session metrics against the oldest available session window.
+// Returns { hasData: false } when < 10 data points exist (still warming up).
+router.get('/session-comparison/:symbol', (req: Request, res: Response) => {
+  const symbol = (req.params.symbol || 'BTC').toUpperCase();
+
+  const allHistory = getStoredHistory(symbol, 48 * 60 * 60 * 1000); // up to 48h
+
+  if (allHistory.length < 10) {
+    return res.json({
+      ok: true,
+      hasData: false,
+      reason: `Collecting session baseline — ${allHistory.length} of 10 required points recorded.`,
+      pointsCollected: allHistory.length,
+    });
+  }
+
+  // Window: compare the oldest 20% of points vs the newest 20%
+  const windowSize = Math.max(3, Math.floor(allHistory.length * 0.20));
+  const priorWindow = allHistory.slice(0, windowSize);
+  const currentWindow = allHistory.slice(-windowSize);
+
+  const avg = (arr: number[]) => arr.reduce((s, v) => s + v, 0) / arr.length;
+
+  const priorDepth10  = avg(priorWindow.map(p => p.depth10bps));
+  const priorDepth25  = avg(priorWindow.map(p => p.depth25bps));
+  const priorDepth50  = avg(priorWindow.map(p => p.depth50bps));
+  const priorSpread   = avg(priorWindow.map(p => p.spreadBps));
+
+  const curDepth10    = avg(currentWindow.map(p => p.depth10bps));
+  const curDepth25    = avg(currentWindow.map(p => p.depth25bps));
+  const curDepth50    = avg(currentWindow.map(p => p.depth50bps));
+  const curSpread     = avg(currentWindow.map(p => p.spreadBps));
+
+  const pctDelta = (cur: number, prior: number) =>
+    prior === 0 ? 0 : ((cur - prior) / prior) * 100;
+
+  const oldestTs = allHistory[0].ts;
+  const newestTs = allHistory[allHistory.length - 1].ts;
+  const spanHours = (newestTs - oldestTs) / 3_600_000;
+
+  const windowLabel = spanHours >= 22
+    ? '24h ago'
+    : spanHours >= 1
+    ? `${spanHours.toFixed(1)}h ago`
+    : 'session start';
+
+  return res.json({
+    ok: true,
+    hasData: true,
+    windowLabel,
+    spanHours: +spanHours.toFixed(2),
+    pointCount: allHistory.length,
+    comparison: {
+      depth10: { prior: priorDepth10, current: curDepth10, deltaPct: pctDelta(curDepth10, priorDepth10) },
+      depth25: { prior: priorDepth25, current: curDepth25, deltaPct: pctDelta(curDepth25, priorDepth25) },
+      depth50: { prior: priorDepth50, current: curDepth50, deltaPct: pctDelta(curDepth50, priorDepth50) },
+      spread:  { prior: priorSpread,  current: curSpread,  deltaPct: pctDelta(curSpread,  priorSpread) },
+    },
+  });
 });
 
 router.get('/health', (_req: Request, res: Response) => {

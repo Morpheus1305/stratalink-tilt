@@ -138,7 +138,7 @@ function generateSyntheticDepth(
   symbol: string,
   scope: string
 ): LISSnapshot {
-  const spreadBps = 1.5 + Math.random() * 2;
+  const spreadBps = 2.5; // deterministic synthetic spread when Bybit API is geo-blocked
   const halfSpread = midPrice * (spreadBps / 20_000);
   const spreadAbsolute = halfSpread * 2;
 
@@ -147,8 +147,8 @@ function generateSyntheticDepth(
   const bands: Record<string, { bid_notional: number; ask_notional: number; total_notional: number }> = {};
 
   for (const bps of bpsLevels) {
-    const scale = bps * depthScale * (0.8 + Math.random() * 0.4);
-    const bidRatio = 0.45 + Math.random() * 0.1;
+    const scale = bps * depthScale;
+    const bidRatio = 0.5; // symmetric book assumption for synthetic fallback
     const bidNotional = scale * bidRatio;
     const askNotional = scale * (1 - bidRatio);
     bands[`pct_${bps}`] = {

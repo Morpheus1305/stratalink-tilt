@@ -145,7 +145,7 @@ function getLiquidityType(venueId: string): RclLiquidityType {
 
 // ─── Instruments ──────────────────────────────────────────────────────────
 
-const MOCK_INSTRUMENTS: RclInstrument[] = [
+const TRACKED_INSTRUMENTS: RclInstrument[] = [
   { instrument: 'BTC-USD', asset_class: 'cryptocurrency', status: 'active' },
   { instrument: 'ETH-USD', asset_class: 'cryptocurrency', status: 'active' },
   { instrument: 'SOL-USD', asset_class: 'cryptocurrency', status: 'active' },
@@ -475,10 +475,10 @@ export function getInstruments(
   limit: number = 50,
   _cursor?: string,
 ): { items: RclInstrument[]; next_cursor: string | null } {
-  let filtered = MOCK_INSTRUMENTS;
+  let filtered = TRACKED_INSTRUMENTS;
   if (q) {
     const query = q.toLowerCase();
-    filtered = MOCK_INSTRUMENTS.filter(
+    filtered = TRACKED_INSTRUMENTS.filter(
       (i) =>
         i.instrument.toLowerCase().includes(query) ||
         i.asset_class.toLowerCase().includes(query),

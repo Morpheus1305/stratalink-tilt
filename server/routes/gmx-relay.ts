@@ -131,7 +131,7 @@ function buildSyntheticBook(mid: number, poolDepthUsd: number, symbol: string): 
     rawAsks.push([askPrice, depthUsd / askPrice]);
   }
 
-  const spreadBps = 3 + Math.random() * 2;
+  const spreadBps = 3.5; // GMX uses oracle pricing — deterministic tight spread
   const halfSpread = mid * (spreadBps / 20_000);
   const spreadAbsolute = halfSpread * 2;
 

@@ -2,3 +2,4 @@
 - [Band Key Mapping: DepthEngine → LISSnapshot](band-key-mapping.md) — depthEngine uses "10bps"/"25bps" keys + bidUSD/askUSD/totalUSD; tsleBuffer.record() expects "pct_0.1"/"pct_0.25" keys + bid_notional/ask_notional/total_notional.
 - [Live Data Architecture: Alerts + RCL](live-data-architecture.md) — liveAlertsService.ts and rclLive.ts replace storage/rclMock fixtures; alert triggers wired into ingestionManager via detectAndWriteAlerts() after each ingest cycle.
 - [Multi-Venue TSLE Fix](multi-venue-tsle-fix.md) — two-part fix to get all 14 venues into tsleBuffer; depthEngine dead loop + relay route API prefix bug.
+- [Math.random() Purge — Acceptable Carve-outs](math-random-carveouts.md) — all data-path Math.random() removed; four deliberate survivors: alerts.ts ID suffix, strata-ai.tsx message ID, reportPdfGenerator reference IDs, sidebar.tsx UI-lib internal.

@@ -97,7 +97,7 @@ function buildSyntheticSnapshot(symbol: string, midPrice: number, poolSize: numb
   const spreadBps = 2.5;
   const bands: Record<string, { bid_notional: number; ask_notional: number; total_notional: number }> = {};
   for (const bps of [0.1, 0.25, 0.5, 1, 2]) {
-    const total = poolSize * (bps / 2) * (0.8 + Math.random() * 0.4);
+    const total = poolSize * (bps / 2); // deterministic band sizing — no jitter
     bands[`pct_${bps}`] = { bid_notional: Math.round(total * 0.5), ask_notional: Math.round(total * 0.5), total_notional: Math.round(total) };
   }
   return { venue: "otc", symbol: symbol.toUpperCase(), timestamp: Date.now(), mid_price: midPrice, spread: { absolute: midPrice * (spreadBps / 10_000), bps: spreadBps }, bands };

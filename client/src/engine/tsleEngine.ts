@@ -49,9 +49,9 @@ function classifyRegime(score: number) {
 // ---------------------------
 export async function computeFiveFactorScore(token: string, depth: any, funding: any) {
   const depthQuality = Math.min(100, (depth?.["25"]?.totalUsd ?? 0) / 30000000 * 100);
-  const executionEfficiency = getExecutionIntegrityScore(token);
+  const executionEfficiency = await getExecutionIntegrityScore(token);
   const liquidityStability = Math.max(0, 100 - Math.abs(funding?.apr ?? 0) * 10);
-  const marketFragmentation = getFragmentationScore(token);
+  const marketFragmentation = await getFragmentationScore(token);
   const riskConcentration = Math.min(100, (depth?.venues?.length ?? 1) * 20);
 
   const combined =
@@ -80,8 +80,8 @@ export async function computeTSLE(token: string) {
 
   const depth = await getDepthForToken(token);
   const funding = await getFundingForToken(token);
-  const fragmentation = getFragmentationScore(token);
-  const execIntegrity = getExecutionIntegrityScore(token);
+  const fragmentation = await getFragmentationScore(token);
+  const execIntegrity = await getExecutionIntegrityScore(token);
 
   const depthScore = Math.min(100, (depth?.aggregate?.levels?.["25"]?.totalUsd ?? 0) / 25000000 * 100);
   const fundingScore = Math.max(0, 100 - Math.abs(funding?.apr ?? 0) * 8);

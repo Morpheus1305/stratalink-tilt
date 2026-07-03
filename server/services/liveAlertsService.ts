@@ -223,61 +223,22 @@ function countCriticalAssets(): { count: number; total: number } {
 
 // ─── Alert timeline from ring buffer ──────────────────────────────────────
 // Buckets ring buffer entries by 5-min window, counting by severity.
-// Historical buckets (outside the live ring-buffer window) are seeded with
-// a deterministic synthetic baseline so the chart always has visual context
-// from the first render  -  ring-buffer data overlays the most-recent buckets.
-
-/** Lightweight LCG  -  deterministic pseudo-random from a seed integer. */
-function lcg(seed: number): number {
-  const a = 1664525, c = 1013904223, m = 2 ** 32;
-  return ((a * seed + c) % m) / m;
-}
-
-/**
- * Synthesise a plausible alert-count baseline for one 5-min bucket.
- * Uses the bucket's Unix-minute as a seed so values are stable across calls.
- */
-function syntheticBucketCounts(bucketTs: number): { critical: number; warning: number; info: number } {
-  const seed = Math.floor(bucketTs / 60_000) % 100_003; // prime mod keeps spread
-  const r0 = lcg(seed);
-  const r1 = lcg(seed + 1);
-  const r2 = lcg(seed + 2);
-  const r3 = lcg(seed + 3);
-  // INFO always present (heartbeats from ~23 tracked symbols per bucket)
-  const info     = 8  + Math.floor(r0 * 20);  // 8 - 27
-  // WARNING: moderate activity
-  const warning  = 2  + Math.floor(r1 * 8);   // 2 - 9
-  // CRITICAL: occasional spikes; ~20% of buckets have ≥1
-  const critical = r2 < 0.20 ? 1 + Math.floor(r3 * 4) : 0;
-  return { critical, warning, info };
-}
+// Only real ring-buffer entries are counted; buckets with no live data
+// are reported as zero so the chart always reflects true event volume.
 
 function buildAlertTimeline(_asset: string): AlertsData['alertTimeline'] {
   const BUCKET_MS = 5 * 60 * 1000; // 5-min buckets
   const now = Date.now();
   const BUCKET_COUNT = 20; // last 100 minutes
 
-  // ── Step 1: scaffold with synthetic baseline for all 20 buckets ──────────
+  // Scaffold all buckets to zero — populated only from real ring-buffer data.
   const bucketMap = new Map<number, { critical: number; warning: number; info: number }>();
   for (let i = 0; i < BUCKET_COUNT; i++) {
     const bucketTs = Math.floor((now - (BUCKET_COUNT - 1 - i) * BUCKET_MS) / BUCKET_MS) * BUCKET_MS;
-    bucketMap.set(bucketTs, syntheticBucketCounts(bucketTs));
-  }
-
-  // ── Step 2: overlay real ring-buffer data (replaces synthetic for recent buckets) ──
-  // Collect the set of bucket timestamps that have live data.
-  const liveBuckets = new Set<number>();
-  for (const entry of ringBuffer) {
-    const bucketTs = Math.floor(entry.ts / BUCKET_MS) * BUCKET_MS;
-    if (bucketMap.has(bucketTs)) liveBuckets.add(bucketTs);
-  }
-
-  // Zero-out only the buckets that have real data so we count accurately.
-  for (const bucketTs of liveBuckets) {
     bucketMap.set(bucketTs, { critical: 0, warning: 0, info: 0 });
   }
 
-  // Tally ring-buffer entries into their respective buckets.
+  // Tally real ring-buffer entries into their respective buckets.
   for (const entry of ringBuffer) {
     const bucketTs = Math.floor(entry.ts / BUCKET_MS) * BUCKET_MS;
     if (!bucketMap.has(bucketTs)) continue;

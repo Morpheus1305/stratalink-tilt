@@ -6,16 +6,18 @@ function generateWave(tick: number, count: number, amplitude: number): DataPoint
   return Array.from({ length: count }, (_, i) => {
     const wave1 = Math.sin((tick * 0.08) + i * 0.25) * amplitude * 0.6;
     const wave2 = Math.cos((tick * 0.05) + i * 0.15) * amplitude * 0.4;
-    const noise = (Math.random() - 0.5) * amplitude * 0.3;
-    return { v: wave1 + wave2 + noise };
+    // Deterministic micro-variance: third harmonic, no randomness
+    const micro = Math.sin(i * 1.7 + tick * 0.03) * amplitude * 0.15;
+    return { v: wave1 + wave2 + micro };
   });
 }
 
 function generatePulses(tick: number, count: number): DataPoint[] {
   return Array.from({ length: count }, (_, i) => {
     const base = Math.sin((tick * 0.07) + i * 0.22) * 80;
-    const noise = (Math.random() - 0.5) * 40;
-    return { v: base + noise };
+    // Deterministic harmonic instead of random noise
+    const harmonic = Math.sin(i * 2.3 + tick * 0.05) * 20;
+    return { v: base + harmonic };
   });
 }
 

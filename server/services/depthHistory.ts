@@ -1,4 +1,4 @@
-import { getStoredHistory, HistoricalDepthPoint, getHistoryStats } from "./depthHistoryStore";
+import { getStoredHistory, getHistoryStats } from "./depthHistoryStore";
 import { getDepthCache } from "../../analytics/engines/depthEngine";
 
 type DepthHistoryPoint = {
@@ -20,80 +20,16 @@ const WINDOW_DURATION: Record<string, number> = {
   "30d": 30 * 24 * 60 * 60 * 1000,
 };
 
-const TOKEN_DEPTH_BASE: Record<string, number> = {
-  BTC: 8_000_000,
-  ETH: 5_000_000,
-  SOL: 2_500_000,
-  XRP: 1_500_000,
-  ADA: 1_200_000,
-  AVAX: 1_000_000,
-  LINK: 900_000,
-  DOT: 800_000,
-  NEAR: 600_000,
-  MATIC: 500_000,
-};
-
-const TOKEN_SPREAD_BASE: Record<string, number> = {
-  BTC: 1.5,
-  ETH: 2.0,
-  SOL: 3.0,
-  XRP: 2.5,
-  ADA: 4.0,
-  AVAX: 5.0,
-  LINK: 3.5,
-  DOT: 4.5,
-  NEAR: 5.5,
-  MATIC: 6.0,
-};
-
-function generateSyntheticHistory(
-  token: string,
-  startTs: number,
-  endTs: number,
-  intervalMs: number,
-  baseDepth: number,
-  baseSpread: number
-): DepthHistoryPoint[] {
-  const points: DepthHistoryPoint[] = [];
-  let depth = baseDepth;
-  
-  for (let ts = startTs; ts <= endTs; ts += intervalMs) {
-    const depthShock = (Math.random() - 0.5) * 0.08;
-    depth = depth * (1 + depthShock);
-    depth = Math.max(depth, baseDepth * 0.5);
-    depth = Math.min(depth, baseDepth * 1.8);
-
-    const spreadNoise = (Math.random() - 0.5) * 2;
-    const spreadBps = Math.max(0.5, baseSpread + spreadNoise);
-
-    points.push({
-      ts: Math.floor(ts),
-      depth50bps: Math.round(depth),
-      spreadBps: Number(spreadBps.toFixed(2)),
-      source: "synthetic",
-    });
-  }
-  
-  return points;
-}
-
 export async function getOrderbookDepthHistory(
   token: string,
   window: string
 ): Promise<DepthHistoryPoint[]> {
   const duration = WINDOW_DURATION[window] || WINDOW_DURATION["24h"];
-  const now = Date.now();
-  
-  const numPoints = window === "1h" ? 30 : window === "24h" ? 48 : window === "7d" ? 84 : 60;
-  const interval = duration / numPoints;
-  
-  const baseDepth = TOKEN_DEPTH_BASE[token] || 1_000_000;
-  const baseSpread = TOKEN_SPREAD_BASE[token] || 4.0;
-  
+
   const realHistory = getStoredHistory(token, duration);
-  
+
   if (realHistory.length >= 1) {
-    const points: DepthHistoryPoint[] = realHistory.map((h) => ({
+    return realHistory.map((h) => ({
       ts: h.ts,
       depth50bps: h.depth50bps,
       spreadBps: h.spreadBps,
@@ -102,51 +38,32 @@ export async function getOrderbookDepthHistory(
       depth100bps: h.depth100bps,
       depth200bps: h.depth200bps,
       mid: h.mid,
-      source: h.source,
+      source: h.source ?? "live",
     }));
-    
-    if (realHistory.length < numPoints) {
-      const oldestRealTs = realHistory[0].ts;
-      const syntheticStartTs = now - duration;
-      const syntheticEndTs = oldestRealTs - interval;
-      
-      if (syntheticEndTs > syntheticStartTs) {
-        const syntheticPoints = generateSyntheticHistory(
-          token,
-          syntheticStartTs,
-          syntheticEndTs,
-          interval,
-          realHistory[0].depth50bps || baseDepth,
-          realHistory[0].spreadBps || baseSpread
-        );
-        
-        return [...syntheticPoints, ...points];
-      }
-    }
-    
-    return points;
   }
-  
+
+  // No stored history yet — try to return a single current-state point
+  // so the chart at least shows the live snapshot position.
   const depthCache = getDepthCache();
   const currentDepth = depthCache[token];
-  
-  let currentBaseDepth = baseDepth;
-  let currentBaseSpread = baseSpread;
-  
+
   if (currentDepth) {
-    currentBaseDepth = currentDepth.bands["50bps"]?.totalUSD || baseDepth;
-    currentBaseSpread = currentDepth.spreadBps || baseSpread;
+    const now = Date.now();
+    return [
+      {
+        ts: now,
+        depth50bps: currentDepth.bands?.["50bps"]?.totalUSD ?? 0,
+        spreadBps: currentDepth.spreadBps ?? 0,
+        depth10bps: currentDepth.bands?.["10bps"]?.totalUSD,
+        depth25bps: currentDepth.bands?.["25bps"]?.totalUSD,
+        mid: currentDepth.mid,
+        source: "live",
+      },
+    ];
   }
-  
-  const syntheticStartTs = now - duration;
-  return generateSyntheticHistory(
-    token,
-    syntheticStartTs,
-    now,
-    interval,
-    currentBaseDepth,
-    currentBaseSpread
-  );
+
+  // No live data yet — return empty; the chart will show a collecting state.
+  return [];
 }
 
 export function getTimeseriesMetadata(token: string): {

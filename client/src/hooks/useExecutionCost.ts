@@ -13,45 +13,6 @@ export type ExecutionCostState = {
   usingFallback?: boolean;
 };
 
-function buildFallbackResult(query: ExecutionCostQuery) {
-  const bpsBase =
-    query.sizeUsd <= 100_000
-      ? 8
-      : query.sizeUsd <= 1_000_000
-      ? 18
-      : 35;
-
-  const venues = ["binance", "coinbase", "kraken"];
-
-  const quotes = venues.map((venue, idx) => {
-    const jitter = (Math.random() - 0.5) * 4;
-    const slippageBps = bpsBase + jitter + idx * 2;
-    const slippageUsd = (slippageBps / 10_000) * query.sizeUsd;
-    const depthUtilizationPct = 20 + idx * 20 + Math.random() * 10;
-    return {
-      venue,
-      sizeUsd: query.sizeUsd,
-      expectedSlippageBps: slippageBps,
-      expectedSlippageUsd: slippageUsd,
-      effectivePrice: 1,
-      depthUtilizationPct,
-    };
-  });
-
-  quotes.sort((a, b) => a.expectedSlippageBps - b.expectedSlippageBps);
-  const best = quotes[0];
-
-  return {
-    token: query.token,
-    side: query.side,
-    sizeUsd: query.sizeUsd,
-    bestVenue: best.venue,
-    bestTotalSlippageBps: best.expectedSlippageBps,
-    bestTotalSlippageUsd: best.expectedSlippageUsd,
-    quotes,
-  };
-}
-
 export function useExecutionCost(
   query: ExecutionCostQuery | null
 ): ExecutionCostState {
@@ -86,14 +47,13 @@ export function useExecutionCost(
         if (cancelled) return;
 
         setState({ loading: false, error: null, result: json, usingFallback: false });
-      } catch (_e: any) {
+      } catch (e: any) {
         if (cancelled) return;
-        const fallback = buildFallbackResult(currentQuery);
         setState({
           loading: false,
-          error: null,
-          result: fallback,
-          usingFallback: true,
+          error: "Live execution cost data unavailable — check venue connectivity",
+          result: null,
+          usingFallback: false,
         });
       }
     }
