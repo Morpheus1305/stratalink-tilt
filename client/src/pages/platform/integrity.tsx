@@ -39,9 +39,13 @@ const VENUE_TICKER: Record<string, string> = {
   curve:       "CRV",
   deribit:     "DER",
   otc:         "OTC",
-  aerodrome:   "AERO",
-  velodrome:   "VELO",
-  pancakeswap: "CAKE",
+  aerodrome:            "AERO",
+  velodrome:            "VELO",
+  pancakeswap:          "CAKE",
+  "uniswap-worldchain": "WLD",
+  syncswap:             "SYNC",
+  "linea-dex":          "LINEA",
+  "scroll-dex":         "SCRL",
 };
 
 // ─── FRBD perp venue colours (Oct 2025 ref: BIN=teal, OKX=grey, BYB=red) ─────
@@ -877,10 +881,10 @@ export default function IntegrityPage() {
               </div>
             ) : (
               <>
-                {/* Venue square grid  -  8 columns x 2 rows, continuous joined surface */}
+                {/* Venue square grid  -  10 columns x 2 rows, continuous joined surface */}
                 <div style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(8, 1fr)",
+                  gridTemplateColumns: "repeat(10, 1fr)",
                   gap: 1,
                   background: BORDER,
                   border: `1px solid ${BORDER}`,

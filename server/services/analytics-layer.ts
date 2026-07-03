@@ -48,6 +48,7 @@ const KNOWN_VENUES = [
   'deribit', 'hyperliquid', 'dydx', 'uniswap',
   'bitget', 'gmx', 'curve', 'otc', 'canton',
   'aerodrome', 'velodrome', 'pancakeswap',
+  'uniswap-worldchain', 'syncswap', 'linea-dex', 'scroll-dex',
 ];
 
 const REGULATED = new Set(['coinbase', 'kraken', 'deribit']);
@@ -70,6 +71,10 @@ const VENUE_WEIGHT: Record<string, number> = {
   aerodrome:   0.02,
   velodrome:   0.02,
   pancakeswap: 0.02,
+  'uniswap-worldchain': 0.01,
+  syncswap:    0.01,
+  'linea-dex': 0.01,
+  'scroll-dex': 0.01,
 };
 const DEFAULT_WEIGHT = 0.02;
 

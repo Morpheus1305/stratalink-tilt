@@ -323,7 +323,7 @@ export default function HeroPage() {
 
             <p className="hp-body">
               The world's first and only liquidity verification infrastructure.
-              Cryptographically anchored across 16 venues  -  the immutable ground
+              Cryptographically anchored across 20 venues  -  the immutable ground
               truth for institutional risk management.
             </p>
 
@@ -346,7 +346,7 @@ export default function HeroPage() {
                   </svg>
                 </div>
                 <div>
-                  <div className="hp-bullet-title">16-venue PoLi & PoMI scoring</div>
+                  <div className="hp-bullet-title">20-venue PoLi & PoMI scoring</div>
                   <div className="hp-bullet-sub">Proof of Liquidity and Market Integrity across CEX, DEX, and dark markets.</div>
                 </div>
               </div>
@@ -476,7 +476,7 @@ export default function HeroPage() {
                 <div className="hp-table">
                   <div className="hp-table-head">
                     <span className="hp-table-head-l">Asset Coverage</span>
-                    <span className="hp-table-head-r">LIVE · 16 VENUES</span>
+                    <span className="hp-table-head-r">LIVE · 20 VENUES</span>
                   </div>
                   {tokenRows.map(t => {
                     const sc  = t.score ?? 0;

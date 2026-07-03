@@ -1,0 +1,276 @@
+# Phase 2: Add Venue Relays - SyncSwap (zkSync), Linea DEX, Scroll DEX, Uniswap V3 (World Chain)
+
+## Context
+Phase 2 completes EVM L2 coverage by adding the four remaining
+EVM-compatible L2s with TVL above $1B. Run this prompt AFTER Phase 1
+(Aerodrome, Velodrome, PancakeSwap) is live and verified. The relay
+patterns from Phase 1 are directly reusable here.
+
+After Phase 2, Stratalink will cover every EVM-compatible L2 with TVL
+above $1 billion - 20 venues across 10 chains, representing 97% of all
+EVM L2 DeFi TVL.
+
+## Implementation Order
+1. World Chain (Uniswap V3) - lowest effort, exact clone of existing
+   Uniswap relay with different RPC
+2. SyncSwap (zkSync Era) - largest remaining L2, custom relay
+3. Linea DEX - select highest-TVL DEX at time of connection
+4. Scroll DEX - select highest-TVL DEX at time of connection
+
+---
+
+## Venue 1: Uniswap V3 (World Chain)
+
+### Overview
+- World Chain is an OP Stack L2 ($1.8B TVL)
+- Uniswap V3 is deployed on World Chain
+- Venue type: amm
+
+### Key Point
+This is the easiest venue in the entire expansion. Uniswap V3 is
+already connected on Ethereum mainnet. The World Chain relay is an
+exact clone of the existing uniswap-relay.ts with only the RPC endpoint
+and token addresses changed. The contract ABIs, pool discovery logic,
+depth calculation and spread derivation are all identical.
+
+### Data Access
+- Direct on-chain reads via World Chain RPC (preferred - same contract
+  interfaces as Ethereum Uniswap V3)
+- Expand Network or subgraph if available for World Chain
+
+### Relay Implementation
+Create: server/services/uniswap-worldchain-relay.ts
+
+Clone uniswap-relay.ts and update:
+- RPC endpoint to World Chain
+- Token addresses to World Chain equivalents
+- Venue name to "uniswap-worldchain"
+- Chain identifier to "worldchain"
+- LIS ref prefix to "lis-uniswap-worldchain-"
+
+### Token Addresses
+Look up ILU-20 token addresses on World Chain at time of implementation.
+WETH and major stablecoins (USDC, USDT) will be available. Coverage for
+smaller ILU-20 tokens may be limited - return null for unlisted tokens.
+
+### Venue Config
+```typescript
+{ id: "uniswap-worldchain", name: "Uniswap (World Chain)",
+  type: "amm", chain: "worldchain", regulated: false }
+```
+
+---
+
+## Venue 2: SyncSwap (zkSync Era)
+
+### Overview
+- Dominant DEX on zkSync Era ($4.1B chain TVL)
+- zkSync Era is a zkEVM - uses zero-knowledge proofs for settlement
+  but is fully EVM-compatible at the application layer
+- AMM model: classic AMM + stable pools (similar to Curve)
+- Venue type: amm
+
+### Data Access
+
+**Option A: SyncSwap Subgraph/API**
+- Check for SyncSwap's public subgraph or API at time of implementation
+- GraphQL query pattern similar to PancakeSwap/Uniswap subgraphs
+
+**Option B: Direct on-chain reads via zkSync RPC**
+- zkSync Era RPC: https://mainnet.era.zksync.io
+- SyncSwap Router: check SyncSwap docs for current contract addresses
+- Standard EVM contract reads work on zkSync Era
+
+**Option C: Expand Network**
+- Check expand.network for zkSync Era / SyncSwap support
+
+### Relay Implementation
+Create: server/services/syncsswap-relay.ts
+
+1. **Pool discovery**: SyncSwap uses a pool factory pattern. For each
+   ILU-20 token, find the primary pool (TOKEN/USDC or TOKEN/WETH).
+   SyncSwap has two pool types: Classic Pools (constant product, like
+   Uniswap V2) and Stable Pools (optimised for like-valued assets,
+   like Curve). Use Classic Pools for volatile assets, Stable Pools
+   for stablecoin pairs.
+
+2. **Depth derivation**: For Classic Pools, use the constant-product
+   AMM formula (same as Uniswap V2 depth calculation). For Stable
+   Pools, use the StableSwap invariant (same as Curve depth
+   calculation). Both patterns already exist in the codebase.
+
+3. **Spread derivation**: Derived from pool fee and liquidity depth.
+   SyncSwap fees are typically 0.1% for stable pools and 0.3% for
+   volatile pools.
+
+4. **Normalisation output**:
+   ```typescript
+   {
+     venue: "syncswap",
+     venueType: "amm",
+     chain: "zksync",
+     depth: number,
+     spread: number,
+     lastEvent: number,
+     lisRef: `lis-syncswap-${timestamp}`
+   }
+   ```
+
+5. **Polling**: Every 5 seconds.
+
+### Token Addresses on zkSync Era
+```
+WETH:   0x5AEa5775959fBC2557Cc8789bC1bf90A239D9a91
+USDC:   0x1d17CBcF0D6D143135aE902365D2E5e2A16538D4
+USDT:   0x493257fD37EDB34451f62EDf8D2a0C418852bA4C
+DAI:    0x4B9eb6c0b6ea15176BBF62841C6B2A8a398cb656
+WBTC:   0xBBeB516fb02a01611cBBE0453Fe3c580D7281011
+LINK:   Check zkSync token registry
+```
+
+### Venue Config
+```typescript
+{ id: "syncswap", name: "SyncSwap", type: "amm",
+  chain: "zksync", regulated: false }
+```
+
+---
+
+## Venue 3: Linea DEX
+
+### Overview
+- Linea is a ConsenSys-built zkEVM ($3.4B TVL)
+- Deep MetaMask integration (ConsenSys product)
+- Multiple competing DEXs - select the highest-TVL DEX at time of
+  connection (candidates: Nile, Lynex, SyncSwap on Linea)
+- Venue type: amm
+
+### Key Point
+At time of implementation, check DeFiLlama or L2BEAT for the current
+dominant DEX on Linea. The DEX landscape on newer L2s shifts quickly.
+Pick the venue with the highest TVL and most active pools for the
+ILU-20 tokens.
+
+### Data Access
+- Linea RPC: https://rpc.linea.build
+- Subgraph or API specific to the selected DEX
+- Expand Network if supported
+- Direct on-chain reads via Linea RPC
+
+### Relay Implementation
+Create: server/services/linea-dex-relay.ts
+
+If the dominant DEX is a Uniswap V3 fork (likely), clone the
+pancakeswap-relay.ts pattern. If it uses a different AMM model (e.g.
+Curve-style stable pools), use the appropriate existing relay as the
+template.
+
+### Token Addresses on Linea
+```
+WETH:   0xe5D7C2a44FfDDf6b295A15c148167daaAf5Cf34f
+USDC:   0x176211869cA2b568f2A7D4EE941E073a821EE1ff
+USDT:   0xA219439258ca9da29E9Cc4cE5596924745e12B93
+DAI:    0x4AF15ec2A0BD43Db75dd04E62FAA3B8EF36b00d5
+WBTC:   0x3aAB2285ddcDdaD8edf438C1bAB47e1a9D05a9b4
+```
+
+### Venue Config
+```typescript
+{ id: "linea-dex", name: "[Selected DEX Name]", type: "amm",
+  chain: "linea", regulated: false }
+```
+Update the venue name once the specific DEX is selected.
+
+---
+
+## Venue 4: Scroll DEX
+
+### Overview
+- Scroll is the most bytecode-equivalent zkEVM ($2.1B TVL)
+- Contracts deploy without modification from Ethereum mainnet
+- Multiple competing DEXs - select highest-TVL at time of connection
+  (candidates: Ambient, Nuri, Uniswap V3 on Scroll)
+- Venue type: amm
+
+### Key Point
+Scroll's bytecode equivalence means that if Uniswap V3 is deployed on
+Scroll, the existing Uniswap relay logic works without ANY modification
+except the RPC endpoint and token addresses. Check whether Uniswap V3
+is live on Scroll at time of implementation - if so, this is another
+zero-effort clone like World Chain.
+
+### Data Access
+- Scroll RPC: https://rpc.scroll.io
+- Check whether Uniswap V3 subgraph exists on Scroll
+- Direct on-chain reads
+
+### Relay Implementation
+Create: server/services/scroll-dex-relay.ts
+
+If Uniswap V3 is deployed on Scroll, clone uniswap-relay.ts (same as
+World Chain approach). If the dominant DEX is a different protocol,
+use the most appropriate existing relay as template.
+
+### Token Addresses on Scroll
+```
+WETH:   0x5300000000000000000000000000000000000004
+USDC:   0x06eFdBFf2a14a7c8E15944D1F4A48F9F95F663A4
+USDT:   0xf55BEC9cafDbE8730f096Aa55dad6D22d44099Df
+DAI:    0xcA77eB3fEFe3725Dc33bccB54eDEFc3D9f764f97
+WBTC:   0x3C1BCa5a656e69edCD0D4E36BEbb31DFB1801570
+```
+
+### Venue Config
+```typescript
+{ id: "scroll-dex", name: "[Selected DEX Name]", type: "amm",
+  chain: "scroll", regulated: false }
+```
+
+---
+
+## Integration Checklist (All Four Venues)
+
+1. Add all four venue entries to shared/venue-config.ts.
+
+2. Register all four relays in the venue relay manager.
+
+3. Update ILU-20 token-to-address mappings for zkSync Era, Linea,
+   Scroll and World Chain.
+
+4. Confirm all five tabs show the new venues:
+   - LIQUIDITY: Cross-Venue Depth Map (now 20 venue rows)
+   - STRATA AI: venue count updates to 20
+   - PoLi/PoMI: heatmap grid expands to 20 squares
+     (suggested: 10 columns x 2 rows, or 7 x 3)
+   - RCL: Provenance panel shows 20 connector cards
+   - ALERTS: Venue Liquidity Attribution table expands
+
+5. Confirm venue count updates from 16 to 20 across all headers
+   and footers.
+
+6. Update the heatmap grid layout to accommodate 20 squares cleanly.
+   At 20 venues, a 10x2 grid or a 7-7-6 three-row layout would work.
+
+7. Add tooltip content for the four new venue connector cards on
+   the RCL Provenance panel.
+
+8. Confirm token coverage per venue - not all ILU-20 tokens will be
+   listed on all four new venues. Tokens without pools should return
+   null, which the platform handles as a coverage gap. This is
+   expected and correct.
+
+## Verification
+1. Open LIQUIDITY tab with BTC. Confirm all 20 venues appear in the
+   Cross-Venue Depth Map (where BTC is listed on that venue).
+2. Open PoLi/PoMI. Confirm heatmap shows 20 squares. Count
+   GREEN/AMBER/RED distribution - it should be plausible given that
+   the new venues are smaller L2 DEXs with less depth.
+3. Open RCL. Confirm 20 connector cards in Provenance panel. New
+   venues should show appropriate module types and valid timestamps.
+4. Cycle through 5+ ILU-20 tokens and confirm coverage percentages
+   are accurate (some tokens will not be listed on smaller L2 DEXs -
+   this is correct).
+5. Confirm venue count reads 20 across all tabs.
+6. Run a full cross-tab consistency check: venue counts should match
+   between LIQUIDITY header, STRATA AI footer, PoLi/PoMI footer,
+   RCL Supervisory Scope, and ALERTS header.

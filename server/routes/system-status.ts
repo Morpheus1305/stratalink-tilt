@@ -15,6 +15,7 @@ const VENUE_LIST = [
   "hyperliquid", "uniswap", "dydx", "deribit", "gmx",
   "curve", "bitget", "otc", "canton",
   "aerodrome", "velodrome", "pancakeswap",
+  "uniswap-worldchain", "syncswap", "linea-dex", "scroll-dex",
 ];
 
 const TRACKED_SYMBOLS = ["BTC", "ETH", "SOL"];

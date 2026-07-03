@@ -259,7 +259,7 @@ export default function TiltTerminal() {
               />
             )}
             <div style={{ fontSize: 10, color: "var(--tilt-muted)" }}>
-              16 VENUES &middot; 17 TSLE FEEDS
+              20 VENUES &middot; 21 TSLE FEEDS
             </div>
             <div className="tilt-sb-live">
               <div className="tilt-sb-dot tilt-pulse" />
@@ -279,7 +279,7 @@ export default function TiltTerminal() {
             </div>
           </TT>
           <div className="tilt-tb-divider" />
-          <TT title="Venues Live" body="Number of configured venues actively returning data for this asset. 16 out of 16 means full coverage across all CEX, DEX, and L2 chains  -  the platform is seeing the entire market. If this drops below 13, investigate which venue relay has gone offline.">
+          <TT title="Venues Live" body="Number of configured venues actively returning data for this asset. 20 out of 20 means full coverage across all CEX, DEX, and L2 chains  -  the platform is seeing the entire market. If this drops below 15, investigate which venue relay has gone offline.">
             <div className="tilt-tb-item">
               <div className="tilt-tb-label">Venues Live</div>
               <div className="tilt-tb-value" data-testid="tilt-venues">
@@ -540,7 +540,7 @@ export default function TiltTerminal() {
           <div className="tilt-panel tilt-p-venue">
             <div className="tilt-panel-header">
               <div className="tilt-panel-accent" style={{ background: "var(--tilt-green)" }} />
-              <TT title="Cross-Venue Depth Map" body="Per-venue order book depth at ±10 basis points for the selected symbol. Shows bid depth, ask depth, global share, spread in basis points, and TSLE efficiency score for each of the 16 monitored venues. Identify which venues hold the deepest resting liquidity and which are withdrawing.">
+              <TT title="Cross-Venue Depth Map" body="Per-venue order book depth at ±10 basis points for the selected symbol. Shows bid depth, ask depth, global share, spread in basis points, and TSLE efficiency score for each of the 20 monitored venues. Identify which venues hold the deepest resting liquidity and which are withdrawing.">
                 <div className="tilt-panel-title">Cross-Venue Depth Map</div>
               </TT>
               {agg?.venue_slices?.length != null && (

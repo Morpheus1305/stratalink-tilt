@@ -27,9 +27,13 @@ import bitgetRoutes from "./routes/bitget-relay";
 import gmxRoutes         from "./routes/gmx-relay";
 import curveRoutes       from "./routes/curve-relay";
 import otcRoutes         from "./routes/otc-relay";
-import aerodromeRoutes   from "./routes/aerodrome-relay";
-import velodromeRoutes   from "./routes/velodrome-relay";
-import pancakeswapRoutes from "./routes/pancakeswap-relay";
+import aerodromeRoutes         from "./routes/aerodrome-relay";
+import velodromeRoutes         from "./routes/velodrome-relay";
+import pancakeswapRoutes       from "./routes/pancakeswap-relay";
+import uniswapWorldchainRoutes from "./routes/uniswap-worldchain-relay";
+import syncswapRoutes          from "./routes/syncswap-relay";
+import lineaDexRoutes          from "./routes/linea-dex-relay";
+import scrollDexRoutes         from "./routes/scroll-dex-relay";
 import analyticsL5fRoutes from "./routes/analytics-l5f";
 import dailyCommentaryRouter from "./api/dailyCommentary";
 import { reportRoutes, generateServerSideReport } from "./routes/reports";
@@ -399,9 +403,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/gmx",          gmxRoutes);
   app.use("/api/curve",        curveRoutes);
   app.use("/api/otc",          otcRoutes);
-  app.use("/api/aerodrome",    aerodromeRoutes);
-  app.use("/api/velodrome",    velodromeRoutes);
-  app.use("/api/pancakeswap",  pancakeswapRoutes);
+  app.use("/api/aerodrome",          aerodromeRoutes);
+  app.use("/api/velodrome",          velodromeRoutes);
+  app.use("/api/pancakeswap",        pancakeswapRoutes);
+  app.use("/api/uniswap-worldchain", uniswapWorldchainRoutes);
+  app.use("/api/syncswap",           syncswapRoutes);
+  app.use("/api/linea-dex",          lineaDexRoutes);
+  app.use("/api/scroll-dex",         scrollDexRoutes);
 
   // Download endpoint for LTC code archive
   app.get("/download/LTC-v1.0.zip", (_req, res) => {
