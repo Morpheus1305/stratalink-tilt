@@ -259,7 +259,7 @@ export default function TiltTerminal() {
               />
             )}
             <div style={{ fontSize: 10, color: "var(--tilt-muted)" }}>
-              20 VENUES &middot; 21 TSLE FEEDS
+              26 VENUES &middot; 31 TSLE FEEDS
             </div>
             <div className="tilt-sb-live">
               <div className="tilt-sb-dot tilt-pulse" />
