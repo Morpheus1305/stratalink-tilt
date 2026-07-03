@@ -476,25 +476,26 @@ export class MemStorage implements IStorage {
   private async fetchLiveTickerItems(): Promise<TickerItem[] | null> {
     if (!this.useLiveData) return null;
 
-    // ILU-19  -  Institutional Liquidity Universe (ordered by category)
-    // Reserve | Stablecoin Infra | Exchange Infra | Financial Infra | Liquidity Assets
+    // ILU-25  -  Institutional Liquidity Universe (ordered by category)
+    // Reserve | Stablecoin Infra | Exchange Infra | Financial Infra | Liquidity Assets | Digital Securities & RWA
     const TOP20_COINGECKO_IDS = [
       "bitcoin", "ethereum",                                           // Reserve
       "tether", "usd-coin", "ethena-usde", "dai",                     // Stablecoin Infra
       "binancecoin", "hyperliquid", "okb", "crypto-com-chain",        // Exchange Infra
       "chainlink", "maker", "aave", "uniswap",                        // Financial Infra
       "solana", "ripple", "dogecoin", "the-open-network", "cardano",  // Liquidity Assets
+      "pax-gold", "tether-gold", "ondo-finance",                      // Digital Securities & RWA (PAXG, XAUT, ONDO)
     ];
 
-    // Synthetic depth/spread matched to ILU-19 order
-    const DEPTH_BY_RANK  = [1200,420, 280,260,45,38, 310,85,42,18, 18,12,22,28, 185,95,48,28,22];
-    const SPREAD_BY_RANK = [0.01,0.02, 0.01,0.01,0.04,0.04, 0.03,0.06,0.08,0.14, 0.06,0.10,0.07,0.05, 0.04,0.05,0.08,0.12,0.09];
+    // Synthetic depth/spread matched to ILU-25 order
+    const DEPTH_BY_RANK  = [1200,420, 280,260,45,38, 310,85,42,18, 18,12,22,28, 185,95,48,28,22, 15,8,12];
+    const SPREAD_BY_RANK = [0.01,0.02, 0.01,0.01,0.04,0.04, 0.03,0.06,0.08,0.14, 0.06,0.10,0.07,0.05, 0.04,0.05,0.08,0.12,0.09, 0.12,0.18,0.10];
 
     try {
       const ids = TOP20_COINGECKO_IDS.join(",");
       const cgUrl =
         `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd` +
-        `&ids=${ids}&order=market_cap_desc&per_page=20&page=1&sparkline=false` +
+        `&ids=${ids}&order=market_cap_desc&per_page=25&page=1&sparkline=false` +
         `&price_change_percentage=24h`;
 
       const resp = await fetch(cgUrl, {
@@ -550,32 +551,38 @@ export class MemStorage implements IStorage {
     const now = new Date();
     const ts = `${String(now.getUTCHours()).padStart(2, "0")}:${String(now.getUTCMinutes()).padStart(2, "0")} UTC`;
 
-    // ILU-19  -  Institutional Liquidity Universe
+    // ILU-25  -  Institutional Liquidity Universe
     const BASE: Array<{ sym: string; price: number; chg: number; depth: number; spread: number; volB: number }> = [
       // ── Reserve Assets ──────────────────────────────────────────────────────
-      { sym: "BTC",  price: 104200, chg:  1.80, depth: 1200, spread: 0.01, volB: 38.2 },
-      { sym: "ETH",  price:   3480, chg:  0.90, depth:  420, spread: 0.02, volB: 18.4 },
+      { sym: "BTC",   price: 104200, chg:  1.80, depth: 1200, spread: 0.01, volB: 38.2 },
+      { sym: "ETH",   price:   3480, chg:  0.90, depth:  420, spread: 0.02, volB: 18.4 },
       // ── Stablecoin Infrastructure ────────────────────────────────────────────
-      { sym: "USDT", price:  1.000, chg:  0.00, depth:  280, spread: 0.01, volB: 62.1 },
-      { sym: "USDC", price:  1.000, chg:  0.00, depth:  260, spread: 0.01, volB: 10.2 },
-      { sym: "USDe", price:  1.000, chg:  0.00, depth:   45, spread: 0.04, volB:  2.4 },
-      { sym: "DAI",  price:  1.000, chg:  0.00, depth:   38, spread: 0.04, volB:  0.8 },
+      { sym: "USDT",  price:  1.000, chg:  0.00, depth:  280, spread: 0.01, volB: 62.1 },
+      { sym: "USDC",  price:  1.000, chg:  0.00, depth:  260, spread: 0.01, volB: 10.2 },
+      { sym: "USDe",  price:  1.000, chg:  0.00, depth:   45, spread: 0.04, volB:  2.4 },
+      { sym: "DAI",   price:  1.000, chg:  0.00, depth:   38, spread: 0.04, volB:  0.8 },
       // ── Exchange & Trading Infrastructure ────────────────────────────────────
-      { sym: "BNB",  price:    720, chg:  1.20, depth:  310, spread: 0.03, volB:  3.8 },
-      { sym: "HYPE", price:   38.4, chg:  4.10, depth:   85, spread: 0.06, volB:  1.2 },
-      { sym: "OKB",  price:   54.2, chg:  0.60, depth:   42, spread: 0.08, volB:  0.3 },
-      { sym: "CRO",  price:   0.112,chg:  0.80, depth:   18, spread: 0.14, volB:  0.2 },
+      { sym: "BNB",   price:    720, chg:  1.20, depth:  310, spread: 0.03, volB:  3.8 },
+      { sym: "HYPE",  price:   38.4, chg:  4.10, depth:   85, spread: 0.06, volB:  1.2 },
+      { sym: "OKB",   price:   54.2, chg:  0.60, depth:   42, spread: 0.08, volB:  0.3 },
+      { sym: "CRO",   price:  0.112, chg:  0.80, depth:   18, spread: 0.14, volB:  0.2 },
       // ── Financial Infrastructure (DeFi) ──────────────────────────────────────
-      { sym: "LINK", price:   19.8, chg:  2.30, depth:   18, spread: 0.06, volB:  0.6 },
-      { sym: "MKR",  price: 1640,   chg: -0.40, depth:   12, spread: 0.10, volB:  0.1 },
-      { sym: "AAVE", price:  218,   chg:  1.70, depth:   22, spread: 0.07, volB:  0.3 },
-      { sym: "UNI",  price:   11.4, chg:  1.10, depth:   28, spread: 0.05, volB:  0.4 },
+      { sym: "LINK",  price:   19.8, chg:  2.30, depth:   18, spread: 0.06, volB:  0.6 },
+      { sym: "MKR",   price:  1640,  chg: -0.40, depth:   12, spread: 0.10, volB:  0.1 },
+      { sym: "AAVE",  price:   218,  chg:  1.70, depth:   22, spread: 0.07, volB:  0.3 },
+      { sym: "UNI",   price:   11.4, chg:  1.10, depth:   28, spread: 0.05, volB:  0.4 },
       // ── High-Volume Liquidity Assets ─────────────────────────────────────────
-      { sym: "SOL",  price:    195, chg:  2.40, depth:  185, spread: 0.04, volB:  6.9 },
-      { sym: "XRP",  price:   2.48, chg:  3.10, depth:   95, spread: 0.05, volB:  5.6 },
-      { sym: "DOGE", price:  0.285, chg: -0.70, depth:   48, spread: 0.08, volB:  3.1 },
-      { sym: "TON",  price:   5.82, chg:  1.10, depth:   28, spread: 0.12, volB:  0.4 },
-      { sym: "ADA",  price:   0.88, chg: -0.50, depth:   22, spread: 0.09, volB:  0.7 },
+      { sym: "SOL",   price:    195, chg:  2.40, depth:  185, spread: 0.04, volB:  6.9 },
+      { sym: "XRP",   price:   2.48, chg:  3.10, depth:   95, spread: 0.05, volB:  5.6 },
+      { sym: "DOGE",  price:  0.285, chg: -0.70, depth:   48, spread: 0.08, volB:  3.1 },
+      { sym: "TON",   price:   5.82, chg:  1.10, depth:   28, spread: 0.12, volB:  0.4 },
+      { sym: "ADA",   price:   0.88, chg: -0.50, depth:   22, spread: 0.09, volB:  0.7 },
+      // ── Digital Securities & RWA ─────────────────────────────────────────────
+      { sym: "PAXG",  price:  3220,  chg:  0.65, depth:   15, spread: 0.12, volB:  0.18 },
+      { sym: "XAUT",  price:  3218,  chg:  0.64, depth:    8, spread: 0.18, volB:  0.08 },
+      { sym: "ONDO",  price:   1.28, chg:  2.10, depth:   12, spread: 0.10, volB:  0.22 },
+      { sym: "BUIDL", price:  1.000, chg:  0.00, depth:    4, spread: 0.01, volB:  0.02 },
+      { sym: "OUSG",  price:  1.085, chg:  0.01, depth:    2, spread: 0.02, volB:  0.01 },
     ];
 
     return BASE.map((t, i) => {

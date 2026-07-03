@@ -39,6 +39,12 @@ const TOKEN_LOGOS: Record<string, string> = {
   DOGE: "https://assets.coingecko.com/coins/images/5/small/dogecoin.png",
   TON:  "https://assets.coingecko.com/coins/images/17980/small/ton_symbol.png",
   ADA:  "https://assets.coingecko.com/coins/images/975/small/cardano.png",
+  // Digital Securities & RWA
+  PAXG:  "https://assets.coingecko.com/coins/images/9519/small/paxg.PNG",
+  XAUT:  "https://assets.coingecko.com/coins/images/10783/small/XAUt_200x200.png",
+  ONDO:  "https://assets.coingecko.com/coins/images/26580/small/ONDO.png",
+  BUIDL: "https://assets.coingecko.com/coins/images/35420/small/BUIDL.png",
+  OUSG:  "https://assets.coingecko.com/coins/images/28994/small/OUSG.png",
 };
 
 function TokenLogo({ symbol, size = 20 }: { symbol: string; size?: number }) {

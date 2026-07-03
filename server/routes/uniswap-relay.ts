@@ -26,6 +26,12 @@ const TOKEN_MAP: Record<string, { address: string; decimals: number; coingeckoId
   COMP: { address: "0xc00e94Cb662C3520282E6f5717214004A7f26888", decimals: 18, coingeckoId: "compound-governance-token" },
   // extended  -  Ethena USDe (Uniswap V3 USDe/USDC pool on Ethereum mainnet)
   USDE: { address: "0x4c9EDD5852cd905f086C759E8383e09bff1E68B3", decimals: 18, coingeckoId: "ethena-usde" },
+  // Digital Securities & RWA
+  PAXG:  { address: "0x45804880De22913dAFE09f4980848ECE6EcbAf78", decimals: 18, coingeckoId: "pax-gold" },
+  XAUT:  { address: "0x68749665FF8D2d112Fa859AA293F07A622782F38", decimals: 18, coingeckoId: "tether-gold" },
+  ONDO:  { address: "0xfAbA6f8e4a5E8Ab82F62fe7C39859FA577269BE3", decimals: 18, coingeckoId: "ondo-finance" },
+  BUIDL: { address: "0x7712c34205737192402172409a8F7ccef8aA2AEc", decimals: 6,  coingeckoId: "usd-coin" },
+  OUSG:  { address: "0x1B19C19393e2d034D8Ff31ff34c81252FcBbee92", decimals: 18, coingeckoId: "usd-coin" },
 };
 
 const DEFILLAMA_POOLS_URL = "https://yields.llama.fi/pools";

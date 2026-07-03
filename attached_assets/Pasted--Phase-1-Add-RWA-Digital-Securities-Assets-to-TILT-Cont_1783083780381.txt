@@ -1,0 +1,254 @@
+# Phase 1: Add RWA / Digital Securities Assets to TILT
+
+## Context
+This is a strategic expansion from virtual assets into tokenized
+real-world assets (RWAs) and digital securities. These assets already
+trade on venues Stratalink connects to - no new venue relays are needed.
+The key change is adding these tokens to the monitored asset universe
+so the platform can provide liquidity verification for institutional
+products like BlackRock's BUIDL alongside BTC and ETH.
+
+This directly addresses ADGM's fourth asset category (Digital Securities)
+and positions Stratalink as an asset-class-agnostic liquidity
+verification layer rather than a crypto-only monitoring tool.
+
+## Strategic Significance
+BlackRock's BUIDL ($2.5B tokenized Treasury fund) started trading on
+Uniswap in February 2026. This means a regulated institutional product
+from the world's largest asset manager is already on a DEX that
+Stratalink connects to. The same PoLi scoring engine that tells you
+whether BTC liquidity is real can tell you whether a tokenized Treasury
+fund's on-chain liquidity is real. That is an extraordinary positioning
+statement.
+
+---
+
+## New Asset Category in Token Selector
+
+Add a new category in the ILU token selector alongside the existing
+categories (Reserve Assets, Stablecoin Infrastructure, Exchange and
+Trading Infrastructure, Financial Infrastructure, High-Volume Liquidity
+Assets):
+
+**New category: DIGITAL SECURITIES & RWA**
+
+This category should appear in the token selector dropdown with the same
+visual treatment as the existing categories (category header in teal,
+tokens listed below).
+
+---
+
+## Assets to Add
+
+### 1. BUIDL (BlackRock USD Institutional Digital Liquidity Fund)
+
+| Field | Detail |
+|-------|--------|
+| Symbol | BUIDL |
+| Name | BlackRock BUIDL |
+| Category | Digital Securities & RWA |
+| Sub-type | Tokenized US Treasury Fund |
+| Issuer | BlackRock (via Securitize) |
+| AUM | $2.5 billion |
+| Peg | $1.00 USD |
+| Yield | US Treasury bill rate, distributed monthly |
+
+**Ethereum contract**: 0x7712c34205737192402172409a8F7ccef8aA2AEc
+**Polygon contract**: 0x2893ef551b6dd69f661ac00f11d93e5dc5dc0e99
+
+**Where it trades (existing venues)**:
+- Uniswap (via UniswapX / Securitize whitelist) - ALREADY CONNECTED
+- Curve (potential BUIDL/USDC pool) - ALREADY CONNECTED
+
+**Important**: BUIDL on Uniswap trades via UniswapX with whitelisted
+market makers (Wintermute, Flowdesk, Tokka Labs). The Uniswap relay
+should be able to read the BUIDL/USDC pool liquidity the same way it
+reads any other token pair. The depth and spread data may look different
+from a typical volatile token (BUIDL is pegged at $1.00 with very
+tight spreads) but the calculation is identical.
+
+**CEX listings**: BUIDL does not trade on traditional CEXs. Its
+liquidity is primarily on-chain via Securitize and Uniswap.
+
+**Pair format**: BUIDL/USDC
+
+### 2. OUSG (Ondo US Government Bond Fund)
+
+| Field | Detail |
+|-------|--------|
+| Symbol | OUSG |
+| Name | Ondo OUSG |
+| Category | Digital Securities & RWA |
+| Sub-type | Tokenized US Treasury Fund |
+| Issuer | Ondo Finance |
+| Peg | Accruing (price increases as yield accrues) |
+
+**Ethereum contract**: 0x1B19C19393e2d034D8Ff31ff34c81252FcBbee92
+
+**Where it trades**:
+- Ondo's own platform (not on existing venues)
+- Some DEX liquidity may exist - check at implementation time
+
+**Note**: OUSG may have limited DEX liquidity. If no pools exist on
+connected venues, report 0 venue coverage - this is accurate and
+demonstrates that the platform honestly reports when an asset has no
+observable on-chain liquidity on monitored venues.
+
+### 3. PAXG (Paxos Gold)
+
+| Field | Detail |
+|-------|--------|
+| Symbol | PAXG |
+| Name | Paxos Gold |
+| Category | Digital Securities & RWA |
+| Sub-type | Tokenized Commodity (Gold) |
+| Issuer | Paxos Trust Company |
+| Backing | 1 PAXG = 1 fine troy ounce of London Good Delivery gold |
+| Regulated | Yes (NYDFS regulated) |
+
+**Ethereum contract**: 0x45804880De22913dAFE09f4980848ECE6EcbAf78
+
+**Where it trades (existing venues)**:
+- Binance: PAXGUSDT - ALREADY CONNECTED
+- Kraken: PAXGUSD - ALREADY CONNECTED
+- Bybit: PAXGUSDT - ALREADY CONNECTED
+- Uniswap: PAXG/WETH or PAXG/USDC pools - ALREADY CONNECTED
+- OKX: check availability
+
+**Pair format**: PAXG/USDT (CEXs), PAXG/WETH or PAXG/USDC (DEXs)
+
+### 4. XAUT (Tether Gold)
+
+| Field | Detail |
+|-------|--------|
+| Symbol | XAUT |
+| Name | Tether Gold |
+| Category | Digital Securities & RWA |
+| Sub-type | Tokenized Commodity (Gold) |
+| Issuer | TG Commodities Limited (Tether group) |
+| Backing | 1 XAUT = 1 fine troy ounce of London Good Delivery gold |
+
+**Ethereum contract**: 0x68749665FF8D2d112Fa859AA293F07A622782F38
+
+**Where it trades (existing venues)**:
+- Binance: check availability
+- Bitget: XAUTUSDT - ALREADY CONNECTED
+- OKX: check availability
+- Uniswap: check for XAUT pools
+
+**Pair format**: XAUT/USDT (CEXs)
+
+### 5. ONDO (Ondo Finance governance token)
+
+| Field | Detail |
+|-------|--------|
+| Symbol | ONDO |
+| Name | Ondo Finance |
+| Category | Digital Securities & RWA |
+| Sub-type | RWA Infrastructure (governance token of leading tokenization platform) |
+| Market cap | Top 100 |
+
+**Ethereum contract**: 0xfAbA6f8e4a5E8Ab82F62fe7C39859FA577269BE3
+
+**Where it trades (existing venues)**:
+- Binance: ONDOUSDT - ALREADY CONNECTED
+- OKX: ONDO-USDT - ALREADY CONNECTED
+- Bybit: ONDOUSDT - ALREADY CONNECTED
+- Coinbase: ONDO-USD - ALREADY CONNECTED
+- Kraken: check availability
+- Uniswap: ONDO/WETH pools - ALREADY CONNECTED
+
+**Note**: ONDO is not itself a digital security - it is the governance
+token of the platform that tokenizes securities. Including it in the
+RWA category provides visibility into the infrastructure layer of the
+tokenization ecosystem.
+
+---
+
+## Implementation
+
+### Step 1: Extend the asset universe
+
+Add the five new tokens to shared/ilu-universe.ts (or equivalent) under
+a new "DIGITAL SECURITIES & RWA" category. The total asset count will
+increase from 20 to 25.
+
+### Step 2: Add token-to-address mappings
+
+For each new token, add the contract addresses for every chain where
+the token exists, following the same pattern used for the existing
+ILU-20 tokens.
+
+### Step 3: Extend venue relay pair mappings
+
+For each venue relay, add pair mappings for the new tokens where they
+are listed. Follow the same pattern as the ILU-20 relay extension:
+- Attempt to fetch data for each new token
+- Return valid data where listed
+- Return null where not listed (accurate coverage)
+
+### Step 4: Update the token selector UI
+
+Add the new "DIGITAL SECURITIES & RWA" category header in the token
+selector dropdown. The five new tokens should appear under this
+category with appropriate icons/logos.
+
+### Step 5: Verify across all tabs
+
+For each new token, confirm:
+- LIQUIDITY tab renders with available venue data
+- STRATA AI detection runs against the token
+- PoLi/PoMI scores and heatmap populate
+- RCL shows accurate coverage (some tokens may have low venue counts -
+  this is correct and honest)
+- ALERTS generates depth/divergence alerts where applicable
+- Footer ticker includes the new tokens
+
+---
+
+## Important Notes
+
+### Coverage expectations
+These assets will have VERY different coverage profiles from BTC/ETH:
+- BUIDL: likely 1-2 venues (Uniswap only). Coverage 8-15%. This is
+  accurate - BUIDL is a whitelisted institutional product, not a
+  retail-accessible token on 13 exchanges.
+- PAXG: likely 4-6 venues. Coverage 30-50%. Good for a commodity token.
+- XAUT: likely 2-4 venues. Coverage 15-30%.
+- ONDO: likely 6-8 venues. Coverage 50-60%. Well-distributed DeFi token.
+- OUSG: likely 0-1 venues. Coverage 0-8%. Institutional-only product.
+
+These coverage percentages are NOT a problem. They are honest reporting
+of where these assets actually trade. The RCL page will show DEGRADED
+or INSUFFICIENT for low-coverage tokens - this is correct and
+demonstrates that the platform does not fabricate coverage.
+
+### PoLi scoring adjustments
+Tokenized Treasuries (BUIDL, OUSG) and gold tokens (PAXG, XAUT) behave
+very differently from volatile crypto assets:
+- Spreads will be much tighter (BUIDL trades at exactly $1.00)
+- Depth may be lower in absolute terms but higher relative to trading
+  volume
+- Volatility will be near zero for pegged assets
+- The L5F score should still compute correctly but the interpretation
+  differs - a low Depth Quality score for BUIDL means something
+  different from a low DQ score for BTC
+
+No scoring engine changes are needed for Phase 1. The scores will
+compute correctly from the raw data. Interpretation guidance can be
+added to the Supervisory Analyst Field Guide later.
+
+---
+
+## Verification
+1. Open the token selector and confirm the new "DIGITAL SECURITIES &
+   RWA" category appears with all five tokens.
+2. Select BUIDL. Confirm the LIQUIDITY tab shows Uniswap as a venue
+   with depth and spread data. RCL should show 1-2 venues, low
+   coverage, which is accurate.
+3. Select PAXG. Confirm multiple CEX venues show data (Binance,
+   Kraken, Bybit). This should look more like a standard token.
+4. Select ONDO. Confirm broad venue coverage similar to ILU-20 tokens.
+5. Confirm the footer ticker now scrolls 25 tokens including the new
+   RWA category.
+6. Confirm no errors or blank screens on any tab for any new token.

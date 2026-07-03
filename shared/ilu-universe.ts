@@ -69,6 +69,18 @@ export const ILU_CATEGORIES: ILUCategory[] = [
       { symbol: "ADA",  name: "Cardano",       pair: "ADA-USD",  category: "liquidity",      categoryLabel: "LIQUIDITY",      systemicRole: "Large capitalisation, broad exchange coverage" },
     ],
   },
+  {
+    id: "rwa",
+    label: "Digital Securities & RWA",
+    shortLabel: "RWA",
+    tokens: [
+      { symbol: "PAXG",  name: "Paxos Gold",       pair: "PAXG-USD",  category: "rwa", categoryLabel: "RWA", systemicRole: "NYDFS-regulated tokenized gold (1 PAXG = 1 troy oz London Good Delivery gold)" },
+      { symbol: "XAUT",  name: "Tether Gold",       pair: "XAUT-USD",  category: "rwa", categoryLabel: "RWA", systemicRole: "Tokenized gold commodity (1 XAUT = 1 troy oz London Good Delivery gold)" },
+      { symbol: "ONDO",  name: "Ondo Finance",      pair: "ONDO-USD",  category: "rwa", categoryLabel: "RWA", systemicRole: "Governance token of the leading tokenized securities platform" },
+      { symbol: "BUIDL", name: "BlackRock BUIDL",   pair: "BUIDL-USD", category: "rwa", categoryLabel: "RWA", systemicRole: "BlackRock $2.5B tokenized US Treasury fund (via Securitize, USD-pegged)" },
+      { symbol: "OUSG",  name: "Ondo OUSG",         pair: "OUSG-USD",  category: "rwa", categoryLabel: "RWA", systemicRole: "Ondo tokenized US Government Bond Fund (yield-accruing, institutional access)" },
+    ],
+  },
 ];
 
 export const ILU_TOKENS: ILUToken[] = ILU_CATEGORIES.flatMap(c => c.tokens);

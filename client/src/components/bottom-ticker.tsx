@@ -23,6 +23,12 @@ const ILU_CATEGORIES: Record<string, { label: string; color: string }> = {
   DOGE: { label: "LIQUIDITY",  color: "#34d399" },
   TON:  { label: "LIQUIDITY",  color: "#34d399" },
   ADA:  { label: "LIQUIDITY",  color: "#34d399" },
+  // Digital Securities & RWA
+  PAXG:  { label: "RWA", color: "#f59e0b" },
+  XAUT:  { label: "RWA", color: "#f59e0b" },
+  ONDO:  { label: "RWA", color: "#f59e0b" },
+  BUIDL: { label: "RWA", color: "#f59e0b" },
+  OUSG:  { label: "RWA", color: "#f59e0b" },
 };
 
 // ── Token logo CDN (spothq open-source set on jsDelivr) ──────────────────────
@@ -31,15 +37,21 @@ const ICON_CDN = "https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master
 // Tokens whose spothq filename differs from the ticker symbol, or are missing.
 // Set to null to skip CDN and go straight to letter-badge fallback.
 const ICON_OVERRIDES: Record<string, string | null> = {
-  USDE: null,   // Ethena USDe  -  not in spothq set
-  HYPE: null,   // Hyperliquid  -  not in spothq set
-  OKB:  null,   // OKB  -  not in spothq set
-  CRO:  "cro",  // Cronos
-  BNB:  "bnb",
-  TON:  "ton",
-  MKR:  "mkr",
-  AAVE: "aave",
-  UNI:  "uni",
+  USDE:  null,   // Ethena USDe  -  not in spothq set
+  HYPE:  null,   // Hyperliquid  -  not in spothq set
+  OKB:   null,   // OKB  -  not in spothq set
+  CRO:   "cro",  // Cronos
+  BNB:   "bnb",
+  TON:   "ton",
+  MKR:   "mkr",
+  AAVE:  "aave",
+  UNI:   "uni",
+  // RWA tokens not in spothq set
+  PAXG:  null,
+  XAUT:  null,
+  ONDO:  null,
+  BUIDL: null,
+  OUSG:  null,
 };
 
 function getIconUrl(rawSymbol: string): string | null {
