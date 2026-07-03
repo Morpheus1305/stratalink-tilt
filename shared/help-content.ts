@@ -21,10 +21,11 @@ export const QUICK_START_STEPS: QuickStartStep[] = [
   },
   {
     num: 2,
-    title: "Understand the Five Tabs",
-    body: "The tab bar gives you access to five operational views:",
+    title: "Understand the Six Views",
+    body: "The tab bar gives you access to six operational views:",
     bullets: [
       "LIQUIDITY — Real-time liquidity health across venues. L5F composite score, venue depth map, spread analysis, regime classification. Your primary daily view.",
+      "DACT — Digital Asset Consolidated Tape. The immutable Layer 1 record of every market event ingested from all 26 venues. Live event stream, venue coverage matrix, ingestion volume chart, and data quality metrics. Use this view to verify tape completeness and investigate data lineage.",
       "STRATA AI — Market intelligence and manipulation detection. Six detection categories monitored in real time. Intelligence signal feed showing anomalies as they are detected.",
       "PoLi / PoMI — Verification and stability protocols. PoLi (Proof of Liquidity) scores with venue attribution. PoMI (Proof of Market Integrity) coordination framework status.",
       "RCL — Regulatory Consumption Layer. Supervisory-specific view with Coverage, Truth, and Provenance panels. Tier 3 full venue attribution. Evidence levels and data lineage.",
@@ -162,6 +163,37 @@ export const USER_GUIDE_SECTIONS: GuideSection[] = [
         id: "structural",
         title: "Structural Integrity",
         body: "Shows the Fragmentation Index (HHI-based, measuring liquidity concentration), Cross-Venue Spread Dispersion, Basis Dispersion (Spot vs Perp), and Price Leadership Index (which venue is leading price discovery).",
+      },
+    ],
+  },
+  {
+    id: "dact",
+    title: "DACT — Consolidated Tape",
+    subsections: [
+      {
+        id: "dact-overview",
+        title: "What is DACT?",
+        body: "DACT (Digital Asset Consolidated Tape) is the immutable Layer 1 foundation of the Stratalink Liquidity Truth Stack. It is the sole ingestion point and authoritative record of all observable digital asset market activity across all 26 monitored venues. Every market event — depth update, best bid/offer change, confirmed trade, or venue status change — enters the platform exclusively through DACT. No downstream layer (STRATA AI, PoLi, RCL) ever writes back to DACT. This unidirectional, append-only design is the epistemic guarantee that all analytics are derived from verified, uncontaminated source data.",
+      },
+      {
+        id: "dact-stream",
+        title: "Live Event Stream",
+        body: "The left panel of the DACT page shows a real-time feed of every event ingested across all 26 venues. Each row displays the UTC timestamp (millisecond precision), event type, source venue, asset, and a normalised human-readable summary. Four event types are recorded:\n\nDEPTH_UPDATE — A change in the orderbook depth at a venue. Triggered when bid or ask depth at the configured basis point threshold changes by more than a noise threshold.\n\nBBO_UPDATE — A change in the best bid or best offer price at a venue. Triggers on any tick movement in the top-of-book price.\n\nTRADE — A confirmed trade execution at a venue. Includes price, size, and direction where available.\n\nVENUE_STATUS — A change in venue ingestion status (ONLINE, DEGRADED, OFFLINE). Triggered automatically by the monitoring loop when a venue stops or resumes reporting.\n\nUse the event type, venue, and asset filter dropdowns to narrow the stream. Use the PAUSE button to freeze the display and inspect a specific event without the feed advancing.",
+      },
+      {
+        id: "dact-venue-matrix",
+        title: "Venue Coverage Matrix",
+        body: "The right panel shows the real-time ingestion status of every venue in the Declared Supervisory Universe (DSU) — the complete set of 26 venues TILT is authorised to supervise. Venues are grouped by type: Centralised Exchanges (7), DEX Perpetuals (3), DEX Spot (2), L2 DEX (7), Dark / Institutional (1), and Regulated STE (6).\n\nFor each venue: Status (ONLINE / DEGRADED / OFFLINE), time since last event received, and events per minute. Any OFFLINE venue represents a blind spot in consolidated tape coverage and will affect DSU Coverage and Data Gaps metrics. The venue matrix is the first place to check when the aggregate ingestion rate drops unexpectedly.",
+      },
+      {
+        id: "dact-quality",
+        title: "Data Quality Metrics",
+        body: "Six quality assurance metrics verify DACT-STD-1.0 conformance in real time:\n\nTape Integrity — INTACT means the tape is complete with no gaps, sequence breaks, or violations. DEGRADED or COMPROMISED requires immediate investigation.\n\nNormalisation Rate — Percentage of raw events successfully converted to the canonical Liquidity Truth Record (LTR) schema. Should be 100% at all times. Below 100% means a venue relay has changed its output format.\n\nSymbol Coverage — ILU assets with active data versus total assets in the Institutional Liquidity Universe. Some assets will show inactive if no venue has reported data for them in the current session.\n\nVenue Coverage — Venues actively reporting versus total DSU size (26). Cross-reference with the Venue Coverage Matrix to identify which specific venues are offline.\n\nDuplicate Rate — Percentage of events deduplicated. Should be 0% or near-zero. Non-zero values indicate a venue relay is replaying events.\n\nRejected Events — Count of events rejected for schema validation failure. Should be 0 at all times. Any rejections indicate a breaking change in a venue relay.",
+      },
+      {
+        id: "dact-attestation",
+        title: "Non-Contamination Attestation",
+        body: "The gold-bordered panel at the bottom of the DACT page is the Non-Contamination Attestation. It certifies four properties of the consolidated tape under DACT-STD-1.0:\n\n1. Append-only — No event is ever modified or deleted after ingestion.\n2. Uncontaminated — No downstream analytical layer (STRATA AI, PoLi, RCL) has written to or altered any DACT event.\n3. Provenance-complete — Every event carries full provenance metadata: sourceVenue, transport method, engine identifier, DACT schema version, and ingestion latency in milliseconds.\n4. Non-interpretive — DACT records what happened but does not score, classify, or evaluate. All interpretation belongs exclusively to downstream layers.\n\nThe verification timestamp updates in real time. The attestation badge shows DACT-STD-1.0 CONFORMANCE: FULL when all four properties are verified. This attestation is the foundation of the platform's claim to epistemic integrity.",
       },
     ],
   },

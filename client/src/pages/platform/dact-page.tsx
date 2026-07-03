@@ -369,7 +369,9 @@ export default function DactPage() {
             }}
           >
             <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.accent, letterSpacing: "0.1em", marginRight: 4 }}>
-              LIVE EVENT STREAM
+              <TT title="Live Event Stream" body="Real-time feed of every DACT event ingested from all 26 active venues. Each row shows the UTC timestamp, event type (DEPTH_UPDATE, BBO_UPDATE, TRADE, VENUE_STATUS), source venue, asset, and a normalised human-readable summary. Filter by type, venue, or asset using the dropdowns. Pause the stream to inspect a snapshot without the feed advancing.">
+                <span style={{ borderBottom: `1px dashed ${C.accent}`, cursor: "help" }}>LIVE EVENT STREAM</span>
+              </TT>
             </div>
             {/* Filter: event type */}
             <select
@@ -488,7 +490,9 @@ export default function DactPage() {
         >
           <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}` }}>
             <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.accent, letterSpacing: "0.1em" }}>
-              VENUE COVERAGE MATRIX
+              <TT title="Venue Coverage Matrix" body="Real-time status of every venue in the Declared Supervisory Universe (DSU). The DSU is the complete set of venues TILT is authorised to supervise. Green = ONLINE (sending events within the expected window). Amber = DEGRADED (events arriving but with elevated latency or gaps). Red = OFFLINE (no events for >120 seconds). Any offline venue represents a blind spot in consolidated tape coverage.">
+                <span style={{ borderBottom: `1px dashed ${C.accent}`, cursor: "help" }}>VENUE COVERAGE MATRIX</span>
+              </TT>
             </div>
             <div style={{ fontFamily: MONO, fontSize: 9, color: C.muted, marginTop: 3 }}>
               Declared Supervisory Universe — {stats?.totalVenues ?? 26} venues
@@ -509,8 +513,19 @@ export default function DactPage() {
                 zIndex: 1,
               }}
             >
-              {["VENUE", "TYPE", "CHAIN", "STATUS", "LAST EVT", "EVT/MIN"].map(h => (
-                <div key={h} style={{ fontFamily: MONO, fontSize: 9, color: C.muted, letterSpacing: "0.08em" }}>{h}</div>
+              {([
+                ["VENUE",    "Full venue name as registered in the Declared Supervisory Universe. Venues are grouped by type: Centralised Exchanges, DEX Perpetuals, DEX Spot, L2 DEX, Dark / Institutional, and Regulated STE."],
+                ["TYPE",     "Venue type shortcode: CEX (centralised exchange), PERP-DEX (perpetuals DEX), SPOT-DEX (spot AMM), L2-DEX (Layer-2 AMM), OTC (dark / institutional RFQ), STE (regulated Securities Token Exchange)."],
+                ["CHAIN",    "The blockchain or infrastructure layer this venue operates on. Multi-chain venues show the primary chain. L2 venues show their specific rollup (e.g. Base, Optimism, zkSync Era)."],
+                ["STATUS",   "Live ingestion status. ONLINE = events received within the expected 120s window. DEGRADED = events arriving but with latency or partial data. OFFLINE = no events for >120s. Offline venues create blind spots in consolidated tape coverage."],
+                ["LAST EVT", "Time elapsed since the most recent event was received from this venue. Events older than 120 seconds trigger DEGRADED status. Events older than 300 seconds trigger OFFLINE. 'just now' means the venue is actively streaming."],
+                ["EVT/MIN",  "Events per minute from this venue over the last observation window. A sudden drop to 0 or — indicates a venue connectivity issue. Cross-reference with the EVENTS/SEC aggregate metric at the top of the page."],
+              ] as [string, string][]).map(([h, tip]) => (
+                <div key={h} style={{ fontFamily: MONO, fontSize: 9, color: C.muted, letterSpacing: "0.08em" }}>
+                  <TT title={h} body={tip}>
+                    <span style={{ borderBottom: `1px dashed ${C.muted}`, cursor: "help" }}>{h}</span>
+                  </TT>
+                </div>
               ))}
             </div>
 
@@ -592,7 +607,9 @@ export default function DactPage() {
           }}
         >
           <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.accent, letterSpacing: "0.1em", marginBottom: 12 }}>
-            INGESTION VOLUME — LAST 30 MIN
+            <TT title="Ingestion Volume — Last 30 Min" body="Stacked area chart showing the volume of events ingested into DACT by type over the past 30 minutes. DEPTH (teal) = orderbook depth updates. BBO (indigo) = best bid / offer quote updates. TRADE (green) = confirmed trades. STATUS (amber) = venue status change events. A declining total across all event types indicates venue disconnections or API issues. This chart accumulates after the first minute of operation.">
+              <span style={{ borderBottom: `1px dashed ${C.accent}`, cursor: "help" }}>INGESTION VOLUME — LAST 30 MIN</span>
+            </TT>
           </div>
           {!hasHistory ? (
             <div style={{ height: 160, display: "flex", alignItems: "center", justifyContent: "center", color: C.muted, fontFamily: MONO, fontSize: 11 }}>
@@ -649,7 +666,9 @@ export default function DactPage() {
           }}
         >
           <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.accent, letterSpacing: "0.1em", marginBottom: 12 }}>
-            DATA QUALITY METRICS
+            <TT title="Data Quality Metrics" body="Six quality assurance metrics that certify the consolidated tape meets DACT-STD-1.0 conformance requirements. These metrics are checked continuously. Any degradation (non-INTACT integrity, normalisation rate below 100%, duplicate or rejected events above 0) should trigger investigation of the affected venue relay. All values should be green under normal operating conditions.">
+              <span style={{ borderBottom: `1px dashed ${C.accent}`, cursor: "help" }}>DATA QUALITY METRICS</span>
+            </TT>
           </div>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <tbody>
@@ -659,41 +678,49 @@ export default function DactPage() {
                   value: stats?.tapeIntegrity ?? "—",
                   valueColor: integrityColor,
                   desc: "Whether the tape has any gaps or inconsistencies",
+                  tip: "INTACT means the tape is complete with no detected gaps, sequence breaks, or event rejections. DEGRADED means one or more venues have stopped reporting or events are arriving out of sequence. COMPROMISED means critical tape violations have been detected — investigate immediately.",
                 },
                 {
                   label: "Normalisation Rate",
                   value: stats ? `${stats.normalisationRate}%` : "—",
                   valueColor: C.green,
                   desc: "% of events successfully normalised to LTR schema",
+                  tip: "Percentage of incoming raw venue events that were successfully normalised into the canonical DACT schema (LTR — Liquidity Truth Record). 100% means every event from every venue parsed correctly. Below 100% means some events were malformed or used an unrecognised schema version — check the relevant venue relay.",
                 },
                 {
                   label: "Symbol Coverage",
                   value: stats ? `${stats.symbolCoverageActive} / ${stats.symbolCoverageTotal}` : "—",
                   valueColor: C.text,
                   desc: "Assets with active data vs total monitored",
+                  tip: "Number of ILU assets with at least one active venue event in the current observation window, versus the total number of assets in the Institutional Liquidity Universe. Tokens awaiting venue feed activation will show as inactive and are not scored.",
                 },
                 {
                   label: "Venue Coverage",
                   value: stats ? `${stats.venuesIngesting} / ${stats.totalVenues}` : "—",
                   valueColor: stats && stats.venuesIngesting === stats.totalVenues ? C.green : C.amber,
                   desc: "Venues reporting vs total in DSU",
+                  tip: "Number of DSU venues actively reporting data versus the total declared universe of 26 venues. Full coverage (26/26) means no supervisory blind spots. Any shortfall means at least one venue is offline — see the Venue Coverage Matrix for which venue is affected.",
                 },
                 {
                   label: "Duplicate Rate",
                   value: stats ? `${stats.duplicateRate}%` : "—",
                   valueColor: C.green,
                   desc: "% of events deduplicated (should be near 0%)",
+                  tip: "Percentage of incoming events that were identified as duplicates and discarded. DACT performs sequence-number and timestamp deduplication. A non-zero duplicate rate indicates a venue relay is replaying events — this is non-critical but should be investigated if persistent.",
                 },
                 {
                   label: "Rejected Events",
                   value: stats ? stats.rejectedEvents : "—",
                   valueColor: C.green,
                   desc: "Events rejected for invalid schema (should be 0)",
+                  tip: "Count of events rejected outright for failing schema validation (missing required fields, invalid types, or provenance violations). Zero is the target. Any rejections indicate a breaking change in a venue relay's output format. Check the relay for the affected venue.",
                 },
               ].map(row => (
                 <tr key={row.label} style={{ borderBottom: `1px solid ${C.border}22` }}>
                   <td style={{ padding: "8px 0", fontFamily: MONO, fontSize: 10, color: C.muted, width: "45%", paddingRight: 8 }}>
-                    {row.label}
+                    <TT title={row.label} body={row.tip}>
+                      <span style={{ borderBottom: `1px dashed ${C.muted}`, cursor: "help" }}>{row.label}</span>
+                    </TT>
                   </td>
                   <td
                     data-testid={`dact-quality-${row.label.toLowerCase().replace(/\s+/g, "-")}`}
