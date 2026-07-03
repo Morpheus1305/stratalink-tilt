@@ -166,7 +166,7 @@ function MetricCard({
       </div>
       <div
         data-testid={`dact-metric-${label.toLowerCase().replace(/\s+/g, "-")}`}
-        style={{ fontSize: 22, fontFamily: MONO, fontWeight: 700, color: highlight ?? C.text, letterSpacing: "-0.01em", lineHeight: 1 }}
+        style={{ fontSize: 16, fontFamily: MONO, fontWeight: 700, color: highlight ?? C.text, letterSpacing: "-0.01em", lineHeight: 1 }}
       >
         {value}
       </div>
@@ -291,9 +291,8 @@ export default function DactPage() {
 
       {/* ── Page subtitle ───────────────────────────────────────────────── */}
       <div style={{ padding: "10px 20px 6px", borderBottom: `1px solid ${C.border}` }}>
-        <div style={{ fontFamily: MONO, fontSize: 10, color: C.muted, maxWidth: 800, lineHeight: 1.5 }}>
-          The Institutional Liquidity Truth Terminal's immutable consolidated tape — the sole ingestion point
-          and authoritative record of observable digital asset liquidity across all connected venues.
+        <div style={{ fontFamily: MONO, fontSize: 10, color: C.muted, lineHeight: 1.5 }}>
+          The Institutional Liquidity Truth Terminal's immutable consolidated tape — the sole ingestion point and authoritative record of observable digital asset liquidity across all connected venues.
         </div>
       </div>
 
@@ -370,7 +369,7 @@ export default function DactPage() {
           >
             <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.accent, letterSpacing: "0.1em", marginRight: 4 }}>
               <TT title="Live Event Stream" body="Real-time feed of every DACT event ingested from all 26 active venues. Each row shows the UTC timestamp, event type (DEPTH_UPDATE, BBO_UPDATE, TRADE, VENUE_STATUS), source venue, asset, and a normalised human-readable summary. Filter by type, venue, or asset using the dropdowns. Pause the stream to inspect a snapshot without the feed advancing.">
-                <span style={{ borderBottom: `1px dashed ${C.accent}`, cursor: "help" }}>LIVE EVENT STREAM</span>
+                LIVE EVENT STREAM
               </TT>
             </div>
             {/* Filter: event type */}
@@ -488,14 +487,31 @@ export default function DactPage() {
             overflow: "hidden",
           }}
         >
-          <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}` }}>
-            <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.accent, letterSpacing: "0.1em" }}>
-              <TT title="Venue Coverage Matrix" body="Real-time status of every venue in the Declared Supervisory Universe (DSU). The DSU is the complete set of venues TILT is authorised to supervise. Green = ONLINE (sending events within the expected window). Amber = DEGRADED (events arriving but with elevated latency or gaps). Red = OFFLINE (no events for >120 seconds). Any offline venue represents a blind spot in consolidated tape coverage.">
-                <span style={{ borderBottom: `1px dashed ${C.accent}`, cursor: "help" }}>VENUE COVERAGE MATRIX</span>
-              </TT>
+          <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+            <div>
+              <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.accent, letterSpacing: "0.1em" }}>
+                <TT title="Venue Coverage Matrix" body="Real-time status of every venue in the Declared Supervisory Universe (DSU). The DSU is the complete set of venues TILT is authorised to supervise. Green = ONLINE (sending events within the expected window). Amber = DEGRADED (events arriving but with elevated latency or gaps). Red = OFFLINE (no events for >120 seconds). Any offline venue represents a blind spot in consolidated tape coverage.">
+                  VENUE COVERAGE MATRIX
+                </TT>
+              </div>
+              <div style={{ fontFamily: MONO, fontSize: 9, color: C.muted, marginTop: 3 }}>
+                Declared Supervisory Universe — {stats?.totalVenues ?? 26} venues
+              </div>
             </div>
-            <div style={{ fontFamily: MONO, fontSize: 9, color: C.muted, marginTop: 3 }}>
-              Declared Supervisory Universe — {stats?.totalVenues ?? 26} venues
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: C.green, boxShadow: `0 0 5px ${C.green}80` }} />
+                <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.green, letterSpacing: "0.1em" }}>LIVE</span>
+                <span style={{ fontFamily: MONO, fontSize: 9, color: C.muted, marginLeft: 2 }}>
+                  {stats ? `${stats.venuesIngesting}/${stats.totalVenues} · ${stats.dsuCoverage}%` : "—"}
+                </span>
+              </div>
+              <div style={{ fontFamily: MONO, fontSize: 9, color: C.muted, letterSpacing: "0.06em" }}>
+                LAST SYNC{" "}
+                <span style={{ color: C.accent }}>
+                  {stats ? new Date(stats.verifiedAt).toISOString().slice(11, 19) + " UTC" : "—"}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -522,9 +538,7 @@ export default function DactPage() {
                 ["EVT/MIN",  "Events per minute from this venue over the last observation window. A sudden drop to 0 or — indicates a venue connectivity issue. Cross-reference with the EVENTS/SEC aggregate metric at the top of the page."],
               ] as [string, string][]).map(([h, tip]) => (
                 <div key={h} style={{ fontFamily: MONO, fontSize: 9, color: C.muted, letterSpacing: "0.08em" }}>
-                  <TT title={h} body={tip}>
-                    <span style={{ borderBottom: `1px dashed ${C.muted}`, cursor: "help" }}>{h}</span>
-                  </TT>
+                  <TT title={h} body={tip}>{h}</TT>
                 </div>
               ))}
             </div>
@@ -608,7 +622,7 @@ export default function DactPage() {
         >
           <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.accent, letterSpacing: "0.1em", marginBottom: 12 }}>
             <TT title="Ingestion Volume — Last 30 Min" body="Stacked area chart showing the volume of events ingested into DACT by type over the past 30 minutes. DEPTH (teal) = orderbook depth updates. BBO (indigo) = best bid / offer quote updates. TRADE (green) = confirmed trades. STATUS (amber) = venue status change events. A declining total across all event types indicates venue disconnections or API issues. This chart accumulates after the first minute of operation.">
-              <span style={{ borderBottom: `1px dashed ${C.accent}`, cursor: "help" }}>INGESTION VOLUME — LAST 30 MIN</span>
+              INGESTION VOLUME — LAST 30 MIN
             </TT>
           </div>
           {!hasHistory ? (
@@ -667,7 +681,7 @@ export default function DactPage() {
         >
           <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.accent, letterSpacing: "0.1em", marginBottom: 12 }}>
             <TT title="Data Quality Metrics" body="Six quality assurance metrics that certify the consolidated tape meets DACT-STD-1.0 conformance requirements. These metrics are checked continuously. Any degradation (non-INTACT integrity, normalisation rate below 100%, duplicate or rejected events above 0) should trigger investigation of the affected venue relay. All values should be green under normal operating conditions.">
-              <span style={{ borderBottom: `1px dashed ${C.accent}`, cursor: "help" }}>DATA QUALITY METRICS</span>
+              DATA QUALITY METRICS
             </TT>
           </div>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
