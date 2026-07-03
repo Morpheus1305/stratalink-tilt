@@ -45,6 +45,7 @@ import addxRoutes       from "./routes/addx-relay";
 import dailyCommentaryRouter from "./api/dailyCommentary";
 import { reportRoutes, generateServerSideReport } from "./routes/reports";
 import systemStatusRoutes from "./routes/system-status";
+import dactApiRoutes from "./routes/dact-api";
 import { startIngestionLoop } from "../analytics/engines/ingestionManager";
 import { db } from "./db";
 import { scheduledReportConfigs } from "../shared/schema";
@@ -441,6 +442,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mount system status routes
   app.use("/api/system", systemStatusRoutes);
+
+  // Mount DACT tape routes (Digital Asset Consolidated Tape — Layer 1)
+  app.use("/api/dact", dactApiRoutes);
 
   // Start analytics ingestion loop
   startIngestionLoop();

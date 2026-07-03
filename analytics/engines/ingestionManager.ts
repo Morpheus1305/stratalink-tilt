@@ -4,6 +4,7 @@ import { ingestLiquidations, getLiquidationCache, getLastLiquidationIngestTime }
 import { computeStress, getStressCommentary, StressResult } from "./stressEngine";
 import { recordDepthSnapshot } from "../../server/services/depthHistoryStore";
 import { tsleBuffer } from "../../server/services/tsle-buffer";
+import { appendDactEvent } from "../../server/services/dact-tape";
 import { computeAnalyticsSnapshot } from "../../server/services/analytics-layer";
 import { evaluateAndNotify } from "../../server/services/alert-service";
 import { pushIngestCycleAlerts } from "../../server/services/liveAlertsService";
@@ -49,6 +50,26 @@ function feedDepthToTsleBuffer(): void {
     };
 
     tsleBuffer.record(snapshot);
+
+    appendDactEvent({
+      timestamp: snapshot.timestamp,
+      eventType: "DEPTH_UPDATE",
+      venue: snapshot.venue,
+      asset: sym,
+      summary: `mid=$${snapshot.mid_price?.toFixed(2) ?? "?"} spread=${snapshot.spread.bps?.toFixed(1) ?? "?"}bps`,
+      payload: {
+        mid_price: snapshot.mid_price,
+        spread_bps: snapshot.spread.bps,
+        depth_25bps: snapshot.bands["pct_0.25"].total_notional,
+      },
+      provenance: {
+        sourceVenue: snapshot.venue,
+        transport: "direct",
+        engine: "ingestionManager-v1.0",
+        dactVersion: "1.0",
+        latencyMs: 0,
+      },
+    });
   }
 }
 
@@ -252,7 +273,32 @@ async function ingestRelayVenues(): Promise<void> {
       const url = `http://127.0.0.1:${port}${path}?symbol=${sym}`;
       calls.push(
         fetch(url, { headers })
-          .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); })
+          .then(async r => {
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const data = await r.json() as Record<string, any>;
+            if (data?.ok) {
+              const venueId = String(data.venue ?? path.split("/")[2] ?? "unknown").toLowerCase();
+              appendDactEvent({
+                timestamp: Date.now(),
+                eventType: "DEPTH_UPDATE",
+                venue: venueId,
+                asset: sym,
+                summary: `mid=${data.mid_price != null ? "$" + Number(data.mid_price).toFixed(2) : "?"} spread=${data.spread?.bps != null ? Number(data.spread.bps).toFixed(1) + "bps" : "?"}`,
+                payload: {
+                  mid_price: data.mid_price,
+                  spread_bps: data.spread?.bps,
+                  depth_25bps: data.bands?.pct_0_25?.total_notional ?? data.bands?.["25bps"]?.totalUSD,
+                },
+                provenance: {
+                  sourceVenue: String(data.provenance?.sourceVenue ?? venueId),
+                  transport: String(data.provenance?.transport ?? "relay"),
+                  engine: "ingestionManager-v1.0",
+                  dactVersion: "1.0",
+                  latencyMs: typeof data.provenance?.latencyMs === "number" ? data.provenance.latencyMs : 0,
+                },
+              });
+            }
+          })
           .catch(err =>
             console.warn(`[IngestionManager] relay ${path}?symbol=${sym}: ${err.message}`)
           )

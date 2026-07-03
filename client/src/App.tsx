@@ -16,6 +16,7 @@ import VerifyOTPPage from "@/pages/VerifyOTPPage";
 import AlertConfigPage from "@/pages/alert-config";
 import RegulatoryAdgmView from "@/pages/regulatory/RegulatoryAdgmView";
 import TiltTerminal from "@/pages/platform/tilt-terminal";
+import DactPage from "@/pages/platform/dact-page";
 import StrataAI from "@/pages/platform/strata-ai";
 import IntegrityPage from "@/pages/platform/integrity";
 import CLTEvidence from "./pages/clt-evidence";
@@ -96,6 +97,14 @@ function AppRouter() {
         {() => (
           <RequireAuth>
             <TiltTerminal />
+          </RequireAuth>
+        )}
+      </Route>
+
+      <Route path="/platform/dact">
+        {() => (
+          <RequireAuth>
+            <DactPage />
           </RequireAuth>
         )}
       </Route>

@@ -3,6 +3,7 @@ import { ILUTokenSelector } from "@/components/ilu-token-selector";
 
 const tabs = [
   { id: "tilt",      label: "LIQUIDITY",  path: "/platform/tilt" },
+  { id: "dact",      label: "DACT",       path: "/platform/dact" },
   { id: "strata-ai", label: "STRATA AI",  path: "/platform/strata-ai" },
   { id: "integrity", label: "PoLi / PoMI",path: "/platform/integrity" },
   { id: "rcl",       label: "RCL",        path: "/regulatory/adgm" },

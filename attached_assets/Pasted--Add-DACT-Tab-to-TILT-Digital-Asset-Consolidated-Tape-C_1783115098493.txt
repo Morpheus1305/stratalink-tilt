@@ -1,0 +1,236 @@
+# Add DACT Tab to TILT - Digital Asset Consolidated Tape
+
+## Context
+DACT (Digital Asset Consolidated Tape) is Layer 1 of the Stratalink
+Liquidity Truth Stack - the immutable, append-only data backbone that
+feeds every other layer. It is the sole ingestion point for all venue
+data. STRATA AI reads it. PoLi scores against it. RCL renders its
+artefacts. Without DACT, nothing else on the platform exists.
+
+Currently DACT has no dedicated tab in TILT. It needs one - positioned
+as the SECOND tab after LIQUIDITY, before STRATA AI.
+
+## Navigation Update
+
+Change the tab order from:
+  LIQUIDITY | STRATA AI | POLI / POMI | RCL | ALERTS
+
+To:
+  LIQUIDITY | DACT | STRATA AI | POLI / POMI | RCL | ALERTS
+
+The DACT tab should use the same navigation styling as the other tabs.
+Breadcrumb: STRATA LINK > DIGITAL ASSET CONSOLIDATED TAPE > DACT v1.0
+
+## Page Subtitle
+"The Institutional Liquidity Truth Terminal's immutable consolidated
+tape - the sole ingestion point and authoritative record of observable
+digital asset liquidity across all connected venues."
+
+---
+
+## Page Layout
+
+The DACT page has five sections, top to bottom:
+
+### Section 1: Header Metrics Row
+Same pattern as other tabs. Display:
+
+| Metric | Description |
+|--------|-------------|
+| VENUES INGESTING | Count of venues actively reporting data (e.g. 26) |
+| EVENTS / SEC | Current event ingestion rate per second |
+| TAPE DEPTH | Total number of events in the current tape window |
+| LATENCY (P95) | 95th percentile ingestion latency in milliseconds |
+| DATA GAPS | Count of active data gaps (venues not reporting within expected window) |
+| DSU COVERAGE | Percentage of Declared Supervisory Universe actively reporting (e.g. 100%) |
+
+Last update timestamp on the right, matching other tabs.
+
+### Section 2: Live Event Stream (Panel 1, left 60%)
+
+A real-time scrolling feed of DACT events as they are ingested. This
+is the consolidated tape itself - the raw, uninterpreted record of
+what the platform is seeing from venues.
+
+Each event row shows:
+```
+[TIMESTAMP]  [EVENT TYPE]  [VENUE]  [ASSET]  [SUMMARY]
+```
+
+Event types (from DACT-STD-1.0 Section 5):
+
+**DEPTH_UPDATE** - order book depth snapshot from a venue
+- Display: timestamp, venue name, asset, bid depth, ask depth, levels
+- Colour: default (white/grey text)
+
+**BBO_UPDATE** - best bid/offer update from a venue
+- Display: timestamp, venue name, asset, best bid, best ask, spread
+- Colour: default
+
+**TRADE** - executed trade reported by a venue
+- Display: timestamp, venue name, asset, price, size, side (buy/sell)
+- Colour: green for buys, red for sells
+
+**VENUE_STATUS** - venue connectivity status change
+- Display: timestamp, venue name, status (ONLINE/DEGRADED/OFFLINE)
+- Colour: green for ONLINE, amber for DEGRADED, red for OFFLINE
+
+The stream should scroll automatically (newest at top) with a pause
+button to freeze the stream for inspection. Show the most recent
+50-100 events. Events should arrive at the actual ingestion rate
+(typically 5-10 per second across all venues).
+
+Filter controls at the top of the stream:
+- Filter by event type (DEPTH / BBO / TRADE / STATUS)
+- Filter by venue (dropdown of all 26 venues)
+- Filter by asset (dropdown of all 25 monitored assets)
+
+### Section 3: Venue Coverage Matrix (Panel 2, right 40%)
+
+A grid showing every venue in the Declared Supervisory Universe (DSU)
+with its current ingestion status. One row per venue.
+
+Columns:
+| Venue | Type | Chain | Status | Last Event | Latency | Events/min |
+
+- **Venue**: venue name
+- **Type**: CEX / AMM / REST / RFQ / ATS / MTF
+- **Chain**: ethereum / arbitrum / base / optimism / bnb / etc.
+  (or "cross-chain" for CEXs)
+- **Status**: green dot ONLINE, amber dot DEGRADED, red dot OFFLINE
+- **Last Event**: relative timestamp (e.g. "2s ago", "45s ago")
+  Red if >60 seconds since last event (stale)
+- **Latency**: current P95 latency for this venue in ms
+- **Events/min**: event ingestion rate for this venue
+
+Group the venues by category with subtle dividers:
+- Centralised Exchanges (8)
+- DEX Perpetuals (3)
+- DEX Spot (2)
+- L2 DEX (7)
+- Dark / Institutional (1)
+- Security Token Exchanges (6) - label as "Regulated STE"
+
+### Section 4: Tape Statistics (Panel 3, full width)
+
+Two side-by-side panels:
+
+**Left: Ingestion Volume Chart**
+A time-series area chart showing events ingested per minute over the
+last 30 minutes. Stacked by event type (different colours for DEPTH,
+BBO, TRADE, STATUS). This shows the rhythm of data ingestion and
+makes gaps visible as dips in the chart.
+
+**Right: Data Quality Metrics**
+
+| Metric | Value | Description |
+|--------|-------|-------------|
+| Tape Integrity | INTACT / DEGRADED / COMPROMISED | Whether the tape has any gaps or inconsistencies |
+| Normalisation Rate | percentage | % of events successfully normalised to LTR schema |
+| Symbol Coverage | X / Y | Assets with active data vs total monitored |
+| Venue Coverage | X / Y | Venues reporting vs total in DSU |
+| Duplicate Rate | percentage | % of events deduplicated (should be near 0%) |
+| Rejected Events | count | Events rejected for invalid schema (should be 0) |
+
+### Section 5: Non-Contamination Attestation (Panel 4, full width)
+
+A single-row attestation panel at the bottom of the page, styled as
+a formal statement:
+
+```
+NON-CONTAMINATION ATTESTATION
+DACT-STD-1.0 Conformance: FULL
+This tape is an append-only, uncontaminated record of observable
+market data. No downstream layer (STRATA AI, PoLi, RCL) has written
+to or modified any DACT event. All events carry complete provenance
+(sourceVenue, transport, engine, dactVersion, latencyMs).
+Last verified: [timestamp]
+```
+
+Background: dark navy (#0D1E3A). Border: 1px gold (#C9A84C).
+This is the trust statement - it visually anchors the page with the
+same authority as the RCL compliance footer.
+
+---
+
+## Data Sources
+
+The DACT tab reads from the same data pipeline that already feeds
+every other tab. The venue relay services (binance-relay, bybit-relay,
+uniswap-relay, aerodrome-relay, etc.) already ingest the raw event
+data. The DACT tab displays this data in its raw form BEFORE it is
+processed by L5F scoring, STRATA AI detection, or PoLi scoring.
+
+If an event log or buffer already exists in the codebase (e.g. the
+TSLE buffer in server/services/tsle-buffer.ts), the DACT tab should
+read from that buffer directly.
+
+If no raw event log exists, create one:
+- server/services/dact-tape.ts
+- Append-only in-memory buffer (last 10,000 events)
+- Each event: { timestamp, eventType, venue, asset, payload, provenance }
+- All venue relays write to this buffer as they ingest data
+- The DACT tab reads from this buffer via a new API endpoint
+
+---
+
+## Styling
+
+Match the existing TILT dark theme. Key styling notes:
+- Event stream: monospace font for the scrolling feed (JetBrains Mono)
+  to give it a "live terminal" feel
+- Venue matrix: standard table styling matching other tabs
+- Charts: same dark chart backgrounds (#080D14) as PoLi/PoMI page
+- Non-contamination attestation: gold border stands out from the
+  teal/blue used elsewhere - this is intentional, it marks this as
+  a governance statement rather than an analytical panel
+
+---
+
+## Hover Tooltips
+
+Add tooltips for key metrics using the same tooltip component as
+the LIQUIDITY tab:
+
+**VENUES INGESTING**: Number of venues in the Declared Supervisory
+Universe actively sending data. Should match the total configured
+venues (26). Any venue not ingesting is shown as OFFLINE in the
+venue matrix below.
+
+**EVENTS / SEC**: Real-time event ingestion rate across all venues.
+Higher rates indicate more active markets. A sudden drop indicates
+venue disconnection or API issues.
+
+**TAPE DEPTH**: Total number of events in the current observation
+window. This is the size of the consolidated tape being maintained.
+
+**LATENCY (P95)**: 95th percentile data ingestion latency. Under
+500ms is excellent. Over 2000ms indicates a venue relay is lagging.
+
+**DSU COVERAGE**: Percentage of the Declared Supervisory Universe
+(all configured venues) that is actively reporting. 100% means no
+blind spots. Below 100% means specific venues are not reporting -
+check the venue matrix for details.
+
+**NON-CONTAMINATION**: DACT is a verbose fact layer. It records what
+happened but does not score, interpret, or judge. No downstream layer
+(STRATA AI, PoLi, RCL) writes back to DACT. This separation is the
+foundation of the platform's epistemic integrity.
+
+---
+
+## Verification
+
+1. Confirm the tab order is LIQUIDITY | DACT | STRATA AI | POLI/POMI
+   | RCL | ALERTS.
+2. Confirm the event stream shows real-time events scrolling at the
+   actual ingestion rate.
+3. Confirm the venue coverage matrix lists all 26 configured venues
+   with current status, latency and event rates.
+4. Confirm filtering by event type, venue and asset works correctly.
+5. Confirm the ingestion volume chart shows a continuous area chart
+   with no flat-line gaps (unless venues are genuinely offline).
+6. Confirm the non-contamination attestation panel renders at the
+   bottom with gold border.
+7. Confirm all other tabs still function correctly after the DACT
+   tab is inserted into the navigation.
