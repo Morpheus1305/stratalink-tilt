@@ -1,0 +1,289 @@
+# Audit: Venue API Geo-Block Status From Replit Environment
+
+## Purpose
+Determine which venue APIs are geo-blocked from the Replit deployment
+environment and which return real order book data. This directly affects
+data quality across the entire platform - any geo-blocked venue falls
+back to synthetic/modelled data rather than live order books.
+
+## What to Build
+Create a standalone diagnostic script that tests every venue API
+endpoint from the Replit environment and reports the results. This
+should be a one-time audit tool, not a permanent feature.
+
+Create a file: server/scripts/venue-geoblock-audit.ts (or .js)
+
+## The Script
+
+For each venue, the script should:
+1. Call the venue's public API directly (the same endpoint the relay
+   uses for order book / depth data)
+2. Record the HTTP status code
+3. Record whether the response contains actual order book data or an
+   error
+4. Report the result as LIVE, BLOCKED, or ERROR
+
+Test with BTC as the baseline asset (listed on all venues).
+
+### Venues to Test
+
+```typescript
+const VENUE_TESTS = [
+  {
+    name: "Binance",
+    url: "https://api.binance.com/api/v3/depth?symbol=BTCUSDT&limit=5",
+    type: "CEX"
+  },
+  {
+    name: "OKX",
+    url: "https://www.okx.com/api/v5/market/books?instId=BTC-USDT&sz=5",
+    type: "CEX"
+  },
+  {
+    name: "Bybit",
+    url: "https://api.bybit.com/v5/market/orderbook?category=spot&symbol=BTCUSDT&limit=5",
+    type: "CEX"
+  },
+  {
+    name: "Kraken",
+    url: "https://api.kraken.com/0/public/Depth?pair=XBTUSD&count=5",
+    type: "CEX"
+  },
+  {
+    name: "Coinbase",
+    url: "https://api.exchange.coinbase.com/products/BTC-USD/book?level=2",
+    type: "CEX"
+  },
+  {
+    name: "Bitget",
+    url: "https://api.bitget.com/api/v2/spot/market/orderbook?symbol=BTCUSDT&limit=5",
+    type: "CEX"
+  },
+  {
+    name: "dYdX",
+    url: "https://indexer.dydx.trade/v4/orderbooks/perpetualMarket/BTC-USD",
+    type: "CEX"
+  },
+  {
+    name: "Deribit",
+    url: "https://www.deribit.com/api/v2/public/get_order_book?instrument_name=BTC-PERPETUAL&depth=5",
+    type: "CEX"
+  },
+  {
+    name: "Hyperliquid",
+    url: "https://api.hyperliquid.xyz/info",
+    method: "POST",
+    body: JSON.stringify({ type: "l2Book", coin: "BTC" }),
+    headers: { "Content-Type": "application/json" },
+    type: "DEX"
+  },
+  {
+    name: "CoinGecko (fallback source)",
+    url: "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd",
+    type: "DATA"
+  }
+];
+```
+
+### For each venue, run the test:
+
+```typescript
+async function testVenue(venue) {
+  const startTime = Date.now();
+  try {
+    const options = {
+      method: venue.method || "GET",
+      headers: venue.headers || {},
+    };
+    if (venue.body) options.body = venue.body;
+
+    const response = await fetch(venue.url, options);
+    const latency = Date.now() - startTime;
+    const status = response.status;
+
+    if (status === 403 || status === 451) {
+      return {
+        venue: venue.name,
+        type: venue.type,
+        status: "BLOCKED",
+        httpStatus: status,
+        latency: `${latency}ms`,
+        detail: status === 403
+          ? "HTTP 403 Forbidden - geo-blocked"
+          : "HTTP 451 Unavailable For Legal Reasons - geo-blocked",
+        impact: "Falls back to synthetic/modelled data"
+      };
+    }
+
+    if (status === 429) {
+      return {
+        venue: venue.name,
+        type: venue.type,
+        status: "RATE_LIMITED",
+        httpStatus: status,
+        latency: `${latency}ms`,
+        detail: "HTTP 429 Too Many Requests - rate limited but not blocked",
+        impact: "May need API key or slower polling"
+      };
+    }
+
+    if (!response.ok) {
+      return {
+        venue: venue.name,
+        type: venue.type,
+        status: "ERROR",
+        httpStatus: status,
+        latency: `${latency}ms`,
+        detail: `HTTP ${status} - unexpected error`,
+        impact: "Investigate - may need different endpoint or auth"
+      };
+    }
+
+    // Check if response contains actual data
+    const data = await response.json();
+    const hasData = JSON.stringify(data).length > 100;
+
+    return {
+      venue: venue.name,
+      type: venue.type,
+      status: hasData ? "LIVE" : "EMPTY",
+      httpStatus: status,
+      latency: `${latency}ms`,
+      detail: hasData
+        ? "Real order book data returned"
+        : "200 OK but response appears empty",
+      impact: hasData
+        ? "Live data - no action needed"
+        : "Check if endpoint is correct"
+    };
+
+  } catch (error) {
+    return {
+      venue: venue.name,
+      type: venue.type,
+      status: "NETWORK_ERROR",
+      httpStatus: null,
+      latency: `${Date.now() - startTime}ms`,
+      detail: `Network error: ${error.message}`,
+      impact: "Cannot reach venue API at all - DNS, firewall or network issue"
+    };
+  }
+}
+```
+
+### Run all tests and output a report:
+
+```typescript
+async function runAudit() {
+  console.log("==============================================");
+  console.log("VENUE API GEO-BLOCK AUDIT");
+  console.log(`Timestamp: ${new Date().toISOString()}`);
+  console.log(`Environment: Replit`);
+  console.log("==============================================\n");
+
+  const results = [];
+
+  for (const venue of VENUE_TESTS) {
+    const result = await testVenue(venue);
+    results.push(result);
+
+    const icon = result.status === "LIVE" ? "OK"
+      : result.status === "BLOCKED" ? "XX"
+      : result.status === "RATE_LIMITED" ? "!!"
+      : "??";
+
+    console.log(`[${icon}] ${result.venue.padEnd(20)} ${result.status.padEnd(15)} HTTP ${String(result.httpStatus).padEnd(5)} ${result.latency.padEnd(8)} ${result.detail}`);
+  }
+
+  // Summary
+  const live = results.filter(r => r.status === "LIVE");
+  const blocked = results.filter(r => r.status === "BLOCKED");
+  const other = results.filter(r => !["LIVE", "BLOCKED"].includes(r.status));
+
+  console.log("\n==============================================");
+  console.log("SUMMARY");
+  console.log("==============================================");
+  console.log(`LIVE (real data):     ${live.length} venues - ${live.map(r => r.venue).join(", ") || "none"}`);
+  console.log(`BLOCKED (geo):        ${blocked.length} venues - ${blocked.map(r => r.venue).join(", ") || "none"}`);
+  console.log(`OTHER (investigate):  ${other.length} venues - ${other.map(r => r.venue).join(", ") || "none"}`);
+  console.log("\n==============================================");
+  console.log("RECOMMENDATION");
+  console.log("==============================================");
+
+  if (blocked.length > 0) {
+    console.log(`\n${blocked.length} venue(s) are geo-blocked from this Replit environment.`);
+    console.log("These venues currently fall back to synthetic/modelled depth data.");
+    console.log("To fix: route these venue API calls through the Frankfurt DigitalOcean");
+    console.log("relay (relay.stratalink.ai) the same way Binance is already handled.\n");
+    console.log("Blocked venues needing Frankfurt relay:");
+    blocked.forEach(r => {
+      console.log(`  - ${r.venue}: ${r.detail}`);
+    });
+  } else {
+    console.log("\nNo geo-blocked venues detected. All venue APIs return live data.");
+  }
+
+  // Also check: what IP is Replit running from?
+  try {
+    const ipResponse = await fetch("https://api.ipify.org?format=json");
+    const ipData = await ipResponse.json();
+    console.log(`\nReplit outbound IP: ${ipData.ip}`);
+
+    const geoResponse = await fetch(`https://ipapi.co/${ipData.ip}/json/`);
+    const geoData = await geoResponse.json();
+    console.log(`Replit location: ${geoData.city}, ${geoData.region}, ${geoData.country_name}`);
+    console.log(`This explains which venue geo-restrictions apply.\n`);
+  } catch (e) {
+    console.log("\nCould not determine Replit outbound IP.\n");
+  }
+}
+
+runAudit();
+```
+
+## How to Run
+
+```bash
+# From the project root
+npx tsx server/scripts/venue-geoblock-audit.ts
+# or if using plain JS
+node server/scripts/venue-geoblock-audit.js
+```
+
+## Expected Output
+
+Something like:
+```
+[OK] Binance              LIVE            HTTP 200   45ms     Real order book data returned
+[OK] OKX                  LIVE            HTTP 200   120ms    Real order book data returned
+[XX] Bybit                BLOCKED         HTTP 403   30ms     HTTP 403 Forbidden - geo-blocked
+[OK] Kraken               LIVE            HTTP 200   85ms     Real order book data returned
+[OK] Coinbase             LIVE            HTTP 200   95ms     Real order book data returned
+[OK] Bitget               LIVE            HTTP 200   110ms    Real order book data returned
+[OK] dYdX                 LIVE            HTTP 200   150ms    Real order book data returned
+[OK] Deribit              LIVE            HTTP 200   90ms     Real order book data returned
+[OK] Hyperliquid          LIVE            HTTP 200   130ms    Real order book data returned
+[OK] CoinGecko            LIVE            HTTP 200   200ms    Real order book data returned
+
+SUMMARY
+LIVE (real data):     9 venues
+BLOCKED (geo):        1 venues - Bybit
+OTHER (investigate):  0 venues
+
+Replit outbound IP: x.x.x.x
+Replit location: Ashburn, Virginia, United States
+```
+
+## What to Do with the Results
+
+1. Any venue showing BLOCKED needs to be routed through the Frankfurt
+   DigitalOcean relay (relay.stratalink.ai), same as Binance.
+2. Any venue showing RATE_LIMITED may need an API key or slower polling.
+3. Share the full output so we can determine which venues need the
+   Frankfurt relay treatment.
+
+## Important
+Do NOT delete this script after running. Keep it in server/scripts/
+so it can be re-run if the deployment environment changes (e.g. if
+Replit moves to a different region, or if a venue changes its geo
+policy).
