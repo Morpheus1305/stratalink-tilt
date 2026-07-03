@@ -15,24 +15,27 @@ const router = Router();
 const VENUE   = "addx";
 const TIMEOUT = 8_000;
 
-const SUPPORTED_SYMBOLS = ["BUIDL", "OUSG", "BENJI"];
+const SUPPORTED_SYMBOLS = ["BUIDL", "OUSG", "BENJI", "USDY"];
 
 const HARDCODED_PRICE: Record<string, number> = {
   BUIDL: 1.000,
   OUSG:  1.085,
   BENJI: 1.000,
+  USDY:  1.000,
 };
 
 const POOL_SIZE: Record<string, number> = {
   BUIDL: 5_000_000,
   OUSG:  3_000_000,
   BENJI: 2_500_000,
+  USDY:  4_000_000,
 };
 
 const SPREAD_BPS: Record<string, number> = {
   BUIDL: 5,
   OUSG:  10,
   BENJI: 8,
+  USDY:  8,
 };
 
 function authCheck(req: Request, res: Response): boolean {

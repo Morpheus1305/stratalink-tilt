@@ -49,9 +49,15 @@ const KNOWN_VENUES = [
   'bitget', 'gmx', 'curve', 'otc', 'canton',
   'aerodrome', 'velodrome', 'pancakeswap',
   'uniswap-worldchain', 'syncswap', 'linea-dex', 'scroll-dex',
+  // Phase 2 — regulated security token exchanges (ATS/MTF)
+  'securitize', 'archax', 'inx', 'tzero', 'sdx', 'addx',
 ];
 
-const REGULATED = new Set(['coinbase', 'kraken', 'deribit']);
+const REGULATED = new Set([
+  'coinbase', 'kraken', 'deribit',
+  // All security token exchanges are regulated by definition
+  'securitize', 'archax', 'inx', 'tzero', 'sdx', 'addx',
+]);
 
 const VENUE_WEIGHT: Record<string, number> = {
   binance:     0.28,
@@ -75,6 +81,13 @@ const VENUE_WEIGHT: Record<string, number> = {
   syncswap:    0.01,
   'linea-dex': 0.01,
   'scroll-dex': 0.01,
+  // Phase 2 — regulated security token exchanges (lower weight = institutional/illiquid)
+  securitize:  0.02,
+  archax:      0.02,
+  inx:         0.01,
+  tzero:       0.01,
+  sdx:         0.01,
+  addx:        0.01,
 };
 const DEFAULT_WEIGHT = 0.02;
 

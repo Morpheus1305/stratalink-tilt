@@ -192,7 +192,7 @@ const ILU_ARCHAX_SYMBOLS     = ["BUIDL", "OUSG", "BENJI", "VBILL", "BCSPX", "BIB
 const ILU_INX_SYMBOLS        = ["ONDO", "BUIDL"];
 const ILU_TZERO_SYMBOLS      = ["ONDO", "BUIDL"];
 const ILU_SDX_SYMBOLS        = ["BCSPX", "BIB01", "BUIDL"];
-const ILU_ADDX_SYMBOLS       = ["BUIDL", "OUSG", "BENJI"];
+const ILU_ADDX_SYMBOLS       = ["BUIDL", "OUSG", "BENJI", "USDY"];
 
 const RELAY_VENUES: { path: string; symbols: string[] }[] = [
   { path: "/api/bybit/spot/depth",        symbols: ILU_BYBIT_SYMBOLS   },
