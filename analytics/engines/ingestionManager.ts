@@ -194,6 +194,16 @@ const ILU_TZERO_SYMBOLS      = ["ONDO", "BUIDL"];
 const ILU_SDX_SYMBOLS        = ["BCSPX", "BIB01", "BUIDL"];
 const ILU_ADDX_SYMBOLS       = ["BUIDL", "OUSG", "BENJI", "USDY"];
 
+// L2 DEX symbol groups — kept narrow (top-liquidity pairs only) to avoid
+// overwhelming the ingest loop with slow DeFiLlama/Graph calls.
+const ILU_AERODROME_SYMBOLS      = ["ETH", "BTC", "USDC"];
+const ILU_VELODROME_SYMBOLS      = ["ETH", "BTC", "USDC", "USDT"];
+const ILU_PANCAKESWAP_SYMBOLS    = ["BNB", "ETH", "BTC", "USDT", "USDC"];
+const ILU_WORLDCHAIN_SYMBOLS     = ["ETH", "USDC"];
+const ILU_SYNCSWAP_SYMBOLS       = ["ETH", "BTC", "USDC"];
+const ILU_LINEA_SYMBOLS          = ["ETH", "BTC", "USDC"];
+const ILU_SCROLL_SYMBOLS         = ["ETH", "BTC", "USDC"];
+
 const RELAY_VENUES: { path: string; symbols: string[] }[] = [
   { path: "/api/bybit/spot/depth",        symbols: ILU_BYBIT_SYMBOLS   },
   { path: "/api/bitget/spot/depth",       symbols: ILU_BITGET_SYMBOLS  },
@@ -205,6 +215,14 @@ const RELAY_VENUES: { path: string; symbols: string[] }[] = [
   { path: "/api/uniswap/spot/depth",      symbols: ILU_UNISWAP_SYMBOLS },
   { path: "/api/curve/spot/depth",        symbols: ILU_CURVE_SYMBOLS   },
   { path: "/api/otc/spot/depth",          symbols: ILU_OTC_SYMBOLS     },
+  // L2 DEX relays (Base, Optimism, BSC, WorldChain, zkSync, Linea, Scroll)
+  { path: "/api/aerodrome/spot/depth",         symbols: ILU_AERODROME_SYMBOLS   },
+  { path: "/api/velodrome/spot/depth",         symbols: ILU_VELODROME_SYMBOLS   },
+  { path: "/api/pancakeswap/spot/depth",       symbols: ILU_PANCAKESWAP_SYMBOLS },
+  { path: "/api/uniswap-worldchain/spot/depth",symbols: ILU_WORLDCHAIN_SYMBOLS  },
+  { path: "/api/syncswap/spot/depth",          symbols: ILU_SYNCSWAP_SYMBOLS    },
+  { path: "/api/linea-dex/spot/depth",         symbols: ILU_LINEA_SYMBOLS       },
+  { path: "/api/scroll-dex/spot/depth",        symbols: ILU_SCROLL_SYMBOLS      },
   // Phase 2 — Security Token Exchange Relays
   { path: "/api/securitize/spot/depth",   symbols: ILU_SECURITIZE_SYMBOLS },
   { path: "/api/archax/spot/depth",       symbols: ILU_ARCHAX_SYMBOLS     },
