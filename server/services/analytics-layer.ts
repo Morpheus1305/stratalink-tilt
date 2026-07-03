@@ -47,6 +47,7 @@ const KNOWN_VENUES = [
   'binance', 'coinbase', 'kraken', 'okx', 'bybit',
   'deribit', 'hyperliquid', 'dydx', 'uniswap',
   'bitget', 'gmx', 'curve', 'otc', 'canton',
+  'aerodrome', 'velodrome', 'pancakeswap',
 ];
 
 const REGULATED = new Set(['coinbase', 'kraken', 'deribit']);
@@ -66,6 +67,9 @@ const VENUE_WEIGHT: Record<string, number> = {
   curve:       0.02,
   otc:         0.02,
   canton:      0.02,
+  aerodrome:   0.02,
+  velodrome:   0.02,
+  pancakeswap: 0.02,
 };
 const DEFAULT_WEIGHT = 0.02;
 

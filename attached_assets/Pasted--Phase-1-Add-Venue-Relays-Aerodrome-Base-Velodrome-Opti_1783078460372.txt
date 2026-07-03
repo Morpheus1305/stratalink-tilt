@@ -1,0 +1,283 @@
+# Phase 1: Add Venue Relays - Aerodrome (Base), Velodrome (Optimism), PancakeSwap (BNB)
+
+## Context
+These three venues directly address chain coverage requested by ADGM/FSRA.
+Brian Byagaba stated: "Those chains are Ethereum, BNB, typically EVM
+compatible chains like Base. So that's the L2s." These are the immediate
+priority venues - the dominant DEX on each of the chains he named.
+
+All three are AMM-based DEXs. The relay pattern is identical to the
+existing Uniswap (uniswap-relay.ts) and Curve (curve-relay.ts) relays.
+Aerodrome and Velodrome share the same codebase (same team, same
+contracts), so the second relay should be minimal incremental work after
+the first.
+
+## Implementation Order
+1. Aerodrome (Base) - build the AMM relay pattern for ve(3,3) pools
+2. Velodrome (Optimism) - clone Aerodrome relay, change RPC endpoint
+3. PancakeSwap (BNB) - Uniswap V3 fork, reuse existing Uniswap logic
+
+---
+
+## Venue 1: Aerodrome (Base Chain)
+
+### Overview
+- Dominant DEX on Base (Coinbase's Ethereum L2)
+- 60%+ of all DEX volume on Base
+- $520M+ in 24-hour volume, $1.3B TVL
+- AMM model: concentrated liquidity (Slipstream) + classic vAMM/sAMM
+- Venue type: amm
+
+### Data Access (in order of preference)
+
+**Option A: Expand Network REST API (recommended)**
+- GET /dex/getpoolliquidity - total pool liquidity
+- GET /dex/gettokenliquidity - per-token liquidity
+- GET /dex/getpool - pool address, tick spacing, reserves
+- DexId for Aerodrome: 3600
+- Docs: https://docs.expand.network/integrations/dex-and-dex-aggregators/aerodrome
+
+Example:
+```
+GET https://api.expand.network/dex/getpool
+  ?dexId=3600
+  &tokenA=0x4200000000000000000000000000000000000006
+  &tokenB=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
+```
+
+**Option B: Bitquery GraphQL API**
+- Real-time trades, pool liquidity, OHLCV
+- Docs: https://docs.bitquery.io/docs/blockchain/Base/aerodrome-base-api/
+
+**Option C: Direct on-chain reads via Base RPC**
+- Pool factory: 0x420DD381b31aEf6683db6B902084cB0FFECe40Da
+- Read pool contracts directly
+
+### Token Addresses on Base
+```
+WETH:   0x4200000000000000000000000000000000000006
+USDC:   0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
+cbBTC:  0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf
+DAI:    0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb
+AERO:   0x940181a94A35A4569E4529A3CDfB74e38FD98631
+LINK:   0x2227d2837D21EEF8af307Ea1472e4Ff5e1b79F94
+AAVE:   0x191c10Aa4AF7C30e871E70C95dB0E4eb77237530
+UNI:    0xc3De830EA07524a0761646a6a4e4be0e114a3C83
+```
+
+### Relay Implementation
+Create: server/services/aerodrome-relay.ts
+
+1. **Pool discovery**: For each ILU-20 token, find the primary liquidity
+   pool (TOKEN/USDC or TOKEN/WETH with highest liquidity).
+2. **Depth derivation**: Calculate how much token can be bought/sold
+   before moving price 10bps from current spot. Same calculation as
+   existing Uniswap/Curve relays.
+3. **Spread derivation**: For Slipstream (concentrated liquidity) pools,
+   derive from tick spacing and liquidity density. For classic pools,
+   derive from fee tier and pool depth.
+4. **Normalisation output**:
+   ```typescript
+   {
+     venue: "aerodrome",
+     venueType: "amm",
+     chain: "base",
+     depth: number,     // USD at +/-10bps
+     spread: number,    // bps
+     lastEvent: number, // timestamp
+     lisRef: `lis-aerodrome-${timestamp}`
+   }
+   ```
+5. **Polling**: Every 5 seconds, matching other relays.
+
+---
+
+## Venue 2: Velodrome (Optimism)
+
+### Overview
+- Dominant DEX on Optimism (third-largest Ethereum L2)
+- Same team and codebase as Aerodrome
+- $5.6B chain TVL
+- AMM model: identical to Aerodrome (ve(3,3) + concentrated liquidity)
+- Venue type: amm
+
+### Key Point
+Velodrome and Aerodrome are built by the same team with nearly identical
+smart contracts. The Velodrome relay should be a clone of the Aerodrome
+relay with only the following changes:
+- RPC endpoint: Optimism RPC instead of Base RPC
+- Token addresses: Optimism token addresses instead of Base addresses
+- Venue identifier: "velodrome" instead of "aerodrome"
+- LIS ref prefix: "lis-velodrome-" instead of "lis-aerodrome-"
+
+### Data Access
+Same options as Aerodrome:
+- Expand Network REST API (use Velodrome DexId - check docs)
+- Bitquery GraphQL with Optimism chain filter
+- Direct on-chain reads via Optimism RPC
+
+### Token Addresses on Optimism
+```
+WETH:   0x4200000000000000000000000000000000000006
+USDC:   0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85
+USDT:   0x94b008aA00579c1307B0EF2c499aD98a8ce58e58
+DAI:    0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1
+LINK:   0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6
+AAVE:   0x76FB31fb4af56892A25e32cFC43De717950c9278
+UNI:    0x6fd9d7AD17242c41f7131d257212c54A0e816691
+SNX:    0x8700dAec35aF8Ff88c16BdF0418774CB3D7599B4
+OP:     0x4200000000000000000000000000000000000042
+WBTC:   0x68f180fcCe6836688e9084f035309E29Bf0A2095
+```
+
+### Relay Implementation
+Create: server/services/velodrome-relay.ts
+
+Clone aerodrome-relay.ts and update:
+- Chain RPC endpoint to Optimism
+- Token address mapping to Optimism addresses
+- Venue name to "velodrome"
+- Chain identifier to "optimism"
+
+All pool discovery, depth derivation, spread derivation and
+normalisation logic should be identical to Aerodrome.
+
+---
+
+## Venue 3: PancakeSwap (BNB Chain)
+
+### Overview
+- Dominant DEX on BNB Chain
+- $903M 24h volume (12.5% of global DEX volume)
+- AMM model: Uniswap V3 fork (concentrated liquidity)
+- Venue type: amm
+
+### Key Point
+PancakeSwap V3 is a Uniswap V3 fork. The depth and spread calculation
+logic from the existing uniswap-relay.ts can be reused directly. The
+main differences are the RPC endpoint (BNB Chain), token addresses
+(BEP-20 format), and venue identifier.
+
+### Data Access (in order of preference)
+
+**Option A: PancakeSwap Subgraph API (recommended)**
+GraphQL endpoint for pool data:
+```graphql
+{
+  pools(
+    where: { token0: "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c" }
+    orderBy: totalValueLockedUSD
+    orderDirection: desc
+    first: 5
+  ) {
+    id
+    token0 { symbol }
+    token1 { symbol }
+    totalValueLockedUSD
+    tick
+    sqrtPrice
+    liquidity
+    feeTier
+  }
+}
+```
+
+**Option B: Expand Network REST API**
+Same expand.network service as Aerodrome.
+
+**Option C: Direct on-chain reads via BNB RPC**
+PancakeSwap V3 Deployer: 0x41ff9AA7e16B8B1a8a8dc4f0eFacd93D02d071c9
+
+### Token Addresses on BNB Chain
+```
+WBNB:   0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c
+USDT:   0x55d398326f99059fF775485246999027B3197955
+USDC:   0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d
+ETH:    0x2170Ed0880ac9A755fd29B2688956BD959F933F8
+BTCB:   0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c
+DAI:    0x1AF3F329e8BE154074D8769D1FFa4eE058B1DBc3
+CAKE:   0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82
+LINK:   0xF8A0BF9cF54Bb92F17374d9e9A321E6a111a51bD
+XRP:    0x1D2F0da169ceB9fC7B3144628dB156f3F6c60dBE
+ADA:    0x3EE2200Efb3400faBB9AacF31297cBdD1d435D47
+DOGE:   0xbA2aE424d960c26247Dd6c32edC70B295c744C43
+SOL:    0x570A5D26f7765Ecb712C0924E4De545B89fD43dF
+AVAX:   0x1CE0c2827e2eF14D5C4f29a091d735A204794041
+DOT:    0x7083609fce4d1d8Dc0C979AAb8c869Ea2C873402
+AAVE:   0xfb6115445Bff7b52FeB98650C87f44907E58f802
+UNI:    0xBf5140A22578168FD562DCcF235E5D43A02ce9B1
+TON:    Check BNB Chain token registry
+```
+
+### Relay Implementation
+Create: server/services/pancakeswap-relay.ts
+
+1. **Pool discovery**: For each ILU-20 token, find primary V3 pool
+   (TOKEN/USDT or TOKEN/WBNB with highest liquidity).
+2. **Depth derivation**: PancakeSwap V3 uses identical concentrated
+   liquidity model to Uniswap V3. Reuse the depth calculation from
+   uniswap-relay.ts.
+3. **Spread derivation**: Derived from fee tier and tick spacing,
+   identical to Uniswap V3.
+4. **Normalisation output**:
+   ```typescript
+   {
+     venue: "pancakeswap",
+     venueType: "amm",
+     chain: "bnb",
+     depth: number,
+     spread: number,
+     lastEvent: number,
+     lisRef: `lis-pancakeswap-${timestamp}`
+   }
+   ```
+5. **Polling**: Every 5 seconds.
+
+---
+
+## Integration Checklist (All Three Venues)
+
+1. Add venue entries to shared/venue-config.ts:
+   ```typescript
+   { id: "aerodrome", name: "Aerodrome", type: "amm",
+     chain: "base", regulated: false }
+   { id: "velodrome", name: "Velodrome", type: "amm",
+     chain: "optimism", regulated: false }
+   { id: "pancakeswap", name: "PancakeSwap", type: "amm",
+     chain: "bnb", regulated: false }
+   ```
+
+2. Register all three relays in the venue relay manager so they are
+   included in the TSLE buffer polling cycle.
+
+3. Update the ILU-20 token-to-address mapping to include Base,
+   Optimism and BNB Chain token addresses for all 20 tokens.
+
+4. Confirm all five tabs (LIQUIDITY, STRATA AI, PoLi/PoMI, RCL,
+   ALERTS) show the new venues once connected:
+   - LIQUIDITY: Cross-Venue Depth Map
+   - STRATA AI: venue count in header and footer
+   - PoLi/PoMI: heatmap grid (add 3 new squares), Venue Depth &
+     Spread Monitor table
+   - RCL: Provenance panel (3 new connector cards)
+   - ALERTS: Venue Liquidity Attribution table
+
+5. Confirm venue count updates from 13 to 16 across all headers
+   and footers.
+
+6. Confirm tooltip content is added for the three new venue
+   connector cards on the RCL Provenance panel.
+
+7. Confirm the heatmap grid layout accommodates 16 squares
+   (suggested: 8 columns x 2 rows).
+
+## Verification
+1. Open LIQUIDITY tab with BTC. Confirm Aerodrome, Velodrome and
+   PancakeSwap appear in Cross-Venue Depth Map with depth/spread.
+2. Open PoLi/PoMI. Confirm all three appear in heatmap and venue
+   table. Heatmap should show 16 squares.
+3. Open RCL. Confirm all three appear in Provenance panel with
+   Normalization: complete, valid timestamps, unique LIS Refs.
+4. Switch to ETH, SOL, LINK. Confirm new venues report data where
+   the token is listed.
+5. Confirm venue count reads 16 across all tabs.

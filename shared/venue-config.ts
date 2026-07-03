@@ -302,6 +302,66 @@ export const VENUE_CONFIGS: Record<string, VenueConfig> = {
       "DeFi liquidity fragmentation",
     ],
   },
+  aerodrome: {
+    venue: "AERODROME",
+    displayName: "Aerodrome",
+    role: "DEX_LIQUIDITY",
+    confidence: "MODERATE",
+    scope: ["SPOT"],
+    available: true,
+    description: "Dominant DEX on Base (Coinbase's Ethereum L2). ve(3,3) AMM with concentrated liquidity (Slipstream) and classic vAMM/sAMM pools. $1.3B TVL. 60%+ of Base DEX volume. ADGM-relevant: Coinbase operates Base; $238M active RWA market cap on chain.",
+    usedFor: [
+      "Base chain DEX liquidity assessment",
+      "EVM L2 liquidity fragmentation signals",
+      "CEX/DEX liquidity ratio (L2 layer)",
+      "Cross-chain depth comparison",
+    ],
+    notUsedFor: [
+      "Derivatives analysis",
+      "Reference anchoring",
+      "Stress venue signals",
+    ],
+  },
+  velodrome: {
+    venue: "VELODROME",
+    displayName: "Velodrome",
+    role: "DEX_LIQUIDITY",
+    confidence: "MODERATE",
+    scope: ["SPOT"],
+    available: true,
+    description: "Dominant DEX on Optimism (third-largest Ethereum L2, $5.6B TVL). Same codebase and team as Aerodrome. Canonical liquidity layer for the Superchain ecosystem (Base, Optimism, World Chain, Mode). Merging with Aerodrome into unified Aero DEX during 2026.",
+    usedFor: [
+      "Optimism chain DEX liquidity assessment",
+      "Superchain liquidity fragmentation signals",
+      "EVM L2 cross-chain depth comparison",
+      "Synthetix ecosystem liquidity monitoring",
+    ],
+    notUsedFor: [
+      "Derivatives analysis",
+      "Reference anchoring",
+      "Stress venue signals",
+    ],
+  },
+  pancakeswap: {
+    venue: "PANCAKESWAP",
+    displayName: "PancakeSwap",
+    role: "DEX_LIQUIDITY",
+    confidence: "MODERATE",
+    scope: ["SPOT"],
+    available: true,
+    description: "Dominant DEX on BNB Chain. Uniswap V3 fork with concentrated liquidity. $903M 24h volume (12.5% of global DEX volume). Broadest single-venue token coverage of any DEX: BTC, ETH, BNB, SOL, XRP, ADA, DOGE, LINK, AVAX, and 10+ more. ADGM-relevant: BNB explicitly named by ADGM/FSRA director.",
+    usedFor: [
+      "BNB Chain DEX liquidity assessment",
+      "Broad token DEX depth coverage",
+      "EVM-compatible chain liquidity comparison",
+      "CEX/DEX liquidity ratio across BNB ecosystem",
+    ],
+    notUsedFor: [
+      "Derivatives analysis",
+      "Reference anchoring",
+      "Stress venue signals",
+    ],
+  },
 };
 
 /**

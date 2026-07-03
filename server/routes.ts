@@ -24,9 +24,12 @@ import okxRoutes from "./routes/okx-relay";
 import bybitRoutes from "./routes/bybit-relay";
 import dydxRoutes from "./routes/dydx-relay";
 import bitgetRoutes from "./routes/bitget-relay";
-import gmxRoutes    from "./routes/gmx-relay";
-import curveRoutes  from "./routes/curve-relay";
-import otcRoutes    from "./routes/otc-relay";
+import gmxRoutes         from "./routes/gmx-relay";
+import curveRoutes       from "./routes/curve-relay";
+import otcRoutes         from "./routes/otc-relay";
+import aerodromeRoutes   from "./routes/aerodrome-relay";
+import velodromeRoutes   from "./routes/velodrome-relay";
+import pancakeswapRoutes from "./routes/pancakeswap-relay";
 import analyticsL5fRoutes from "./routes/analytics-l5f";
 import dailyCommentaryRouter from "./api/dailyCommentary";
 import { reportRoutes, generateServerSideReport } from "./routes/reports";
@@ -393,9 +396,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/bybit", bybitRoutes);
   app.use("/api/dydx", dydxRoutes);
   app.use("/api/bitget", bitgetRoutes);
-  app.use("/api/gmx",    gmxRoutes);
-  app.use("/api/curve",  curveRoutes);
-  app.use("/api/otc",    otcRoutes);
+  app.use("/api/gmx",          gmxRoutes);
+  app.use("/api/curve",        curveRoutes);
+  app.use("/api/otc",          otcRoutes);
+  app.use("/api/aerodrome",    aerodromeRoutes);
+  app.use("/api/velodrome",    velodromeRoutes);
+  app.use("/api/pancakeswap",  pancakeswapRoutes);
 
   // Download endpoint for LTC code archive
   app.get("/download/LTC-v1.0.zip", (_req, res) => {

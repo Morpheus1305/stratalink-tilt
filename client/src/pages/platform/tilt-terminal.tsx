@@ -259,7 +259,7 @@ export default function TiltTerminal() {
               />
             )}
             <div style={{ fontSize: 10, color: "var(--tilt-muted)" }}>
-              14 VENUES &middot; 17 TSLE FEEDS
+              16 VENUES &middot; 17 TSLE FEEDS
             </div>
             <div className="tilt-sb-live">
               <div className="tilt-sb-dot tilt-pulse" />
@@ -279,7 +279,7 @@ export default function TiltTerminal() {
             </div>
           </TT>
           <div className="tilt-tb-divider" />
-          <TT title="Venues Live" body="Number of configured venues actively returning data for this asset. 13 out of 13 means full coverage  -  the platform is seeing the entire market. If this drops below 10, investigate which venue relay has gone offline.">
+          <TT title="Venues Live" body="Number of configured venues actively returning data for this asset. 16 out of 16 means full coverage across all CEX, DEX, and L2 chains  -  the platform is seeing the entire market. If this drops below 13, investigate which venue relay has gone offline.">
             <div className="tilt-tb-item">
               <div className="tilt-tb-label">Venues Live</div>
               <div className="tilt-tb-value" data-testid="tilt-venues">

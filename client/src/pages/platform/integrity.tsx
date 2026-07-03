@@ -26,19 +26,22 @@ const BORDER = "#1A2435";
 
 // ─── Venue short tickers ──────────────────────────────────────────────────────
 const VENUE_TICKER: Record<string, string> = {
-  binance:    "BIN",
-  coinbase:   "COI",
-  kraken:     "KRK",
-  okx:        "OKX",
-  bybit:      "BYB",
-  bitget:     "BGT",
-  dydx:       "DYD",
-  hyperliquid:"HYP",
-  gmx:        "GMX",
-  uniswap:    "UNI",
-  curve:      "CRV",
-  deribit:    "DER",
-  otc:        "OTC",
+  binance:     "BIN",
+  coinbase:    "COI",
+  kraken:      "KRK",
+  okx:         "OKX",
+  bybit:       "BYB",
+  bitget:      "BGT",
+  dydx:        "DYD",
+  hyperliquid: "HYP",
+  gmx:         "GMX",
+  uniswap:     "UNI",
+  curve:       "CRV",
+  deribit:     "DER",
+  otc:         "OTC",
+  aerodrome:   "AERO",
+  velodrome:   "VELO",
+  pancakeswap: "CAKE",
 };
 
 // ─── FRBD perp venue colours (Oct 2025 ref: BIN=teal, OKX=grey, BYB=red) ─────
@@ -874,10 +877,10 @@ export default function IntegrityPage() {
               </div>
             ) : (
               <>
-                {/* Venue square grid  -  7 columns, continuous joined surface */}
+                {/* Venue square grid  -  8 columns x 2 rows, continuous joined surface */}
                 <div style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(7, 1fr)",
+                  gridTemplateColumns: "repeat(8, 1fr)",
                   gap: 1,
                   background: BORDER,
                   border: `1px solid ${BORDER}`,

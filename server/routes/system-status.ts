@@ -14,6 +14,7 @@ const VENUE_LIST = [
   "binance", "coinbase", "kraken", "okx", "bybit",
   "hyperliquid", "uniswap", "dydx", "deribit", "gmx",
   "curve", "bitget", "otc", "canton",
+  "aerodrome", "velodrome", "pancakeswap",
 ];
 
 const TRACKED_SYMBOLS = ["BTC", "ETH", "SOL"];

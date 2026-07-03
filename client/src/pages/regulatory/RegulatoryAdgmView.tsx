@@ -527,7 +527,7 @@ export default function RegulatoryAdgmView() {
             {/* Left Pane: Coverage */}
             <Card className="border-border ">
               <CardHeader className="pb-2">
-                <TT title="Coverage Panel" body="How many configured venues are contributing data for this token right now. 100% = full supervisory coverage, no blind spots. Partial coverage may occur for tokens not listed on all 14 venues - this reflects genuine market structure, not a system error.">
+                <TT title="Coverage Panel" body="How many configured venues are contributing data for this token right now. 100% = full supervisory coverage, no blind spots. Partial coverage may occur for tokens not listed on all 16 venues - this reflects genuine market structure, not a system error.">
                   <CardTitle className="text-sm font-medium">Coverage</CardTitle>
                 </TT>
               </CardHeader>
