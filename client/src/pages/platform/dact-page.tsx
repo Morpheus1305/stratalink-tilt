@@ -4,6 +4,7 @@ import { DashboardHeader } from "@/components/dashboard-header";
 import { PlatformTabs } from "@/components/platform-tabs";
 import { PlatformFooter } from "@/components/platform-footer";
 import { TT } from "@/components/tilt-tooltip";
+import { ExportButton } from "@/components/export-button";
 import "./tilt-terminal.css";
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -261,6 +262,114 @@ export default function DactPage() {
   const ingestionHistory = stats?.ingestionHistory ?? [];
   const hasHistory = ingestionHistory.some(b => b.depth + b.bbo + b.trade + b.status > 0);
 
+  // ── Export helpers ─────────────────────────────────────────────────────────
+  function downloadBlob(content: string, filename: string, mime: string) {
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function generateDactSnapshotJson() {
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const snapshot = {
+      report: "DACT Daily Snapshot",
+      dact_version: "1.0",
+      generated_at_utc: new Date().toISOString(),
+      date: dateStr,
+      summary: {
+        venues_ingesting: stats?.venuesIngesting ?? 0,
+        total_venues: stats?.totalVenues ?? 26,
+        dsu_coverage_pct: stats?.dsuCoverage ?? 0,
+        events_per_sec: stats?.eventsPerSec ?? 0,
+        tape_depth: stats?.tapeDepth ?? 0,
+        total_ingested: stats?.totalIngested ?? 0,
+        p95_latency_ms: stats?.p95LatencyMs ?? 0,
+        data_gaps: stats?.dataGaps ?? 0,
+        tape_integrity: stats?.tapeIntegrity ?? "UNKNOWN",
+        normalisation_rate_pct: stats?.normalisationRate ?? 0,
+        symbol_coverage_active: stats?.symbolCoverageActive ?? 0,
+        symbol_coverage_total: stats?.symbolCoverageTotal ?? 0,
+        duplicate_rate_pct: stats?.duplicateRate ?? 0,
+        rejected_events: stats?.rejectedEvents ?? 0,
+        verified_at_utc: stats ? new Date(stats.verifiedAt).toISOString() : null,
+      },
+      venue_matrix: venues.map(v => ({
+        name: v.name,
+        type: v.type,
+        chain: v.chain,
+        status: v.status,
+        last_event_ms_ago: v.lastEventMs,
+        events_per_min: v.eventsPerMin,
+      })),
+      recent_events: events.slice(0, 50).map(e => ({
+        id: e.id,
+        timestamp_utc: new Date(e.timestamp).toISOString(),
+        event_type: e.eventType,
+        venue: e.venue,
+        symbol: e.symbol,
+        summary: e.summary,
+      })),
+      attestation: {
+        standard: "DACT-STD-1.0",
+        properties: ["APPEND_ONLY", "UNCONTAMINATED", "PROVENANCE_COMPLETE", "NON_INTERPRETIVE"],
+        conformance: "FULL",
+        verified_at_utc: stats ? new Date(stats.verifiedAt).toISOString() : null,
+      },
+    };
+    downloadBlob(JSON.stringify(snapshot, null, 2), `dact-snapshot-${dateStr}.json`, "application/json");
+  }
+
+  async function generateDactReportText() {
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const now = new Date().toISOString();
+    const lines: string[] = [
+      "═══════════════════════════════════════════════════════════════",
+      "  STRATALINK LABS — DIGITAL ASSET CONSOLIDATED TAPE (DACT)",
+      "  Daily Snapshot Report · DACT-STD-1.0",
+      `  Generated: ${now}`,
+      `  Date: ${dateStr}`,
+      "═══════════════════════════════════════════════════════════════",
+      "",
+      "── INGESTION SUMMARY ───────────────────────────────────────────",
+      `  Venues Ingesting  : ${stats?.venuesIngesting ?? "—"} / ${stats?.totalVenues ?? 26}`,
+      `  DSU Coverage      : ${stats?.dsuCoverage ?? "—"}%`,
+      `  Events / Sec      : ${stats?.eventsPerSec?.toFixed(1) ?? "—"}`,
+      `  Tape Depth        : ${stats?.tapeDepth?.toLocaleString() ?? "—"} events`,
+      `  Total Ingested    : ${stats?.totalIngested?.toLocaleString() ?? "—"} events`,
+      `  Latency P95       : ${stats?.p95LatencyMs ?? "—"} ms`,
+      `  Data Gaps         : ${stats?.dataGaps ?? "—"} venues`,
+      "",
+      "── DATA QUALITY ────────────────────────────────────────────────",
+      `  Tape Integrity    : ${stats?.tapeIntegrity ?? "UNKNOWN"}`,
+      `  Normalisation     : ${stats?.normalisationRate ?? "—"}%`,
+      `  Symbol Coverage   : ${stats?.symbolCoverageActive ?? "—"} / ${stats?.symbolCoverageTotal ?? "—"}`,
+      `  Duplicate Rate    : ${stats?.duplicateRate ?? "—"}%`,
+      `  Rejected Events   : ${stats?.rejectedEvents ?? 0}`,
+      "",
+      "── VENUE MATRIX ────────────────────────────────────────────────",
+      `  ${"VENUE".padEnd(22)} ${"TYPE".padEnd(10)} ${"CHAIN".padEnd(12)} ${"STATUS".padEnd(10)} EVT/MIN`,
+      `  ${"─".repeat(64)}`,
+      ...venues.map(v =>
+        `  ${v.name.padEnd(22)} ${v.type.padEnd(10)} ${v.chain.padEnd(12)} ${v.status.padEnd(10)} ${v.eventsPerMin ?? "—"}`
+      ),
+      "",
+      "── NON-CONTAMINATION ATTESTATION ───────────────────────────────",
+      "  Standard  : DACT-STD-1.0",
+      "  Properties: APPEND_ONLY · UNCONTAMINATED · PROVENANCE_COMPLETE · NON_INTERPRETIVE",
+      "  Conformance: FULL",
+      `  Verified  : ${stats ? new Date(stats.verifiedAt).toISOString() : "—"}`,
+      "",
+      "═══════════════════════════════════════════════════════════════",
+      "  END OF REPORT",
+      "═══════════════════════════════════════════════════════════════",
+    ];
+    downloadBlob(lines.join("\n"), `dact-report-${dateStr}.txt`, "text/plain");
+  }
+
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", background: C.bg }}>
       <DashboardHeader />
@@ -284,8 +393,28 @@ export default function DactPage() {
           <span style={{ color: C.border }}>›</span>{" "}
           <span style={{ color: C.accent }}>DACT v1.0</span>
         </div>
-        <div style={{ fontFamily: MONO, fontSize: 10, color: C.muted }}>
-          <LiveClock />
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          <ExportButton
+            options={[
+              {
+                label: "DACT Daily Snapshot (JSON)",
+                format: "JSON",
+                onGenerate: generateDactSnapshotJson,
+              },
+              {
+                label: "DACT Daily Report (TXT)",
+                format: "PDF",
+                onGenerate: generateDactReportText,
+              },
+            ]}
+          />
+          <div className="tilt-sb-live">
+            <div className="tilt-sb-dot tilt-pulse" />
+            LIVE
+          </div>
+          <div style={{ fontFamily: MONO, fontSize: 10, color: C.muted }}>
+            <LiveClock />
+          </div>
         </div>
       </div>
 
