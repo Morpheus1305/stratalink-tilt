@@ -540,9 +540,18 @@ export default function TiltTerminal() {
           <div className="tilt-panel tilt-p-venue">
             <div className="tilt-panel-header">
               <div className="tilt-panel-accent" style={{ background: "var(--tilt-green)" }} />
-              <TT title="Cross-Venue Depth Map" body="Per-venue order book depth at ±10 basis points for the selected symbol. Shows bid depth, ask depth, global share, spread in basis points, and TSLE efficiency score for each of the 14 monitored venues. Identify which venues hold the deepest resting liquidity and which are withdrawing.">
+              <TT title="Cross-Venue Depth Map" body="Per-venue order book depth at ±10 basis points for the selected symbol. Shows bid depth, ask depth, global share, spread in basis points, and TSLE efficiency score for each of the 16 monitored venues. Identify which venues hold the deepest resting liquidity and which are withdrawing.">
                 <div className="tilt-panel-title">Cross-Venue Depth Map</div>
               </TT>
+              {agg?.venue_slices?.length != null && (
+                <div
+                  className="tilt-ph-tag"
+                  style={{ marginLeft: 0, background: "rgba(0,230,118,0.08)", color: "var(--tilt-green)", borderColor: "rgba(0,230,118,0.2)" }}
+                  data-testid="tilt-venue-panel-count"
+                >
+                  {agg.venue_slices.length} VENUES
+                </div>
+              )}
               <div className="tilt-ph-tag" style={{ marginLeft: 0, background: "rgba(0,230,118,0.08)", color: "var(--tilt-green)", borderColor: "rgba(0,230,118,0.2)" }}>+/- 10 bps</div>
               <div className="tilt-ph-tag">PANEL 2</div>
             </div>
