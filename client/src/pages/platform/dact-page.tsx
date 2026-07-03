@@ -368,9 +368,7 @@ export default function DactPage() {
             }}
           >
             <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.accent, letterSpacing: "0.1em", marginRight: 4 }}>
-              <TT title="Live Event Stream" body="Real-time feed of every DACT event ingested from all 26 active venues. Each row shows the UTC timestamp, event type (DEPTH_UPDATE, BBO_UPDATE, TRADE, VENUE_STATUS), source venue, asset, and a normalised human-readable summary. Filter by type, venue, or asset using the dropdowns. Pause the stream to inspect a snapshot without the feed advancing.">
-                LIVE EVENT STREAM
-              </TT>
+              LIVE EVENT STREAM
             </div>
             {/* Filter: event type */}
             <select
@@ -490,9 +488,7 @@ export default function DactPage() {
           <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
             <div>
               <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.accent, letterSpacing: "0.1em" }}>
-                <TT title="Venue Coverage Matrix" body="Real-time status of every venue in the Declared Supervisory Universe (DSU). The DSU is the complete set of venues TILT is authorised to supervise. Green = ONLINE (sending events within the expected window). Amber = DEGRADED (events arriving but with elevated latency or gaps). Red = OFFLINE (no events for >120 seconds). Any offline venue represents a blind spot in consolidated tape coverage.">
-                  VENUE COVERAGE MATRIX
-                </TT>
+                VENUE COVERAGE MATRIX
               </div>
               <div style={{ fontFamily: MONO, fontSize: 9, color: C.muted, marginTop: 3 }}>
                 Declared Supervisory Universe — {stats?.totalVenues ?? 26} venues
@@ -621,9 +617,7 @@ export default function DactPage() {
           }}
         >
           <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.accent, letterSpacing: "0.1em", marginBottom: 12 }}>
-            <TT title="Ingestion Volume — Last 30 Min" body="Stacked area chart showing the volume of events ingested into DACT by type over the past 30 minutes. DEPTH (teal) = orderbook depth updates. BBO (indigo) = best bid / offer quote updates. TRADE (green) = confirmed trades. STATUS (amber) = venue status change events. A declining total across all event types indicates venue disconnections or API issues. This chart accumulates after the first minute of operation.">
               INGESTION VOLUME — LAST 30 MIN
-            </TT>
           </div>
           {!hasHistory ? (
             <div style={{ height: 160, display: "flex", alignItems: "center", justifyContent: "center", color: C.muted, fontFamily: MONO, fontSize: 11 }}>
@@ -680,9 +674,7 @@ export default function DactPage() {
           }}
         >
           <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.accent, letterSpacing: "0.1em", marginBottom: 12 }}>
-            <TT title="Data Quality Metrics" body="Six quality assurance metrics that certify the consolidated tape meets DACT-STD-1.0 conformance requirements. These metrics are checked continuously. Any degradation (non-INTACT integrity, normalisation rate below 100%, duplicate or rejected events above 0) should trigger investigation of the affected venue relay. All values should be green under normal operating conditions.">
               DATA QUALITY METRICS
-            </TT>
           </div>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <tbody>
