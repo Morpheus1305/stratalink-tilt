@@ -511,7 +511,7 @@ export default function StrataAI() {
               />
             )}
             <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 10, color: "var(--tilt-muted)" }}>
-              20 VENUES &middot; 6 DETECTION CATEGORIES &middot; REAL-TIME
+              26 VENUES &middot; 6 DETECTION CATEGORIES &middot; REAL-TIME
             </div>
             <div className="tilt-sb-live"><div className="tilt-sb-dot tilt-pulse" />LIVE</div>
             <div style={{ fontFamily: "var(--tilt-mono)", fontSize: 10, color: "var(--tilt-muted)", letterSpacing: "0.06em" }}>

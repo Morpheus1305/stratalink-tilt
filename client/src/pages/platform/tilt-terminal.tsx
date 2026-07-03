@@ -279,7 +279,7 @@ export default function TiltTerminal() {
             </div>
           </TT>
           <div className="tilt-tb-divider" />
-          <TT title="Venues Live" body="Number of configured venues actively returning data for this asset. 20 out of 20 means full coverage across all CEX, DEX, and L2 chains  -  the platform is seeing the entire market. If this drops below 15, investigate which venue relay has gone offline.">
+          <TT title="Venues Live" body="Number of configured venues actively returning data for this asset. 26 out of 26 means full coverage across all CEX, DEX, regulated ATS/MTF, and L2 chains  -  the platform is seeing the entire market. If this drops below 20, investigate which venue relay has gone offline.">
             <div className="tilt-tb-item">
               <div className="tilt-tb-label">Venues Live</div>
               <div className="tilt-tb-value" data-testid="tilt-venues">
