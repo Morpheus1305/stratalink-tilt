@@ -323,6 +323,14 @@ export function verifyChain(): ChainVerification {
 
 // ── Queries ─────────────────────────────────────────────────────────────────
 
+/**
+ * Returns all in-memory events with seq > seqFrom, sorted ascending (oldest first).
+ * Used by the STRATA AI cleansing stage to pull only new events since last run.
+ */
+export function getDactEventsSinceSeq(seqFrom: number): DactEvent[] {
+  return tape.filter(e => e.seq > seqFrom).sort((a, b) => a.seq - b.seq);
+}
+
 export function getDactEvents(opts: {
   limit?: number;
   eventType?: string;

@@ -3,8 +3,8 @@ import { ingestFunding, getFundingCache, getLastFundingIngestTime } from "./fund
 import { ingestLiquidations, getLiquidationCache, getLastLiquidationIngestTime } from "./liquidationEngine";
 import { computeStress, getStressCommentary, StressResult } from "./stressEngine";
 import { recordDepthSnapshot } from "../../server/services/depthHistoryStore";
-import { tsleBuffer } from "../../server/services/tsle-buffer";
 import { appendDactEvent } from "../../server/services/dact-tape";
+import { cleanseAndFeedBuffer } from "../../server/services/dact-cleanse";
 import { computeAnalyticsSnapshot } from "../../server/services/analytics-layer";
 import { evaluateAndNotify } from "../../server/services/alert-service";
 import { pushIngestCycleAlerts } from "../../server/services/liveAlertsService";
@@ -17,57 +17,95 @@ let ingestInterval: NodeJS.Timeout | null = null;
 const INGEST_INTERVAL_MS = 5000;
 
 /**
- * Convert a DEPTH_CACHE entry into LISSnapshot format and push to tsleBuffer.
- * Band key mapping:  "10bps" → "pct_0.1", "25bps" → "pct_0.25", etc.
- * Field mapping:      bidUSD/askUSD/totalUSD → bid_notional/ask_notional/total_notional
+ * Normalise a relay response `bands` object into a consistent keyed map,
+ * handling all three band-key formats used across relay routes:
+ *   "pct_0.25" (dot)  |  "pct_0_25" (underscore)  |  "25bps" (legacy CEX)
  */
-function feedDepthToTsleBuffer(): void {
+function extractRelayBands(rawBands: any): Record<string, { bid: number; ask: number; total: number }> {
+  const result: Record<string, { bid: number; ask: number; total: number }> = {};
+  if (!rawBands) return result;
+
+  const specs: Array<{ key: string; alts: string[] }> = [
+    { key: "pct_0.1",  alts: ["pct_0_1",  "10bps"]  },
+    { key: "pct_0.25", alts: ["pct_0_25", "25bps"]  },
+    { key: "pct_0.5",  alts: ["pct_0_5",  "50bps"]  },
+    { key: "pct_1.0",  alts: ["pct_1_0",  "100bps"] },
+    { key: "pct_2.0",  alts: ["pct_2_0",  "200bps"] },
+  ];
+
+  for (const { key, alts } of specs) {
+    const entry = rawBands[key] ?? rawBands[alts[0]] ?? rawBands[alts[1]] ?? null;
+    if (entry) {
+      const bid   = entry.bid_notional  ?? entry.bidUSD  ?? 0;
+      const ask   = entry.ask_notional  ?? entry.askUSD  ?? 0;
+      const total = entry.total_notional ?? entry.totalUSD ?? (bid + ask);
+      result[key] = { bid, ask, total };
+    } else {
+      result[key] = { bid: 0, ask: 0, total: 0 };
+    }
+  }
+  return result;
+}
+
+/**
+ * Write core-venue DEPTH_CACHE entries to the DACT tape only.
+ * DACT is the sole write target from ingestion. tsleBuffer is no longer
+ * written directly — it is populated downstream by cleanseAndFeedBuffer().
+ *
+ * Payload carries full per-band bid/ask/total so the cleansing stage has
+ * everything it needs to convert to LISSnapshot format.
+ */
+function feedDepthToDact(): void {
   const cache = getDepthCache();
   const now = Date.now();
 
   for (const [symbol, depth] of Object.entries(cache)) {
     const sym = symbol.toUpperCase();
-    // All ILU-20 symbols are now tracked — no symbol filter
-
     const b = depth.bands as any;
 
-    const snapshot = {
-      venue: depth.source || "binance",
-      symbol: sym,
-      timestamp: depth.ts || now,
-      mid_price: depth.mid,
-      spread: {
-        absolute: depth.spread,
-        bps: depth.spreadBps,
-      },
-      bands: {
-        "pct_0.1":  { bid_notional: b["10bps"]?.bidUSD  ?? 0, ask_notional: b["10bps"]?.askUSD  ?? 0, total_notional: b["10bps"]?.totalUSD  ?? 0 },
-        "pct_0.25": { bid_notional: b["25bps"]?.bidUSD  ?? 0, ask_notional: b["25bps"]?.askUSD  ?? 0, total_notional: b["25bps"]?.totalUSD  ?? 0 },
-        "pct_0.5":  { bid_notional: b["50bps"]?.bidUSD  ?? 0, ask_notional: b["50bps"]?.askUSD  ?? 0, total_notional: b["50bps"]?.totalUSD  ?? 0 },
-        "pct_1.0":  { bid_notional: b["100bps"]?.bidUSD ?? 0, ask_notional: b["100bps"]?.askUSD ?? 0, total_notional: b["100bps"]?.totalUSD ?? 0 },
-        "pct_2.0":  { bid_notional: b["200bps"]?.bidUSD ?? 0, ask_notional: b["200bps"]?.askUSD ?? 0, total_notional: b["200bps"]?.totalUSD ?? 0 },
-      },
-    };
+    const venue     = depth.source || "binance";
+    const timestamp = depth.ts || now;
+    const midPrice  = depth.mid ?? 0;
+    const spreadBps = depth.spreadBps ?? 0;
 
-    tsleBuffer.record(snapshot);
+    const b10  = b["10bps"]  ?? {};
+    const b25  = b["25bps"]  ?? {};
+    const b50  = b["50bps"]  ?? {};
+    const b100 = b["100bps"] ?? {};
+    const b200 = b["200bps"] ?? {};
 
     appendDactEvent({
-      timestamp: snapshot.timestamp,
+      timestamp,
       eventType: "DEPTH_UPDATE",
-      venue: snapshot.venue,
+      venue,
       asset: sym,
-      summary: `mid=$${snapshot.mid_price?.toFixed(2) ?? "?"} spread=${snapshot.spread.bps?.toFixed(1) ?? "?"}bps`,
+      summary: `mid=$${midPrice?.toFixed(2) ?? "?"} spread=${spreadBps?.toFixed(1) ?? "?"}bps`,
       payload: {
-        mid_price: snapshot.mid_price,
-        spread_bps: snapshot.spread.bps,
-        depth_25bps: snapshot.bands["pct_0.25"].total_notional,
+        mid_price:       midPrice,
+        spread_bps:      spreadBps,
+        // Full per-band notional — required by dact-cleanse → tsleBuffer conversion
+        depth_10bps:     b10.totalUSD  ?? 0,
+        depth_bid_10bps: b10.bidUSD    ?? 0,
+        depth_ask_10bps: b10.askUSD    ?? 0,
+        depth_25bps:     b25.totalUSD  ?? 0,
+        depth_bid_25bps: b25.bidUSD    ?? 0,
+        depth_ask_25bps: b25.askUSD    ?? 0,
+        depth_50bps:     b50.totalUSD  ?? 0,
+        depth_bid_50bps: b50.bidUSD    ?? 0,
+        depth_ask_50bps: b50.askUSD    ?? 0,
+        depth_100bps:    b100.totalUSD ?? 0,
+        depth_bid_100bps:b100.bidUSD   ?? 0,
+        depth_ask_100bps:b100.askUSD   ?? 0,
+        depth_200bps:    b200.totalUSD ?? 0,
+        depth_bid_200bps:b200.bidUSD   ?? 0,
+        depth_ask_200bps:b200.askUSD   ?? 0,
       },
       provenance: {
-        sourceVenue: snapshot.venue,
-        transport: "direct",
-        engine: "ingestionManager-v1.0",
-        dactVersion: "1.0",
-        latencyMs: 0,
+        sourceVenue: venue,
+        transport:   "direct",
+        engine:      "ingestionManager-v1.1",
+        dactVersion: "1.1",
+        latencyMs:   0,
       },
     });
   }
@@ -277,24 +315,43 @@ async function ingestRelayVenues(): Promise<void> {
             if (!r.ok) throw new Error(`HTTP ${r.status}`);
             const data = await r.json() as Record<string, any>;
             if (data?.ok) {
-              const venueId = String(data.venue ?? path.split("/")[2] ?? "unknown").toLowerCase();
+              const venueId   = String(data.venue ?? path.split("/")[2] ?? "unknown").toLowerCase();
+              const midPrice  = data.mid_price != null ? Number(data.mid_price) : 0;
+              const spreadBps = data.spread?.bps != null ? Number(data.spread.bps) : 0;
+              const bands     = extractRelayBands(data.bands);
+
               appendDactEvent({
                 timestamp: Date.now(),
                 eventType: "DEPTH_UPDATE",
                 venue: venueId,
                 asset: sym,
-                summary: `mid=${data.mid_price != null ? "$" + Number(data.mid_price).toFixed(2) : "?"} spread=${data.spread?.bps != null ? Number(data.spread.bps).toFixed(1) + "bps" : "?"}`,
+                summary: `mid=${midPrice ? "$" + midPrice.toFixed(2) : "?"} spread=${spreadBps ? spreadBps.toFixed(1) + "bps" : "?"}`,
                 payload: {
-                  mid_price: data.mid_price,
-                  spread_bps: data.spread?.bps,
-                  depth_25bps: data.bands?.pct_0_25?.total_notional ?? data.bands?.["25bps"]?.totalUSD,
+                  mid_price:       midPrice,
+                  spread_bps:      spreadBps,
+                  // Full per-band notional — required by dact-cleanse → tsleBuffer conversion
+                  depth_10bps:     bands["pct_0.1"]?.total  ?? 0,
+                  depth_bid_10bps: bands["pct_0.1"]?.bid    ?? 0,
+                  depth_ask_10bps: bands["pct_0.1"]?.ask    ?? 0,
+                  depth_25bps:     bands["pct_0.25"]?.total ?? 0,
+                  depth_bid_25bps: bands["pct_0.25"]?.bid   ?? 0,
+                  depth_ask_25bps: bands["pct_0.25"]?.ask   ?? 0,
+                  depth_50bps:     bands["pct_0.5"]?.total  ?? 0,
+                  depth_bid_50bps: bands["pct_0.5"]?.bid    ?? 0,
+                  depth_ask_50bps: bands["pct_0.5"]?.ask    ?? 0,
+                  depth_100bps:    bands["pct_1.0"]?.total  ?? 0,
+                  depth_bid_100bps:bands["pct_1.0"]?.bid    ?? 0,
+                  depth_ask_100bps:bands["pct_1.0"]?.ask    ?? 0,
+                  depth_200bps:    bands["pct_2.0"]?.total  ?? 0,
+                  depth_bid_200bps:bands["pct_2.0"]?.bid    ?? 0,
+                  depth_ask_200bps:bands["pct_2.0"]?.ask    ?? 0,
                 },
                 provenance: {
                   sourceVenue: String(data.provenance?.sourceVenue ?? venueId),
-                  transport: String(data.provenance?.transport ?? "relay"),
-                  engine: "ingestionManager-v1.0",
-                  dactVersion: "1.0",
-                  latencyMs: typeof data.provenance?.latencyMs === "number" ? data.provenance.latencyMs : 0,
+                  transport:   String(data.provenance?.transport ?? "relay"),
+                  engine:      "ingestionManager-v1.1",
+                  dactVersion: "1.1",
+                  latencyMs:   typeof data.provenance?.latencyMs === "number" ? data.provenance.latencyMs : 0,
                 },
               });
             }
@@ -327,9 +384,16 @@ export async function runFullIngest(): Promise<void> {
     ]);
 
     recordDepthSnapshot();
-    feedDepthToTsleBuffer();
 
-    // Poll passive relay venues so they fetch+record to tsleBuffer (fire-and-forget)
+    // Change 1: DACT is now the single write target from ingestion.
+    // feedDepthToDact() writes core-venue depth to DACT only (no tsleBuffer write).
+    // cleanseAndFeedBuffer() reads new DACT events, applies STRATA AI cleansing,
+    // and feeds only observed, non-manipulative events into tsleBuffer.
+    feedDepthToDact();
+    cleanseAndFeedBuffer();
+
+    // Relay venues write to DACT asynchronously (fire-and-forget).
+    // Their events will be picked up by cleanseAndFeedBuffer() on the next cycle.
     ingestRelayVenues().catch((err) =>
       console.warn("[IngestionManager] Relay ingest error:", err?.message)
     );
@@ -343,7 +407,7 @@ export async function runFullIngest(): Promise<void> {
     const elapsed = Date.now() - start;
     console.log(`[IngestionManager] Full ingest completed in ${elapsed}ms`);
   } catch (err: any) {
-    console.error("[IngestionManager] Ingest error:", err.message);
+    console.error("[IngestionManager] Ingest error:", err instanceof Error ? err.message : String(err));
   } finally {
     isIngesting = false;
   }

@@ -1,0 +1,48 @@
+# Refactor: Make DACT the Golden Source (Sequential Cascade)
+
+Refactor the DACT stack so DACT is the golden source that feeds everything downstream, replacing the current parallel fan-out with a sequential cascade. This is an architectural change to data flow only. Do not change the ingestion adapters, the relay routing, the venue connections, or the hash chain computation. The baseline architecture is unchanged: multi-venue orderbook aggregation across Binance, Coinbase, and Kraken on DigitalOcean in Frankfurt, with Cloudflare Workers fronting api.stratalink.ai.
+
+## Background on the current state and the target
+
+Presently, every venue event is written to the DACT tape and to the tsleBuffer in parallel from the same ingest cycle, and STRATA AI, PoMI, and PoLi each read the tsleBuffer directly. That makes DACT an append-only audit ledger off to the side rather than the source of truth, and it means the hash chain and the observed-versus-synthetic provenance on the tape do not reach the downstream layers. The target is a sequential cascade in which DACT is the single authoritative source and everything downstream derives from it.
+
+## Change 1, make the tsleBuffer a DACT consumer
+
+Stop writing the tsleBuffer in parallel with DACT. Instead, populate the tsleBuffer by reading from the DACT tape after events are appended and hashed. DACT becomes the single write target from ingestion, and the tsleBuffer sits downstream of DACT rather than parallel to it. The guarantee this must establish is that no event reaches the tsleBuffer, or any downstream layer, without first passing through DACT and being recorded on the hash chain. After the change, confirm there is no remaining code path that writes to the tsleBuffer or any downstream consumer without going through DACT first.
+
+## Change 2, add the STRATA AI cleansing stage
+
+STRATA AI reads from the DACT-derived data and produces a cleansed output stream that is the input for the attestation layers. The cleansing removes two categories of event in a single stage: events whose provenance sourceClass is synthetic, and events that STRATA AI's anomaly detection identifies as manipulation, for example spoofing, layering, wash trades, or quote stuffing. The cleansed output contains only observed, non-manipulative events, which represents true available liquidity. Both exclusion categories are handled in this one cleansing stage, not split across multiple places.
+
+## Change 3, log every exclusion with its reason
+
+Every event that STRATA AI excludes from the cleansed output must be recorded in an exclusion log with the event identifier, the exclusion category (synthetic or manipulation), and the specific reason. For a synthetic exclusion, use the syntheticReason already carried on the event. For a manipulation exclusion, record the anomaly type and the signal that triggered it. The exclusion log makes the boundary between raw and cleansed fully auditable, so a reviewer can see the raw tape, the cleansed output, and exactly what was removed between them and why. The exclusion log is retained and is available to the Regulatory Consumption Layer.
+
+## Change 4, rewire PoMI and PoLi to the cleansed output
+
+PoMI reads STRATA AI's cleansed output rather than the tsleBuffer or the raw tape. PoLi reads from the PoMI stage. Neither PoMI nor PoLi reads the raw tape or the raw buffer directly for the purpose of attestation, because the raw data contains manipulation noise that must not enter an attestation of true liquidity. After the change, confirm that PoMI and PoLi have no code path that reads raw, uncleaned data for attestation.
+
+## Change 5, preserve the raw path for surveillance
+
+The raw DACT tape and the exclusion log feed the Regulatory Consumption Layer, so regulators receive the complete record including the manipulation noise, which is evidence they need for market surveillance. The raw tape is not filtered for the regulatory path. This is the deliberate split: the raw tape serves surveillance, and the cleansed output serves attestation, and both derive from the same golden source.
+
+## Verification and reporting
+
+After the refactor, report the following by reading the code:
+
+1. That ingestion writes only to DACT.
+2. That the tsleBuffer and all downstream layers derive from DACT.
+3. That STRATA AI's cleansed output excludes synthetic and manipulation events in one stage.
+4. That every exclusion is logged with a reason.
+5. That PoMI and PoLi read only the cleansed output for attestation.
+6. That the raw tape plus exclusion log remain available to the Regulatory Consumption Layer.
+
+State the exact files and functions changed.
+
+## Sensitive-data constraint
+
+Do not surface AWS account details, validator Party IDs, host names, or any credential-like strings in logs, reports, or the UI. Describe infrastructure by function.
+
+## Scope constraint
+
+Do not alter the ingestion adapters, the relay routing, the venue connections, or the hash chain computation. This refactor changes only the data flow downstream of the tape append: making the buffer and the layers consume from DACT, adding the cleansing stage, and adding the exclusion log.

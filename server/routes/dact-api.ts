@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { getDactEvents, getDactStats, getVenueStatMap, verifyChain } from "../services/dact-tape";
+import { getExclusionLog, getExclusionStats } from "../services/dact-cleanse";
 import { getClockSync } from "../services/clock-sync";
 import { VENUE_CONFIGS } from "../../shared/venue-config";
 
@@ -79,6 +80,31 @@ router.get("/clock-sync", (_req: Request, res: Response) => {
 
 router.get("/verify", (_req: Request, res: Response) => {
   res.json({ ok: true, chain: verifyChain(), timestamp: Date.now() });
+});
+
+/**
+ * GET /api/dact/exclusions
+ * Exclusion log from the STRATA AI cleansing stage.
+ * Returns the most recent entries newest-first.
+ * ?limit=N  (max 500, default 100)
+ * ?category=synthetic|manipulation  (optional filter)
+ *
+ * This endpoint, combined with /api/dact/events, constitutes the complete
+ * regulatory record: raw tape (all events) + exclusion log (what was removed
+ * and why). Neither is filtered. Attestation layers (PoMI, PoLi) receive
+ * only the cleansed output via tsleBuffer.
+ */
+router.get("/exclusions", (req: Request, res: Response) => {
+  const limit    = Math.min(Number(req.query.limit ?? 100), 500);
+  const category = req.query.category as string | undefined;
+
+  let entries = getExclusionLog(limit);
+  if (category && (category === "synthetic" || category === "manipulation")) {
+    entries = entries.filter(e => e.category === category);
+  }
+
+  const stats = getExclusionStats();
+  res.json({ ok: true, entries, count: entries.length, stats, timestamp: Date.now() });
 });
 
 export default router;
