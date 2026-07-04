@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, memo, useCallback } from "react";
+import { useState, useEffect, useRef, memo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { PlatformTabs } from "@/components/platform-tabs";
@@ -13,6 +13,7 @@ import {
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type EventType = "DEPTH_UPDATE" | "BBO_UPDATE" | "TRADE" | "VENUE_STATUS";
+type SourceClass = "observed" | "synthetic";
 
 interface DactEvent {
   id: string;
@@ -25,6 +26,8 @@ interface DactEvent {
   provenance: {
     sourceVenue: string;
     transport: string;
+    sourceClass: SourceClass;
+    syntheticReason?: string;
     engine: string;
     dactVersion: string;
     latencyMs: number;
@@ -34,6 +37,9 @@ interface DactEvent {
 interface DactStats {
   venuesIngesting: number;
   totalVenues: number;
+  observedVenueCount: number;
+  syntheticVenueCount: number;
+  observedCoverageComputedAt: number;
   eventsPerSec: number;
   tapeDepth: number;
   totalIngested: number;
@@ -67,6 +73,9 @@ interface VenueRow {
   lastEventTs: number;
   p95LatencyMs: number;
   eventsPerMin: number;
+  sourceClass: SourceClass;
+  transport: string;
+  syntheticReason?: string;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -74,19 +83,20 @@ interface VenueRow {
 const MONO = "'JetBrains Mono', 'SF Mono', Consolas, monospace";
 
 const C = {
-  bg:       "#080D14",
-  panel:    "#0B1320",
-  border:   "#1A2435",
-  text:     "#C8D8E8",
-  muted:    "#7B8EA3",
-  accent:   "#00BFA5",
-  amber:    "#F59E0B",
-  red:      "#EF4444",
-  green:    "#22C55E",
-  gold:     "#C9A84C",
-  depth:    "#00BFA5",
-  bbo:      "#818CF8",
-  trade:    "#34D399",
+  bg:          "#080D14",
+  panel:       "#0B1320",
+  border:      "#1A2435",
+  text:        "#C8D8E8",
+  muted:       "#7B8EA3",
+  accent:      "#00BFA5",
+  amber:       "#F59E0B",
+  red:         "#EF4444",
+  green:       "#22C55E",
+  blue:        "#818CF8",
+  gold:        "#C9A84C",
+  depth:       "#00BFA5",
+  bbo:         "#818CF8",
+  trade:       "#34D399",
   venueStatus: "#F59E0B",
 };
 
@@ -124,46 +134,42 @@ function eventTypeColor(t: EventType): string {
 function statusDot(status: "ONLINE" | "DEGRADED" | "OFFLINE") {
   const col = status === "ONLINE" ? C.green : status === "DEGRADED" ? C.amber : C.red;
   return (
-    <span
-      style={{
-        display: "inline-block",
-        width: 7,
-        height: 7,
-        borderRadius: "50%",
-        background: col,
-        marginRight: 6,
-        flexShrink: 0,
-        boxShadow: `0 0 5px ${col}80`,
-      }}
-    />
+    <span style={{
+      display: "inline-block", width: 7, height: 7, borderRadius: "50%",
+      background: col, marginRight: 6, flexShrink: 0, boxShadow: `0 0 5px ${col}80`,
+    }} />
   );
+}
+
+/** DACT-STD-1.1: resolve venue sourceClass label and colour. */
+function sourceClassLabel(sc: SourceClass, transport: string): { label: string; color: string } {
+  if (sc === "synthetic") return { label: "SYNTHETIC", color: C.amber };
+  if (transport === "relay") return { label: "RELAY-OBS", color: C.blue };
+  return { label: "OBSERVED", color: C.green };
+}
+
+/** Change 6: freshness indicator for observed-coverage figure. */
+function coverageFreshness(computedAt: number): { label: string; color: string } {
+  const ageMs = Date.now() - computedAt;
+  if (ageMs < 30_000) return { label: "LIVE", color: C.green };
+  if (ageMs < 60_000) return { label: "AGING", color: C.amber };
+  return { label: "STALE", color: C.red };
 }
 
 function MetricCard({
   label, value, sub, tooltip, highlight,
 }: {
-  label: string;
-  value: string | number;
-  sub?: string;
-  tooltip?: string;
-  highlight?: string;
+  label: string; value: string | number; sub?: string; tooltip?: string; highlight?: string;
 }) {
   return (
-    <div
-      style={{
-        flex: 1,
-        minWidth: 0,
-        background: C.panel,
-        border: `1px solid ${C.border}`,
-        borderRadius: 4,
-        padding: "10px 14px",
-        display: "flex",
-        flexDirection: "column",
-        gap: 4,
-      }}
-    >
+    <div style={{
+      flex: 1, minWidth: 0, background: C.panel, border: `1px solid ${C.border}`,
+      borderRadius: 4, padding: "10px 14px", display: "flex", flexDirection: "column", gap: 4,
+    }}>
       <div style={{ fontSize: 9, fontFamily: MONO, color: C.muted, letterSpacing: "0.1em", textTransform: "uppercase" }}>
-        {tooltip ? <TT title={label} body={tooltip}><span style={{ borderBottom: `1px dashed ${C.muted}`, cursor: "help" }}>{label}</span></TT> : label}
+        {tooltip
+          ? <TT title={label} body={tooltip}><span style={{ borderBottom: `1px dashed ${C.muted}`, cursor: "help" }}>{label}</span></TT>
+          : label}
       </div>
       <div
         data-testid={`dact-metric-${label.toLowerCase().replace(/\s+/g, "-")}`}
@@ -171,21 +177,14 @@ function MetricCard({
       >
         {value}
       </div>
-      {sub && (
-        <div style={{ fontSize: 10, fontFamily: MONO, color: C.muted }}>{sub}</div>
-      )}
+      {sub && <div style={{ fontSize: 10, fontFamily: MONO, color: C.muted }}>{sub}</div>}
     </div>
   );
 }
 
-// ── Venue groups for the matrix ────────────────────────────────────────────────
 const GROUP_ORDER = [
-  "Centralised Exchanges",
-  "DEX Perpetuals",
-  "DEX Spot",
-  "L2 DEX",
-  "Dark / Institutional",
-  "Regulated STE",
+  "Centralised Exchanges", "DEX Perpetuals", "DEX Spot",
+  "L2 DEX", "Dark / Institutional", "Regulated STE",
 ];
 
 const KNOWN_ASSETS = [
@@ -212,8 +211,17 @@ export default function DactPage() {
   const [filterType, setFilterType] = useState<string>("ALL");
   const [filterVenue, setFilterVenue] = useState<string>("ALL");
   const [filterAsset, setFilterAsset] = useState<string>("ALL");
-  const streamRef = useRef<HTMLDivElement>(null);
+  // Change 5: source-class filter, default OBSERVED
+  const [filterSourceClass, setFilterSourceClass] = useState<string>("observed");
   const [displayEvents, setDisplayEvents] = useState<DactEvent[]>([]);
+  // Change 6: track age of coverage figure
+  const [, setTick] = useState(0);
+
+  // Tick every second for freshness indicator
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   const statsQuery = useQuery<{ stats: DactStats }>({
     queryKey: ["/api/dact/stats"],
@@ -221,13 +229,14 @@ export default function DactPage() {
   });
 
   const eventsQuery = useQuery<{ events: DactEvent[] }>({
-    queryKey: ["/api/dact/events", filterType, filterVenue, filterAsset],
+    queryKey: ["/api/dact/events", filterType, filterVenue, filterAsset, filterSourceClass],
     queryFn: async () => {
       const params = new URLSearchParams({
         limit: "100",
         eventType: filterType,
         venue: filterVenue,
         asset: filterAsset,
+        sourceClass: filterSourceClass,
       });
       const r = await fetch(`/api/dact/events?${params}`);
       return r.json();
@@ -262,14 +271,15 @@ export default function DactPage() {
   const ingestionHistory = stats?.ingestionHistory ?? [];
   const hasHistory = ingestionHistory.some(b => b.depth + b.bbo + b.trade + b.status > 0);
 
+  // ── Coverage freshness (Change 6) ─────────────────────────────────────────
+  const fresh = stats ? coverageFreshness(stats.observedCoverageComputedAt) : null;
+
   // ── Export helpers ─────────────────────────────────────────────────────────
   function downloadBlob(content: string, filename: string, mime: string) {
     const blob = new Blob([content], { type: mime });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    a.click();
+    a.href = url; a.download = filename; a.click();
     URL.revokeObjectURL(url);
   }
 
@@ -277,12 +287,15 @@ export default function DactPage() {
     const dateStr = new Date().toISOString().slice(0, 10);
     const snapshot = {
       report: "DACT Daily Snapshot",
-      dact_version: "1.0",
+      dact_version: "1.1",
       generated_at_utc: new Date().toISOString(),
       date: dateStr,
       summary: {
         venues_ingesting: stats?.venuesIngesting ?? 0,
         total_venues: stats?.totalVenues ?? 26,
+        observed_venue_count: stats?.observedVenueCount ?? 0,
+        synthetic_venue_count: stats?.syntheticVenueCount ?? 0,
+        observed_coverage_computed_at: stats ? new Date(stats.observedCoverageComputedAt).toISOString() : null,
         dsu_coverage_pct: stats?.dsuCoverage ?? 0,
         events_per_sec: stats?.eventsPerSec ?? 0,
         tape_depth: stats?.tapeDepth ?? 0,
@@ -298,25 +311,33 @@ export default function DactPage() {
         verified_at_utc: stats ? new Date(stats.verifiedAt).toISOString() : null,
       },
       venue_matrix: venues.map(v => ({
-        name: v.name,
+        id: v.id,
+        name: v.displayName,
         type: v.type,
         chain: v.chain,
         status: v.status,
-        last_event_ms_ago: v.lastEventMs,
+        source_class: v.sourceClass,
+        transport: v.transport,
+        synthetic_reason: v.syntheticReason ?? null,
+        last_event_ts: v.lastEventTs,
         events_per_min: v.eventsPerMin,
       })),
-      recent_events: events.slice(0, 50).map(e => ({
+      recent_events: displayEvents.slice(0, 50).map(e => ({
         id: e.id,
         timestamp_utc: new Date(e.timestamp).toISOString(),
         event_type: e.eventType,
         venue: e.venue,
-        symbol: e.symbol,
+        asset: e.asset,
         summary: e.summary,
+        source_class: e.provenance.sourceClass,
+        transport: e.provenance.transport,
       })),
       attestation: {
-        standard: "DACT-STD-1.0",
-        properties: ["APPEND_ONLY", "UNCONTAMINATED", "PROVENANCE_COMPLETE", "NON_INTERPRETIVE"],
+        standard: "DACT-STD-1.1",
+        normative_amendment: "NA-1: Synthetic Source Provenance",
+        properties: ["APPEND_ONLY", "UNCONTAMINATED", "PROVENANCE_COMPLETE", "NON_INTERPRETIVE", "SYNTHETIC_MARKED"],
         conformance: "FULL",
+        synthetic_excluded_from_observed_coverage: true,
         verified_at_utc: stats ? new Date(stats.verifiedAt).toISOString() : null,
       },
     };
@@ -329,13 +350,16 @@ export default function DactPage() {
     const lines: string[] = [
       "═══════════════════════════════════════════════════════════════",
       "  STRATALINK LABS — DIGITAL ASSET CONSOLIDATED TAPE (DACT)",
-      "  Daily Snapshot Report · DACT-STD-1.0",
+      "  Daily Snapshot Report · DACT-STD-1.1 / NA-1 (Synthetic Source Provenance)",
       `  Generated: ${now}`,
       `  Date: ${dateStr}`,
       "═══════════════════════════════════════════════════════════════",
       "",
       "── INGESTION SUMMARY ───────────────────────────────────────────",
       `  Venues Ingesting  : ${stats?.venuesIngesting ?? "—"} / ${stats?.totalVenues ?? 26}`,
+      `  Observed Coverage : ${stats?.observedVenueCount ?? "—"} / ${stats?.totalVenues ?? 26} (relay-obs counted as observed)`,
+      `  Synthetic Coverage: ${stats?.syntheticVenueCount ?? "—"} / ${stats?.totalVenues ?? 26}`,
+      `  Observed At       : ${stats ? new Date(stats.observedCoverageComputedAt).toISOString() : "—"}`,
       `  DSU Coverage      : ${stats?.dsuCoverage ?? "—"}%`,
       `  Events / Sec      : ${stats?.eventsPerSec?.toFixed(1) ?? "—"}`,
       `  Tape Depth        : ${stats?.tapeDepth?.toLocaleString() ?? "—"} events`,
@@ -351,16 +375,18 @@ export default function DactPage() {
       `  Rejected Events   : ${stats?.rejectedEvents ?? 0}`,
       "",
       "── VENUE MATRIX ────────────────────────────────────────────────",
-      `  ${"VENUE".padEnd(22)} ${"TYPE".padEnd(10)} ${"CHAIN".padEnd(12)} ${"STATUS".padEnd(10)} EVT/MIN`,
-      `  ${"─".repeat(64)}`,
+      `  ${"VENUE".padEnd(22)} ${"TYPE".padEnd(10)} ${"CHAIN".padEnd(12)} ${"SOURCE".padEnd(10)} ${"STATUS".padEnd(10)} EVT/MIN`,
+      `  ${"─".repeat(76)}`,
       ...venues.map(v =>
-        `  ${v.name.padEnd(22)} ${v.type.padEnd(10)} ${v.chain.padEnd(12)} ${v.status.padEnd(10)} ${v.eventsPerMin ?? "—"}`
+        `  ${v.displayName.padEnd(22)} ${v.type.padEnd(10)} ${v.chain.padEnd(12)} ${(v.sourceClass === "synthetic" ? "SYNTHETIC" : v.transport === "relay" ? "RELAY-OBS" : "OBSERVED").padEnd(10)} ${v.status.padEnd(10)} ${v.eventsPerMin ?? "—"}`
       ),
       "",
       "── NON-CONTAMINATION ATTESTATION ───────────────────────────────",
-      "  Standard  : DACT-STD-1.0",
-      "  Properties: APPEND_ONLY · UNCONTAMINATED · PROVENANCE_COMPLETE · NON_INTERPRETIVE",
+      "  Standard  : DACT-STD-1.1 / Normative Amendment 1 (Synthetic Source Provenance)",
+      "  Properties: APPEND_ONLY · UNCONTAMINATED · PROVENANCE_COMPLETE · NON_INTERPRETIVE · SYNTHETIC_MARKED",
       "  Conformance: FULL",
+      "  Note: Synthetic events are explicitly marked and excluded from observed-coverage",
+      "        figures and from downstream attestation. Observer-only posture is maintained.",
       `  Verified  : ${stats ? new Date(stats.verifiedAt).toISOString() : "—"}`,
       "",
       "═══════════════════════════════════════════════════════════════",
@@ -376,36 +402,22 @@ export default function DactPage() {
       <PlatformTabs />
 
       {/* ── Breadcrumb ──────────────────────────────────────────────────── */}
-      <div
-        style={{
-          padding: "8px 20px",
-          borderBottom: `1px solid ${C.border}`,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          background: C.panel,
-        }}
-      >
+      <div style={{
+        padding: "8px 20px", borderBottom: `1px solid ${C.border}`,
+        display: "flex", alignItems: "center", justifyContent: "space-between", background: C.panel,
+      }}>
         <div style={{ fontFamily: MONO, fontSize: 10, color: C.muted, letterSpacing: "0.1em" }}>
           STRATA LINK{" "}
           <span style={{ color: C.border }}>›</span>{" "}
           <span style={{ color: C.muted }}>DIGITAL ASSET CONSOLIDATED TAPE</span>{" "}
           <span style={{ color: C.border }}>›</span>{" "}
-          <span style={{ color: C.accent }}>DACT v1.0</span>
+          <span style={{ color: C.accent }}>DACT v1.1</span>
         </div>
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
           <ExportButton
             options={[
-              {
-                label: "DACT Daily Snapshot (JSON)",
-                format: "JSON",
-                onGenerate: generateDactSnapshotJson,
-              },
-              {
-                label: "DACT Daily Report (TXT)",
-                format: "PDF",
-                onGenerate: generateDactReportText,
-              },
+              { label: "DACT Daily Snapshot (JSON)", format: "JSON", onGenerate: generateDactSnapshotJson },
+              { label: "DACT Daily Report (TXT)", format: "PDF", onGenerate: generateDactReportText },
             ]}
           />
           <div className="tilt-sb-live">
@@ -431,7 +443,7 @@ export default function DactPage() {
           label="VENUES INGESTING"
           value={stats ? `${stats.venuesIngesting} / ${stats.totalVenues}` : "—"}
           sub="of Declared Supervisory Universe"
-          tooltip="Number of venues in the Declared Supervisory Universe actively sending data. Any venue not ingesting is shown as OFFLINE in the venue matrix below."
+          tooltip="Total venues actively sending data, including both observed and synthetic sources. See Observed Coverage below for the observed-only figure."
           highlight={stats && stats.venuesIngesting === stats.totalVenues ? C.green : C.amber}
         />
         <MetricCard
@@ -474,38 +486,20 @@ export default function DactPage() {
       <div style={{ display: "flex", flex: 1, padding: "16px 20px", gap: 16, minHeight: 520 }}>
 
         {/* LEFT 60%: Live event stream */}
-        <div
-          style={{
-            flex: "0 0 60%",
-            display: "flex",
-            flexDirection: "column",
-            background: C.panel,
-            border: `1px solid ${C.border}`,
-            borderRadius: 4,
-            overflow: "hidden",
-          }}
-        >
+        <div style={{
+          flex: "0 0 60%", display: "flex", flexDirection: "column",
+          background: C.panel, border: `1px solid ${C.border}`, borderRadius: 4, overflow: "hidden",
+        }}>
           {/* Stream header + filters */}
-          <div
-            style={{
-              padding: "10px 14px",
-              borderBottom: `1px solid ${C.border}`,
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              flexWrap: "wrap",
-            }}
-          >
+          <div style={{
+            padding: "10px 14px", borderBottom: `1px solid ${C.border}`,
+            display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap",
+          }}>
             <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.accent, letterSpacing: "0.1em", marginRight: 4 }}>
               LIVE EVENT STREAM
             </div>
             {/* Filter: event type */}
-            <select
-              data-testid="dact-filter-type"
-              value={filterType}
-              onChange={e => setFilterType(e.target.value)}
-              style={selectStyle}
-            >
+            <select data-testid="dact-filter-type" value={filterType} onChange={e => setFilterType(e.target.value)} style={selectStyle}>
               <option value="ALL">All Types</option>
               <option value="DEPTH_UPDATE">DEPTH</option>
               <option value="BBO_UPDATE">BBO</option>
@@ -513,45 +507,36 @@ export default function DactPage() {
               <option value="VENUE_STATUS">STATUS</option>
             </select>
             {/* Filter: venue */}
-            <select
-              data-testid="dact-filter-venue"
-              value={filterVenue}
-              onChange={e => setFilterVenue(e.target.value)}
-              style={selectStyle}
-            >
+            <select data-testid="dact-filter-venue" value={filterVenue} onChange={e => setFilterVenue(e.target.value)} style={selectStyle}>
               <option value="ALL">All Venues</option>
-              {ALL_VENUES_26.map(v => (
-                <option key={v} value={v}>{v}</option>
-              ))}
+              {ALL_VENUES_26.map(v => <option key={v} value={v}>{v}</option>)}
             </select>
             {/* Filter: asset */}
-            <select
-              data-testid="dact-filter-asset"
-              value={filterAsset}
-              onChange={e => setFilterAsset(e.target.value)}
-              style={selectStyle}
-            >
+            <select data-testid="dact-filter-asset" value={filterAsset} onChange={e => setFilterAsset(e.target.value)} style={selectStyle}>
               <option value="ALL">All Assets</option>
-              {KNOWN_ASSETS.map(a => (
-                <option key={a} value={a}>{a}</option>
-              ))}
+              {KNOWN_ASSETS.map(a => <option key={a} value={a}>{a}</option>)}
+            </select>
+            {/* Change 5: source-class filter — default OBSERVED */}
+            <select
+              data-testid="dact-filter-source-class"
+              value={filterSourceClass}
+              onChange={e => setFilterSourceClass(e.target.value)}
+              style={{ ...selectStyle, borderColor: filterSourceClass === "observed" ? C.green + "66" : filterSourceClass === "synthetic" ? C.amber + "66" : C.border }}
+            >
+              <option value="observed">Observed</option>
+              <option value="synthetic">Synthetic</option>
+              <option value="ALL">All Sources</option>
             </select>
             {/* Pause toggle */}
             <button
               data-testid="dact-pause-btn"
               onClick={() => setPaused(p => !p)}
               style={{
-                marginLeft: "auto",
-                fontFamily: MONO,
-                fontSize: 10,
-                fontWeight: 700,
-                letterSpacing: "0.08em",
-                padding: "4px 12px",
+                marginLeft: "auto", fontFamily: MONO, fontSize: 10, fontWeight: 700,
+                letterSpacing: "0.08em", padding: "4px 12px",
                 background: paused ? C.amber + "22" : "transparent",
                 border: `1px solid ${paused ? C.amber : C.border}`,
-                borderRadius: 3,
-                color: paused ? C.amber : C.muted,
-                cursor: "pointer",
+                borderRadius: 3, color: paused ? C.amber : C.muted, cursor: "pointer",
               }}
             >
               {paused ? "▶ RESUME" : "⏸ PAUSE"}
@@ -559,18 +544,10 @@ export default function DactPage() {
           </div>
 
           {/* Stream body */}
-          <div
-            ref={streamRef}
-            style={{
-              flex: 1,
-              overflowY: "auto",
-              fontFamily: MONO,
-              fontSize: 11,
-            }}
-          >
+          <div style={{ flex: 1, overflowY: "auto", fontFamily: MONO, fontSize: 11 }}>
             {displayEvents.length === 0 ? (
               <div style={{ padding: "24px 16px", color: C.muted, textAlign: "center", fontSize: 11, fontFamily: MONO }}>
-                {eventsQuery.isLoading ? "Connecting to tape…" : "No events yet — ingestion cycle begins every 5s"}
+                {eventsQuery.isLoading ? "Connecting to tape…" : "No events — ingestion cycle begins every 5s"}
               </div>
             ) : (
               displayEvents.map((ev, i) => (
@@ -580,17 +557,17 @@ export default function DactPage() {
           </div>
 
           {/* Stream footer */}
-          <div
-            style={{
-              padding: "6px 14px",
-              borderTop: `1px solid ${C.border}`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
+          <div style={{
+            padding: "6px 14px", borderTop: `1px solid ${C.border}`,
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+          }}>
             <div style={{ fontFamily: MONO, fontSize: 9, color: C.muted }}>
               {displayEvents.length} events displayed
+              {filterSourceClass !== "ALL" && (
+                <span style={{ color: filterSourceClass === "observed" ? C.green : C.amber, marginLeft: 6 }}>
+                  · {filterSourceClass.toUpperCase()} only
+                </span>
+              )}
               {paused && <span style={{ color: C.amber, marginLeft: 8 }}> — STREAM PAUSED</span>}
             </div>
             <div style={{ fontFamily: MONO, fontSize: 9, color: C.muted }}>
@@ -603,17 +580,10 @@ export default function DactPage() {
         </div>
 
         {/* RIGHT 40%: Venue coverage matrix */}
-        <div
-          style={{
-            flex: "0 0 calc(40% - 16px)",
-            display: "flex",
-            flexDirection: "column",
-            background: C.panel,
-            border: `1px solid ${C.border}`,
-            borderRadius: 4,
-            overflow: "hidden",
-          }}
-        >
+        <div style={{
+          flex: "0 0 calc(40% - 16px)", display: "flex", flexDirection: "column",
+          background: C.panel, border: `1px solid ${C.border}`, borderRadius: 4, overflow: "hidden",
+        }}>
           <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
             <div>
               <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.accent, letterSpacing: "0.1em" }}>
@@ -641,29 +611,41 @@ export default function DactPage() {
           </div>
 
           <div style={{ overflowY: "auto", flex: 1 }}>
-            {/* Column headers */}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 52px 72px 66px 68px 54px",
-                padding: "6px 12px",
-                borderBottom: `1px solid ${C.border}`,
-                position: "sticky",
-                top: 0,
-                background: C.panel,
-                zIndex: 1,
-              }}
-            >
+            {/* Change 1: 7-column grid — added SOURCE CLASS between CHAIN and STATUS */}
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 48px 68px 78px 62px 62px 48px",
+              padding: "6px 12px", borderBottom: `1px solid ${C.border}`,
+              position: "sticky", top: 0, background: C.panel, zIndex: 1,
+            }}>
               {([
-                ["VENUE",    "Full venue name as registered in the Declared Supervisory Universe. Venues are grouped by type: Centralised Exchanges, DEX Perpetuals, DEX Spot, L2 DEX, Dark / Institutional, and Regulated STE."],
-                ["TYPE",     "Venue type shortcode: CEX (centralised exchange), PERP-DEX (perpetuals DEX), SPOT-DEX (spot AMM), L2-DEX (Layer-2 AMM), OTC (dark / institutional RFQ), STE (regulated Securities Token Exchange)."],
-                ["CHAIN",    "The blockchain or infrastructure layer this venue operates on. Multi-chain venues show the primary chain. L2 venues show their specific rollup (e.g. Base, Optimism, zkSync Era)."],
-                ["STATUS",   "Live ingestion status. ONLINE = events received within the expected 120s window. DEGRADED = events arriving but with latency or partial data. OFFLINE = no events for >120s. Offline venues create blind spots in consolidated tape coverage."],
-                ["LAST EVT", "Time elapsed since the most recent event was received from this venue. Events older than 120 seconds trigger DEGRADED status. Events older than 300 seconds trigger OFFLINE. 'just now' means the venue is actively streaming."],
-                ["EVT/MIN",  "Events per minute from this venue over the last observation window. A sudden drop to 0 or — indicates a venue connectivity issue. Cross-reference with the EVENTS/SEC aggregate metric at the top of the page."],
+                ["VENUE",   "Full venue name as registered in the Declared Supervisory Universe."],
+                ["TYPE",    "Venue type shortcode: CEX, DEX-PERP, AMM, RFQ, ATS, MTF."],
+                ["CHAIN",   "The blockchain or infrastructure layer this venue operates on."],
+                ["SOURCE",  "DACT-STD-1.1 source class. OBSERVED = direct live feed. RELAY-OBS = observed via relay.stratalink.ai. SYNTHETIC = no API key configured — model-generated depth."],
+                ["STATUS",  "Live ingestion status: ONLINE (events within 120s), DEGRADED, OFFLINE. A venue can be ONLINE and SYNTHETIC simultaneously."],
+                ["LAST EVT","Time since the most recent event from this venue."],
+                ["EVT/MIN", "Events per minute from this venue in the last observation window."],
               ] as [string, string][]).map(([h, tip]) => (
                 <div key={h} style={{ fontFamily: MONO, fontSize: 9, color: C.muted, letterSpacing: "0.08em" }}>
                   <TT title={h} body={tip}>{h}</TT>
+                </div>
+              ))}
+            </div>
+
+            {/* Source class legend */}
+            <div style={{
+              display: "flex", gap: 14, padding: "5px 12px",
+              borderBottom: `1px solid ${C.border}`, background: "#0A1220",
+            }}>
+              {([
+                ["OBSERVED", C.green],
+                ["RELAY-OBS", C.blue],
+                ["SYNTHETIC", C.amber],
+              ] as [string, string][]).map(([label, color]) => (
+                <div key={label} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <div style={{ width: 6, height: 6, borderRadius: 1, background: color }} />
+                  <span style={{ fontFamily: MONO, fontSize: 8, color: C.muted, letterSpacing: "0.06em" }}>{label}</span>
                 </div>
               ))}
             </div>
@@ -675,30 +657,23 @@ export default function DactPage() {
             ) : (
               groupedVenues.map(({ group, rows }) => (
                 <div key={group}>
-                  <div
-                    style={{
-                      padding: "5px 12px",
-                      fontFamily: MONO,
-                      fontSize: 9,
-                      fontWeight: 700,
-                      color: C.gold,
-                      letterSpacing: "0.1em",
-                      background: "#0D1A2C",
-                      borderBottom: `1px solid ${C.border}`,
-                      borderTop: `1px solid ${C.border}`,
-                    }}
-                  >
+                  <div style={{
+                    padding: "5px 12px", fontFamily: MONO, fontSize: 9, fontWeight: 700,
+                    color: C.gold, letterSpacing: "0.1em", background: "#0D1A2C",
+                    borderBottom: `1px solid ${C.border}`, borderTop: `1px solid ${C.border}`,
+                  }}>
                     {group.toUpperCase()} ({rows.length})
                   </div>
                   {rows.map((v, idx) => {
                     const rel = relTime(v.lastEventTs);
+                    const sc = sourceClassLabel(v.sourceClass, v.transport);
                     return (
                       <div
                         key={v.id}
                         data-testid={`dact-venue-row-${v.id}`}
                         style={{
                           display: "grid",
-                          gridTemplateColumns: "1fr 52px 72px 66px 68px 54px",
+                          gridTemplateColumns: "1fr 48px 68px 78px 62px 62px 48px",
                           padding: "5px 12px",
                           borderBottom: `1px solid ${C.border}22`,
                           background: idx % 2 === 0 ? "transparent" : "#0A1220",
@@ -710,6 +685,15 @@ export default function DactPage() {
                         </div>
                         <div style={{ fontFamily: MONO, fontSize: 9, color: C.muted }}>{v.type}</div>
                         <div style={{ fontFamily: MONO, fontSize: 9, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v.chain}</div>
+                        {/* Change 1: SOURCE CLASS column */}
+                        <div>
+                          <span style={{
+                            fontFamily: MONO, fontSize: 8, fontWeight: 700, color: sc.color,
+                            letterSpacing: "0.05em",
+                          }}>
+                            {sc.label}
+                          </span>
+                        </div>
                         <div style={{ display: "flex", alignItems: "center" }}>
                           {statusDot(v.status)}
                           <span style={{ fontFamily: MONO, fontSize: 9, color: v.status === "ONLINE" ? C.green : v.status === "DEGRADED" ? C.amber : C.red }}>
@@ -736,17 +720,12 @@ export default function DactPage() {
       <div style={{ padding: "0 20px 16px", display: "flex", gap: 16 }}>
 
         {/* Left: Ingestion volume chart */}
-        <div
-          style={{
-            flex: "0 0 60%",
-            background: C.panel,
-            border: `1px solid ${C.border}`,
-            borderRadius: 4,
-            padding: "12px 14px",
-          }}
-        >
+        <div style={{
+          flex: "0 0 60%", background: C.panel, border: `1px solid ${C.border}`,
+          borderRadius: 4, padding: "12px 14px",
+        }}>
           <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.accent, letterSpacing: "0.1em", marginBottom: 12 }}>
-              INGESTION VOLUME — LAST 30 MIN
+            INGESTION VOLUME — LAST 30 MIN
           </div>
           {!hasHistory ? (
             <div style={{ height: 160, display: "flex", alignItems: "center", justifyContent: "center", color: C.muted, fontFamily: MONO, fontSize: 11 }}>
@@ -756,24 +735,9 @@ export default function DactPage() {
             <ResponsiveContainer width="100%" height={160}>
               <AreaChart data={ingestionHistory} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
                 <CartesianGrid strokeDasharray="2 4" stroke={C.border} />
-                <XAxis
-                  dataKey="label"
-                  tick={{ fill: C.muted, fontSize: 9, fontFamily: MONO }}
-                  tickLine={false}
-                  axisLine={{ stroke: C.border }}
-                  interval={4}
-                />
-                <YAxis
-                  tick={{ fill: C.muted, fontSize: 9, fontFamily: MONO }}
-                  tickLine={false}
-                  axisLine={false}
-                  width={32}
-                />
-                <Tooltip
-                  contentStyle={{ background: "#0B1320", border: `1px solid ${C.border}`, borderRadius: 4, fontFamily: MONO, fontSize: 10, color: C.text }}
-                  labelStyle={{ color: C.muted }}
-                  itemStyle={{ color: C.text }}
-                />
+                <XAxis dataKey="label" tick={{ fill: C.muted, fontSize: 9, fontFamily: MONO }} tickLine={false} axisLine={{ stroke: C.border }} interval={4} />
+                <YAxis tick={{ fill: C.muted, fontSize: 9, fontFamily: MONO }} tickLine={false} axisLine={false} width={32} />
+                <Tooltip contentStyle={{ background: "#0B1320", border: `1px solid ${C.border}`, borderRadius: 4, fontFamily: MONO, fontSize: 10, color: C.text }} labelStyle={{ color: C.muted }} itemStyle={{ color: C.text }} />
                 <Area type="monotone" dataKey="depth"  stackId="1" stroke={C.depth}       fill={C.depth + "40"}       name="DEPTH" />
                 <Area type="monotone" dataKey="bbo"    stackId="1" stroke={C.bbo}         fill={C.bbo + "40"}         name="BBO"   />
                 <Area type="monotone" dataKey="trade"  stackId="1" stroke={C.trade}       fill={C.trade + "40"}       name="TRADE" />
@@ -781,7 +745,6 @@ export default function DactPage() {
               </AreaChart>
             </ResponsiveContainer>
           )}
-          {/* Legend */}
           <div style={{ display: "flex", gap: 16, marginTop: 8 }}>
             {([["DEPTH", C.depth], ["BBO", C.bbo], ["TRADE", C.trade], ["STATUS", C.venueStatus]] as [string, string][]).map(([label, color]) => (
               <div key={label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
@@ -793,62 +756,97 @@ export default function DactPage() {
         </div>
 
         {/* Right: Data quality metrics */}
-        <div
-          style={{
-            flex: "0 0 calc(40% - 16px)",
-            background: C.panel,
-            border: `1px solid ${C.border}`,
-            borderRadius: 4,
-            padding: "12px 14px",
-          }}
-        >
+        <div style={{
+          flex: "0 0 calc(40% - 16px)", background: C.panel, border: `1px solid ${C.border}`,
+          borderRadius: 4, padding: "12px 14px",
+        }}>
           <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.accent, letterSpacing: "0.1em", marginBottom: 12 }}>
-              DATA QUALITY METRICS
+            DATA QUALITY METRICS
           </div>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <tbody>
+              {/* Change 2+3+6: split "Venue Coverage" into Observed + Synthetic with timestamp + freshness */}
+              <tr style={{ borderBottom: `1px solid ${C.border}22` }}>
+                <td style={{ padding: "8px 0", fontFamily: MONO, fontSize: 10, color: C.muted, width: "45%", paddingRight: 8 }}>
+                  <TT title="Observed Coverage" body="Venues whose provenance.sourceClass is 'observed' (including relay-observed), counted over the Declared Supervisory Universe. This is the DACT-STD-1.1 primary coverage figure — synthetic venues are excluded.">
+                    <span style={{ borderBottom: `1px dashed ${C.muted}`, cursor: "help" }}>Observed Coverage</span>
+                  </TT>
+                </td>
+                <td data-testid="dact-quality-observed-coverage" style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.green, width: "25%" }}>
+                  {stats ? `${stats.observedVenueCount} / ${stats.totalVenues}` : "—"}
+                </td>
+                <td style={{ fontFamily: MONO, fontSize: 9, color: C.muted + "99", lineHeight: 1.4 }}>
+                  {/* Change 3: UTC timestamp + Change 6: freshness badge */}
+                  <div>observed sources only</div>
+                  {stats && (
+                    <div style={{ marginTop: 2, display: "flex", alignItems: "center", gap: 5 }}>
+                      <span style={{ color: C.muted + "88" }}>
+                        {new Date(stats.observedCoverageComputedAt).toISOString().slice(11, 19)} UTC
+                      </span>
+                      {fresh && (
+                        <span style={{
+                          fontFamily: MONO, fontSize: 8, fontWeight: 700,
+                          color: fresh.color, letterSpacing: "0.06em",
+                        }}>
+                          · {fresh.label}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </td>
+              </tr>
+              <tr style={{ borderBottom: `1px solid ${C.border}22` }}>
+                <td style={{ padding: "8px 0", fontFamily: MONO, fontSize: 10, color: C.muted, width: "45%", paddingRight: 8 }}>
+                  <TT title="Synthetic Coverage" body="Venues currently on synthetic fallback (no live API key configured). These venues generate model-based depth and are excluded from observed-coverage figures and downstream attestation. Each synthetic venue is explicitly marked in the Venue Coverage Matrix.">
+                    <span style={{ borderBottom: `1px dashed ${C.muted}`, cursor: "help" }}>Synthetic Coverage</span>
+                  </TT>
+                </td>
+                <td data-testid="dact-quality-synthetic-coverage" style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: stats && stats.syntheticVenueCount > 0 ? C.amber : C.green }}>
+                  {stats ? `${stats.syntheticVenueCount} / ${stats.totalVenues}` : "—"}
+                </td>
+                <td style={{ fontFamily: MONO, fontSize: 9, color: C.muted + "99", lineHeight: 1.4 }}>
+                  {stats && stats.syntheticVenueCount > 0
+                    ? "excluded from attestation"
+                    : "no synthetic sources"}
+                </td>
+              </tr>
+
+              {/* Remaining quality rows */}
               {[
                 {
                   label: "Tape Integrity",
                   value: stats?.tapeIntegrity ?? "—",
                   valueColor: integrityColor,
                   desc: "Whether the tape has any gaps or inconsistencies",
-                  tip: "INTACT means the tape is complete with no detected gaps, sequence breaks, or event rejections. DEGRADED means one or more venues have stopped reporting or events are arriving out of sequence. COMPROMISED means critical tape violations have been detected — investigate immediately.",
+                  tip: "INTACT means the tape is complete with no detected gaps, sequence breaks, or event rejections. DEGRADED means one or more venues have stopped reporting or events are arriving out of sequence. COMPROMISED means critical tape violations have been detected.",
                 },
                 {
                   label: "Normalisation Rate",
                   value: stats ? `${stats.normalisationRate}%` : "—",
                   valueColor: C.green,
-                  desc: "% of events successfully normalised to LTR schema",
-                  tip: "Percentage of incoming raw venue events that were successfully normalised into the canonical DACT schema (LTR — Liquidity Truth Record). 100% means every event from every venue parsed correctly. Below 100% means some events were malformed or used an unrecognised schema version — check the relevant venue relay.",
+                  desc: "% of events normalised to LTR schema",
+                  tip: "Percentage of incoming raw venue events successfully normalised into the canonical DACT schema. 100% means every event parsed correctly. Below 100% means some events were malformed or used an unrecognised schema version.",
                 },
                 {
                   label: "Symbol Coverage",
                   value: stats ? `${stats.symbolCoverageActive} / ${stats.symbolCoverageTotal}` : "—",
                   valueColor: C.text,
                   desc: "Assets with active data vs total monitored",
-                  tip: "Number of ILU assets with at least one active venue event in the current observation window, versus the total number of assets in the Institutional Liquidity Universe. Tokens awaiting venue feed activation will show as inactive and are not scored.",
-                },
-                {
-                  label: "Venue Coverage",
-                  value: stats ? `${stats.venuesIngesting} / ${stats.totalVenues}` : "—",
-                  valueColor: stats && stats.venuesIngesting === stats.totalVenues ? C.green : C.amber,
-                  desc: "Venues reporting vs total in DSU",
-                  tip: "Number of DSU venues actively reporting data versus the total declared universe of 26 venues. Full coverage (26/26) means no supervisory blind spots. Any shortfall means at least one venue is offline — see the Venue Coverage Matrix for which venue is affected.",
+                  tip: "Number of ILU assets with at least one active venue event in the current observation window, versus the total number of assets in the Institutional Liquidity Universe.",
                 },
                 {
                   label: "Duplicate Rate",
                   value: stats ? `${stats.duplicateRate}%` : "—",
                   valueColor: C.green,
-                  desc: "% of events deduplicated (should be near 0%)",
-                  tip: "Percentage of incoming events that were identified as duplicates and discarded. DACT performs sequence-number and timestamp deduplication. A non-zero duplicate rate indicates a venue relay is replaying events — this is non-critical but should be investigated if persistent.",
+                  desc: "% of events deduplicated (target: 0%)",
+                  tip: "Percentage of incoming events identified as duplicates and discarded. A non-zero rate indicates a venue relay is replaying events.",
                 },
                 {
                   label: "Rejected Events",
                   value: stats ? stats.rejectedEvents : "—",
                   valueColor: C.green,
-                  desc: "Events rejected for invalid schema (should be 0)",
-                  tip: "Count of events rejected outright for failing schema validation (missing required fields, invalid types, or provenance violations). Zero is the target. Any rejections indicate a breaking change in a venue relay's output format. Check the relay for the affected venue.",
+                  desc: "Events rejected for invalid schema (target: 0)",
+                  tip: "Count of events rejected for failing schema validation. Zero is the target. Any rejections indicate a breaking change in a venue relay's output format.",
                 },
               ].map(row => (
                 <tr key={row.label} style={{ borderBottom: `1px solid ${C.border}22` }}>
@@ -874,17 +872,14 @@ export default function DactPage() {
       </div>
 
       {/* ── Section 5: Non-Contamination Attestation ────────────────────── */}
+      {/* Change 4: upgraded to DACT-STD-1.1, citing NA-1 */}
       <div style={{ padding: "0 20px 20px" }}>
         <div
           data-testid="dact-attestation"
           style={{
-            background: "#0D1E3A",
-            border: `1px solid ${C.gold}`,
-            borderRadius: 4,
-            padding: "16px 20px",
-            display: "flex",
-            flexDirection: "column",
-            gap: 8,
+            background: "#0D1E3A", border: `1px solid ${C.gold}`,
+            borderRadius: 4, padding: "16px 20px",
+            display: "flex", flexDirection: "column", gap: 8,
           }}
         >
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
@@ -892,18 +887,11 @@ export default function DactPage() {
               <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.gold, letterSpacing: "0.12em" }}>
                 NON-CONTAMINATION ATTESTATION
               </div>
-              <div
-                style={{
-                  fontFamily: MONO,
-                  fontSize: 9,
-                  color: C.gold,
-                  border: `1px solid ${C.gold}`,
-                  borderRadius: 3,
-                  padding: "2px 8px",
-                  letterSpacing: "0.08em",
-                }}
-              >
-                DACT-STD-1.0 CONFORMANCE: FULL
+              <div style={{
+                fontFamily: MONO, fontSize: 9, color: C.gold,
+                border: `1px solid ${C.gold}`, borderRadius: 3, padding: "2px 8px", letterSpacing: "0.08em",
+              }}>
+                DACT-STD-1.1 · NA-1 · CONFORMANCE: FULL
               </div>
             </div>
             <div style={{ fontFamily: MONO, fontSize: 9, color: C.gold + "99" }}>
@@ -911,19 +899,21 @@ export default function DactPage() {
               {stats ? new Date(stats.verifiedAt).toISOString().replace("T", " ").slice(0, 19) + " UTC" : "—"}
             </div>
           </div>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: C.gold + "CC", lineHeight: 1.7, maxWidth: 900 }}>
+          <div style={{ fontFamily: MONO, fontSize: 10, color: C.gold + "CC", lineHeight: 1.7, maxWidth: 960 }}>
             This tape is an append-only, uncontaminated record of observable market data. No downstream layer
             (STRATA AI, PoLi, RCL) has written to or modified any DACT event. All events carry complete provenance
-            (sourceVenue, transport, engine, dactVersion, latencyMs). DACT is a verbose fact layer — it records
-            what happened but does not score, interpret, or evaluate. Analytical logic belongs exclusively to
-            downstream layers. This separation is the epistemic foundation of the Stratalink Liquidity Truth Stack.
+            (sourceVenue, transport, sourceClass, engine, dactVersion, latencyMs). Under DACT-STD-1.1 Normative
+            Amendment 1 (Synthetic Source Provenance), synthetic events are explicitly marked
+            with <em>provenance.sourceClass = "synthetic"</em> and are excluded from observed-coverage figures and
+            from downstream attestation — ensuring the observer-only posture is preserved for the observed tape.
           </div>
-          <div style={{ display: "flex", gap: 20 }}>
+          <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
             {[
-              ["Layer", "Layer 1 — Digital Assets Consolidated Tape"],
-              ["Standard", "DACT-STD-1.0"],
+              ["Layer",     "Layer 1 — Digital Assets Consolidated Tape"],
+              ["Standard",  "DACT-STD-1.1 / Normative Amendment 1"],
               ["Tape Mode", "APPEND-ONLY · IN-MEMORY RING BUFFER (10,000 events)"],
-              ["Replay", "Deterministic event replay supported"],
+              ["Replay",    "Deterministic event replay supported"],
+              ["Synthetic", "Marked · Excluded from attestation"],
             ].map(([label, value]) => (
               <div key={label} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                 <div style={{ fontFamily: MONO, fontSize: 8, color: C.gold + "88", letterSpacing: "0.1em" }}>{label}</div>
@@ -944,31 +934,24 @@ export default function DactPage() {
 const EventRow = memo(function EventRow({ event: ev, zebra }: { event: DactEvent; zebra: boolean }) {
   const typeColor = eventTypeColor(ev.eventType);
   const ts = new Date(ev.timestamp).toISOString().slice(11, 23);
+  const isSynthetic = ev.provenance.sourceClass === "synthetic";
 
   return (
     <div
       data-testid={`dact-event-row-${ev.id}`}
       style={{
         display: "grid",
-        gridTemplateColumns: "100px 110px 90px 70px 1fr",
+        gridTemplateColumns: "100px 110px 90px 70px 1fr 56px",
         padding: "4px 14px",
         borderBottom: `1px solid ${C.border}22`,
         background: zebra ? "transparent" : "#0A1220",
         alignItems: "center",
         gap: 8,
+        opacity: isSynthetic ? 0.75 : 1,
       }}
     >
       <div style={{ fontFamily: MONO, fontSize: 10, color: C.muted, whiteSpace: "nowrap" }}>{ts}</div>
-      <div
-        style={{
-          fontFamily: MONO,
-          fontSize: 9,
-          fontWeight: 700,
-          color: typeColor,
-          letterSpacing: "0.06em",
-          whiteSpace: "nowrap",
-        }}
-      >
+      <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: typeColor, letterSpacing: "0.06em", whiteSpace: "nowrap" }}>
         {ev.eventType}
       </div>
       <div style={{ fontFamily: MONO, fontSize: 10, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -978,6 +961,13 @@ const EventRow = memo(function EventRow({ event: ev, zebra }: { event: DactEvent
       <div style={{ fontFamily: MONO, fontSize: 10, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
         {ev.summary}
       </div>
+      {/* Source class badge on event row */}
+      <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, letterSpacing: "0.04em",
+        color: isSynthetic ? C.amber : ev.provenance.transport === "relay" ? C.blue : C.green,
+        whiteSpace: "nowrap",
+      }}>
+        {isSynthetic ? "SYN" : ev.provenance.transport === "relay" ? "RLY" : "OBS"}
+      </div>
     </div>
   );
 });
@@ -985,13 +975,7 @@ const EventRow = memo(function EventRow({ event: ev, zebra }: { event: DactEvent
 // ── Select style helper ────────────────────────────────────────────────────────
 
 const selectStyle: React.CSSProperties = {
-  fontFamily: MONO,
-  fontSize: 10,
-  color: "#C8D8E8",
-  background: "#0B1320",
-  border: "1px solid #1A2435",
-  borderRadius: 3,
-  padding: "3px 8px",
-  cursor: "pointer",
-  outline: "none",
+  fontFamily: MONO, fontSize: 10, color: "#C8D8E8",
+  background: "#0B1320", border: "1px solid #1A2435",
+  borderRadius: 3, padding: "3px 8px", cursor: "pointer", outline: "none",
 };

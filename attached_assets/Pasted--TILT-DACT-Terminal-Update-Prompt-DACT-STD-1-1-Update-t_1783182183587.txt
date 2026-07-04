@@ -1,0 +1,49 @@
+# TILT (DACT Terminal) Update Prompt - DACT-STD-1.1
+
+Update the DACT page of the Institutional Liquidity Truth Terminal (TILT) to reflect DACT-STD-1.1, which adds synthetic source provenance. This is a presentation-layer change only. Do not modify the ingestion adapters, the relay routing, the tape write path, or any venue connection logic. Every change below is a read of provenance data the events already carry.
+
+## Background the build should assume
+
+Every DACT event carries a `provenance` block. The fields that matter here are:
+
+- `provenance.sourceClass` - either `observed` or `synthetic`.
+- `provenance.transport` - either `direct` or `relay`.
+- `provenance.syntheticReason` - non-null whenever `sourceClass` is `synthetic`.
+
+All UI changes below read these fields live from the existing API rather than using hardcoded or static values.
+
+## Change 0, prerequisite check, do this first
+
+Confirm that the live venues endpoint and the event API already expose `provenance.sourceClass` (and its supporting `transport` and `syntheticReason` fields) in their responses. Inspect the actual API response, do not assume. If the fields are already present, proceed with the changes below and report that they were found. If they are not exposed yet, do not build the UI against fields that are not there. Instead, first surface `sourceClass`, `transport`, and `syntheticReason` from the provenance data through the existing venues endpoint and event API, without altering how those values are produced upstream, then proceed. Report which case applied before continuing, so it is clear whether the endpoint was already conformant or had to be extended.
+
+## Change 1, required. Venue Coverage Matrix, add a source-class column
+
+Add a column that renders each venue's live `sourceClass` in one of three states: `OBSERVED` for direct observed venues, `RELAY-OBS` for observed venues whose `transport` is `relay`, and `SYNTHETIC` for venues currently on synthetic fallback. Keep the existing ONLINE/OFFLINE status column unchanged, because a venue can be ONLINE and synthetic at the same time. Colour the three states distinctly, with observed in green, relay-observed in blue, and synthetic in amber, so the synthetic state is immediately separable. Read the state per venue from the live venues endpoint.
+
+## Change 2, required and highest priority. Data Quality Metrics panel, split coverage into observed and synthetic
+
+The panel currently shows venue coverage as 26/26 and DSU coverage as 100%, which blends observed and synthetic venues into one figure. DACT-STD-1.1 prohibits publishing a blended figure under the label coverage. Replace the single coverage figure with two separate figures. The first is "Observed coverage", computed only over venues whose live `sourceClass` is `observed`, counting relay-observed venues as observed, expressed as the observed-covered count over the DSU cardinality of 26. The second is "Synthetic-supplemented", showing the count of venues currently on fallback. Do not add the synthetic count into the observed figure, and never present a single number that combines them. Keep tape integrity, normalisation rate, duplicate rate, and rejected events as they are. Verify the observed figure against a manual count of the venue matrix before moving on, because this is the figure that carries regulatory weight.
+
+## Change 3, required. Display the readout time next to the observed coverage figure
+
+Show the UTC timestamp at which the observed coverage figure was computed, directly alongside the figure, so the number reads as a point-in-time measurement rather than a standing fact. Use the same timestamp convention already used elsewhere on the page, such as the "last sync" and "verified" times. This makes the terminal self-describing about the currency of its most scrutinised figure.
+
+## Change 4, required. Non-Contamination Attestation footer, update the conformance claim
+
+The footer currently reads "DACT-STD-1.0 conformance: full". Change the standard reference to DACT-STD-1.1 and cite Normative Amendment 1 (Synthetic Source Provenance). Add a sentence stating that synthetic events are explicitly marked and are excluded from observed-coverage figures and from downstream attestation, so the observer-only posture holds for the observed tape. Do not display the full conformance claim for 1.1 unless Changes 1, 2, and 3 are live, because the claim depends on them.
+
+## Change 5, recommended. Live Event Stream source-class filter
+
+The stream already has an All Types / All Venues / All Assets filter row. Add a source-class filter with options Observed, Synthetic, and All, defaulting to Observed, so the default view shows observed market data and a user must opt in to see synthetic events.
+
+## Change 6, optional hardening step. Freshness indicator on the observed coverage figure
+
+In addition to the readout timestamp from Change 3, add a freshness indicator that visibly ages if the coverage computation stalls, so a figure that is no longer being updated is distinguishable from a live one. For example, show the age of the last computation and change its visual state once it exceeds a short threshold. This guards against the figure appearing current when the process feeding it has silently stopped. Treat this as a hardening step to implement after Changes 1 through 5 are working, not as a blocker.
+
+## Sensitive-data constraint
+
+The provenance readout may surface infrastructure identifiers and credential-like strings. Do not surface AWS account details, validator Party IDs, or any credential values anywhere in the UI. Render only the source classification and its supporting non-sensitive fields, describing function rather than exposing identifiers.
+
+## Sequencing
+
+Do Change 0 first and report the result. Then implement Change 2 and verify the observed figure against a manual count before proceeding, since it carries the regulatory weight and is most likely to reveal a discrepancy between what the UI claims and what the live system holds. Changes 1, 3, and 4 are quick reads once the source-class field is wired into the front end. Change 5 is a straightforward filter addition. Change 6 is the final hardening step. Confirm that every change reads live data from the existing API rather than static values, and that no change alters the baseline ingestion architecture.

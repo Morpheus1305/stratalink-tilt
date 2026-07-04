@@ -38,8 +38,9 @@ router.get("/events", (req: Request, res: Response) => {
   const eventType = String(req.query.eventType ?? "ALL");
   const venue = String(req.query.venue ?? "ALL");
   const asset = String(req.query.asset ?? "ALL");
+  const sourceClass = String(req.query.sourceClass ?? "ALL");
 
-  const events = getDactEvents({ limit, eventType, venue, asset });
+  const events = getDactEvents({ limit, eventType, venue, asset, sourceClass });
   res.json({ ok: true, events, count: events.length, timestamp: Date.now() });
 });
 
@@ -63,6 +64,9 @@ router.get("/venues", (_req: Request, res: Response) => {
       lastEventTs: vs?.lastEventTs ?? 0,
       p95LatencyMs: vs?.p95LatencyMs ?? 0,
       eventsPerMin: vs?.eventsPerMin ?? 0,
+      sourceClass: vs?.sourceClass ?? "synthetic",
+      transport: vs?.transport ?? "unknown",
+      syntheticReason: vs?.syntheticReason,
     };
   });
   res.json({ ok: true, venues, timestamp: Date.now() });

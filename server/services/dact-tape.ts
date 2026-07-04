@@ -1,9 +1,13 @@
 /**
  * DACT Tape — Digital Asset Consolidated Tape
- * DACT-STD-1.0 conformant append-only in-memory ring buffer.
+ * DACT-STD-1.1 conformant append-only in-memory ring buffer.
  *
- * The sole ingestion record of observable venue data.
+ * The sole ingestion point and authoritative record of observable venue data.
  * No downstream layer (STRATA AI, PoLi, RCL) writes back to this tape.
+ *
+ * DACT-STD-1.1 / Normative Amendment 1 — Synthetic Source Provenance:
+ *   Every event carries sourceClass ("observed" | "synthetic") derived from
+ *   transport at ingest time. Observed-coverage figures exclude synthetic events.
  */
 
 export type DactEventType = "DEPTH_UPDATE" | "BBO_UPDATE" | "TRADE" | "VENUE_STATUS";
@@ -19,6 +23,8 @@ export interface DactEvent {
   provenance: {
     sourceVenue: string;
     transport: string;
+    sourceClass: "observed" | "synthetic";
+    syntheticReason?: string;
     engine: string;
     dactVersion: string;
     latencyMs: number;
@@ -31,6 +37,9 @@ interface VenueStat {
   latencyBucket: number[];
   eventsThisMinute: number;
   minuteStart: number;
+  lastSourceClass: "observed" | "synthetic";
+  lastTransport: string;
+  syntheticReason?: string;
 }
 
 const TAPE_MAX = 10_000;
@@ -44,8 +53,27 @@ function genId(): string {
   return `dact-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
+/** Derive sourceClass from transport field. */
+function deriveSourceClass(transport: string): "observed" | "synthetic" {
+  return transport === "synthetic" ? "synthetic" : "observed";
+}
+
 export function appendDactEvent(ev: Omit<DactEvent, "id">): void {
-  const event: DactEvent = { id: genId(), ...ev };
+  const transport = ev.provenance.transport;
+  const sourceClass = deriveSourceClass(transport);
+  const syntheticReason: string | undefined =
+    sourceClass === "synthetic"
+      ? ((ev.provenance as any).syntheticReason ?? "No API key configured — synthetic depth model active")
+      : undefined;
+
+  const enrichedProvenance = {
+    ...ev.provenance,
+    sourceClass,
+    ...(syntheticReason ? { syntheticReason } : {}),
+    dactVersion: "1.1",
+  };
+
+  const event: DactEvent = { id: genId(), ...ev, provenance: enrichedProvenance };
   tape.push(event);
   if (tape.length > TAPE_MAX) tape.shift();
   totalIngested++;
@@ -64,11 +92,16 @@ export function appendDactEvent(ev: Omit<DactEvent, "id">): void {
       latencyBucket: [],
       eventsThisMinute: 0,
       minuteStart: now,
+      lastSourceClass: sourceClass,
+      lastTransport: transport,
     };
   }
   const vs = venueStats[venue];
   vs.lastEventTs = now;
   vs.eventCount++;
+  vs.lastSourceClass = sourceClass;
+  vs.lastTransport = transport;
+  if (syntheticReason) vs.syntheticReason = syntheticReason;
 
   if (now - vs.minuteStart > 60_000) {
     vs.eventsThisMinute = 0;
@@ -88,6 +121,7 @@ export function getDactEvents(opts: {
   eventType?: string;
   venue?: string;
   asset?: string;
+  sourceClass?: string;
 }): DactEvent[] {
   let events = tape.slice().reverse();
   if (opts.eventType && opts.eventType !== "ALL") {
@@ -98,6 +132,9 @@ export function getDactEvents(opts: {
   }
   if (opts.asset && opts.asset !== "ALL") {
     events = events.filter(e => e.asset === opts.asset);
+  }
+  if (opts.sourceClass && opts.sourceClass !== "ALL") {
+    events = events.filter(e => e.provenance.sourceClass === opts.sourceClass);
   }
   return events.slice(0, opts.limit ?? 100);
 }
@@ -114,6 +151,9 @@ export function getVenueStatMap(): Record<string, {
   p95LatencyMs: number;
   eventsPerMin: number;
   status: "ONLINE" | "DEGRADED" | "OFFLINE";
+  sourceClass: "observed" | "synthetic";
+  transport: string;
+  syntheticReason?: string;
 }> {
   const now = Date.now();
   const result: Record<string, any> = {};
@@ -129,6 +169,9 @@ export function getVenueStatMap(): Record<string, {
       p95LatencyMs: Math.round(p95(vs.latencyBucket)),
       eventsPerMin: vs.eventsThisMinute,
       status,
+      sourceClass: vs.lastSourceClass,
+      transport: vs.lastTransport,
+      ...(vs.syntheticReason ? { syntheticReason: vs.syntheticReason } : {}),
     };
   }
   return result;
@@ -140,10 +183,15 @@ export function getDactStats() {
   const eventsPerSec = Math.round((eventsIn60s / 60) * 10) / 10;
 
   const TOTAL_VENUES = 26;
-  const venuesIngesting = Object.values(venueStats).filter(
-    vs => now - vs.lastEventTs < 120_000
-  ).length;
+  const activeVenues = Object.entries(venueStats).filter(
+    ([, vs]) => now - vs.lastEventTs < 120_000
+  );
+  const venuesIngesting = activeVenues.length;
   const dataGaps = TOTAL_VENUES - venuesIngesting;
+
+  // DACT-STD-1.1: split coverage into observed and synthetic
+  const observedVenueCount = activeVenues.filter(([, vs]) => vs.lastSourceClass === "observed").length;
+  const syntheticVenueCount = activeVenues.filter(([, vs]) => vs.lastSourceClass === "synthetic").length;
 
   const allLatencies = Object.values(venueStats).flatMap(vs => vs.latencyBucket);
   const p95Global = Math.round(p95(allLatencies));
@@ -170,6 +218,9 @@ export function getDactStats() {
   return {
     venuesIngesting,
     totalVenues: TOTAL_VENUES,
+    observedVenueCount,
+    syntheticVenueCount,
+    observedCoverageComputedAt: now,
     eventsPerSec,
     tapeDepth: tape.length,
     totalIngested,
