@@ -412,11 +412,18 @@ export function getDactStats() {
 
   // Real cryptographic chain verification
   const chain = verifyChain();
+
+  // Startup grace: relay venues require ≥1 completed poll (~15–30 s each) before
+  // they appear in venueStats.  Flag the first 3 minutes as a warmup window so
+  // venue-count gaps do not produce a false COMPROMISED signal on fresh deploys.
+  const uptimeSec = (now - startedAt) / 1000;
+  const warmingUp = uptimeSec < 180;
+
   const tapeIntegrity: "INTACT" | "DEGRADED" | "COMPROMISED" =
-    !chain.valid            ? "COMPROMISED" :
-    dataGaps > 4            ? "COMPROMISED" :
-    dataGaps > 0            ? "DEGRADED"    :
-                              "INTACT";
+    !chain.valid                   ? "COMPROMISED" :   // hash-chain break → always COMPROMISED
+    (dataGaps > 4 && !warmingUp)   ? "COMPROMISED" :   // sustained gaps after warmup → COMPROMISED
+    dataGaps > 0                   ? "DEGRADED"    :
+                                     "INTACT";
 
   const ingestionHistory: { minute: number; label: string; depth: number; bbo: number; trade: number; status: number }[] = [];
   const thirtyMinsAgo = now - 30 * 60_000;
@@ -455,12 +462,14 @@ export function getDactStats() {
     chainRootSeq: chain.chainRootSeq,
     // Quality metrics
     normalisationRate: 100,
-    symbolCoverageActive: Math.min(venuesIngesting > 0 ? 34 : 0, 34),
+    // Count distinct assets with a recent event in the last 120 s (same window as venue activity)
+    symbolCoverageActive: Math.min(new Set(tape.filter(e => now - e.timestamp < 120_000).map(e => e.asset)).size, 34),
     symbolCoverageTotal: 34,
     duplicateRate: 0,
     rejectedEvents: 0,
     ingestionHistory,
     uptimeMs: now - startedAt,
+    warmingUp,
     verifiedAt: now,
   };
 }

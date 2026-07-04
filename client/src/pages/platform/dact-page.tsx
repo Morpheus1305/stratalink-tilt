@@ -76,6 +76,8 @@ interface DactStats {
     trade: number;
     status: number;
   }[];
+  uptimeMs: number;
+  warmingUp: boolean;
   verifiedAt: number;
 }
 
@@ -287,6 +289,7 @@ export default function DactPage() {
 
   const integrityColor =
     !stats ? C.muted :
+    stats.warmingUp ? C.amber :
     stats.tapeIntegrity === "INTACT" ? C.green :
     stats.tapeIntegrity === "DEGRADED" ? C.amber : C.red;
 
@@ -458,6 +461,31 @@ export default function DactPage() {
           The Institutional Liquidity Truth Terminal's immutable consolidated tape — the sole ingestion point and authoritative record of observable digital asset liquidity across all connected venues.
         </div>
       </div>
+
+      {/* ── Warmup notice (shown for the first 3 min after process start) ── */}
+      {stats?.warmingUp && (
+        <div style={{
+          padding: "8px 20px",
+          background: `${C.amber}18`,
+          borderBottom: `1px solid ${C.amber}40`,
+          display: "flex", alignItems: "center", gap: 10,
+        }}>
+          <span style={{
+            fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: "0.12em",
+            color: C.amber, background: `${C.amber}22`, padding: "2px 7px", borderRadius: 2,
+          }}>
+            WARMING UP
+          </span>
+          <span style={{ fontFamily: MONO, fontSize: 10, color: C.amber + "CC" }}>
+            Relay venues require 1–3 minutes to complete their first poll cycle.
+            Venue counts and integrity status will stabilise shortly.
+            {stats.dataGaps > 0 && ` (${stats.dataGaps} venue${stats.dataGaps !== 1 ? "s" : ""} pending first event)`}
+          </span>
+          <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 9, color: C.amber + "88" }}>
+            {Math.ceil((180_000 - stats.uptimeMs) / 1000)}s remaining
+          </span>
+        </div>
+      )}
 
       {/* ── Section 1: Header metrics ───────────────────────────────────── */}
       <div style={{ padding: "12px 20px", display: "flex", gap: 10, borderBottom: `1px solid ${C.border}` }}>
@@ -844,10 +872,14 @@ export default function DactPage() {
               {[
                 {
                   label: "Tape Integrity",
-                  value: stats?.tapeIntegrity ?? "—",
+                  value: stats?.warmingUp
+                    ? (stats.tapeIntegrity === "COMPROMISED" ? "WARMING UP" : stats.tapeIntegrity)
+                    : (stats?.tapeIntegrity ?? "—"),
                   valueColor: integrityColor,
-                  desc: "Whether the tape has any gaps or inconsistencies",
-                  tip: "INTACT means the tape is complete with no detected gaps, sequence breaks, or event rejections. DEGRADED means one or more venues have stopped reporting or events are arriving out of sequence. COMPROMISED means critical tape violations have been detected.",
+                  desc: stats?.warmingUp
+                    ? "Venue poll cycles completing — status will stabilise in ~3 min"
+                    : "Whether the tape has any gaps or inconsistencies",
+                  tip: "INTACT means the tape is complete with no detected gaps, sequence breaks, or event rejections. DEGRADED means one or more venues have stopped reporting or events are arriving out of sequence. COMPROMISED means critical tape violations have been detected. WARMING UP is a transient state shown during the first 3 minutes after process start while relay venues complete their initial poll cycles.",
                 },
                 {
                   label: "Normalisation Rate",
