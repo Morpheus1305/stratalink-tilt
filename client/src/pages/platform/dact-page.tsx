@@ -179,7 +179,7 @@ function MetricCard({
     }}>
       <div style={{ fontSize: 9, fontFamily: MONO, color: C.muted, letterSpacing: "0.1em", textTransform: "uppercase" }}>
         {tooltip
-          ? <TT title={label} body={tooltip}><span style={{ borderBottom: `1px dashed ${C.muted}`, cursor: "help" }}>{label}</span></TT>
+          ? <TT title={label} body={tooltip}><span>{label}</span></TT>
           : label}
       </div>
       <div
@@ -449,7 +449,7 @@ export default function DactPage() {
 
       {/* ── Page subtitle ───────────────────────────────────────────────── */}
       <div style={{ padding: "10px 20px 6px", borderBottom: `1px solid ${C.border}` }}>
-        <div style={{ fontFamily: MONO, fontSize: 10, color: C.muted, lineHeight: 1.5 }}>
+        <div style={{ fontFamily: MONO, fontSize: 10, color: C.accent, lineHeight: 1.5 }}>
           The Institutional Liquidity Truth Terminal's immutable consolidated tape — the sole ingestion point and authoritative record of observable digital asset liquidity across all connected venues.
         </div>
       </div>
@@ -786,7 +786,7 @@ export default function DactPage() {
               <tr style={{ borderBottom: `1px solid ${C.border}22` }}>
                 <td style={{ padding: "8px 0", fontFamily: MONO, fontSize: 10, color: C.muted, width: "45%", paddingRight: 8 }}>
                   <TT title="Observed Coverage" body="Venues whose provenance.sourceClass is 'observed' (including relay-observed), counted over the Declared Supervisory Universe. This is the DACT-STD-1.1 primary coverage figure — synthetic venues are excluded.">
-                    <span style={{ borderBottom: `1px dashed ${C.muted}`, cursor: "help" }}>Observed Coverage</span>
+                    <span>Observed Coverage</span>
                   </TT>
                 </td>
                 <td data-testid="dact-quality-observed-coverage" style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.green, width: "25%" }}>
@@ -815,7 +815,7 @@ export default function DactPage() {
               <tr style={{ borderBottom: `1px solid ${C.border}22` }}>
                 <td style={{ padding: "8px 0", fontFamily: MONO, fontSize: 10, color: C.muted, width: "45%", paddingRight: 8 }}>
                   <TT title="Synthetic Coverage" body="Venues currently on synthetic fallback (no live API key configured). These venues generate model-based depth and are excluded from observed-coverage figures and downstream attestation. Each synthetic venue is explicitly marked in the Venue Coverage Matrix.">
-                    <span style={{ borderBottom: `1px dashed ${C.muted}`, cursor: "help" }}>Synthetic Coverage</span>
+                    <span>Synthetic Coverage</span>
                   </TT>
                 </td>
                 <td data-testid="dact-quality-synthetic-coverage" style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: stats && stats.syntheticVenueCount > 0 ? C.amber : C.green }}>
@@ -869,7 +869,7 @@ export default function DactPage() {
                 <tr key={row.label} style={{ borderBottom: `1px solid ${C.border}22` }}>
                   <td style={{ padding: "8px 0", fontFamily: MONO, fontSize: 10, color: C.muted, width: "45%", paddingRight: 8 }}>
                     <TT title={row.label} body={row.tip}>
-                      <span style={{ borderBottom: `1px dashed ${C.muted}`, cursor: "help" }}>{row.label}</span>
+                      <span>{row.label}</span>
                     </TT>
                   </td>
                   <td
@@ -1042,7 +1042,7 @@ function ClockSyncRow({ clockSync }: { clockSync: ClockSync | undefined }) {
           title="Clock Divergence"
           body={`Measured offset of the DACT reference clock from a traceable UTC time source, using the SNTP mid-point estimator (RTT/2 correction). Tolerance: ±${cs?.toleranceMs ?? 500}ms. Source is a public traceable UTC time service — no host names or addresses are surfaced. Measured every 60 seconds; RTT of the measurement request is shown in the description. A session breach counter increments when tolerance is exceeded and is displayed the same way rejected events are surfaced.`}
         >
-          <span style={{ borderBottom: `1px dashed ${C.muted}`, cursor: "help" }}>Clock Divergence</span>
+          <span>Clock Divergence</span>
         </TT>
       </td>
       <td
