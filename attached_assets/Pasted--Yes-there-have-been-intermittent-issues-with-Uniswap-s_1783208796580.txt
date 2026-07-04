@@ -1,0 +1,27 @@
+**Yes, there have been intermittent issues with Uniswap’s API, particularly around quote generation for swaps (especially on Unichain), but the overall status appears resolved or back to normal as of now.**<grok:render card_id=“3e6a56” card_type=“citation_card” type=“render_inline_citation”><argument name="citation_id">45</argument></grok:render>
+
+### Current Status
+
+- Uniswap’s official ecosystem status page currently reports **“We’re fully operational”** with no active incidents.<grok:render card_id=“b1c256” card_type=“citation_card” type=“render_inline_citation”><argument name="citation_id">45</argument></grok:render>
+- Earlier reports (from April 2026) noted **“API Quotes Intermittently Unavailable”** due to resource exhaustion on Unichain quote requests. This matches what you’re describing.<grok:render card_id=“af06b9” card_type=“citation_card” type=“render_inline_citation”><argument name="citation_id">0</argument></grok:render>
+- API uptime is generally high (~96%+ historically for the main components), and the Trading/Uniswap API powers major integrations (e.g., MetaMask, Privy) with strong performance metrics like ~200ms routing and high fill rates.<grok:render card_id=“d0a869” card_type=“citation_card” type=“render_inline_citation”><argument name="citation_id">47</argument></grok:render>
+
+### Common Causes for API Access Issues
+
+- **Intermittent quote failures** — Often tied to high load on specific chains like Unichain.
+- **Subgraph downtime** (for data/prices) — This is third-party (The Graph) and doesn’t block core trading but can affect UI elements like charts or token info.<grok:render card_id=“4939ea” card_type=“citation_card” type=“render_inline_citation”><argument name="citation_id">2</argument></grok:render>
+- **Rate limits or auth** — Requires an API key for production use via the Uniswap Developer Platform. Test keys or high usage can hit limits.
+- **Network/chain-specific problems** (e.g., testnets like Sepolia had past 502/404 errors).<grok:render card_id=“ff063e” card_type=“citation_card” type=“render_inline_citation”><argument name="citation_id">1</argument></grok:render>
+- **Client-side** — VPNs, browser cache, or regional blocks (e.g., past governance page IP blocks) can mimic outages.<grok:render card_id=“c5ce7b” card_type=“citation_card” type=“render_inline_citation”><argument name="citation_id">5</argument></grok:render>
+
+### What to Do
+
+1. **Check the status directly**: Visit <https://statuspage.incident.io/uniswap-status/>.<grok:render card_id=“061534” card_type=“citation_card” type=“render_inline_citation”><argument name="citation_id">45</argument></grok:render>
+2. **Generate/reuse an API key**: From the [Uniswap Developer Platform](https://developers.uniswap.org) for reliable access.<grok:render card_id=“01bfcd” card_type=“citation_card” type=“render_inline_citation”><argument name="citation_id">35</argument></grok:render>
+3. **Test endpoints**: Use the official docs/playground for `/quote`, `/swap`, etc. (e.g., trade-api.gateway.uniswap.org).
+4. **Alternatives if stuck**:
+- Direct contract calls or SDK for more control (bypasses hosted API).
+- Other aggregators or on-chain routing.
+- Retry with backoff for intermittent issues.
+
+If you’re still seeing errors, share the exact endpoint/error message (and chain), and I can help debug further. The core Uniswap protocol (swaps on-chain) remains fully operational even if API helpers are flaky.

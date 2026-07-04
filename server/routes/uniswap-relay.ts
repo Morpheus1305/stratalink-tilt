@@ -36,6 +36,15 @@ const TOKEN_MAP: Record<string, { address: string; decimals: number; coingeckoId
 
 const DEFILLAMA_POOLS_URL = "https://yields.llama.fi/pools";
 
+// Module-level cache for the DeFiLlama pools response.
+// yields.llama.fi/pools returns the ENTIRE dataset (~100k+ pools). Fetching it
+// once per symbol per 5-second cycle would re-download hundreds of MB repeatedly.
+// Cache it here with a 60-second TTL so all symbols in a cycle share one fetch.
+let _llamaCache: { pools: any[]; fetchedAt: number } | null = null;
+const LLAMA_CACHE_TTL_MS = 60_000;
+const LLAMA_FETCH_TIMEOUT_MS = 8_000;
+const COINGECKO_FETCH_TIMEOUT_MS = 5_000;
+
 const POOL_QUERY = `
   query TopPools($token: String!) {
     pools(
@@ -138,12 +147,19 @@ async function fetchDefiLlamaPool(symbol: string): Promise<{
   pool: string;
 } | null> {
   try {
-    const res = await fetch(DEFILLAMA_POOLS_URL);
-    if (!res.ok) return null;
+    // Use cached payload if still fresh — avoids re-downloading the entire
+    // yields.llama.fi/pools dataset (hundreds of MB) for every symbol.
+    const now = Date.now();
+    if (!_llamaCache || now - _llamaCache.fetchedAt > LLAMA_CACHE_TTL_MS) {
+      const res = await fetch(DEFILLAMA_POOLS_URL, {
+        signal: AbortSignal.timeout(LLAMA_FETCH_TIMEOUT_MS),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      _llamaCache = { pools: data?.data ?? [], fetchedAt: Date.now() };
+    }
 
-    const data = await res.json();
-    const pools: any[] = data?.data ?? [];
-
+    const pools: any[] = _llamaCache.pools;
     const uniPools = pools.filter((p: any) =>
       p.project === "uniswap-v3" &&
       p.chain === "Ethereum" &&
@@ -167,7 +183,8 @@ async function fetchDefiLlamaPool(symbol: string): Promise<{
 async function fetchTokenPrice(coingeckoId: string): Promise<number> {
   try {
     const res = await fetch(
-      `https://api.coingecko.com/api/v3/simple/price?ids=${coingeckoId}&vs_currencies=usd`
+      `https://api.coingecko.com/api/v3/simple/price?ids=${coingeckoId}&vs_currencies=usd`,
+      { signal: AbortSignal.timeout(COINGECKO_FETCH_TIMEOUT_MS) }
     );
     if (!res.ok) return 0;
     const data = await res.json();
