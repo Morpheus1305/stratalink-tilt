@@ -1,0 +1,23 @@
+# Replit Infrastructure Task - DACT Clock Synchronisation Fix
+
+Infrastructure task, not a UI task. The DACT clock synchronisation indicator on the Frankfurt host is reporting the DACT reference clock running approximately 2.4 seconds ahead of the traceable UTC source, out-of-tolerance against a plus or minus 500 millisecond limit, with breaches recorded in the session. An offset of this size is far larger than drift or jitter and usually means the host clock is not disciplined to a proper time source. Diagnose and fix the underlying synchronisation, do not adjust the tolerance or the indicator to mask it.
+
+## First, diagnose
+
+On the DACT ingestion host in Frankfurt, check what is currently disciplining the system clock. Determine whether a time-synchronisation daemon is running and active, for example chrony, systemd-timesyncd, or ntpd, and whether it is actually stepping or slewing the clock to a traceable UTC source. Report what you find: which daemon if any is running, which upstream time source it is configured to use, whether it is reaching that source, and the current measured offset. If no daemon is disciplining the clock, or it is running but not reaching a source, that is very likely the cause of the 2.4-second offset.
+
+## Second, fix
+
+Bring the DACT ingestion host under a properly configured time-synchronisation daemon disciplined to a traceable UTC source. Prefer a source with documented UTC traceability. Allow the daemon to correct the offset so the divergence falls well within the plus or minus 500 millisecond tolerance, and confirm the offset is stable there over several minutes rather than momentarily crossing the threshold. Do not correct the clock with a one-off manual step that will drift again; the daemon must hold it disciplined continuously.
+
+## Third, verify
+
+Confirm the Clock Divergence row in the Data Quality Metrics panel now reads in-tolerance, that the signed divergence value has dropped to sub-500-millisecond magnitude, and that no new breaches accrue once the fix is in place. Report the before and after offset values.
+
+## Sensitive-data constraint
+
+When reporting, describe the time source by function, for example "traceable UTC time service", and do not paste host names, IP addresses, time-source addresses, or any credential-like strings into the report or anywhere in the UI.
+
+## Scope constraint
+
+Do not alter the ingestion adapters, the relay routing, the tape write path, or any venue connection logic. This task is limited to host clock synchronisation and confirming the existing indicator reflects the corrected state. The baseline architecture is unchanged: multi-venue orderbook aggregation across Binance, Coinbase, and Kraken on DigitalOcean in Frankfurt, with Cloudflare Workers fronting api.stratalink.ai.
