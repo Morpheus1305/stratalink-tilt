@@ -239,7 +239,7 @@ router.get("/:venue/depth", async (req: Request, res: Response) => {
       if (process.env.RELAY_SECRET) internalHeaders["x-relay-secret"] = process.env.RELAY_SECRET;
       const relayRes = await fetch(
         `http://localhost:${process.env.PORT || 5000}${relayPath}?symbol=${encodeURIComponent(symbol)}`,
-        { headers: internalHeaders }
+        { headers: internalHeaders, signal: AbortSignal.timeout(15_000) }
       );
       if (!relayRes.ok) {
         const err = await relayRes.json().catch(() => ({}));
@@ -269,7 +269,7 @@ router.get("/:venue/depth", async (req: Request, res: Response) => {
 
       const response = await fetch(
         `https://relay.stratalink.ai/${relayVenue}/depth?symbol=${encodeURIComponent(symbol)}`,
-        { headers: { "x-relay-key": relayKey } }
+        { headers: { "x-relay-key": relayKey }, signal: AbortSignal.timeout(15_000) }
       );
 
       const ts_fetch_end = Date.now();

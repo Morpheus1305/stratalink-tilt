@@ -89,6 +89,7 @@ router.get("/perps/depth", async (req: Request, res: Response) => {
         type: "l2Book",
         coin: symbol,
       }),
+      signal: AbortSignal.timeout(10_000),
     });
 
     if (!response.ok) {
@@ -130,6 +131,7 @@ router.get("/perps/meta", async (req: Request, res: Response) => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ type: "meta" }),
+      signal: AbortSignal.timeout(10_000),
     });
 
     if (!response.ok) {
@@ -162,6 +164,7 @@ router.get("/perps/funding", async (req: Request, res: Response) => {
         type: "clearinghouseState",
         user: "0x0000000000000000000000000000000000000000",
       }),
+      signal: AbortSignal.timeout(10_000),
     });
 
     if (!response.ok) {

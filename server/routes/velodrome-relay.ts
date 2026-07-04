@@ -5,6 +5,7 @@ import {
   tsleStateEngine,
   type LISSnapshot,
 } from "../services/tsle-buffer";
+import { getDefiLlamaPools } from "../services/defillama-cache";
 
 const router = Router();
 
@@ -24,7 +25,6 @@ const TOKEN_MAP: Record<string, { address: string; decimals: number; coingeckoId
   OP:    { address: "0x4200000000000000000000000000000000000042", decimals: 18, coingeckoId: "optimism" },
 };
 
-const DEFILLAMA_POOLS_URL = "https://yields.llama.fi/pools";
 
 function authCheck(req: Request, res: Response): boolean {
   const secret = process.env.RELAY_SECRET;
@@ -61,12 +61,7 @@ function computeDepthBands(
 
 async function fetchDefiLlamaTVL(symbol: string): Promise<{ tvlUSD: number; pool: string } | null> {
   try {
-    const ctrl = new AbortController();
-    setTimeout(() => ctrl.abort(), 5000);
-    const res = await fetch(DEFILLAMA_POOLS_URL, { signal: ctrl.signal });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const pools: any[] = data?.data ?? [];
+    const pools = await getDefiLlamaPools();
 
     const matches = pools.filter((p: any) =>
       (p.project === "velodrome-v2" || p.project === "velodrome") &&

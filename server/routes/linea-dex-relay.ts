@@ -5,6 +5,7 @@ import {
   tsleStateEngine,
   type LISSnapshot,
 } from "../services/tsle-buffer";
+import { getDefiLlamaPools } from "../services/defillama-cache";
 
 const router = Router();
 
@@ -20,7 +21,6 @@ const TOKEN_MAP: Record<string, { address: string; decimals: number; coingeckoId
   LINK: { address: "0x5B16228B96B5B625Af6b4Dc788EF82D0E05Fc9E4", decimals: 18, coingeckoId: "chainlink" },
 };
 
-const DEFILLAMA_POOLS_URL = "https://yields.llama.fi/pools";
 
 function authCheck(req: Request, res: Response): boolean {
   const secret = process.env.RELAY_SECRET;
@@ -56,12 +56,7 @@ function computeDepthBands(
 
 async function fetchDefiLlamaTVL(symbol: string): Promise<{ tvlUSD: number; pool: string } | null> {
   try {
-    const ctrl = new AbortController();
-    setTimeout(() => ctrl.abort(), 5000);
-    const res = await fetch(DEFILLAMA_POOLS_URL, { signal: ctrl.signal });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const pools: any[] = data?.data ?? [];
+    const pools = await getDefiLlamaPools();
 
     // Try highest-TVL DEX projects on Linea in priority order
     for (const projectId of ["lynex", "nile-exchange", "uniswap-v3", "izumi-finance", "pancakeswap-v3"]) {

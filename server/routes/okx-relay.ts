@@ -139,7 +139,7 @@ function authCheck(req: Request, res: Response): boolean {
 
 async function fetchOKXOrderbook(instId: string, sz?: string): Promise<any> {
   const url = `${OKX_BASE}/market/books?instId=${encodeURIComponent(instId)}&sz=${sz || "50"}`;
-  const response = await fetch(url);
+  const response = await fetch(url, { signal: AbortSignal.timeout(10_000) });
 
   if (!response.ok) {
     throw new Error(`OKX API ${response.status}`);
@@ -234,7 +234,8 @@ router.get("/funding", async (req: Request, res: Response) => {
 
   try {
     const response = await fetch(
-      `${OKX_BASE}/public/funding-rate?instId=${encodeURIComponent(instrument)}`
+      `${OKX_BASE}/public/funding-rate?instId=${encodeURIComponent(instrument)}`,
+      { signal: AbortSignal.timeout(10_000) }
     );
 
     if (!response.ok) {

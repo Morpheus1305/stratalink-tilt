@@ -5,6 +5,7 @@ import {
   tsleStateEngine,
   type LISSnapshot,
 } from "../services/tsle-buffer";
+import { getDefiLlamaPools } from "../services/defillama-cache";
 
 const router = Router();
 
@@ -31,7 +32,6 @@ const TOKEN_MAP: Record<string, { address: string; decimals: number; coingeckoId
 };
 
 const PANCAKESWAP_SUBGRAPH = "https://api.thegraph.com/subgraphs/name/pancakeswap/exchange-v3-bsc";
-const DEFILLAMA_POOLS_URL = "https://yields.llama.fi/pools";
 
 const POOL_QUERY = `
   query TopPools($token: String!) {
@@ -116,12 +116,7 @@ async function fetchSubgraphPools(tokenAddress: string): Promise<any[] | null> {
 
 async function fetchDefiLlamaTVL(symbol: string): Promise<{ tvlUSD: number; pool: string } | null> {
   try {
-    const ctrl = new AbortController();
-    setTimeout(() => ctrl.abort(), 5000);
-    const res = await fetch(DEFILLAMA_POOLS_URL, { signal: ctrl.signal });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const pools: any[] = data?.data ?? [];
+    const pools = await getDefiLlamaPools();
 
     const matches = pools.filter((p: any) =>
       (p.project === "pancakeswap-v3" || p.project === "pancakeswap") &&

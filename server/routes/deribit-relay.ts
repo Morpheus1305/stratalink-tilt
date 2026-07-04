@@ -97,7 +97,8 @@ router.get("/perps/depth", async (req: Request, res: Response) => {
 
   try {
     const response = await fetch(
-      `${DERIBIT_BASE}/get_order_book?instrument_name=${instrument}&depth=50`
+      `${DERIBIT_BASE}/get_order_book?instrument_name=${instrument}&depth=50`,
+      { signal: AbortSignal.timeout(10_000) }
     );
 
     if (!response.ok) {
@@ -145,7 +146,8 @@ router.get("/spot/depth", async (req: Request, res: Response) => {
 
   try {
     const response = await fetch(
-      `${DERIBIT_BASE}/get_order_book?instrument_name=${instrument}&depth=50`
+      `${DERIBIT_BASE}/get_order_book?instrument_name=${instrument}&depth=50`,
+      { signal: AbortSignal.timeout(10_000) }
     );
 
     if (!response.ok) {
