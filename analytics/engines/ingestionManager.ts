@@ -11,10 +11,18 @@ import { pushIngestCycleAlerts } from "../../server/services/liveAlertsService";
 import type { DivergenceReport, DivergenceSignal } from "../../server/services/divergence-detector";
 
 let isIngesting = false;
+let ingestStartedAt = 0;       // wall-clock ms when current cycle began (0 = not running)
 let lastFullIngest = 0;
 let ingestInterval: NodeJS.Timeout | null = null;
+let watchdogInterval: NodeJS.Timeout | null = null;
 
-const INGEST_INTERVAL_MS = 5000;
+const INGEST_INTERVAL_MS  = 5_000;
+/** Hard deadline for the core ingest Promise.all (depth + funding + liquidations). */
+const CYCLE_TIMEOUT_MS    = 25_000;
+/** Watchdog force-reset threshold — should be > CYCLE_TIMEOUT_MS. */
+const WATCHDOG_KICK_MS    = 32_000;
+/** Per-relay-call HTTP timeout. */
+const RELAY_FETCH_TIMEOUT = 15_000;
 
 /**
  * Normalise a relay response `bands` object into a consistent keyed map,
@@ -310,7 +318,7 @@ async function ingestRelayVenues(): Promise<void> {
     for (const sym of symbols) {
       const url = `http://127.0.0.1:${port}${path}?symbol=${sym}`;
       calls.push(
-        fetch(url, { headers })
+        fetch(url, { headers, signal: AbortSignal.timeout(RELAY_FETCH_TIMEOUT) })
           .then(async r => {
             if (!r.ok) throw new Error(`HTTP ${r.status}`);
             const data = await r.json() as Record<string, any>;
@@ -368,19 +376,31 @@ async function ingestRelayVenues(): Promise<void> {
 
 export async function runFullIngest(): Promise<void> {
   if (isIngesting) {
-    console.log("[IngestionManager] Skipping - ingest already in progress");
+    const stuckMs = ingestStartedAt > 0 ? Date.now() - ingestStartedAt : 0;
+    console.log(`[IngestionManager] Skipping - ingest already in progress (${stuckMs}ms)`);
     return;
   }
 
   isIngesting = true;
-  const start = Date.now();
+  ingestStartedAt = Date.now();
+  const start = ingestStartedAt;
   console.log("[IngestionManager] Starting full ingest...");
 
   try {
-    await Promise.all([
-      ingestDepth(),
-      ingestFunding(),
-      ingestLiquidations(),
+    // Race the core engines against a hard deadline so a hung exchange API call
+    // can never permanently lock the isIngesting flag.
+    await Promise.race([
+      Promise.all([
+        ingestDepth(),
+        ingestFunding(),
+        ingestLiquidations(),
+      ]),
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () => reject(new Error(`Core ingest timed out after ${CYCLE_TIMEOUT_MS}ms`)),
+          CYCLE_TIMEOUT_MS,
+        )
+      ),
     ]);
 
     recordDepthSnapshot();
@@ -410,6 +430,7 @@ export async function runFullIngest(): Promise<void> {
     console.error("[IngestionManager] Ingest error:", err instanceof Error ? err.message : String(err));
   } finally {
     isIngesting = false;
+    ingestStartedAt = 0;
   }
 }
 
@@ -420,20 +441,40 @@ export function startIngestionLoop(): void {
   }
 
   console.log(`[IngestionManager] Starting ingestion loop (${INGEST_INTERVAL_MS}ms interval)`);
-  
+
   runFullIngest();
-  
+
   ingestInterval = setInterval(() => {
     runFullIngest();
   }, INGEST_INTERVAL_MS);
+
+  // Watchdog: if isIngesting stays true longer than WATCHDOG_KICK_MS, something
+  // is genuinely stuck (e.g. a fetch call hung after AbortSignal.timeout fired but
+  // before the Promise.race rejected).  Force-reset so the next cycle can run.
+  watchdogInterval = setInterval(() => {
+    if (isIngesting && ingestStartedAt > 0) {
+      const stuckMs = Date.now() - ingestStartedAt;
+      if (stuckMs > WATCHDOG_KICK_MS) {
+        console.warn(
+          `[IngestionManager] WATCHDOG: isIngesting stuck for ${stuckMs}ms — force-resetting flag`
+        );
+        isIngesting = false;
+        ingestStartedAt = 0;
+      }
+    }
+  }, 10_000);
 }
 
 export function stopIngestionLoop(): void {
   if (ingestInterval) {
     clearInterval(ingestInterval);
     ingestInterval = null;
-    console.log("[IngestionManager] Ingestion loop stopped");
   }
+  if (watchdogInterval) {
+    clearInterval(watchdogInterval);
+    watchdogInterval = null;
+  }
+  console.log("[IngestionManager] Ingestion loop stopped");
 }
 
 export function getIngestionStatus(): {
