@@ -1,0 +1,34 @@
+# Fix the DACT Clock Synchronisation Indicator
+
+Fix the DACT clock synchronisation indicator so it measures the right thing. Do not change the system clock, and do not change how tape timestamps are produced. The diagnosis is settled: the host clock is NTP-disciplined and correct, the tape `captured_at` timestamps are correct, and the indicator is reporting a false multi-second divergence because it compares the local clock against a third-party HTTP time API of unknown quality (worldtimeapi.org or timeapi.io). The task is to change what the indicator compares against, so it reflects the real synchronisation state of the clock that stamps the tape.
+
+## Background so the fix targets the right thing
+
+In the clock-sync service, the divergence is currently computed by fetching a UTC reference over HTTPS from a public time API and subtracting it from the local `Date.now()` midpoint. That HTTP reference is untrustworthy: those APIs are wrappers around their own system clocks, and their offset or response delay flows straight into the divergence figure. The local clock itself is fine, because it is disciplined by NTP on the host, which is confirmed. So the reference is the problem, not the clock.
+
+## The fix
+
+Replace the third-party HTTP time comparison with a measurement of the host's own NTP synchronisation state, which is the ground truth for whether the tape clock is synchronised to UTC. The host already maintains this state through its NTP service. Read it directly rather than querying any external web API. Concretely, the indicator should surface the offset the host's own time service reports against its NTP source, for example the offset and synchronisation status available from the system's time synchronisation service, which is the same information a `timedatectl` or an NTP status query returns. That offset reflects the discipline of the exact clock that stamps the tape, measured against a proper stratum-1 or stratum-2 NTP source, rather than against a random web server.
+
+If reading the host NTP state directly is not feasible from within the process, the acceptable fallback, in order of preference, is:
+
+1. Query an NTP source directly over the NTP protocol rather than over HTTP, which gives a true time exchange with a quality-graded source.
+2. Only as a last resort, keep an HTTP reference but use the responding server's Date header rather than a JSON body timestamp, take multiple samples, and reject outliers, since the Date header is set at send time and has smaller asymmetry error.
+
+The strongly preferred outcome is the host NTP state, because it measures the real clock rather than a remote one.
+
+## Expected result
+
+Once the indicator reads the host synchronisation state, the divergence should drop from the false multi-second figure to the true sub-tolerance value, and the Clock Divergence row in the Data Quality Metrics panel should read in-tolerance and green, because the underlying clock was always disciplined. The signed divergence should now reflect the host's actual offset from its NTP source, which the earlier diagnostics showed to be small. The session breach count should stop incrementing once the corrected measurement is in place.
+
+## Verification
+
+After the change, confirm that the divergence value the indicator reports agrees with the offset the host's own NTP service reports, rather than with a third-party API. State the before and after divergence values so the correction is evidenced. Confirm no tape-writing code and no system clock configuration was changed; the only change is the reference the indicator measures against.
+
+## Sensitive-data constraint
+
+Do not display or log NTP server names, addresses, host names, or any credential-like strings in the indicator, the API response, or the report. Describe the time source by function, for example "host NTP synchronisation state" or "traceable UTC time service". Report the divergence value and status only.
+
+## Scope constraint
+
+This is a change to the clock-sync measurement service only. Do not alter the ingestion adapters, the relay routing, the tape write path, the tape timestamps, or any venue connection logic. The baseline architecture is unchanged: multi-venue orderbook aggregation across Binance, Coinbase, and Kraken on DigitalOcean in Frankfurt, with Cloudflare Workers fronting api.stratalink.ai.

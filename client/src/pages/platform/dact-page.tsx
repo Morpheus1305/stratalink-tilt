@@ -22,7 +22,7 @@ interface ClockSync {
   measuredAt: number;
   toleranceMs: number;
   sessionBreachCount: number;
-  sourceDescription: string;
+  sourceDescription: "host NTP synchronisation state";
   initialised: boolean;
 }
 

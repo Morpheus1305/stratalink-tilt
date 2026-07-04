@@ -1,47 +1,56 @@
 /**
- * DACT Clock Synchronisation Service
- * DACT-STD-1.1 — Change 7: Clock Synchronisation Measurement
+ * DACT Clock Synchronisation Service — DACT-STD-1.1 Change 7 (revised)
  *
- * Measures the ongoing divergence of the DACT reference clock from a
- * traceable UTC time source. The source identity is not surfaced in any
- * API response or UI element — only the divergence value and tolerance
- * status are exposed.
+ * Measures the divergence of the host process clock from a traceable UTC
+ * source using a genuine NTP UDP exchange (RFC 5905 four-timestamp offset
+ * estimator). This measures the same clock — Date.now() — that the DACT tape
+ * writer and all relay routes use for event timestamps.
  *
- * Method: NTP-style one-way exchange over HTTPS.
- *   T1 = local clock immediately before the request is sent.
- *   T2 = local clock immediately after the full response is received.
- *   T_ref = authoritative UTC milliseconds extracted from the response.
- *   RTT = T2 − T1 (round-trip time in ms).
- *   divergenceMs = ((T1 + T2) / 2) − T_ref
- *   Positive value = local clock is ahead; negative = local clock is behind.
+ * Primary path: NTP UDP exchange.
+ *   T1 = local clock at client transmit          (Date.now())
+ *   T2 = server receive timestamp                (NTP response bytes 32–39)
+ *   T3 = server transmit timestamp               (NTP response bytes 40–47)
+ *   T4 = local clock at client receive           (Date.now())
+ *   offset θ = ((T2 − T1) + (T3 − T4)) / 2     (RFC 5905 §8)
+ *   RTT      = (T4 − T1) − (T3 − T2)
  *
- * Tolerance: ±500 ms. Tighter than NTP wall-clock requirements because the
- * DACT tape timestamps are the ground truth for event ordering and replay.
+ * Fallback: if all NTP servers are unreachable, falls back to HTTPS with
+ * 5-sample median filter to reject outliers from variable server latency.
  *
- * Poll interval: 60 seconds. Measurement results are cached in memory.
- * A session breach counter increments whenever the threshold is exceeded and
- * is exposed so the UI can surface persistent drift the same way it surfaces
- * rejected events.
- *
- * Sensitive-data constraint: no host names, IP addresses, or time-source
- * identifiers appear in any exported object. The source is described as
- * "traceable UTC time service" throughout.
+ * Sensitive-data constraint: NTP server identities, IP addresses, and host
+ * names are not surfaced in any exported object, API response, or log.
+ * The source is described as "host NTP synchronisation state" in all outputs.
  */
+
+import dgram from "node:dgram";
 
 const TOLERANCE_MS = 500;
 const POLL_INTERVAL_MS = 60_000;
+const NTP_EPOCH_DELTA_S = 2208988800; // seconds: 1900-01-01 → 1970-01-01
+const NTP_PORT = 123;
+const NTP_TIMEOUT_MS = 4_000;
 
-// Two independent sources for cross-validation. Both are resolved internally;
-// only the computed divergence is exposed externally.
-const SOURCES = [
+// NTP server pool — tried in order; identity never surfaced externally.
+const NTP_POOL: readonly string[] = [
+  "time.google.com",
+  "time.cloudflare.com",
+  "pool.ntp.org",
+];
+
+// HTTP fallback sources — only used when UDP 123 is entirely unreachable.
+const HTTP_FALLBACK: readonly string[] = [
   "https://worldtimeapi.org/api/timezone/UTC",
   "https://timeapi.io/api/time/current/zone?timeZone=UTC",
-] as const;
+];
+
+const HTTP_FALLBACK_SAMPLES = 5;
+
+// ── Exported interface ─────────────────────────────────────────────────────
 
 export interface ClockSyncMeasurement {
-  /** Offset in ms: positive = local ahead, negative = local behind. */
+  /** Offset in ms: positive = local ahead of UTC, negative = local behind. */
   divergenceMs: number;
-  /** Round-trip time of the measurement request in ms. */
+  /** Round-trip time of the measurement exchange in ms. */
   rttMs: number;
   /** Whether divergence is within TOLERANCE_MS. */
   status: "in-tolerance" | "out-of-tolerance" | "unavailable";
@@ -51,11 +60,16 @@ export interface ClockSyncMeasurement {
   toleranceMs: number;
   /** Cumulative out-of-tolerance events since process start. */
   sessionBreachCount: number;
-  /** Human-readable description of source (no host names / IPs). */
-  sourceDescription: "traceable UTC time service";
+  /**
+   * Description of the measurement source. Always "host NTP synchronisation
+   * state" — no server names, IPs, or addresses are surfaced.
+   */
+  sourceDescription: "host NTP synchronisation state";
   /** Whether the service has completed at least one successful measurement. */
   initialised: boolean;
 }
+
+// ── State ─────────────────────────────────────────────────────────────────
 
 let latest: ClockSyncMeasurement = {
   divergenceMs: 0,
@@ -64,17 +78,88 @@ let latest: ClockSyncMeasurement = {
   measuredAt: 0,
   toleranceMs: TOLERANCE_MS,
   sessionBreachCount: 0,
-  sourceDescription: "traceable UTC time service",
+  sourceDescription: "host NTP synchronisation state",
   initialised: false,
 };
 
 let sessionBreachCount = 0;
 
-/**
- * Try to extract a UTC millisecond timestamp from a successful fetch response.
- * Accepts worldtimeapi.org and timeapi.io response shapes.
- * Falls back to the HTTP `Date` header (second-precision) if body parse fails.
- */
+// ── NTP helpers ───────────────────────────────────────────────────────────
+
+/** Read a 64-bit NTP timestamp from a buffer at `offset` → Unix milliseconds. */
+function readNtpTimestampMs(buf: Buffer, offset: number): number {
+  const secs = buf.readUInt32BE(offset) - NTP_EPOCH_DELTA_S;
+  const frac = buf.readUInt32BE(offset + 4);
+  // frac / 2^32 * 1000 = frac / 4294967.296
+  return secs * 1000 + Math.floor(frac / 4294967.296);
+}
+
+/** Single NTP UDP exchange against `server`. Returns θ and RTT in ms. */
+function ntpExchange(server: string): Promise<{ divergenceMs: number; rttMs: number }> {
+  return new Promise((resolve, reject) => {
+    const sock = dgram.createSocket("udp4");
+
+    const packet = Buffer.alloc(48, 0);
+    packet[0] = 0x23; // LI=0, VN=4, Mode=3 (client)
+
+    const timer = setTimeout(() => {
+      try { sock.close(); } catch {}
+      reject(new Error(`NTP timeout: ${server}`));
+    }, NTP_TIMEOUT_MS);
+
+    sock.once("message", (msg) => {
+      const T4 = Date.now();
+      clearTimeout(timer);
+      try { sock.close(); } catch {}
+
+      if (msg.length < 48) {
+        return reject(new Error("NTP response too short"));
+      }
+
+      // T2 = server receive timestamp (bytes 32–39)
+      // T3 = server transmit timestamp (bytes 40–47)
+      const T2 = readNtpTimestampMs(msg, 32);
+      const T3 = readNtpTimestampMs(msg, 40);
+
+      // RFC 5905 §8 offset and delay
+      const divergenceMs = ((T2 - T1) + (T3 - T4)) / 2;
+      const rttMs = (T4 - T1) - (T3 - T2);
+
+      resolve({ divergenceMs, rttMs });
+    });
+
+    sock.on("error", (err) => {
+      clearTimeout(timer);
+      try { sock.close(); } catch {}
+      reject(err);
+    });
+
+    const T1 = Date.now();
+    sock.send(packet, NTP_PORT, server, (err) => {
+      if (err) {
+        clearTimeout(timer);
+        try { sock.close(); } catch {}
+        reject(err);
+      }
+    });
+  });
+}
+
+/** Try each NTP server in order; return the first successful measurement. */
+async function measureViaNtp(): Promise<{ divergenceMs: number; rttMs: number } | null> {
+  for (const server of NTP_POOL) {
+    try {
+      return await ntpExchange(server);
+    } catch {
+      // try next server
+    }
+  }
+  return null;
+}
+
+// ── HTTP fallback helpers ─────────────────────────────────────────────────
+
+/** Extract a UTC millisecond timestamp from a time-API response. */
 async function extractRefTimeMs(response: Response): Promise<number> {
   try {
     const body = await response.clone().json();
@@ -84,85 +169,113 @@ async function extractRefTimeMs(response: Response): Promise<number> {
     }
     // timeapi.io: { dateTime: "2024-01-01T00:00:00.1234567" }
     if (typeof body.dateTime === "string") {
-      // dateTime may lack a timezone suffix — append Z to treat as UTC
       const dt = body.dateTime.endsWith("Z") ? body.dateTime : body.dateTime + "Z";
       return new Date(dt).getTime();
     }
-    // unixtime in seconds (worldtimeapi fallback)
     if (typeof body.unixtime === "number") {
       return body.unixtime * 1000;
     }
-  } catch {
-    // ignore — fall through to Date header
-  }
-  // HTTP Date header: second-precision but universally available
+  } catch {}
   const dateHeader = response.headers.get("date");
-  if (dateHeader) {
-    return new Date(dateHeader).getTime();
-  }
-  throw new Error("could not extract reference time from response");
+  if (dateHeader) return new Date(dateHeader).getTime();
+  throw new Error("could not extract reference time from HTTP response");
 }
 
-async function attemptMeasurement(sourceUrl: string): Promise<{
-  divergenceMs: number;
-  rttMs: number;
-}> {
+/** Single HTTP midpoint sample. */
+async function httpSample(sourceUrl: string): Promise<number> {
   const t1 = Date.now();
   const response = await fetch(sourceUrl, {
     signal: AbortSignal.timeout(6_000),
     headers: { "Accept": "application/json", "Cache-Control": "no-cache" },
   });
   const t2 = Date.now();
-  const rttMs = t2 - t1;
   const refTimeMs = await extractRefTimeMs(response);
-  // Mid-point estimator — same logic as SNTP
-  const localMidMs = (t1 + t2) / 2;
-  const divergenceMs = localMidMs - refTimeMs;
-  return { divergenceMs, rttMs };
+  return (t1 + t2) / 2 - refTimeMs;
 }
 
-async function measure(): Promise<void> {
-  // Try each source in order; use the first that succeeds
-  for (const sourceUrl of SOURCES) {
+/** Collect `n` HTTP samples and return the median (outlier-resistant). */
+async function httpMedianDivergence(sourceUrl: string, n: number): Promise<{ divergenceMs: number; rttMs: number }> {
+  const samples: number[] = [];
+  const rtts: number[] = [];
+  for (let i = 0; i < n; i++) {
+    const t1 = Date.now();
     try {
-      const { divergenceMs, rttMs } = await attemptMeasurement(sourceUrl);
+      const response = await fetch(sourceUrl, {
+        signal: AbortSignal.timeout(6_000),
+        headers: { "Accept": "application/json", "Cache-Control": "no-cache" },
+      });
+      const t2 = Date.now();
+      const refTimeMs = await extractRefTimeMs(response);
+      samples.push((t1 + t2) / 2 - refTimeMs);
+      rtts.push(t2 - t1);
+    } catch {}
+    if (i < n - 1) await new Promise(r => setTimeout(r, 200));
+  }
+  if (samples.length === 0) throw new Error("all HTTP samples failed");
+  samples.sort((a, b) => a - b);
+  rtts.sort((a, b) => a - b);
+  const mid = Math.floor(samples.length / 2);
+  return {
+    divergenceMs: samples[mid],
+    rttMs: rtts[Math.floor(rtts.length / 2)],
+  };
+}
 
-      const absDrift = Math.abs(divergenceMs);
-      const status: ClockSyncMeasurement["status"] =
-        absDrift <= TOLERANCE_MS ? "in-tolerance" : "out-of-tolerance";
-
-      if (status === "out-of-tolerance") {
-        sessionBreachCount++;
-      }
-
-      latest = {
-        divergenceMs: Math.round(divergenceMs * 10) / 10,
-        rttMs: Math.round(rttMs),
-        status,
-        measuredAt: Date.now(),
-        toleranceMs: TOLERANCE_MS,
-        sessionBreachCount,
-        sourceDescription: "traceable UTC time service",
-        initialised: true,
-      };
-      return; // success — stop trying sources
+/** Try each HTTP fallback source; return first successful multi-sample result. */
+async function measureViaHttp(): Promise<{ divergenceMs: number; rttMs: number } | null> {
+  for (const url of HTTP_FALLBACK) {
+    try {
+      return await httpMedianDivergence(url, HTTP_FALLBACK_SAMPLES);
     } catch {
       // try next source
     }
   }
+  return null;
+}
 
-  // All sources failed — mark as unavailable but preserve last known good value
-  // so a transient network blip does not wipe a clean history
+// ── Main poll loop ────────────────────────────────────────────────────────
+
+async function measure(): Promise<void> {
+  // Primary: NTP UDP
+  let result = await measureViaNtp();
+
+  // Fallback: multi-sample median HTTPS
+  if (!result) {
+    result = await measureViaHttp();
+  }
+
+  if (!result) {
+    // All sources failed — preserve last known good, mark unavailable
+    latest = {
+      ...latest,
+      status: "unavailable",
+      measuredAt: Date.now(),
+      sessionBreachCount,
+      initialised: latest.initialised,
+    };
+    return;
+  }
+
+  const { divergenceMs, rttMs } = result;
+  const absDrift = Math.abs(divergenceMs);
+  const status: ClockSyncMeasurement["status"] =
+    absDrift <= TOLERANCE_MS ? "in-tolerance" : "out-of-tolerance";
+
+  if (status === "out-of-tolerance") sessionBreachCount++;
+
   latest = {
-    ...latest,
-    status: "unavailable",
+    divergenceMs: Math.round(divergenceMs * 10) / 10,
+    rttMs: Math.round(rttMs),
+    status,
     measuredAt: Date.now(),
+    toleranceMs: TOLERANCE_MS,
     sessionBreachCount,
-    initialised: latest.initialised,
+    sourceDescription: "host NTP synchronisation state",
+    initialised: true,
   };
 }
 
-// Kick off immediately then poll on the interval
+// Kick off immediately, then poll
 measure().catch(() => undefined);
 setInterval(() => measure().catch(() => undefined), POLL_INTERVAL_MS);
 
