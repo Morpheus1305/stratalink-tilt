@@ -58,12 +58,46 @@ function deriveSourceClass(transport: string): "observed" | "synthetic" {
   return transport === "synthetic" ? "synthetic" : "observed";
 }
 
+/**
+ * Per-venue synthetic reason lookup.
+ * Used as the fallback when the relay does not embed a syntheticReason in the event provenance.
+ * Three categories:
+ *   A. CEX / institutional — API credential or onboarding gating
+ *   B. DEX / L2 — no API key concept; synthetic depth is the designed data model
+ *   C. Regulated STE — partner credential required
+ */
+const VENUE_SYNTHETIC_REASONS: Record<string, string> = {
+  // A — CEX / dark pools
+  bybit:  "Geo-restricted (HTTP 403) — CoinGecko-anchored synthetic depth active",
+  otc:    "RFQ desk onboarding required — synthetic bilateral depth model active",
+
+  // B — DEX / L2: no API key concept; synthetic is the designed transport
+  uniswap:            "DeFiLlama TVL fallback — pool depth synthesised from aggregate TVL and CoinGecko mid-price",
+  curve:              "Pool AMM — depth synthesised from pool TVL and CoinGecko mid-price",
+  gmx:                "Pool-based perpetuals — depth synthesised from pool TVL and oracle mid-price",
+  aerodrome:          "L2 DEX (Base) — depth synthesised from on-chain TVL model",
+  velodrome:          "L2 DEX (Optimism) — depth synthesised from on-chain TVL model",
+  pancakeswap:        "L2 DEX (BNB Chain) — depth synthesised from on-chain TVL model",
+  "uniswap-worldchain": "L2 DEX (World Chain) — depth synthesised from on-chain TVL model",
+  syncswap:           "L2 DEX (zkSync) — depth synthesised from on-chain TVL model",
+  "linea-dex":        "L2 DEX (Linea) — depth synthesised from on-chain TVL model",
+  "scroll-dex":       "L2 DEX (Scroll) — depth synthesised from on-chain TVL model",
+
+  // C — Regulated STEs
+  securitize: "Partner API credential required — synthetic proxy depth active (tokenised securities)",
+  archax:     "Partner API credential required — synthetic proxy depth active (tokenised securities)",
+  inx:        "Partner API credential required — synthetic proxy depth active (tokenised securities)",
+  tzero:      "Partner API credential required — synthetic proxy depth active (tokenised securities)",
+  sdx:        "Partner API credential required — synthetic proxy depth active (tokenised securities)",
+  addx:       "Partner API credential required — synthetic proxy depth active (tokenised securities)",
+};
+
 export function appendDactEvent(ev: Omit<DactEvent, "id">): void {
   const transport = ev.provenance.transport;
   const sourceClass = deriveSourceClass(transport);
   const syntheticReason: string | undefined =
     sourceClass === "synthetic"
-      ? ((ev.provenance as any).syntheticReason ?? "No API key configured — synthetic depth model active")
+      ? ((ev.provenance as any).syntheticReason ?? VENUE_SYNTHETIC_REASONS[ev.venue] ?? "Synthetic depth model active")
       : undefined;
 
   const enrichedProvenance = {
