@@ -1,0 +1,63 @@
+# TILT (DACT Terminal) Update Prompt - DACT-STD-1.1 and Clock Synchronisation
+
+Update the DACT page of the Institutional Liquidity Truth Terminal (TILT) to reflect DACT-STD-1.1, which adds synthetic source provenance, and to add a clock synchronisation measurement and indicator. This is primarily a presentation-layer change, with one infrastructure task noted in the final section. Do not modify the ingestion adapters, the relay routing, the tape write path, or any venue connection logic. Every UI change below is a read of provenance data the events already carry.
+
+## Background the build should assume
+
+Every DACT event carries a `provenance` block. The fields that matter here are:
+
+- `provenance.sourceClass` - either `observed` or `synthetic`.
+- `provenance.transport` - either `direct` or `relay`.
+- `provenance.syntheticReason` - non-null whenever `sourceClass` is `synthetic`.
+
+All UI changes below read these fields live from the existing API rather than using hardcoded or static values.
+
+## Change 0, prerequisite check, do this first
+
+Confirm that the live venues endpoint and the event API already expose `provenance.sourceClass` (and its supporting `transport` and `syntheticReason` fields) in their responses. Inspect the actual API response, do not assume. If the fields are already present, proceed with the changes below and report that they were found. If they are not exposed yet, do not build the UI against fields that are not there. Instead, first surface `sourceClass`, `transport`, and `syntheticReason` from the provenance data through the existing venues endpoint and event API, without altering how those values are produced upstream, then proceed. Report which case applied before continuing, so it is clear whether the endpoint was already conformant or had to be extended.
+
+## Change 1, required. Venue Coverage Matrix, add a source-class column
+
+Add a column that renders each venue's live `sourceClass` in one of three states: `OBSERVED` for direct observed venues, `RELAY-OBS` for observed venues whose `transport` is `relay`, and `SYNTHETIC` for venues currently on synthetic fallback. Keep the existing ONLINE/OFFLINE status column unchanged, because a venue can be ONLINE and synthetic at the same time. Colour the three states distinctly, with observed in green, relay-observed in blue, and synthetic in amber, so the synthetic state is immediately separable. Read the state per venue from the live venues endpoint.
+
+## Change 2, required and highest priority. Data Quality Metrics panel, split coverage into observed and synthetic
+
+The panel currently shows venue coverage as 26/26 and DSU coverage as 100%, which blends observed and synthetic venues into one figure. DACT-STD-1.1 prohibits publishing a blended figure under the label coverage. Replace the single coverage figure with two separate figures. The first is "Observed coverage", computed only over venues whose live `sourceClass` is `observed`, counting relay-observed venues as observed, expressed as the observed-covered count over the DSU cardinality of 26. The second is "Synthetic-supplemented", showing the count of venues currently on fallback. Do not add the synthetic count into the observed figure, and never present a single number that combines them. Keep tape integrity, normalisation rate, duplicate rate, and rejected events as they are. Verify the observed figure against a manual count of the venue matrix before moving on, because this is the figure that carries regulatory weight.
+
+## Change 3, required. Display the readout time next to the observed coverage figure
+
+Show the UTC timestamp at which the observed coverage figure was computed, directly alongside the figure, so the number reads as a point-in-time measurement rather than a standing fact. Use the same timestamp convention already used elsewhere on the page, such as the "last sync" and "verified" times. This makes the terminal self-describing about the currency of its most scrutinised figure.
+
+## Change 4, required. Non-Contamination Attestation footer, update the conformance claim
+
+The footer currently reads "DACT-STD-1.0 conformance: full". Change the standard reference to DACT-STD-1.1 and cite Normative Amendment 1 (Synthetic Source Provenance). Add a sentence stating that synthetic events are explicitly marked and are excluded from observed-coverage figures and from downstream attestation, so the observer-only posture holds for the observed tape. Do not display the full conformance claim for 1.1 unless Changes 1, 2, and 3 are live, because the claim depends on them.
+
+## Change 5, recommended. Live Event Stream source-class filter
+
+The stream already has an All Types / All Venues / All Assets filter row. Add a source-class filter with options Observed, Synthetic, and All, defaulting to Observed, so the default view shows observed market data and a user must opt in to see synthetic events.
+
+## Change 6, optional hardening step. Freshness indicator on the observed coverage figure
+
+In addition to the readout timestamp from Change 3, add a freshness indicator that visibly ages if the coverage computation stalls, so a figure that is no longer being updated is distinguishable from a live one. For example, show the age of the last computation and change its visual state once it exceeds a short threshold. This guards against the figure appearing current when the process feeding it has silently stopped. Treat this as a hardening step to implement after Changes 1 through 5 are working, not as a blocker.
+
+## Change 7, clock synchronisation measurement and indicator
+
+This item spans the Frankfurt infrastructure and the DACT page UI, both of which are in scope.
+
+First, the measurement. Confirm whether the DACT reference clock's divergence from a traceable UTC source is currently being measured on the Frankfurt infrastructure. If it is, report how and where. If it is not, establish it: synchronise the DACT ingestion clock to a traceable UTC time source and measure the ongoing divergence, so there is a real, continuously updated divergence value to display. Do not display a hardcoded, assumed, or placeholder divergence value at any point; the indicator must reflect a genuine measurement.
+
+Second, the indicator. Add a clock synchronisation metric to the Data Quality Metrics panel on the DACT page. Display the current measured divergence of the DACT reference clock from its UTC source, in a small time unit such as microseconds or milliseconds, and a status that reads in-tolerance when the divergence is within the configured limit and out-of-tolerance when it is not. If a divergence breach has occurred within the current session, surface it the same way rejected events are surfaced, as a count or a flag, rather than hiding it.
+
+Treat this whole item as a hardening step to implement after the DACT-STD-1.1 changes (Changes 1 through 4) are live, not as a blocker. Establish or confirm the measurement first and report which case applied, then build the indicator against the real value.
+
+## Sensitive-data constraint
+
+The provenance readout and the clock measurement may surface infrastructure identifiers and credential-like strings. Do not surface AWS account details, validator Party IDs, host names, time-source addresses, or any credential values anywhere in the UI. Render only the source classification, the divergence value, and the in-tolerance status, describing the source by function rather than by identifier.
+
+## Sequencing
+
+Do Change 0 first and report the result. Then implement Change 2 and verify the observed figure against a manual count before proceeding, since it carries the regulatory weight and is most likely to reveal a discrepancy between what the UI claims and what the live system holds. Changes 1, 3, and 4 are quick reads once the source-class field is wired into the front end. Change 5 is a straightforward filter addition. Changes 6 and 7 are hardening steps to implement last, with Change 7 requiring the measurement to be established or confirmed before the indicator is built. Confirm that every change reads live data from the existing API rather than static values, and that no change alters the baseline ingestion architecture.
+
+## Baseline architecture, do not change
+
+The baseline architecture is multi-venue orderbook aggregation running across Binance, Coinbase, and Kraken on DigitalOcean in Frankfurt, with Cloudflare Workers fronting api.stratalink.ai. Keep this baseline unchanged. Note that the DACT tape ingestion surface is broader than this orderbook aggregation core: it runs 26 venues live across the CEX, RFQ/OTC, DEX-PERP, AMM, MTF, and ATS categories. The three-venue orderbook aggregation core and the 26-venue tape surface are distinct, and both are correct. Do not let the venue matrix (26 venues) and the orderbook aggregation baseline (three venues) be reconciled into a single figure; they describe different things.

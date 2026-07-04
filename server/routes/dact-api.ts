@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { getDactEvents, getDactStats, getVenueStatMap } from "../services/dact-tape";
+import { getClockSync } from "../services/clock-sync";
 import { VENUE_CONFIGS } from "../../shared/venue-config";
 
 const router = Router();
@@ -70,6 +71,10 @@ router.get("/venues", (_req: Request, res: Response) => {
     };
   });
   res.json({ ok: true, venues, timestamp: Date.now() });
+});
+
+router.get("/clock-sync", (_req: Request, res: Response) => {
+  res.json({ ok: true, clockSync: getClockSync(), timestamp: Date.now() });
 });
 
 export default router;

@@ -15,6 +15,17 @@ import {
 type EventType = "DEPTH_UPDATE" | "BBO_UPDATE" | "TRADE" | "VENUE_STATUS";
 type SourceClass = "observed" | "synthetic";
 
+interface ClockSync {
+  divergenceMs: number;
+  rttMs: number;
+  status: "in-tolerance" | "out-of-tolerance" | "unavailable";
+  measuredAt: number;
+  toleranceMs: number;
+  sessionBreachCount: number;
+  sourceDescription: string;
+  initialised: boolean;
+}
+
 interface DactEvent {
   id: string;
   timestamp: number;
@@ -247,6 +258,12 @@ export default function DactPage() {
   const venuesQuery = useQuery<{ venues: VenueRow[] }>({
     queryKey: ["/api/dact/venues"],
     refetchInterval: 5000,
+  });
+
+  // Change 7: clock synchronisation measurement
+  const clockQuery = useQuery<{ clockSync: ClockSync }>({
+    queryKey: ["/api/dact/clock-sync"],
+    refetchInterval: 30_000,
   });
 
   useEffect(() => {
@@ -866,6 +883,9 @@ export default function DactPage() {
                   </td>
                 </tr>
               ))}
+
+              {/* Change 7: Clock Synchronisation */}
+              <ClockSyncRow clockSync={clockQuery.data?.clockSync} />
             </tbody>
           </table>
         </div>
@@ -971,6 +991,80 @@ const EventRow = memo(function EventRow({ event: ev, zebra }: { event: DactEvent
     </div>
   );
 });
+
+// ── Clock Sync Row sub-component ───────────────────────────────────────────────
+
+function ClockSyncRow({ clockSync }: { clockSync: ClockSync | undefined }) {
+  const cs = clockSync;
+  const loading = !cs;
+  const unavailable = cs?.status === "unavailable";
+  const notInitialised = cs && !cs.initialised;
+
+  let valueText = "—";
+  let valueColor = C.muted;
+  let descText = "measuring…";
+
+  if (!loading && cs) {
+    if (unavailable || notInitialised) {
+      valueText = "measuring…";
+      valueColor = C.muted;
+      descText = "awaiting first successful measurement";
+    } else {
+      const absDrift = Math.abs(cs.divergenceMs);
+      // Display in µs when sub-millisecond, ms otherwise
+      if (absDrift < 1) {
+        valueText = `<1ms`;
+      } else {
+        const sign = cs.divergenceMs >= 0 ? "+" : "−";
+        valueText = `${sign}${absDrift.toFixed(1)}ms`;
+      }
+      valueColor = cs.status === "in-tolerance" ? C.green : C.red;
+      descText = cs.status === "in-tolerance" ? "IN-TOLERANCE" : "OUT-OF-TOLERANCE";
+      if (cs.sessionBreachCount > 0) {
+        descText += ` · ${cs.sessionBreachCount} breach${cs.sessionBreachCount > 1 ? "es" : ""} this session`;
+      }
+    }
+  }
+
+  const measuredAgo = cs?.measuredAt
+    ? (() => {
+        const s = Math.round((Date.now() - cs.measuredAt) / 1000);
+        if (s < 5) return "just now";
+        if (s < 60) return `${s}s ago`;
+        return `${Math.round(s / 60)}m ago`;
+      })()
+    : null;
+
+  return (
+    <tr style={{ borderBottom: `1px solid ${C.border}22` }}>
+      <td style={{ padding: "8px 0", fontFamily: MONO, fontSize: 10, color: C.muted, width: "45%", paddingRight: 8 }}>
+        <TT
+          title="Clock Divergence"
+          body={`Measured offset of the DACT reference clock from a traceable UTC time source, using the SNTP mid-point estimator (RTT/2 correction). Tolerance: ±${cs?.toleranceMs ?? 500}ms. Source is a public traceable UTC time service — no host names or addresses are surfaced. Measured every 60 seconds; RTT of the measurement request is shown in the description. A session breach counter increments when tolerance is exceeded and is displayed the same way rejected events are surfaced.`}
+        >
+          <span style={{ borderBottom: `1px dashed ${C.muted}`, cursor: "help" }}>Clock Divergence</span>
+        </TT>
+      </td>
+      <td
+        data-testid="dact-quality-clock-divergence"
+        style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: valueColor, width: "25%" }}
+      >
+        {valueText}
+      </td>
+      <td style={{ fontFamily: MONO, fontSize: 9, color: C.muted + "99", lineHeight: 1.6 }}>
+        <div style={{ color: cs?.status === "out-of-tolerance" ? C.red : cs?.status === "in-tolerance" ? C.green + "BB" : C.muted + "99" }}>
+          {descText}
+        </div>
+        {cs?.initialised && !unavailable && (
+          <div style={{ color: C.muted + "77", marginTop: 1 }}>
+            {measuredAgo ? `measured ${measuredAgo}` : ""}
+            {cs.rttMs > 0 ? ` · RTT ${cs.rttMs}ms` : ""}
+          </div>
+        )}
+      </td>
+    </tr>
+  );
+}
 
 // ── Select style helper ────────────────────────────────────────────────────────
 
