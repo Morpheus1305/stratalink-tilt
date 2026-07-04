@@ -8,12 +8,34 @@
  * DACT-STD-1.1 / Normative Amendment 1 — Synthetic Source Provenance:
  *   Every event carries sourceClass ("observed" | "synthetic") derived from
  *   transport at ingest time. Observed-coverage figures exclude synthetic events.
+ *
+ * DACT-STD-1.1 / Normative Amendment 2 — Cryptographic Hash Chain:
+ *   Every event carries:
+ *     seq      — monotonic integer, never resets for the lifetime of the process
+ *     prevHash — SHA-256 hex digest of the preceding event's canonical content
+ *     hash     — SHA-256 hex digest of this event's canonical content
+ *   The chain is tamper-evident: any modification to a historical event breaks
+ *   every subsequent hash. verifyChain() recomputes and checks the full
+ *   in-memory chain. The ring-buffer eviction frontier (chainRootHash) is
+ *   tracked so verification remains correct after old events roll off.
+ *
+ *   Canonical content is the stable JSON serialisation (sorted keys, no id)
+ *   of: { seq, prevHash, timestamp, eventType, venue, asset, summary,
+ *           provenance, payload }
  */
+
+import { createHash } from "node:crypto";
 
 export type DactEventType = "DEPTH_UPDATE" | "BBO_UPDATE" | "TRADE" | "VENUE_STATUS";
 
 export interface DactEvent {
   id: string;
+  /** Monotonic sequence number. Never resets for the process lifetime. */
+  seq: number;
+  /** SHA-256 hex digest of this event's canonical content. */
+  hash: string;
+  /** SHA-256 hex digest of the preceding event (GENESIS_HASH for event #1). */
+  prevHash: string;
   timestamp: number;
   eventType: DactEventType;
   venue: string;
@@ -42,36 +64,91 @@ interface VenueStat {
   syntheticReason?: string;
 }
 
+// ── Constants ──────────────────────────────────────────────────────────────
+
 const TAPE_MAX = 10_000;
+/** All-zeros genesis hash — the prevHash of the very first tape event. */
+const GENESIS_HASH = "0".repeat(64);
+
+// ── State ─────────────────────────────────────────────────────────────────
+
 const tape: DactEvent[] = [];
 const venueStats: Record<string, VenueStat> = {};
 let totalIngested = 0;
 const startedAt = Date.now();
 const recentEventTimes: number[] = [];
 
-function genId(): string {
-  return `dact-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+/** Monotonic sequence counter. */
+let sequenceCounter = 0;
+/** SHA-256 hash of the most recently appended event. */
+let lastHash = GENESIS_HASH;
+/**
+ * The hash that tape[0].prevHash must equal for the in-memory chain to be
+ * valid. Starts as GENESIS_HASH; updated whenever an event is evicted from
+ * the ring buffer.
+ */
+let chainRootHash = GENESIS_HASH;
+
+// ── Crypto helpers ─────────────────────────────────────────────────────────
+
+/**
+ * Deterministic JSON serialisation with recursively sorted object keys.
+ * Ensures the same content always produces the same byte sequence regardless
+ * of insertion order in the source object.
+ */
+function stableStringify(value: unknown): string {
+  return JSON.stringify(value, (_key, val) => {
+    if (val !== null && typeof val === "object" && !Array.isArray(val)) {
+      const sorted: Record<string, unknown> = {};
+      for (const k of Object.keys(val as object).sort()) {
+        sorted[k] = (val as Record<string, unknown>)[k];
+      }
+      return sorted;
+    }
+    return val;
+  });
 }
 
-/** Derive sourceClass from transport field. */
+/**
+ * Compute the SHA-256 hash of an event's canonical content.
+ * `id`, `hash`, and `prevHash` are excluded from the input — `seq` and
+ * `prevHash` are passed explicitly as chain anchors.
+ */
+function computeEventHash(
+  seq: number,
+  prevHash: string,
+  ev: Pick<DactEvent, "timestamp" | "eventType" | "venue" | "asset" | "summary" | "provenance" | "payload">,
+): string {
+  const canonical = stableStringify({
+    seq,
+    prevHash,
+    timestamp: ev.timestamp,
+    eventType: ev.eventType,
+    venue: ev.venue,
+    asset: ev.asset,
+    summary: ev.summary,
+    provenance: ev.provenance,
+    payload: ev.payload,
+  });
+  return createHash("sha256").update(canonical, "utf8").digest("hex");
+}
+
+// ── Source-class helpers ────────────────────────────────────────────────────
+
 function deriveSourceClass(transport: string): "observed" | "synthetic" {
   return transport === "synthetic" ? "synthetic" : "observed";
 }
 
 /**
  * Per-venue synthetic reason lookup.
- * Used as the fallback when the relay does not embed a syntheticReason in the event provenance.
  * Three categories:
  *   A. CEX / institutional — API credential or onboarding gating
  *   B. DEX / L2 — no API key concept; synthetic depth is the designed data model
  *   C. Regulated STE — partner credential required
  */
 const VENUE_SYNTHETIC_REASONS: Record<string, string> = {
-  // A — CEX / dark pools
   bybit:  "Geo-restricted (HTTP 403) — CoinGecko-anchored synthetic depth active",
   otc:    "RFQ desk onboarding required — synthetic bilateral depth model active",
-
-  // B — DEX / L2: no API key concept; synthetic is the designed transport
   uniswap:            "DeFiLlama TVL fallback — pool depth synthesised from aggregate TVL and CoinGecko mid-price",
   curve:              "Pool AMM — depth synthesised from pool TVL and CoinGecko mid-price",
   gmx:                "Pool-based perpetuals — depth synthesised from pool TVL and oracle mid-price",
@@ -82,8 +159,6 @@ const VENUE_SYNTHETIC_REASONS: Record<string, string> = {
   syncswap:           "L2 DEX (zkSync) — depth synthesised from on-chain TVL model",
   "linea-dex":        "L2 DEX (Linea) — depth synthesised from on-chain TVL model",
   "scroll-dex":       "L2 DEX (Scroll) — depth synthesised from on-chain TVL model",
-
-  // C — Regulated STEs
   securitize: "Partner API credential required — synthetic proxy depth active (tokenised securities)",
   archax:     "Partner API credential required — synthetic proxy depth active (tokenised securities)",
   inx:        "Partner API credential required — synthetic proxy depth active (tokenised securities)",
@@ -92,7 +167,12 @@ const VENUE_SYNTHETIC_REASONS: Record<string, string> = {
   addx:       "Partner API credential required — synthetic proxy depth active (tokenised securities)",
 };
 
-export function appendDactEvent(ev: Omit<DactEvent, "id">): void {
+// ── Core append ─────────────────────────────────────────────────────────────
+
+/** Input type: callers supply everything except id, seq, hash, prevHash. */
+type DactEventInput = Omit<DactEvent, "id" | "seq" | "hash" | "prevHash">;
+
+export function appendDactEvent(ev: DactEventInput): void {
   const transport = ev.provenance.transport;
   const sourceClass = deriveSourceClass(transport);
   const syntheticReason: string | undefined =
@@ -107,17 +187,37 @@ export function appendDactEvent(ev: Omit<DactEvent, "id">): void {
     dactVersion: "1.1",
   };
 
-  const event: DactEvent = { id: genId(), ...ev, provenance: enrichedProvenance };
+  // ── Hash chain ────────────────────────────────────────────────────────
+  const seq = ++sequenceCounter;
+  const prevHash = lastHash;
+  const eventCore = { ...ev, provenance: enrichedProvenance };
+  const hash = computeEventHash(seq, prevHash, eventCore);
+  lastHash = hash;
+
+  const event: DactEvent = {
+    id: genId(),
+    seq,
+    hash,
+    prevHash,
+    ...eventCore,
+  };
+
+  // Ring buffer: track the eviction frontier so verifyChain() stays valid
+  if (tape.length >= TAPE_MAX) {
+    const evicted = tape.shift()!;
+    chainRootHash = evicted.hash;
+  }
   tape.push(event);
-  if (tape.length > TAPE_MAX) tape.shift();
   totalIngested++;
 
+  // ── Rate tracking ──────────────────────────────────────────────────────
   const now = ev.timestamp;
   recentEventTimes.push(now);
   while (recentEventTimes.length > 0 && now - recentEventTimes[0] > 60_000) {
     recentEventTimes.shift();
   }
 
+  // ── Venue stats ────────────────────────────────────────────────────────
   const venue = ev.venue;
   if (!venueStats[venue]) {
     venueStats[venue] = {
@@ -149,6 +249,79 @@ export function appendDactEvent(ev: Omit<DactEvent, "id">): void {
     if (vs.latencyBucket.length > 100) vs.latencyBucket.shift();
   }
 }
+
+function genId(): string {
+  return `dact-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+// ── Chain verification ──────────────────────────────────────────────────────
+
+export interface ChainVerification {
+  /** True if every hash in the in-memory tape recomputes correctly. */
+  valid: boolean;
+  /** Number of in-memory events verified. */
+  verified: number;
+  /** Total events ever ingested (chain extends further than in-memory tape). */
+  totalIngested: number;
+  /** seq of the oldest in-memory event (chain root in memory). */
+  chainRootSeq: number;
+  /** Full 64-char SHA-256 hex of the tip (latest event). */
+  tipHash: string;
+  /** Last 8 chars of tipHash, for display. */
+  tipHashShort: string;
+  /** seq of the first broken event, if any. */
+  firstBrokenSeq?: number;
+  /** ISO timestamp of verification. */
+  verifiedAt: string;
+}
+
+export function verifyChain(): ChainVerification {
+  const verifiedAt = new Date().toISOString();
+
+  if (tape.length === 0) {
+    return {
+      valid: true,
+      verified: 0,
+      totalIngested,
+      chainRootSeq: 0,
+      tipHash: GENESIS_HASH,
+      tipHashShort: GENESIS_HASH.slice(-8),
+      verifiedAt,
+    };
+  }
+
+  let prevHash = chainRootHash;
+  let firstBrokenSeq: number | undefined;
+
+  for (const ev of tape) {
+    // Verify prevHash linkage
+    if (ev.prevHash !== prevHash) {
+      firstBrokenSeq = ev.seq;
+      break;
+    }
+    // Recompute and verify content hash
+    const recomputed = computeEventHash(ev.seq, ev.prevHash, ev);
+    if (recomputed !== ev.hash) {
+      firstBrokenSeq = ev.seq;
+      break;
+    }
+    prevHash = ev.hash;
+  }
+
+  const tip = tape[tape.length - 1];
+  return {
+    valid: firstBrokenSeq === undefined,
+    verified: tape.length,
+    totalIngested,
+    chainRootSeq: tape[0]?.seq ?? 0,
+    tipHash: tip.hash,
+    tipHashShort: tip.hash.slice(-8),
+    ...(firstBrokenSeq !== undefined ? { firstBrokenSeq } : {}),
+    verifiedAt,
+  };
+}
+
+// ── Queries ─────────────────────────────────────────────────────────────────
 
 export function getDactEvents(opts: {
   limit?: number;
@@ -223,15 +396,19 @@ export function getDactStats() {
   const venuesIngesting = activeVenues.length;
   const dataGaps = TOTAL_VENUES - venuesIngesting;
 
-  // DACT-STD-1.1: split coverage into observed and synthetic
   const observedVenueCount = activeVenues.filter(([, vs]) => vs.lastSourceClass === "observed").length;
   const syntheticVenueCount = activeVenues.filter(([, vs]) => vs.lastSourceClass === "synthetic").length;
 
   const allLatencies = Object.values(venueStats).flatMap(vs => vs.latencyBucket);
   const p95Global = Math.round(p95(allLatencies));
 
+  // Real cryptographic chain verification
+  const chain = verifyChain();
   const tapeIntegrity: "INTACT" | "DEGRADED" | "COMPROMISED" =
-    dataGaps === 0 ? "INTACT" : dataGaps < 5 ? "DEGRADED" : "COMPROMISED";
+    !chain.valid            ? "COMPROMISED" :
+    dataGaps > 4            ? "COMPROMISED" :
+    dataGaps > 0            ? "DEGRADED"    :
+                              "INTACT";
 
   const ingestionHistory: { minute: number; label: string; depth: number; bbo: number; trade: number; status: number }[] = [];
   const thirtyMinsAgo = now - 30 * 60_000;
@@ -243,9 +420,9 @@ export function getDactStats() {
       minute: t,
       label,
       depth: bucket.filter(e => e.eventType === "DEPTH_UPDATE").length,
-      bbo: bucket.filter(e => e.eventType === "BBO_UPDATE").length,
+      bbo:   bucket.filter(e => e.eventType === "BBO_UPDATE").length,
       trade: bucket.filter(e => e.eventType === "TRADE").length,
-      status: bucket.filter(e => e.eventType === "VENUE_STATUS").length,
+      status:bucket.filter(e => e.eventType === "VENUE_STATUS").length,
     });
   }
 
@@ -262,6 +439,13 @@ export function getDactStats() {
     dataGaps,
     dsuCoverage: Math.round((venuesIngesting / TOTAL_VENUES) * 100),
     tapeIntegrity,
+    // Chain fields
+    chainVerified: chain.valid,
+    chainLength: chain.totalIngested,
+    chainTipHash: chain.tipHash,
+    chainTipHashShort: chain.tipHashShort,
+    chainRootSeq: chain.chainRootSeq,
+    // Quality metrics
     normalisationRate: 100,
     symbolCoverageActive: Math.min(venuesIngesting > 0 ? 34 : 0, 34),
     symbolCoverageTotal: 34,

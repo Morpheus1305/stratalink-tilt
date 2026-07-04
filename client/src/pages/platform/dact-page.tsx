@@ -58,6 +58,11 @@ interface DactStats {
   dataGaps: number;
   dsuCoverage: number;
   tapeIntegrity: "INTACT" | "DEGRADED" | "COMPROMISED";
+  chainVerified: boolean;
+  chainLength: number;
+  chainTipHash: string;
+  chainTipHashShort: string;
+  chainRootSeq: number;
   normalisationRate: number;
   symbolCoverageActive: number;
   symbolCoverageTotal: number;
@@ -496,6 +501,13 @@ export default function DactPage() {
           sub="Declared Supervisory Universe"
           tooltip="Percentage of the Declared Supervisory Universe actively reporting. 100% means no blind spots."
           highlight={!stats ? C.muted : stats.dsuCoverage === 100 ? C.green : stats.dsuCoverage >= 80 ? C.amber : C.red}
+        />
+        <MetricCard
+          label="CHAIN TIP"
+          value={stats?.chainTipHashShort ? `…${stats.chainTipHashShort}` : "—"}
+          sub={stats ? `${stats.chainLength.toLocaleString()} events · SHA-256` : "computing…"}
+          tooltip="Last 8 hex digits of the SHA-256 tip hash of the DACT cryptographic hash chain. Every event is hashed and chained to the previous, making the tape tamper-evident. The full hash is available at /api/dact/verify."
+          highlight={!stats ? C.muted : stats.chainVerified ? C.green : C.red}
         />
       </div>
 
