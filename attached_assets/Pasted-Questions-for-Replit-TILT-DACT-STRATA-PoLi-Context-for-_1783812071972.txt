@@ -1,0 +1,61 @@
+Questions for Replit: TILT / DACT / STRATA / PoLi
+Context for whoever answers. We are building the PoLi Oracle Adapter, a TypeScript service that reads attestation requests from the Canton ledger, scores an asset pair, signs the result, and writes a PoLiAttestation contract. It currently uses a stub scorer returning a fixed 80/2 for all four components. We are replacing the stub with real STRATA scoring, and we need to know exactly what TILT exposes and how the scores are actually computed.
+A. The scoring methodology (BLOCKING)
+
+Is the PoLi score methodology documented anywhere — a spec, a README, a notebook, comments in code? If so, where?
+For each of the four components, what is the actual formula or algorithm?
+
+poLiScore
+depthScore
+spreadScore
+balanceScore
+
+
+Is poLiScore an aggregate of the other three, or an independent measure? If it is an aggregate, what are the weights?
+What is the numeric range of each score? The Canton contract expects a FixedDecimal with a value and a range, and the current stub sends value: "80", range: "2". What does range actually represent — a confidence interval, a precision indicator, a scaling exponent, something else? This one matters a lot and we do not currently know the answer.
+What inputs does each score consume? Orderbook depth at what levels? Over what time window? Snapshot or time-averaged?
+
+B. What the adapter can call (BLOCKING)
+
+Is there an HTTP API the Oracle Adapter can call to get a score for a given asset pair? If so:
+
+Base URL and endpoint path
+Request shape
+Response shape (an actual example response would be ideal)
+Auth mechanism
+
+
+If there is no scoring endpoint, is there a data endpoint that returns orderbook or depth data, from which the adapter could compute scores itself?
+Does the API accept a pair (e.g. BTC/USD) or a symbol (e.g. BTC)? Everything in DACT appears to be USD-quoted, so I want to confirm the request shape.
+What is the latency? The Oracle signs an attestation with a TTL, so a scoring call that takes 30 seconds is a different design from one that takes 200ms.
+
+C. Data sufficiency and failure modes (BLOCKING)
+
+Can STRATA return "I cannot score this"? The Canton contract has an Insufficient_data status which produces a None rating, and we attest it rather than rejecting. What condition, concretely, causes STRATA to be unable to produce a score? Thin book? Stale data? Venue outage? No trades in the window?
+What does the API return in that case — an error, a null, a score with a flag?
+Does STRATA ever return a score it considers low-confidence but still valid? If so, how is that expressed?
+
+D. Provenance (BLOCKING, and connects to PoLi-CR-01)
+
+For a given score, can STRATA tell us which venues contributed to it? We need this to record a venue set on the attestation.
+Does STRATA aggregate across live and synthetic venues into a single score, or does it score them separately? For example ONDO is live on Bybit/Bitget/OKX and synthetic on Uniswap v3/INX/tZERO. Does a single ONDO score blend those, or are they distinct?
+If it blends them, is there any weighting between observed and synthetic depth, or are they treated as equivalent?
+
+E. Determinism and reproducibility
+
+If we score the same pair twice within a short window, do we get the same number? The attestation is an evidentiary artefact and a regulator may ask us to reproduce it.
+Does STRATA persist the inputs to a score, so a given attestation could be reconstructed later from the underlying data?
+Is there a version identifier for the scoring model itself? If the methodology changes, attestations issued before and after are not comparable, and nothing currently records which version produced a given score.
+
+F. Practical
+
+Is TILT/DACT/STRATA reachable from outside Replit, or only from within it? The Oracle Adapter runs on a Mac mini locally and will eventually run against Canton DevNet and MainNet.
+Is there a staging or test instance the adapter can point at, or would we be querying production?
+
+
+Why I'm asking these
+Three of these will shape the design regardless of the answer.
+Question 4 (range) is the one that worries me most. We are currently sending range: "2" on every attestation and nobody in this conversation knows what it means. It is a signed field, so it is part of the evidentiary record. Same problem as signingKeyId, but worse, because this one is in the payload.
+Questions 13-15 (provenance) feed directly into PoLi-CR-01. If STRATA cannot tell us which venues contributed, then venueSet is not implementable and the change request needs revising before you send it. Worth getting this answer before the CR goes to Bruno.
+Question 18 (model version) is a gap I suspect exists. If the scoring model changes and nothing on the attestation records which version produced it, then two attestations for the same pair are not comparable and you cannot defend either. That is potentially a third field for the CR.
+If you only get answers to section A and B, I can start. Sections C through E will surface as design questions I have to guess at, and I would rather not guess.
