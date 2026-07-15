@@ -6,3 +6,4 @@
 - [Math.random() Purge — Acceptable Carve-outs](math-random-carveouts.md) — all data-path Math.random() removed; four deliberate survivors: alerts.ts ID suffix, strata-ai.tsx message ID, reportPdfGenerator reference IDs, sidebar.tsx UI-lib internal.
 - [New Token Onboarding — 5-Layer Checklist](new-token-onboarding.md) — adding a token requires changes in 5 layers; missing any one keeps it "OFF".
 - [DACT Cascade Refactor](dact-cascade-refactor.md) — DACT is now the sole write target from ingestion; cleanseAndFeedBuffer() is the only path into tsleBuffer; pre-existing "tsleBuffer is not defined" error was eliminated by complete removal of direct tsleBuffer usage from ingestionManager.
+- [stratalink-tilt GitHub repo](stratalink-tilt-repo.md) — new canonical repo at Morpheus1305/stratalink-tilt; docs uploaded via Contents API; git push from Shell tab needed to add source code.
